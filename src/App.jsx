@@ -1,0 +1,576 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Activity, ArrowLeft, ArrowRight, BarChart3, Brain, Check,
+  ChevronRight, Clock3, Flame, Globe2, Languages, Medal, Play,
+  RotateCcw, Scan, Settings, Sigma, Sparkles, Target, Timer,
+  Trophy, UserRound, Zap, Atom,
+} from 'lucide-react';
+import {
+  CATEGORIES, MODE_TIMES, loadProfile, saveProfile,
+} from './game/data.js';
+import { awardRun, categoryById, isValidAnswer, remainingTime, xpForNextLevel } from './game/scoring.js';
+import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } from './game/session.js';
+
+const CATEGORY_ICONS = {
+  brain: Brain,
+  scan: Scan,
+  sigma: Sigma,
+  globe: Globe2,
+  bolt: Zap,
+  target: Target,
+  languages: Languages,
+  atom: Atom,
+};
+
+const COPY = {
+  en: {
+    navHome: 'HOME', navRanks: 'RANKINGS', navProfile: 'PROFILE', navSettings: 'SETTINGS',
+    welcome: 'YOUR MIND IS YOUR WEAPON', homeTitle: 'ENTER THE', homeAccent: 'ARENA',
+    homeDescription: 'Your mind is your weapon. Your speed is your power. Every battle tells a story.',
+    start: 'START A CHALLENGE', startNote: '8 CATEGORIES · SOLO TRAINING',
+    profile: 'PLAYER PROFILE', rankings: 'RANKINGS', settings: 'SETTINGS',
+    selectCategory: 'SELECT A CATEGORY', categoryDescription: 'Choose a discipline to enter the challenge.',
+    chooseMode: 'CHOOSE YOUR MODE', modeDescription: 'Each mode changes your time limit per question.',
+    seconds: 'SECONDS / QUESTION', timeRemaining: 'TIME LEFT', soloTraining: 'SOLO PRACTICE', localSession: 'LOCAL SESSION',
+    back: 'BACK', round: 'QUESTION', score: 'SCORE',
+    chooseAnswer: 'SELECT ONE ANSWER', correct: 'SIGNAL CONFIRMED', incorrect: 'SIGNAL MISSED',
+    timedOut: 'TIME EXPIRED', continue: 'CONTINUE', viewResults: 'VIEW RESULTS',
+    results: 'CHALLENGE COMPLETE', correctAnswers: 'CORRECT', accuracy: 'ACCURACY',
+    xpEarned: 'XP EARNED', replay: 'PLAY AGAIN', home: 'RETURN HOME',
+    level: 'LEVEL', nextLevel: 'NEXT LEVEL', battles: 'CHALLENGES', best: 'BEST SCORE',
+    totalXp: 'TOTAL XP', progress: 'PLAYER PROGRESS', stats: 'YOUR STATISTICS',
+    localOnly: 'PERSONAL BESTS', noOnline: 'Local records from this device. No online rankings or multiplayer are connected.',
+    noRuns: 'No completed challenges yet. Finish a challenge to add your first local score.',
+    language: 'LANGUAGE', reducedMotion: 'REDUCE MOTION', saveNotice: 'Progress could not be saved on this device.',
+    saved: 'Progress is saved on this device.', displayName: 'OPERATOR NAME',
+    answerHelp: 'Choose the best answer before the timer reaches zero.',
+    splashTagline: 'YOUR MIND IS YOUR WEAPON',
+    invalidChallenge: 'This challenge could not be loaded. Return to challenge selection and try again.',
+    challengeUnavailable: 'This category or challenge is unavailable. Choose another option.',
+    backToChallenges: 'BACK TO CHALLENGES',
+  },
+  fa: {
+    navHome: 'خانه', navRanks: 'رتبه‌بندی', navProfile: 'پروفایل', navSettings: 'تنظیمات',
+    welcome: 'ذهن تو سلاح توست', homeTitle: 'ورود به', homeAccent: 'میدان',
+    homeDescription: 'ذهن تو سلاح توست. سرعت تو قدرت توست. هر نبرد داستانی دارد.',
+    start: 'شروع چالش', startNote: '۸ دسته · تمرین انفرادی',
+    profile: 'پروفایل بازیکن', rankings: 'رتبه‌بندی', settings: 'تنظیمات',
+    selectCategory: 'انتخاب دسته', categoryDescription: 'برای ورود به چالش یک مهارت را انتخاب کن.',
+    chooseMode: 'انتخاب حالت', modeDescription: 'هر حالت زمان هر پرسش را تغییر می‌دهد.',
+    seconds: 'ثانیه برای هر پرسش', timeRemaining: 'زمان باقی‌مانده', soloTraining: 'تمرین انفرادی', localSession: 'بازی محلی',
+    back: 'بازگشت', round: 'پرسش', score: 'امتیاز',
+    chooseAnswer: 'یک پاسخ انتخاب کن', correct: 'پاسخ درست', incorrect: 'پاسخ نادرست',
+    timedOut: 'زمان تمام شد', continue: 'ادامه', viewResults: 'نمایش نتیجه',
+    results: 'چالش کامل شد', correctAnswers: 'درست', accuracy: 'دقت',
+    xpEarned: 'امتیاز تجربه', replay: 'بازی دوباره', home: 'بازگشت به خانه',
+    level: 'سطح', nextLevel: 'سطح بعد', battles: 'چالش‌ها', best: 'بهترین امتیاز',
+    totalXp: 'مجموع تجربه', progress: 'پیشرفت بازیکن', stats: 'آمار شما',
+    localOnly: 'بهترین رکوردها', noOnline: 'رکوردهای محلی این دستگاه؛ رتبه‌بندی آنلاین یا چندنفره متصل نیست.',
+    noRuns: 'هنوز چالشی کامل نشده است. برای ثبت نخستین امتیاز محلی یک چالش را تمام کن.',
+    language: 'زبان', reducedMotion: 'کاهش حرکت', saveNotice: 'پیشرفت در این دستگاه ذخیره نشد.',
+    saved: 'پیشرفت در این دستگاه ذخیره می‌شود.', displayName: 'نام بازیکن',
+    answerHelp: 'پیش از پایان زمان، بهترین پاسخ را انتخاب کن.',
+    splashTagline: 'ذهن تو سلاح توست',
+    invalidChallenge: 'این چالش بارگذاری نشد. به انتخاب چالش برگرد و دوباره تلاش کن.',
+    challengeUnavailable: 'این دسته یا چالش در دسترس نیست. گزینه دیگری انتخاب کن.',
+    backToChallenges: 'بازگشت به چالش‌ها',
+  },
+};
+
+function makeRunId() {
+  return globalThis.crypto?.randomUUID?.() ?? `run-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function Brand() {
+  return <div className="brand" aria-label="NEXIRA">
+    <span className="brand-glyph"><span /><span /><span /></span>
+    <span className="brand-name">NEX<span>IRA</span></span>
+  </div>;
+}
+
+function ProgressBar({ profile, label }) {
+  const threshold = xpForNextLevel(profile.level);
+  return <div className="rank-progress-block">
+    <div className="rank-progress-heading">
+      <span><Sparkles size={12} /> {label} <b>{profile.level}</b></span>
+      <span>{profile.xp}<i> / {threshold} XP</i></span>
+    </div>
+    <span className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></span>
+  </div>;
+}
+
+function ScreenHeading({ eyebrow, title, accent, description }) {
+  return <div className="section-heading">
+    <span className="eyebrow"><span className="live-dot" /> {eyebrow}</span>
+    <h1>{title} <span>{accent}</span></h1>
+    {description && <p>{description}</p>}
+  </div>;
+}
+
+function ScreenFrame({ children, className = '' }) {
+  return <main className={`screen screen-frame ${className} screen-enter`}>{children}</main>;
+}
+
+function GlassPanel({ children, className = '', variant = 'info', ...attributes }) {
+  const panelClass = variant === 'info' ? 'info-panel glass-panel' : 'design-panel glass-panel';
+  return <section {...attributes} className={`${panelClass} ${className}`}>{children}</section>;
+}
+
+function StatCard({ icon: Icon, label, value, tone = 'cyan' }) {
+  return <div className={`stat-card stat-card--${tone}`}>
+    <span className="stat-card-icon"><Icon size={16} /></span>
+    <strong>{value}</strong><small>{label}</small>
+  </div>;
+}
+
+export default function App() {
+  const [profile, setProfile] = useState(() => loadProfile());
+  const [screen, setScreen] = useState('splash');
+  const [run, setRun] = useState(null);
+  const [remaining, setRemaining] = useState(15);
+  const [storageFailed, setStorageFailed] = useState(false);
+  const [splashExiting, setSplashExiting] = useState(false);
+  const profileRef = useRef(profile);
+  const runRef = useRef(run);
+  const timerStartedAt = useRef(Date.now());
+
+  const language = profile.settings.language;
+  const text = COPY[language] ?? COPY.en;
+  const prefersReducedMotion = profile.settings.reducedMotion;
+  const threshold = xpForNextLevel(profile.level);
+  const accuracy = profile.totalAnswers ? Math.round(profile.correctAnswers / profile.totalAnswers * 100) : 0;
+  const playableRun = isPlayableChallenge(run);
+  const question = playableRun ? run.questions[run.questionIndex] : null;
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === 'fa' ? 'rtl' : 'ltr';
+  }, [language]);
+
+  useEffect(() => {
+    if (screen !== 'splash') return undefined;
+    const fadeTimer = window.setTimeout(() => setSplashExiting(true), prefersReducedMotion ? 0 : 1250);
+    const finishTimer = window.setTimeout(() => setScreen('home'), prefersReducedMotion ? 80 : 1750);
+    return () => {
+      window.clearTimeout(fadeTimer);
+      window.clearTimeout(finishTimer);
+    };
+  }, [prefersReducedMotion, screen]);
+
+  const updateProfile = useCallback((update) => {
+    const next = typeof update === 'function' ? update(profileRef.current) : update;
+    profileRef.current = next;
+    setProfile(next);
+    setStorageFailed(!saveProfile(next));
+  }, []);
+
+  const navigate = useCallback((destination) => setScreen(destination), []);
+
+  const beginChallenge = useCallback((category, mode, modeIndex) => {
+    if (!category || !Array.isArray(category.modes)
+        || !Number.isInteger(modeIndex)
+        || category.modes[modeIndex] !== mode
+        || !Array.isArray(category.questions)
+        || category.questions.length === 0) {
+      runRef.current = null;
+      setRun(null);
+      setScreen('game');
+      return;
+    }
+    const next = createChallenge(category, mode, modeIndex, makeRunId());
+    if (!isPlayableChallenge(next)) {
+      runRef.current = null;
+      setRun(null);
+      setScreen('game');
+      return;
+    }
+    runRef.current = next;
+    setRun(next);
+    setRemaining(next.timeLimit);
+    timerStartedAt.current = Date.now();
+    setScreen('game');
+  }, []);
+
+  const handleAnswer = useCallback((answerIndex, timedOut = false) => {
+    const current = runRef.current;
+    if (!current || current.status !== 'active' || current.lastAnswer) return;
+    const question = current.questions[current.questionIndex];
+    if (!question || !Array.isArray(question.options)) return;
+    if (!timedOut && !isValidAnswer(question, answerIndex)) return;
+    const elapsed = timedOut
+      ? current.timeLimit
+      : Math.min(current.timeLimit, Math.max(0, (Date.now() - timerStartedAt.current) / 1000));
+    const expired = timedOut || elapsed >= current.timeLimit;
+    const next = recordAnswer(current, expired ? null : answerIndex, elapsed, expired);
+    if (next === current) return;
+    runRef.current = next;
+    setRun(next);
+    setRemaining(remainingTime(current.timeLimit, elapsed));
+  }, []);
+
+  const finishOrAdvance = useCallback(() => {
+    const current = runRef.current;
+    const next = advanceChallenge(current);
+    if (next === current) return;
+    runRef.current = next;
+    setRun(next);
+    if (next.status === 'complete') {
+      updateProfile((saved) => awardRun(saved, next));
+      setScreen('results');
+    }
+  }, [updateProfile]);
+
+  useEffect(() => {
+    if (screen !== 'game' || !run || run.status !== 'active' || run.lastAnswer) return undefined;
+    timerStartedAt.current = Date.now();
+    const started = timerStartedAt.current;
+    setRemaining(run.timeLimit);
+    const interval = window.setInterval(() => {
+      const elapsed = (Date.now() - started) / 1000;
+      const timeLeft = remainingTime(run.timeLimit, elapsed);
+      setRemaining(timeLeft);
+      if (timeLeft <= 0) {
+        window.clearInterval(interval);
+        handleAnswer(null, true);
+      }
+    }, 100);
+    return () => window.clearInterval(interval);
+  }, [handleAnswer, run?.lastAnswer, run?.questionIndex, run?.runId, run?.status, run?.timeLimit, screen]);
+
+  const category = run ? categoryById(run.categoryId) : null;
+  const currentAnswer = run?.lastAnswer;
+
+  return <div
+    className={`app-shell${prefersReducedMotion ? ' reduced-motion' : ''}`}
+    data-screen={screen}
+    style={{ '--page-background-image': `var(--background-${screen}, var(--nexira-background-image))` }}
+  >
+    <div className="ambient ambient--one" />
+    <div className="ambient ambient--two" />
+    <header className="topbar">
+      <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
+      <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
+        <span className="top-profile-avatar"><UserRound size={17} /></span>
+        <span className="top-profile-copy"><span>LVL {profile.level}</span><i className="mini-xp"><i style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></i></span>
+      </button>
+    </header>
+
+    {screen === 'splash' && <div className={`nexira-splash${splashExiting ? ' nexira-splash--exiting' : ''}`} role="status" aria-label="NEXIRA">
+      <div className="splash-orbit splash-orbit--outer" />
+      <div className="splash-orbit splash-orbit--inner" />
+      <div className="splash-content">
+        <Brand />
+        <p>{text.splashTagline}</p>
+        <span className="splash-loader" aria-hidden="true"><i /><i /><i /></span>
+      </div>
+    </div>}
+
+    {screen === 'home' && <ScreenFrame className="home-screen">
+      <GlassPanel variant="feature" className="home-hero">
+        <div className="hero-copy">
+          <div className="online-tag"><span className="pulse-dot" /> SOLO TRAINING <span className="tag-divider">/</span> LOCAL ARENA</div>
+          <p className="welcome-line">{text.welcome}</p>
+          <h1>{text.homeTitle}<br /><span>{text.homeAccent}</span></h1>
+          <p className="hero-caption">{text.homeDescription}</p>
+          <div className="home-player-card">
+            <span className="home-player-avatar"><UserRound size={19} /></span>
+            <span className="home-player-copy"><strong>{profile.playerName}</strong><small>{text.level} {profile.level} <i>·</i> {profile.totalXp} TOTAL XP</small></span>
+            <span className="home-player-rank"><Trophy size={14} /> {profile.bestScore}</span>
+          </div>
+          <ProgressBar profile={profile} label={text.level} />
+          <button className="primary-button" onClick={() => navigate('categories')}>
+            <span className="play-mark"><Play size={16} fill="currentColor" /></span>
+            <span className="primary-label">{text.start}<small>{text.startNote}</small></span>
+            <ArrowRight className="primary-arrow" size={18} />
+          </button>
+          <div className="hero-stats">
+            <span><Flame size={13} /> {profile.battles} <i>{text.battles}</i></span>
+            <span><Trophy size={13} /> {profile.bestScore} <i>{text.best}</i></span>
+          </div>
+        </div>
+        <div className="hero-art" aria-hidden="true">
+          <div className="art-halo art-halo--outer" /><div className="art-halo art-halo--middle" /><div className="art-halo art-halo--inner" />
+          <div className="art-signal art-signal--one" /><div className="art-signal art-signal--two" />
+          <div className="art-orbit"><span className="art-star">✦</span></div>
+          <span className="art-label">NEXIRA // 01</span>
+        </div>
+      </GlassPanel>
+      <GlassPanel variant="feature" className="home-quicklinks-panel">
+        <div className="home-quicklinks">
+        <button onClick={() => navigate('categories')}><Brain size={17} /><span>ENTER A BATTLE<small>Choose from 8 disciplines</small></span><ChevronRight size={16} /></button>
+        <button onClick={() => navigate('rankings')}><Trophy size={17} /><span>{text.rankings}<small>Personal bests · this device</small></span><ChevronRight size={16} /></button>
+        </div>
+      </GlassPanel>
+      <footer className="home-footer"><span>NEXIRA · MIND-SPEED ARENA</span><span>OFFLINE BY DESIGN</span></footer>
+    </ScreenFrame>}
+
+    {screen === 'categories' && <ScreenFrame className="categories-screen">
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.back}</button>
+      <ScreenHeading eyebrow="08 DISCIPLINES · SELECT YOUR EDGE" title="CHOOSE YOUR" accent="BATTLEFIELD" description={text.categoryDescription} />
+      <GlassPanel variant="feature" className="category-selection-panel">
+        <div className="category-grid">
+        {CATEGORIES.map((item, index) => {
+          const Icon = CATEGORY_ICONS[item.icon] ?? Activity;
+          const savedStats = profile.categoryStats[item.id];
+          return <button key={item.id} className={`category-tile tone-${item.tone}`} onClick={() => { runRef.current = null; setRun({ categoryId: item.id }); setScreen('modes'); }}>
+            <span className="tile-top"><span className="tile-icon"><Icon size={20} /></span><span className="tile-index">0{index + 1}</span></span>
+            <strong>{item.title}</strong><span className="tile-subtitle">{item.subtitle}</span>
+            <span className="tile-arrow"><ChevronRight size={16} /></span>
+            {savedStats && <span className="tile-progress">{savedStats.battles} {text.battles.toLowerCase()} · BEST {savedStats.bestScore}</span>}
+          </button>;
+        })}
+        </div>
+        <p className="category-foot"><Sparkles size={13} /> SELECT A CATEGORY TO REVEAL ITS CHALLENGES <span>·</span> LOCAL ARENA</p>
+      </GlassPanel>
+    </ScreenFrame>}
+
+    {screen === 'modes' && (() => {
+      const selectedCategory = categoryById(run?.categoryId);
+      if (!selectedCategory) return <ScreenFrame className="categories-screen"><GlassPanel><p className="empty-state">{text.challengeUnavailable}</p><button className="secondary-action" onClick={() => navigate('categories')}>{text.back}</button></GlassPanel></ScreenFrame>;
+      const Icon = CATEGORY_ICONS[selectedCategory.icon] ?? Activity;
+      return <ScreenFrame className="categories-screen">
+        <button className="back-link" onClick={() => navigate('categories')}><ArrowLeft size={15} /> {text.back}</button>
+        <ScreenHeading eyebrow={`${selectedCategory.title.toUpperCase()} · BATTLE PROTOCOL`} title="SELECT YOUR" accent="CHALLENGE" description={text.modeDescription} />
+        <GlassPanel variant="feature" className="mode-selection-panel">
+          <div className={`mode-category-card tone-${selectedCategory.tone}`}>
+            <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{selectedCategory.title}</strong><small>{selectedCategory.subtitle}</small></span>
+            <span className="mode-question-count">{selectedCategory.questions.length}<small>ROUNDS</small></span>
+          </div>
+          <div className="mode-list">
+            {selectedCategory.modes.map((mode, index) => <button className="mode-option" key={mode} onClick={() => beginChallenge(selectedCategory, mode, index)}>
+              <span className="mode-number">0{index + 1}</span><span className="mode-label">{mode}<small><Timer size={12} /> {MODE_TIMES[index]} {text.seconds}</small></span>
+              <span className={`difficulty-badge difficulty-${index}`}>{['ELITE', 'TACTICAL', 'FOCUSED'][index]}</span>
+              <span className="mode-arrow"><ChevronRight size={16} /></span>
+            </button>)}
+          </div>
+        </GlassPanel>
+      </ScreenFrame>;
+    })()}
+
+    {screen === 'game' && <ScreenFrame className="challenge-screen">
+      {!playableRun || !question ? <GlassPanel variant="feature" className="game-error-panel" role="alert">
+        <span className="game-error-icon"><Activity size={21} /></span>
+        <h1>{text.challengeUnavailable}</h1>
+        <p>{text.invalidChallenge}</p>
+        <button className="primary-button" onClick={() => {
+          const selectedCategory = categoryById(run?.categoryId);
+          const selection = selectedCategory ? { categoryId: selectedCategory.id } : null;
+          runRef.current = null;
+          setRun(selection);
+          navigate(selection ? 'modes' : 'categories');
+        }}>
+          <span className="primary-label">{text.backToChallenges}</span><ArrowRight size={17} />
+        </button>
+      </GlassPanel> : <>
+      <div className="challenge-head">
+        <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+        <p>{category?.title ?? run.categoryTitle} <span>·</span> {run.mode}</p>
+      </div>
+      <div className="gameplay-hud">
+        <div className="arena-timer">
+          <div className={`arena-timer-ring${remaining <= 5 ? ' arena-timer-ring--urgent' : ''}`} style={{ '--timer-progress': `${Math.max(0, Math.min(100, remaining / run.timeLimit * 100))}%` }} role="timer" aria-label={`${text.timeRemaining}: ${Math.ceil(remaining)} seconds`}>
+            <span><small>{text.timeRemaining}</small><strong>{Math.ceil(remaining)}<i>s</i></strong></span>
+          </div>
+        </div>
+        <div className="combatant-pair">
+          <GlassPanel variant="feature" className="combatant-card combatant-card--player">
+            <span className="combatant-avatar"><UserRound size={18} /></span>
+            <span className="combatant-copy"><small>{text.navProfile}</small><strong>{profile.playerName}</strong><i>{text.level} {profile.level}</i></span>
+            <span className="combatant-score"><small>{text.score}</small><strong>{run.score}</strong></span>
+          </GlassPanel>
+          <span className="combatant-divider" aria-hidden="true">VS</span>
+          <GlassPanel variant="feature" className="combatant-card combatant-card--solo">
+            <span className="combatant-avatar"><Activity size={18} /></span>
+            <span className="combatant-copy"><small>{text.localSession}</small><strong>{text.soloTraining}</strong><i>{text.localOnly}</i></span>
+          </GlassPanel>
+        </div>
+      </div>
+      <GlassPanel variant="feature" className="question-panel">
+        <div className="question-panel-top">
+          <span><span className="live-dot" /> {text.round} <i>{String(run.questionIndex + 1).padStart(2, '0')} / {String(run.total).padStart(2, '0')}</i></span>
+        </div>
+        <div className="round-track" aria-label={`${run.answers.length} of ${run.total} answered`}>
+          {run.questions.map((_, index) => <i key={index} className={index < run.answers.length ? (run.answers[index].correct ? 'round-correct' : 'round-wrong') : ''} />)}
+        </div>
+        <div className="question-copy">
+          <span className="question-kicker"><Sparkles size={13} /> {text.chooseAnswer} <i>·</i> {text.answerHelp}</span>
+          <h2>{question.prompt}</h2><p>{run.mode.toUpperCase()}</p>
+        </div>
+        <div className="answer-list">
+          {question.options.map((option, index) => {
+            const selected = currentAnswer?.answerIndex === index;
+            const correct = currentAnswer?.correctIndex === index;
+            const className = currentAnswer
+              ? `answer-button${correct ? ' answer-button--correct' : selected ? ' answer-button--wrong' : ''}`
+              : 'answer-button';
+            return <button className={className} key={`${run.questionIndex}-${index}`} disabled={Boolean(currentAnswer)} onClick={() => handleAnswer(index)}>
+              <span className="answer-key">{String.fromCharCode(65 + index)}</span><span className="answer-text">{option}</span>
+              {currentAnswer && correct && <Check size={17} />}
+            </button>;
+          })}
+        </div>
+        {currentAnswer && <div className={`answer-feedback ${currentAnswer.correct ? 'feedback--correct' : 'feedback--wrong'}`} role="status">
+          <strong>{currentAnswer.timedOut ? text.timedOut : currentAnswer.correct ? text.correct : text.incorrect}</strong>
+          {!currentAnswer.correct && <span>{text.correct}: {question.options[currentAnswer.correctIndex]}</span>}
+          <span>+{currentAnswer.points} {text.score.toLowerCase()}{currentAnswer.speedBonus > 0 && ` · +${currentAnswer.speedBonus} SPEED`}</span>
+        </div>}
+        {currentAnswer && <button className="primary-button challenge-continue" onClick={finishOrAdvance}>
+          <span className="primary-label">{run.questionIndex + 1 === run.total ? text.viewResults : text.continue}</span><ArrowRight size={17} />
+        </button>}
+      </GlassPanel>
+      </>}
+    </ScreenFrame>}
+
+    {screen === 'results' && run && <ScreenFrame className="results-screen">
+      <div className="results-heading">
+        <span className="results-medal"><Medal size={25} /></span><span className="eyebrow"><span className="live-dot" /> BATTLE REPORT · {run.categoryTitle.toUpperCase()} · {run.mode.toUpperCase()}</span>
+        <h1>{text.results.split(' ').slice(0, -1).join(' ')} <span>{text.results.split(' ').at(-1)}</span></h1>
+        <p>{run.correct} / {run.total} {text.correctAnswers.toLowerCase()} · {run.answers.filter((answer) => answer.timedOut).length} {text.timedOut.toLowerCase()}</p>
+      </div>
+      <GlassPanel variant="feature" className="results-panel">
+        <div className="panel-top"><span className="eyebrow"><Trophy size={13} /> FINAL SCORE</span><strong className="final-score">{run.score}</strong></div>
+        <div className="results-stats">
+          <StatCard icon={Check} label={text.correctAnswers} value={`${run.correct}/${run.total}`} tone="green" />
+          <StatCard icon={Target} label={text.accuracy} value={`${run.total ? Math.round(run.correct / run.total * 100) : 0}%`} tone="cyan" />
+          <StatCard icon={Zap} label="SPEED BONUS" value={`+${run.answers.reduce((sum, answer) => sum + answer.speedBonus, 0)}`} tone="pink" />
+          <StatCard icon={Sparkles} label={text.xpEarned} value={`+${Math.floor(run.score / 5)}`} tone="gold" />
+        </div>
+        <div className="level-update"><span className="level-emblem"><Sparkles size={17} /></span><span className="level-copy"><strong>{text.level} {profile.level}</strong><small>{profile.xp} / {threshold} XP · {text.nextLevel}</small><i className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></i></span></div>
+        <div className="answer-review">
+          {run.questions.map((item, index) => {
+            const answer = run.answers[index];
+            return <div className={`review-row${answer?.correct ? ' review-correct' : ' review-wrong'}`} key={index}>
+              <span>{String(index + 1).padStart(2, '0')}</span><span>{item.prompt}<small>{answer?.correct ? item.options[answer.answerIndex] : `${answer?.timedOut ? text.timedOut : text.incorrect} · ${item.options[item.answer]}`}</small></span>
+              <strong>{answer?.correct ? `+${answer.points}` : '0'}</strong>
+            </div>;
+          })}
+        </div>
+        <p className="saved-note"><Check size={13} /> {storageFailed ? text.saveNotice : text.saved}</p>
+      </GlassPanel>
+      <div className="results-actions">
+        <button className="primary-button" onClick={() => { const again = categoryById(run.categoryId); if (again) beginChallenge(again, run.mode, run.modeIndex); }}>
+          <span className="play-mark"><RotateCcw size={16} /></span><span className="primary-label">{text.replay}</span><ArrowRight className="primary-arrow" size={18} />
+        </button>
+        <button className="secondary-action" onClick={() => navigate('home')}>{text.home}</button>
+      </div>
+    </ScreenFrame>}
+
+    {screen === 'profile' && <ScreenFrame className="info-screen">
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <ScreenHeading eyebrow="OPERATOR DOSSIER · LOCAL SAVE" title="PLAYER" accent="PROFILE" />
+      <GlassPanel className="profile-panel">
+        <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{profile.playerName}</strong><small>{text.level} {profile.level} · {text.totalXp} {profile.totalXp}</small></span></div>
+        <span className="profile-rank-chip"><Medal size={14} /> ARENA LEVEL {String(profile.level).padStart(2, '0')}</span>
+        <label className="field-label" htmlFor="player-name">{text.displayName}</label>
+        <input id="player-name" className="text-input" maxLength={20} value={profile.playerName} onChange={(event) => updateProfile((saved) => ({ ...saved, playerName: event.target.value }))} />
+        <div className="profile-progress">
+          <div><span>{text.progress}</span><strong>{profile.xp}<i> / {threshold} XP</i></strong></div>
+          <span className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></span>
+          <small>{text.level} {profile.level} · {threshold - profile.xp} XP {text.nextLevel.toLowerCase()}</small>
+        </div>
+        <div className="profile-metrics">
+          <div><strong>{profile.battles}</strong><span>{text.battles}</span></div>
+          <div><strong>{profile.bestScore}</strong><span>{text.best}</span></div>
+          <div><strong>{accuracy}%</strong><span>{text.accuracy}</span></div>
+        </div>
+        <h2 className="subsection-title"><Medal size={15} /> BATTLE HONORS</h2>
+        <div className="achievement-grid">
+          {[
+            { title: 'FIRST BLOOD', detail: 'Complete 1 battle', earned: profile.battles >= 1, icon: Zap },
+            { title: 'VETERAN', detail: 'Complete 5 battles', earned: profile.battles >= 5, icon: Medal },
+            { title: 'SHARP MIND', detail: 'Reach 80% accuracy', earned: profile.totalAnswers > 0 && accuracy >= 80, icon: Target },
+            { title: 'ASCENDANT', detail: 'Reach level 5', earned: profile.level >= 5, icon: Sparkles },
+          ].map(({ title, detail, earned, icon: Icon }) => <div className={`achievement-card${earned ? ' achievement-card--earned' : ''}`} key={title}>
+            <span><Icon size={16} /></span><strong>{title}</strong><small>{detail}</small><i>{earned ? 'UNLOCKED' : 'LOCKED'}</i>
+          </div>)}
+        </div>
+        <h2 className="subsection-title"><BarChart3 size={15} /> {text.stats}</h2>
+        <div className="category-stat-list">
+          {CATEGORIES.filter((item) => profile.categoryStats[item.id]?.battles).map((item) => {
+            const stats = profile.categoryStats[item.id];
+            return <div className="category-stat-row" key={item.id}><span>{item.title}</span><span>{stats.battles} {text.battles.toLowerCase()}</span><strong>{stats.bestScore}</strong></div>;
+          })}
+          {!profile.battles && <p className="empty-state">{text.noRuns}</p>}
+        </div>
+        <p className="panel-note"><Activity size={13} /> {text.saved}</p>
+      </GlassPanel>
+    </ScreenFrame>}
+
+    {screen === 'rankings' && <ScreenFrame className="info-screen">
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <ScreenHeading eyebrow="OFFLINE ARENA · PERSONAL RECORDS" title="LOCAL" accent="RANKINGS" description={text.noOnline} />
+      <GlassPanel className="ranking-panel">
+        <div className="ranking-title"><span><Medal size={18} /> {text.localOnly}</span><small>THIS DEVICE ONLY</small></div>
+        <p className="ranking-subtitle">Your best score in each discipline. Records are stored on this device only.</p>
+        {(() => {
+          const records = CATEGORIES.filter((item) => profile.categoryStats[item.id]?.battles)
+            .sort((a, b) => profile.categoryStats[b.id].bestScore - profile.categoryStats[a.id].bestScore);
+          const podium = records.slice(0, 3);
+          return <>
+            {podium.length > 0 && <div className="podium-grid">
+              {podium.map((item, index) => {
+                const rank = index + 1;
+                const Icon = CATEGORY_ICONS[item.icon] ?? Activity;
+                return <div className={`podium-card podium-card--${rank}`} key={item.id}>
+                  <span className="podium-rank">{rank === 1 ? <Trophy size={18} /> : `0${rank}`}</span>
+                  <span className="podium-avatar"><Icon size={18} /></span>
+                  <strong>{profile.playerName}</strong><small>LVL {profile.level} · {item.title}</small>
+                  <b>{profile.categoryStats[item.id].bestScore}<i> PTS</i></b>
+                </div>;
+              })}
+            </div>}
+            <div className="leader-list">
+              {records.slice(3).map((item, index) => {
+                const Icon = CATEGORY_ICONS[item.icon] ?? Activity;
+                const stats = profile.categoryStats[item.id];
+                return <div className="leader-row leader-row--you" key={item.id}>
+                  <span className="leader-rank">{String(index + 4).padStart(2, '0')}</span>
+                  <span className="leader-avatar"><Icon size={16} /></span>
+                  <span className="leader-player"><strong>{profile.playerName}</strong><small>LVL {profile.level} · {item.title} · {stats.battles} RUNS</small></span>
+                  <strong className="leader-score">{stats.bestScore}</strong>
+                </div>;
+              })}
+              {records.length === 0 && <p className="empty-state">{text.noRuns}</p>}
+            </div>
+          </>;
+        })()}
+        <p className="panel-note"><Globe2 size={13} /> No remote players or online scores are shown.</p>
+      </GlassPanel>
+    </ScreenFrame>}
+
+    {screen === 'settings' && <ScreenFrame className="info-screen">
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <ScreenHeading eyebrow="LOCAL PREFERENCES · DEVICE ONLY" title="ARENA" accent="SETTINGS" description="Tune the interface. Your preferences stay on this device." />
+      <GlassPanel className="settings-panel">
+        <div className="setting-row"><span><Languages size={17} /><span><strong>{text.language}</strong><small>English / فارسی</small></span></span>
+          <button className="setting-action" onClick={() => navigate('language')}>{language === 'fa' ? 'فارسی' : 'English'} <ChevronRight size={16} /></button></div>
+        <div className="setting-row"><span><Sparkles size={17} /><span><strong>{text.reducedMotion}</strong><small>Use fewer interface animations</small></span></span>
+          <button className={`toggle-control${profile.settings.reducedMotion ? ' is-on' : ''}`} role="switch" aria-checked={profile.settings.reducedMotion} aria-label={text.reducedMotion} onClick={() => updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, reducedMotion: !saved.settings.reducedMotion } }))}><i /></button>
+        </div>
+        <p className="panel-note"><Check size={13} /> {storageFailed ? text.saveNotice : text.saved}</p>
+        <button className="secondary-action settings-language-link" onClick={() => navigate('language')}>{text.language} · {language === 'fa' ? 'فارسی' : 'English'}</button>
+      </GlassPanel>
+    </ScreenFrame>}
+
+    {screen === 'language' && <ScreenFrame className="info-screen">
+      <button className="back-link" onClick={() => navigate('settings')}><ArrowLeft size={15} /> {text.settings}</button>
+      <ScreenHeading eyebrow="INTERFACE PREFERENCES" title="SELECT" accent="LANGUAGE" description="Game questions remain in English in this phase." />
+      <GlassPanel className="language-options">
+        {[['en', 'English', 'English interface'], ['fa', 'فارسی', 'رابط فارسی']].map(([value, name, subtitle]) =>
+          <button className={`language-option${language === value ? ' language-option--selected' : ''}`} key={value} onClick={() => { updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, language: value } })); navigate('settings'); }}>
+            <span><strong>{name}</strong><small>{subtitle}</small></span>{language === value && <Check size={18} />}
+          </button>)}
+      </GlassPanel>
+    </ScreenFrame>}
+
+    {screen !== 'game' && <nav className="bottom-nav" aria-label="Main navigation">
+      {[
+        ['home', text.navHome, Play], ['rankings', text.navRanks, Trophy],
+        ['profile', text.navProfile, UserRound], ['settings', text.navSettings, Settings],
+      ].map(([destination, label, Icon]) => <button key={destination} className={`nav-item${screen === destination ? ' nav-item--active' : ''}`} onClick={() => navigate(destination)}>
+        <Icon className="nav-icon" size={17} /><span>{label}</span>
+      </button>)}
+    </nav>}
+    {storageFailed && <div className="storage-warning" role="status">{text.saveNotice}</div>}
+  </div>;
+}
