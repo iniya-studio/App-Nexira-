@@ -12,7 +12,8 @@ import { awardRun, categoryById, isValidAnswer, remainingTime, xpForNextLevel } 
 import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } from './game/session.js';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { formatCopy, getCopy } from './i18n.js';
+import { formatCopy, getCopy, getQuestionCopy } from './i18n.js';
+import { getHardwareBackDestination } from './navigation.js';
 
 const CATEGORY_ICONS = {
   brain: Brain,
@@ -90,7 +91,9 @@ export default function App() {
   const threshold = xpForNextLevel(profile.level);
   const accuracy = profile.totalAnswers ? Math.round(profile.correctAnswers / profile.totalAnswers * 100) : 0;
   const playableRun = isPlayableChallenge(run);
-  const question = playableRun ? run.questions[run.questionIndex] : null;
+  const question = playableRun
+    ? getQuestionCopy(language, run.categoryId, run.questionIndex, run.questions[run.questionIndex])
+    : null;
   const activeMode = run ? text.modeNames[run.categoryId]?.[run.modeIndex] ?? run.mode : '';
 
   useLayoutEffect(() => {
@@ -119,13 +122,14 @@ export default function App() {
     let listener;
     let cancelled = false;
     CapacitorApp.addListener('backButton', () => {
-      if (screenRef.current === 'home') {
+      const currentScreen = screenRef.current;
+      if (currentScreen === 'home') {
         void CapacitorApp.exitApp().catch((error) => console.error('Unable to exit the app.', error));
         return;
       }
       runRef.current = null;
       setRun(null);
-      setScreen('home');
+      setScreen(getHardwareBackDestination(currentScreen));
     }).then((registeredListener) => {
       if (cancelled) {
         void registeredListener.remove();
@@ -453,8 +457,9 @@ export default function App() {
         <div className="answer-review">
           {run.questions.map((item, index) => {
             const answer = run.answers[index];
+            const localizedItem = getQuestionCopy(language, run.categoryId, index, item);
             return <div className={`review-row${answer?.correct ? ' review-correct' : ' review-wrong'}`} key={index}>
-              <span>{String(index + 1).padStart(2, '0')}</span><span>{item.prompt}<small>{answer?.correct ? item.options[answer.answerIndex] : `${answer?.timedOut ? text.timedOut : text.incorrect} · ${item.options[item.answer]}`}</small></span>
+              <span>{String(index + 1).padStart(2, '0')}</span><span>{localizedItem.prompt}<small>{answer?.correct ? localizedItem.options[answer.answerIndex] : `${answer?.timedOut ? text.timedOut : text.incorrect} · ${localizedItem.options[item.answer]}`}</small></span>
               <strong>{answer?.correct ? `+${answer.points}` : '0'}</strong>
             </div>;
           })}

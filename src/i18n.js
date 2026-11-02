@@ -157,6 +157,55 @@ export const COPY = {
   },
 };
 
+export const PERSIAN_QUESTIONS = {
+  memory: [
+    { prompt: 'نشانه: مثلث · شش‌ضلعی · دایره · شش‌ضلعی. کدام شکل تکرار شده است؟', options: ['مثلث', 'دایره', 'شش‌ضلعی', 'مربع'] },
+    { prompt: 'الگو را به خاطر بسپار: فیروزه‌ای، طلایی، صورتی. مورد دوم چه بود؟', options: ['فیروزه‌ای', 'طلایی', 'صورتی', 'سبز'] },
+    { prompt: 'کدام عدد نخست آمده بود: ۷ · ۲ · ۹ · ۴؟', options: ['۲', '۴', '۷', '۹'] },
+  ],
+  logic: [
+    { prompt: 'دنباله را کامل کن: ۳، ۶، ۱۲، ۲۴، ...', options: ['۳۶', '۴۲', '۴۸', '۵۴'] },
+    { prompt: 'همهٔ VEXها NEX هستند. همهٔ NEXها RAS هستند. کدام گزاره حتماً درست است؟', options: ['همهٔ RASها VEX هستند', 'همهٔ VEXها RAS هستند', 'هیچ VEXی RAS نیست', 'بعضی NEXها VEX نیستند'] },
+    { prompt: 'کدام عدد الگو را می‌شکند: ۴، ۹، ۱۶، ۲۵، ۳۶، ۴۸؟', options: ['۹', '۱۶', '۳۶', '۴۸'] },
+  ],
+  mathematics: [
+    { prompt: '۱۸٪ از ۲۰۰ چند می‌شود؟', options: ['۱۸', '۳۲', '۳۶', '۴۲'] },
+    { prompt: 'سریع حل کن: ۷ × ۸ − ۹', options: ['۴۵', '۴۷', '۴۹', '۵۱'] },
+    { prompt: 'عدد اول بعد از ۲۳ چیست؟', options: ['۲۵', '۲۷', '۲۹', '۳۱'] },
+  ],
+  knowledge: [
+    { prompt: 'حلقه‌های کدام سیاره آشکارتر هستند؟', options: ['مریخ', 'زحل', 'زهره', 'عطارد'] },
+    { prompt: 'کدام اقیانوس از همه بزرگ‌تر است؟', options: ['اطلس', 'هند', 'منجمد شمالی', 'آرام'] },
+    { prompt: 'شش‌ضلعی چند ضلع دارد؟', options: ['۵', '۶', '۷', '۸'] },
+  ],
+  reaction: [
+    { prompt: 'کدام نماد با بقیه تفاوت دارد؟', options: ['▲', '▲', '▶', '▲'] },
+    { prompt: 'تنها عدد اول زوج را انتخاب کن.', options: ['۱', '۲', '۳', '۵'] },
+    { prompt: 'کدام جهت مخالف شمال است؟', options: ['شرق', 'غرب', 'جنوب', 'شمال‌شرقی'] },
+  ],
+  focus: [
+    { prompt: 'حرف A را بشمار: ARENA SIGNAL ALPHA', options: ['۴', '۵', '۶', '۷'] },
+    { prompt: 'کدام جفت دقیقاً یکسان است؟', options: ['NEX1RA / NEXIRA', 'NEXIRA / NEXIRA', 'NEXlRA / NEXIRA', 'NEXlRA / NEX1RA'] },
+    { prompt: 'تنها دنبالهٔ نزولی را انتخاب کن.', options: ['۲، ۴، ۶', '۹، ۷، ۵', '۳، ۵، ۴', '۸، ۶، ۷'] },
+  ],
+  language: [
+    { prompt: 'نزدیک‌ترین معنی واژهٔ انگلیسی «rapid» را انتخاب کن.', options: ['کند', 'سریع', 'ساکت', 'محتاط'] },
+    { prompt: 'کدام واژه به انگلیسی درست نوشته شده است؟', options: ['Occasion', 'Ocassion', 'Occaision', 'Occation'] },
+    { prompt: 'جفت را کامل کن: کتاب برای خواندن است، همان‌طور که موسیقی برای ... است.', options: ['کشیدن', 'گوش‌دادن', 'نوشتن', 'ساختن'] },
+  ],
+  science: [
+    { prompt: 'گیاهان کدام گاز را از جو جذب می‌کنند؟', options: ['اکسیژن', 'نیتروژن', 'دی‌اکسید کربن', 'هلیوم'] },
+    { prompt: 'نماد شیمیایی طلا چیست؟', options: ['Ag', 'Au', 'Go', 'Gd'] },
+    { prompt: 'کدام نیرو سیاره‌ها را در مدار نگه می‌دارد؟', options: ['اصطکاک', 'مغناطیس', 'گرانش', 'فشار'] },
+  ],
+};
+
+export function getQuestionCopy(language, categoryId, questionIndex, question) {
+  if (language !== 'fa') return question;
+  const translation = PERSIAN_QUESTIONS[categoryId]?.[questionIndex];
+  return translation ? { ...question, ...translation } : question;
+}
+
 export function getCopy(language) {
   return COPY[language] ?? COPY.en;
 }
