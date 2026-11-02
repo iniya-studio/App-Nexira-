@@ -38,7 +38,8 @@ test('timeout records an unanswered question and blocks duplicate submissions', 
   assert.equal(timedOut.answers[0].answerIndex, null);
   assert.equal(timedOut.answers[0].timedOut, true);
   assert.equal(timedOut.correct, 0);
-  assert.equal(timedOut.score, 0);
+  assert.equal(timedOut.score, -10);
+  assert.equal(timedOut.answers[0].points, -10);
   assert.strictEqual(recordAnswer(timedOut, category.questions[0].answer, 1), timedOut);
   assert.strictEqual(recordAnswer(run, 99, 1), run);
 });
@@ -46,7 +47,7 @@ test('timeout records an unanswered question and blocks duplicate submissions', 
 test('challenge completion and replay produce independent clean runs', () => {
   const category = CATEGORIES[0];
   let run = createChallenge(category, category.modes[1], 1, 'first');
-  assert.equal(run.timeLimit, 25);
+  assert.equal(run.timeLimit, 9);
   for (let index = 0; index < category.questions.length; index += 1) {
     run = recordAnswer(run, category.questions[index].answer, 6);
     run = advanceChallenge(run);
