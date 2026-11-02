@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { DEFAULT_PROFILE, loadProfile, normalizeProfile, saveProfile, STORAGE_KEY } from './data.js';
 import { awardRun, isValidAnswer, remainingTime, scoreAnswer, xpForNextLevel } from './scoring.js';
 
-test('speed bonus uses exclusive thresholds and wrong answers score zero', () => {
+test('speed bonus uses exclusive thresholds, wrong answers score zero and timeout deducts base points', () => {
   assert.deepEqual(scoreAnswer(true, 2.99), { base: 10, speedBonus: 15, total: 25 });
   assert.equal(scoreAnswer(true, 3).total, 20);
   assert.equal(scoreAnswer(true, 5).total, 15);
   assert.equal(scoreAnswer(true, 7).total, 12);
   assert.deepEqual(scoreAnswer(false, 0.2), { base: 0, speedBonus: 0, total: 0 });
+  assert.deepEqual(scoreAnswer(false, 15, true), { base: -10, speedBonus: 0, total: -10 });
 });
 
 test('countdown clamps elapsed time and never becomes negative', () => {
