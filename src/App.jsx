@@ -251,6 +251,17 @@ export default function App() {
   }, [handleAnswer, run?.lastAnswer, run?.questionIndex, run?.runId, run?.status, run?.timeLimit, screen]);
 
   useEffect(() => {
+    if (screen !== 'game') return undefined;
+    window.history.pushState({ nexiraGame: true }, '', window.location.href);
+    const handleHardwareBack = () => {
+      setShowExitConfirm(true);
+      window.history.pushState({ nexiraGame: true }, '', window.location.href);
+    };
+    window.addEventListener('popstate', handleHardwareBack);
+    return () => window.removeEventListener('popstate', handleHardwareBack);
+  }, [screen]);
+
+  useEffect(() => {
     if (screen !== 'game' || !run?.lastAnswer || run.status !== 'active') return undefined;
     const advanceTimer = window.setTimeout(() => {
       finishOrAdvance();
