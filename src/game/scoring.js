@@ -4,7 +4,8 @@ export function xpForNextLevel(level) {
   return 100 + Math.max(0, level - 1) * 40;
 }
 
-export function scoreAnswer(isCorrect, elapsedSeconds) {
+export function scoreAnswer(isCorrect, elapsedSeconds, timedOut = false) {
+  if (timedOut) return { base: -10, speedBonus: 0, total: -10 };
   if (!isCorrect) return { base: 0, speedBonus: 0, total: 0 };
   const elapsed = Math.max(0, Number.isFinite(elapsedSeconds) ? elapsedSeconds : 0);
   const speedBonus = elapsed < 3 ? 15 : elapsed < 5 ? 10 : elapsed < 7 ? 5 : 2;
