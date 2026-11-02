@@ -1947,3 +1947,127 @@ button:focus-visible {
   .arena-metric strong { font-size:16px; }
   .arena-shortcuts { grid-template-columns:1fr; }
 }
+
+
+/* Home v2 — luminous floating glass surfaces */
+.home-arena-screen {
+  perspective: 1400px;
+  isolation: isolate;
+}
+.home-arena-screen .arena-stage {
+  border: 1px solid rgba(111, 224, 255, .38);
+  background:
+    radial-gradient(ellipse at 78% 22%, rgba(0,197,255,.20), transparent 34%),
+    radial-gradient(ellipse at 18% 88%, rgba(106,43,226,.22), transparent 38%),
+    linear-gradient(135deg, rgba(19,43,67,.62), rgba(8,17,34,.54) 52%, rgba(35,20,65,.58));
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  backdrop-filter: blur(24px) saturate(155%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.22),
+    inset 0 -1px 0 rgba(0,197,255,.10),
+    0 26px 70px rgba(0,0,0,.38),
+    0 0 32px rgba(0,197,255,.13),
+    0 0 70px rgba(106,43,226,.10);
+}
+.home-arena-screen .arena-stage::after {
+  content:"";
+  position:absolute; inset:1px; border-radius:17px; pointer-events:none;
+  background:linear-gradient(125deg,rgba(255,255,255,.13),transparent 24%,transparent 68%,rgba(0,197,255,.08));
+  opacity:.8;
+}
+.home-arena-screen .arena-operator,
+.home-arena-screen .arena-launch-panel,
+.home-arena-screen .arena-dashboard,
+.home-arena-screen .arena-metric,
+.home-arena-screen .arena-shortcuts button {
+  position:relative;
+  border:1px solid rgba(174,224,255,.22);
+  background:linear-gradient(135deg,rgba(204,239,255,.105),rgba(31,61,91,.24) 48%,rgba(10,19,40,.38));
+  -webkit-backdrop-filter:blur(22px) saturate(165%);
+  backdrop-filter:blur(22px) saturate(165%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.19),
+    inset 0 -1px 0 rgba(0,197,255,.08),
+    0 13px 30px rgba(0,0,0,.25),
+    0 0 20px rgba(0,197,255,.055);
+  transition:transform .24s ease,border-color .24s ease,box-shadow .24s ease,background .24s ease;
+}
+.home-arena-screen .arena-operator { border-color:rgba(0,197,255,.42); }
+.home-arena-screen .arena-launch-panel {
+  border-color:rgba(0,197,255,.48);
+  background:linear-gradient(105deg,rgba(0,197,255,.14),rgba(25,43,72,.48) 48%,rgba(106,43,226,.18));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 18px 42px rgba(0,0,0,.3),0 0 28px rgba(0,197,255,.12),0 0 46px rgba(106,43,226,.09);
+}
+.home-arena-screen .arena-dashboard {
+  border-color:rgba(157,196,255,.28);
+  background:linear-gradient(145deg,rgba(170,213,255,.095),rgba(16,29,53,.48));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.17),0 20px 46px rgba(0,0,0,.3),0 0 28px rgba(106,43,226,.08);
+}
+.home-arena-screen .arena-metric {
+  border-color:rgba(0,197,255,.24);
+  background:linear-gradient(145deg,rgba(0,197,255,.105),rgba(12,24,44,.43));
+}
+.home-arena-screen .arena-metric:nth-child(2) {
+  border-color:rgba(255,215,0,.27);
+  background:linear-gradient(145deg,rgba(255,215,0,.09),rgba(23,27,43,.43));
+}
+.home-arena-screen .arena-metric:nth-child(3) {
+  border-color:rgba(0,255,184,.28);
+  background:linear-gradient(145deg,rgba(0,255,184,.09),rgba(12,29,43,.43));
+}
+.home-arena-screen .arena-shortcuts button {
+  border-color:rgba(0,197,255,.3);
+  background:linear-gradient(120deg,rgba(0,197,255,.105),rgba(21,37,62,.43));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 12px 25px rgba(0,0,0,.24),0 0 18px rgba(0,197,255,.07);
+}
+.home-arena-screen .operator-emblem,
+.home-arena-screen .shortcut-icon {
+  border:1px solid rgba(0,197,255,.55);
+  background:linear-gradient(145deg,rgba(0,197,255,.22),rgba(106,43,226,.15));
+  box-shadow:0 0 16px rgba(0,197,255,.22),inset 0 1px 0 rgba(255,255,255,.2);
+}
+.home-arena-screen .shortcut-icon--violet {
+  border-color:rgba(177,128,255,.55);
+  background:linear-gradient(145deg,rgba(145,88,255,.25),rgba(0,197,255,.10));
+  box-shadow:0 0 17px rgba(145,88,255,.2),inset 0 1px 0 rgba(255,255,255,.18);
+}
+.home-arena-screen .arena-launch-button,
+.home-arena-screen .primary-button {
+  min-height:62px;
+  border:1px solid rgba(115,239,255,.82);
+  border-radius:13px;
+  color:#f4fcff;
+  background:linear-gradient(110deg,#087fa8 0%,#3153b8 52%,#6534b6 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 0 12px rgba(0,197,255,.45),0 0 30px rgba(0,197,255,.24),0 12px 28px rgba(0,0,0,.35);
+  text-shadow:0 1px 10px rgba(0,0,0,.32);
+}
+.home-arena-screen .arena-launch-button:hover,
+.home-arena-screen .arena-shortcuts button:hover {
+  transform:translateY(-3px);
+  border-color:rgba(130,246,255,.95);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 0 18px rgba(0,197,255,.42),0 17px 34px rgba(0,0,0,.34);
+}
+.home-arena-screen .arena-metric:hover,
+.home-arena-screen .arena-operator:hover {
+  transform:translateY(-2px);
+  border-color:rgba(0,197,255,.52);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 17px 34px rgba(0,0,0,.3),0 0 24px rgba(0,197,255,.13);
+}
+.home-arena-screen .reactor-core {
+  box-shadow:0 0 34px rgba(0,197,255,.55),0 0 90px rgba(106,43,226,.38),inset 0 0 30px rgba(0,197,255,.32);
+}
+.home-arena-screen .arena-dashboard-heading {
+  color:#e1f5ff;
+  text-shadow:0 0 12px rgba(0,197,255,.22);
+}
+@media (max-width:560px) {
+  .home-arena-screen .arena-stage { border-radius:17px; }
+  .home-arena-screen .arena-dashboard { padding:14px; }
+  .home-arena-screen .arena-launch-button { min-height:58px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .home-arena-screen .arena-operator,
+  .home-arena-screen .arena-metric,
+  .home-arena-screen .arena-shortcuts button,
+  .home-arena-screen .arena-launch-button { transition:none; }
+}
