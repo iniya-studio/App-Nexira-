@@ -141,11 +141,14 @@ export default function App() {
   const [run, setRun] = useState(null);
   const [remaining, setRemaining] = useState(10);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
   const [storageFailed, setStorageFailed] = useState(false);
   const [splashExiting, setSplashExiting] = useState(false);
   const profileRef = useRef(profile);
   const runRef = useRef(run);
   const timerStartedAt = useRef(Date.now());
+  const timerRemainingRef = useRef(10);
+  const timerQuestionIndexRef = useRef(null);
 
   const language = profile.settings.language;
   const text = COPY[language] ?? COPY.en;
@@ -200,6 +203,8 @@ export default function App() {
     runRef.current = next;
     setRun(next);
     setRemaining(next.timeLimit);
+    timerRemainingRef.current = next.timeLimit;
+    timerQuestionIndexRef.current = 0;
     timerStartedAt.current = Date.now();
     setScreen('game');
   }, []);
@@ -212,7 +217,7 @@ export default function App() {
     if (!timedOut && !isValidAnswer(question, answerIndex)) return;
     const elapsed = timedOut
       ? current.timeLimit
-      : Math.min(current.timeLimit, Math.max(0, (Date.now() - timerStartedAt.current) / 1000));
+      : Math.min(current.timeLimit, Math.max(0, current.timeLimit - timerRemainingRef.current));
     const expired = timedOut || elapsed >= current.timeLimit;
     const next = recordAnswer(current, expired ? null : answerIndex, elapsed, expired);
     if (next === current) return;
@@ -234,13 +239,23 @@ export default function App() {
   }, [updateProfile]);
 
   useEffect(() => {
-    if (screen !== 'game' || !run || run.status !== 'active' || run.lastAnswer) return undefined;
-    timerStartedAt.current = Date.now();
-    const started = timerStartedAt.current;
-    setRemaining(run.timeLimit);
+    const syncVisibility = () => setIsPageVisible(!document.hidden);
+    document.addEventListener('visibilitychange', syncVisibility);
+    return () => document.removeEventListener('visibilitychange', syncVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (screen !== 'game' || !run || run.status !== 'active' || run.lastAnswer || showExitConfirm || !isPageVisible) return undefined;
+    if (timerQuestionIndexRef.current !== run.questionIndex) {
+      timerQuestionIndexRef.current = run.questionIndex;
+      timerRemainingRef.current = run.timeLimit;
+    }
+    const started = Date.now();
+    const startingRemaining = timerRemainingRef.current;
+    timerStartedAt.current = started;
     const interval = window.setInterval(() => {
-      const elapsed = (Date.now() - started) / 1000;
-      const timeLeft = remainingTime(run.timeLimit, elapsed);
+      const timeLeft = remainingTime(startingRemaining, (Date.now() - started) / 1000);
+      timerRemainingRef.current = timeLeft;
       setRemaining(timeLeft);
       if (timeLeft <= 0) {
         window.clearInterval(interval);
@@ -248,7 +263,7 @@ export default function App() {
       }
     }, 100);
     return () => window.clearInterval(interval);
-  }, [handleAnswer, run?.lastAnswer, run?.questionIndex, run?.runId, run?.status, run?.timeLimit, screen]);
+  }, [handleAnswer, isPageVisible, run?.lastAnswer, run?.questionIndex, run?.runId, run?.status, run?.timeLimit, screen, showExitConfirm]);
 
   useEffect(() => {
     if (screen !== 'game') return undefined;
@@ -476,7 +491,7 @@ export default function App() {
         {currentAnswer && <div className={`answer-feedback ${currentAnswer.correct ? 'feedback--correct' : 'feedback--wrong'}`} role="status">
           <strong>{currentAnswer.timedOut ? text.timedOut : currentAnswer.correct ? text.correct : text.incorrect}</strong>
           {!currentAnswer.correct && <span>{text.correct}: {question.options[currentAnswer.correctIndex]}</span>}
-          <span>+{currentAnswer.points} {text.score.toLowerCase()}{currentAnswer.speedBonus > 0 && ` · +${currentAnswer.speedBonus} SPEED`}</span>
+          <span>{currentAnswer.points > 0 ? `+${currentAnswer.points}` : currentAnswer.points} {text.score.toLowerCase()}{currentAnswer.speedBonus > 0 && ` · +${currentAnswer.speedBonus} SPEED`}</span>
         </div>}
         {currentAnswer && <p className="challenge-note" role="status">{text.continue}…</p>}
       </GlassPanel>
@@ -495,7 +510,7 @@ export default function App() {
           <StatCard icon={Check} label={text.correctAnswers} value={`${run.correct}/${run.total}`} tone="green" />
           <StatCard icon={Target} label={text.accuracy} value={`${run.total ? Math.round(run.correct / run.total * 100) : 0}%`} tone="cyan" />
           <StatCard icon={Zap} label="SPEED BONUS" value={`+${run.answers.reduce((sum, answer) => sum + answer.speedBonus, 0)}`} tone="pink" />
-          <StatCard icon={Sparkles} label={text.xpEarned} value={`+${Math.floor(run.score / 5)}`} tone="gold" />
+          <StatCard icon={Sparkles} label={text.xpEarned} value={`+${Math.max(0, Math.floor(run.score / 5))}`} tone="gold" />
         </div>
         <div className="level-update"><span className="level-emblem"><Sparkles size={17} /></span><span className="level-copy"><strong>{text.level} {profile.level}</strong><small>{profile.xp} / {threshold} XP · {text.nextLevel}</small><i className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></i></span></div>
         <div className="answer-review">
