@@ -138,7 +138,7 @@
   color: var(--cyan);
   font-family: var(--font-display);
   font-size: 10px;
-  text-align: right;
+  text-align: end;
 }
 
 .setting-row {
@@ -322,7 +322,7 @@
 
 .storage-warning {
   position: fixed;
-  right: 16px;
+  inset-inline-end: 16px;
   bottom: calc(82px + env(safe-area-inset-bottom));
   z-index: 8;
   max-width: calc(100vw - 32px);
@@ -344,6 +344,15 @@
   animation-iteration-count: 1 !important;
   scroll-behavior: auto !important;
   transition-duration: 0.01ms !important;
+}
+
+[dir="rtl"] .back-link svg,
+[dir="rtl"] .tile-arrow svg,
+[dir="rtl"] .mode-arrow svg,
+[dir="rtl"] .setting-action svg,
+[dir="rtl"] .arena-shortcuts button > svg,
+[dir="rtl"] .primary-arrow {
+  transform: scaleX(-1);
 }
 
 .gameplay-hud {
