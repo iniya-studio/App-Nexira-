@@ -27,6 +27,12 @@ const COPY = {
     navHome: 'HOME', navRanks: 'RANKINGS', navProfile: 'PROFILE', navSettings: 'SETTINGS',
     welcome: 'YOUR MIND IS YOUR WEAPON', homeTitle: 'ENTER THE', homeAccent: 'ARENA',
     homeDescription: 'Your mind is your weapon. Your speed is your power. Every battle tells a story.',
+    arenaStatus: 'ARENA SYSTEMS READY', arenaTitle: 'THE BATTLE', arenaAccent: 'STARTS HERE',
+    arenaDescription: 'Step into the core. Choose your discipline and turn every answer into momentum.',
+    operator: 'CURRENT OPERATOR', nextChallenge: 'NEXT DEPLOYMENT', readyToEnter: 'Your arena is waiting.',
+    enterArena: 'ENTER THE ARENA', operatorTelemetry: 'OPERATOR TELEMETRY', localRecord: 'ON THIS DEVICE',
+    personalBest: 'Personal records · this device', operatorDossier: 'Stats, progress and achievements',
+    localMode: 'LOCAL MODE · ONLINE PLAY NOT CONNECTED',
     start: 'START A CHALLENGE', startNote: '8 CATEGORIES · SOLO TRAINING',
     profile: 'PLAYER PROFILE', rankings: 'RANKINGS', settings: 'SETTINGS',
     selectCategory: 'SELECT A CATEGORY', categoryDescription: 'Choose a discipline to enter the challenge.',
@@ -53,6 +59,12 @@ const COPY = {
     navHome: 'خانه', navRanks: 'رتبه‌بندی', navProfile: 'پروفایل', navSettings: 'تنظیمات',
     welcome: 'ذهن تو سلاح توست', homeTitle: 'ورود به', homeAccent: 'میدان',
     homeDescription: 'ذهن تو سلاح توست. سرعت تو قدرت توست. هر نبرد داستانی دارد.',
+    arenaStatus: 'سامانه میدان آماده است', arenaTitle: 'نبرد از', arenaAccent: 'اینجا آغاز می‌شود',
+    arenaDescription: 'وارد هسته میدان شو؛ مهارتت را انتخاب کن و با هر پاسخ، قدرت رقابتت را بالا ببر.',
+    operator: 'بازیکن فعال', nextChallenge: 'چالش بعدی', readyToEnter: 'میدان منتظر توست.',
+    enterArena: 'ورود به میدان', operatorTelemetry: 'وضعیت بازیکن', localRecord: 'روی همین دستگاه',
+    personalBest: 'رکوردهای شخصی روی این دستگاه', operatorDossier: 'آمار، پیشرفت و دستاوردها',
+    localMode: 'حالت محلی · بازی آنلاین متصل نیست',
     start: 'شروع چالش', startNote: '۸ دسته · تمرین انفرادی',
     profile: 'پروفایل بازیکن', rankings: 'رتبه‌بندی', settings: 'تنظیمات',
     selectCategory: 'انتخاب دسته', categoryDescription: 'برای ورود به چالش یک مهارت را انتخاب کن.',
@@ -265,43 +277,74 @@ export default function App() {
       </div>
     </div>}
 
-    {screen === 'home' && <ScreenFrame className="home-screen">
-      <GlassPanel variant="feature" className="home-hero">
-        <div className="hero-copy">
-          <div className="online-tag"><span className="pulse-dot" /> SOLO TRAINING <span className="tag-divider">/</span> LOCAL ARENA</div>
-          <p className="welcome-line">{text.welcome}</p>
-          <h1>{text.homeTitle}<br /><span>{text.homeAccent}</span></h1>
-          <p className="hero-caption">{text.homeDescription}</p>
-          <div className="home-player-card">
-            <span className="home-player-avatar"><UserRound size={19} /></span>
-            <span className="home-player-copy"><strong>{profile.playerName}</strong><small>{text.level} {profile.level} <i>·</i> {profile.totalXp} TOTAL XP</small></span>
-            <span className="home-player-rank"><Trophy size={14} /> {profile.bestScore}</span>
+    {screen === 'home' && <ScreenFrame className="home-screen home-arena-screen">
+      <div className="arena-status-row">
+        <span className="arena-status"><i /> {text.arenaStatus}</span>
+        <span className="arena-season">NEXIRA <b>//</b> 01</span>
+      </div>
+
+      <section className="arena-stage">
+        <div className="arena-copy">
+          <p className="arena-kicker">{text.welcome}</p>
+          <h1>{text.arenaTitle}<br /><span>{text.arenaAccent}</span></h1>
+          <p className="arena-description">{text.arenaDescription}</p>
+
+          <div className="arena-operator">
+            <span className="operator-emblem"><UserRound size={20} /></span>
+            <span className="operator-details">
+              <small>{text.operator}</small>
+              <strong>{profile.playerName}</strong>
+              <i>{text.level} {profile.level} <b>·</b> {profile.totalXp} XP</i>
+            </span>
+            <span className="operator-record"><Trophy size={13} /> {profile.bestScore}</span>
           </div>
           <ProgressBar profile={profile} label={text.level} />
-          <button className="primary-button" onClick={() => navigate('categories')}>
-            <span className="play-mark"><Play size={16} fill="currentColor" /></span>
-            <span className="primary-label">{text.start}<small>{text.startNote}</small></span>
-            <ArrowRight className="primary-arrow" size={18} />
-          </button>
-          <div className="hero-stats">
-            <span><Flame size={13} /> {profile.battles} <i>{text.battles}</i></span>
-            <span><Trophy size={13} /> {profile.bestScore} <i>{text.best}</i></span>
-          </div>
         </div>
-        <div className="hero-art" aria-hidden="true">
-          <div className="art-halo art-halo--outer" /><div className="art-halo art-halo--middle" /><div className="art-halo art-halo--inner" />
-          <div className="art-signal art-signal--one" /><div className="art-signal art-signal--two" />
-          <div className="art-orbit"><span className="art-star">✦</span></div>
-          <span className="art-label">NEXIRA // 01</span>
+
+        <div className="arena-reactor" aria-label="NEXIRA arena core">
+          <div className="reactor-grid" />
+          <div className="reactor-ring reactor-ring--outer" />
+          <div className="reactor-ring reactor-ring--middle" />
+          <div className="reactor-ring reactor-ring--inner" />
+          <div className="reactor-orbit reactor-orbit--one"><i /></div>
+          <div className="reactor-orbit reactor-orbit--two"><i /></div>
+          <div className="reactor-core"><span>N</span><i /></div>
+          <span className="reactor-coordinate reactor-coordinate--top">CORE / 01</span>
+          <span className="reactor-coordinate reactor-coordinate--bottom">ENERGY READY</span>
+          <span className="reactor-cross reactor-cross--one" />
+          <span className="reactor-cross reactor-cross--two" />
         </div>
-      </GlassPanel>
-      <GlassPanel variant="feature" className="home-quicklinks-panel">
-        <div className="home-quicklinks">
-        <button onClick={() => navigate('categories')}><Brain size={17} /><span>ENTER A BATTLE<small>Choose from 8 disciplines</small></span><ChevronRight size={16} /></button>
-        <button onClick={() => navigate('rankings')}><Trophy size={17} /><span>{text.rankings}<small>Personal bests · this device</small></span><ChevronRight size={16} /></button>
+      </section>
+
+      <section className="arena-launch-panel">
+        <div className="launch-copy">
+          <span className="launch-eyebrow"><Zap size={13} /> {text.nextChallenge}</span>
+          <strong>{text.readyToEnter}</strong>
+          <small>{text.startNote}</small>
         </div>
-      </GlassPanel>
-      <footer className="home-footer"><span>NEXIRA · MIND-SPEED ARENA</span><span>OFFLINE BY DESIGN</span></footer>
+        <button className="primary-button arena-launch-button" onClick={() => navigate('categories')}>
+          <span className="play-mark"><Play size={17} fill="currentColor" /></span>
+          <span className="primary-label">{text.start}<small>{text.enterArena}</small></span>
+          <ArrowRight className="primary-arrow" size={19} />
+        </button>
+      </section>
+
+      <section className="arena-dashboard">
+        <div className="arena-dashboard-heading">
+          <span>{text.operatorTelemetry}</span>
+          <small>{text.localRecord}</small>
+        </div>
+        <div className="arena-metrics">
+          <div className="arena-metric"><span><Flame size={15} /></span><strong>{profile.battles}</strong><small>{text.battles}</small></div>
+          <div className="arena-metric"><span><Trophy size={15} /></span><strong>{profile.bestScore}</strong><small>{text.best}</small></div>
+          <div className="arena-metric"><span><Target size={15} /></span><strong>{accuracy}%</strong><small>{text.accuracy}</small></div>
+        </div>
+        <div className="arena-shortcuts">
+          <button onClick={() => navigate('rankings')}><span className="shortcut-icon"><Trophy size={17} /></span><span><strong>{text.rankings}</strong><small>{text.personalBest}</small></span><ChevronRight size={16} /></button>
+          <button onClick={() => navigate('profile')}><span className="shortcut-icon shortcut-icon--violet"><UserRound size={17} /></span><span><strong>{text.profile}</strong><small>{text.operatorDossier}</small></span><ChevronRight size={16} /></button>
+        </div>
+      </section>
+      <footer className="home-footer"><span>NEXIRA · MIND-SPEED ARENA</span><span>{text.localMode}</span></footer>
     </ScreenFrame>}
 
     {screen === 'categories' && <ScreenFrame className="categories-screen">
