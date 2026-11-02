@@ -91,7 +91,7 @@ export const CATEGORIES = [
   },
 ];
 
-export const MODE_TIMES = [15, 25, 35];
+export const MODE_TIMES = [7, 9, 10];
 
 export function normalizeProfile(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_PROFILE, settings: { ...DEFAULT_PROFILE.settings } };
