@@ -269,13 +269,13 @@ export default function App() {
   >
     <div className="ambient ambient--one" />
     <div className="ambient ambient--two" />
-    <header className="topbar">
+    {screen !== 'game' && <header className="topbar">
       <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
       <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
         <span className="top-profile-avatar"><UserRound size={17} /></span>
         <span className="top-profile-copy"><span>LVL {profile.level}</span><i className="mini-xp"><i style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></i></span>
       </button>
-    </header>
+    </header>}
 
     {screen === 'splash' && <div className={`nexira-splash${splashExiting ? ' nexira-splash--exiting' : ''}`} role="status" aria-label="NEXIRA">
       <div className="splash-orbit splash-orbit--outer" />
@@ -429,7 +429,7 @@ export default function App() {
           <GlassPanel variant="feature" className="combatant-card combatant-card--player">
             <span className="combatant-avatar"><UserRound size={18} /></span>
             <span className="combatant-copy"><small>{text.navProfile}</small><strong>{profile.playerName}</strong><i>{text.level} {profile.level}</i></span>
-            <span className="combatant-score"><small>{text.score}</small><strong>{run.score}</strong></span>
+            <span className="combatant-score"><small>{text.score}</small><strong>{run.score}</strong><i>{text.correctAnswers}: {run.correct} · {text.incorrect}: {run.answers.filter((answer) => !answer.correct).length}</i></span>
           </GlassPanel>
           <span className="combatant-divider" aria-hidden="true">VS</span>
           <GlassPanel variant="feature" className="combatant-card combatant-card--solo">
@@ -492,7 +492,7 @@ export default function App() {
             const answer = run.answers[index];
             return <div className={`review-row${answer?.correct ? ' review-correct' : ' review-wrong'}`} key={index}>
               <span>{String(index + 1).padStart(2, '0')}</span><span>{item.prompt}<small>{answer?.correct ? item.options[answer.answerIndex] : `${answer?.timedOut ? text.timedOut : text.incorrect} · ${item.options[item.answer]}`}</small></span>
-              <strong>{answer?.correct ? `+${answer.points}` : '0'}</strong>
+              <strong>{answer?.points > 0 ? `+${answer.points}` : answer?.points ?? 0}</strong>
             </div>;
           })}
         </div>
