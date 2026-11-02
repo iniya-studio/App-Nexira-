@@ -139,7 +139,8 @@ export default function App() {
   const [profile, setProfile] = useState(() => loadProfile());
   const [screen, setScreen] = useState('splash');
   const [run, setRun] = useState(null);
-  const [remaining, setRemaining] = useState(15);
+  const [remaining, setRemaining] = useState(10);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [storageFailed, setStorageFailed] = useState(false);
   const [splashExiting, setSplashExiting] = useState(false);
   const profileRef = useRef(profile);
@@ -248,6 +249,15 @@ export default function App() {
     }, 100);
     return () => window.clearInterval(interval);
   }, [handleAnswer, run?.lastAnswer, run?.questionIndex, run?.runId, run?.status, run?.timeLimit, screen]);
+
+  useEffect(() => {
+    if (screen !== 'game' || !run?.lastAnswer || run.status !== 'active') return undefined;
+    const advanceTimer = window.setTimeout(() => {
+      finishOrAdvance();
+      window.requestAnimationFrame(() => document.querySelector('.question-panel')?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' }));
+    }, 650);
+    return () => window.clearTimeout(advanceTimer);
+  }, [finishOrAdvance, prefersReducedMotion, run?.lastAnswer, run?.questionIndex, run?.status, screen]);
 
   const category = run ? categoryById(run.categoryId) : null;
   const currentAnswer = run?.lastAnswer;
@@ -406,7 +416,7 @@ export default function App() {
         </button>
       </GlassPanel> : <>
       <div className="challenge-head">
-        <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+        <button className="back-link" onClick={() => setShowExitConfirm(true)}><ArrowLeft size={15} /> {text.backToChallenges}</button>
         <p>{category?.title ?? run.categoryTitle} <span>·</span> {run.mode}</p>
       </div>
       <div className="gameplay-hud">
@@ -457,9 +467,7 @@ export default function App() {
           {!currentAnswer.correct && <span>{text.correct}: {question.options[currentAnswer.correctIndex]}</span>}
           <span>+{currentAnswer.points} {text.score.toLowerCase()}{currentAnswer.speedBonus > 0 && ` · +${currentAnswer.speedBonus} SPEED`}</span>
         </div>}
-        {currentAnswer && <button className="primary-button challenge-continue" onClick={finishOrAdvance}>
-          <span className="primary-label">{run.questionIndex + 1 === run.total ? text.viewResults : text.continue}</span><ArrowRight size={17} />
-        </button>}
+        {currentAnswer && <p className="challenge-note" role="status">{text.continue}…</p>}
       </GlassPanel>
       </>}
     </ScreenFrame>}
@@ -614,6 +622,17 @@ export default function App() {
         <Icon className="nav-icon" size={17} /><span>{label}</span>
       </button>)}
     </nav>}
+    {screen === 'game' && showExitConfirm && <div className="overlay overlay--center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowExitConfirm(false); }}>
+      <section className="confirm-panel glass-panel" role="dialog" aria-modal="true" aria-labelledby="exit-game-title">
+        <span className="confirm-icon"><Activity size={22} /></span>
+        <h2 id="exit-game-title">{language === 'fa' ? 'آیا می‌خواهید از مسابقه خارج شوید؟' : 'Leave this challenge?'}</h2>
+        <p>{language === 'fa' ? 'پیشرفت این مسابقه ثبت نخواهد شد.' : 'Your current challenge will not be saved.'}</p>
+        <div className="confirm-actions">
+          <button className="stay-button" onClick={() => setShowExitConfirm(false)}>{language === 'fa' ? 'خیر، ادامه بازی' : 'No, keep playing'}</button>
+          <button className="leave-button" onClick={() => { setShowExitConfirm(false); runRef.current = null; setRun(null); navigate('categories'); }}>{language === 'fa' ? 'بله، خروج' : 'Yes, leave'}</button>
+        </div>
+      </section>
+    </div>}
     {storageFailed && <div className="storage-warning" role="status">{text.saveNotice}</div>}
   </div>;
 }
