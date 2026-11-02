@@ -53,7 +53,7 @@ export function recordAnswer(run, answerIndex, elapsedSeconds, timedOut = false)
       || answerIndex < 0 || answerIndex >= question.options.length)) return run;
 
   const correct = !timedOut && answerIndex === question.answer;
-  const points = scoreAnswer(correct, elapsedSeconds);
+  const points = scoreAnswer(correct, elapsedSeconds, timedOut);
   const answer = {
     answerIndex,
     correct,
