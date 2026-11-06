@@ -258,10 +258,14 @@ test('enforces legal match state transitions and immutable match setup', () => {
   assert.equal(isValidMatch(afterFirstResult), true);
 
   assert.throws(() => submit(afterFirstResult, 'human-a', answer('incorrect')), RangeError);
-  assert.throws(() => submit({
+  const clonedSetup = {
     ...afterFirstResult,
     questionPackages: structuredClone(afterFirstResult.questionPackages),
-  }, 'human-b', answer('correct')), TypeError);
+  };
+  const originalInput = structuredClone(clonedSetup);
+  const afterSecondResult = submit(clonedSetup, 'human-b', answer('correct'));
+  assert.equal(afterSecondResult.questionPackages, clonedSetup.questionPackages);
+  assert.deepEqual(clonedSetup, originalInput);
 });
 
 test('does not allow any result or restart after a match is complete', () => {
