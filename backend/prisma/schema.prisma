@@ -60,9 +60,6 @@ enum JudgeStatus {
 enum RoomType {
   PRIVATE
   PUBLIC
-  FAMILY
-  FRIENDS
-  CLASSROOM
 }
 
 enum RoomMatchStrategy {
@@ -72,22 +69,15 @@ enum RoomMatchStrategy {
 
 enum RoomStatus {
   OPEN
+  COUNTDOWN
   IN_MATCH
   CLOSED
-}
-
-enum RoomMemberRole {
-  OWNER
-  HOST
-  MODERATOR
-  MEMBER
 }
 
 enum RoomMemberStatus {
   ACTIVE
   LEFT
   REMOVED
-  BANNED
 }
 
 enum RankingSeasonStatus {
@@ -132,7 +122,7 @@ model User {
   xpTransactions    XPTransaction[]
   globalRanking     GlobalUserRanking?
   matchParticipants MatchParticipant[]
-  ownedRooms        Room[]               @relation("RoomOwner")
+  hostedRooms       Room[]               @relation("RoomHost")
   roomMemberships   RoomMember[]
   rankings          UserRanking[]
   rankingEvents     RankingTransaction[]
@@ -300,31 +290,38 @@ model MatchResult {
 }
 
 model Room {
-  id            String            @id @default(uuid()) @db.Uuid
-  ownerId       String            @db.Uuid
-  name          String
-  roomType      RoomType          @default(PRIVATE)
-  matchStrategy RoomMatchStrategy @default(SYNCHRONIZED)
-  status        RoomStatus        @default(OPEN)
-  settings      Json?
-  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime          @updatedAt @db.Timestamptz(3)
+  id                  String            @id @default(uuid()) @db.Uuid
+  hostUserId          String            @db.Uuid
+  name                String
+  roomType            RoomType          @default(PRIVATE)
+  inviteCode          String?           @unique
+  matchStrategy       RoomMatchStrategy @default(SYNCHRONIZED)
+  status              RoomStatus        @default(OPEN)
+  maxPlayers          Int
+  minPlayersToStart   Int
+  countdownStartedAt  DateTime?         @db.Timestamptz(3)
+  countdownEndsAt     DateTime?         @db.Timestamptz(3)
+  settings            Json?
+  createdAt           DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(3)
 
-  owner   User         @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  host    User         @relation("RoomHost", fields: [hostUserId], references: [id], onDelete: Restrict)
   members RoomMember[]
   matches Match[]
 
-  @@index([ownerId, createdAt])
-  @@index([status, roomType])
+  // Host membership, capacity bounds, and private/public invite-code rules are enforced by the Room service.
+  @@index([hostUserId, createdAt])
+  @@index([status, roomType, createdAt])
 }
 
-// Rejoining users must reactivate their existing (roomId, userId) row.
+// Rejoining users reactivate their existing (roomId, userId) row and reset readiness.
 model RoomMember {
   id       String           @id @default(uuid()) @db.Uuid
   roomId   String           @db.Uuid
   userId   String           @db.Uuid
-  role     RoomMemberRole   @default(MEMBER)
   status   RoomMemberStatus @default(ACTIVE)
+  isReady  Boolean          @default(false)
+  readyAt  DateTime?        @db.Timestamptz(3)
   joinedAt DateTime         @default(now()) @db.Timestamptz(3)
   leftAt   DateTime?        @db.Timestamptz(3)
 
@@ -333,7 +330,7 @@ model RoomMember {
 
   @@unique([roomId, userId])
   @@index([userId, status])
-  @@index([roomId, status, role])
+  @@index([roomId, status, isReady])
 }
 
 model RankingSeason {
