@@ -195,7 +195,7 @@ test('rejects corrupted Judge confidence and no-response confidence in stored hi
   }), false);
 
   let noResponseMatch = startMatch(makeMatch());
-  noResponseMatch = submit(noResponseMatch, 'human-a', { status: 'no-response' });
+  noResponseMatch = submit(noResponseMatch, 'human-a', { status: 'no-response', elapsedMs: 10000 });
   const invalidNoResponseParticipants = [...noResponseMatch.participants];
   invalidNoResponseParticipants[0] = {
     ...invalidNoResponseParticipants[0],
@@ -276,21 +276,27 @@ test('scores correct answers by speed and incorrect or uncertain answers as zero
 });
 
 test('rejects duplicate submissions, invalid decisions, invalid confidence and elapsed time', () => {
+  assert.throws(() => submit(startMatch(makeMatch()), 'human-a', {
+    status: 'no-response',
+    elapsedMs: 9999,
+  }), TypeError);
+
   let match = startMatch(makeMatch());
   match = submit(match, 'human-a', answer('correct'));
   assert.throws(() => submit(match, 'human-a', answer('incorrect')), RangeError);
   assert.throws(() => submit(match, 'human-b', answer('maybe')), TypeError);
   assert.throws(() => submit(match, 'human-b', answer('correct', 11000)), TypeError);
   assert.throws(() => submit(match, 'human-b', answer('correct', 1000, 1.5)), TypeError);
-  assert.throws(() => submit(match, 'unknown', { status: 'no-response' }), RangeError);
+  assert.throws(() => submit(match, 'unknown', { status: 'no-response', elapsedMs: 10000 }), RangeError);
 });
 
 test('charges consecutive no-responses and resets the streak after any adjudicated answer', () => {
   let match = startMatch(makeMatch());
-  match = submit(match, 'human-a', { status: 'no-response' });
+  match = submit(match, 'human-a', { status: 'no-response', elapsedMs: 10000 });
+  assert.equal(match.participants[0].answers[0].elapsedMs, 10000);
   assert.equal(match.participants[0].score, -5);
   match = submit(match, 'human-b', answer('incorrect'));
-  match = submit(match, 'human-a', { status: 'no-response' });
+  match = submit(match, 'human-a', { status: 'no-response', elapsedMs: 10000 });
   assert.equal(match.participants[0].score, -10);
   match = submit(match, 'human-b', answer('uncertain'));
   match = submit(match, 'human-a', answer('incorrect'));
@@ -301,11 +307,11 @@ test('charges consecutive no-responses and resets the streak after any adjudicat
 
 test('third consecutive no-response ends the match and transfers 20 points exactly once', () => {
   let match = startMatch(makeMatch());
-  match = submit(match, 'human-a', { status: 'no-response' });
+  match = submit(match, 'human-a', { status: 'no-response', elapsedMs: 10000 });
   match = submit(match, 'human-b', answer('incorrect'));
-  match = submit(match, 'human-a', { status: 'no-response' });
+  match = submit(match, 'human-a', { status: 'no-response', elapsedMs: 10000 });
   match = submit(match, 'human-b', answer('incorrect'));
-  match = submit(match, 'human-a', { status: 'no-response' });
+  match = submit(match, 'human-a', { status: 'no-response', elapsedMs: 10000 });
 
   assert.equal(match.status, 'complete');
   assert.equal(match.endReason, 'three-consecutive-no-responses');
@@ -318,7 +324,7 @@ test('third consecutive no-response ends the match and transfers 20 points exact
     points: 20,
   });
   assert.equal(isValidMatch(match), true);
-  assert.throws(() => submit(match, 'human-a', { status: 'no-response' }), RangeError);
+  assert.throws(() => submit(match, 'human-a', { status: 'no-response', elapsedMs: 10000 }), RangeError);
 });
 
 test('completes all rounds and selects the score-based winner', () => {

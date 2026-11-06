@@ -175,7 +175,8 @@ function expectedAnswer(answer, previousStreak, timeLimit) {
     if (streak > NO_RESPONSE_PENALTIES.length
         || answer.decision !== null
         || answer.confidence !== null
-        || answer.elapsedMs !== null
+        || !Number.isFinite(answer.elapsedMs)
+        || answer.elapsedMs < timeLimit * 1000
         || answer.speedBonus !== 0
         || answer.points !== NO_RESPONSE_PENALTIES[streak - 1]
         || answer.consecutiveNoResponses !== streak) return null;
@@ -328,10 +329,10 @@ export function startMatch(match) {
 /**
  * result:
  *   { status: 'answered', adjudication: { decision, confidence? }, elapsedMs }
- *   { status: 'no-response' }
+ *   { status: 'no-response', elapsedMs } // trusted clock elapsed time >= timeLimit
  *
- * adjudication must be produced by the trusted Judge service, not accepted
- * directly from an untrusted player client.
+ * adjudication and timeout timing must come from trusted server-side services,
+ * not directly from an untrusted player client.
  */
 export function recordMatchResult(match, participantId, result) {
   requireValidMatch(match);
@@ -352,12 +353,14 @@ export function recordMatchResult(match, participantId, result) {
   const elapsedValid = Number.isFinite(result?.elapsedMs)
     && result.elapsedMs >= 0
     && result.elapsedMs <= match.timeLimit * 1000;
+  const timeoutElapsedValid = Number.isFinite(result?.elapsedMs)
+    && result.elapsedMs >= match.timeLimit * 1000;
   const answered = result?.status === 'answered'
     && DECISIONS.includes(decision)
     && elapsedValid;
 
-  if (!noResponse && !answered) {
-    throw new TypeError('A result must contain a trusted Judge decision and valid elapsed milliseconds, or be a no-response.');
+  if ((!noResponse && !answered) || (noResponse && !timeoutElapsedValid)) {
+    throw new TypeError('A result must contain a trusted Judge decision within the time limit, or a trusted timeout recorded after the time limit.');
   }
 
   if (answered && result.adjudication.confidence !== undefined
@@ -375,7 +378,7 @@ export function recordMatchResult(match, participantId, result) {
     status: noResponse ? 'no-response' : 'answered',
     decision: noResponse ? null : decision,
     confidence: noResponse ? null : (result.adjudication.confidence ?? null),
-    elapsedMs: noResponse ? null : result.elapsedMs,
+    elapsedMs: result.elapsedMs,
     points: noResponse ? scoring.points : scoring.total,
     speedBonus: scoring.speedBonus,
     consecutiveNoResponses: streak,

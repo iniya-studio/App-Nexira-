@@ -86,6 +86,7 @@ test('supports no-response penalties, third-strike completion, and reset', () =>
     mode: '1vAI',
     matchId: 'local-timeout',
   });
+  assert.throws(() => adapter.submitNoResponse(9999), TypeError);
   view = adapter.submitNoResponse();
   assert.equal(view.phase, 'round-summary');
   assert.equal(view.participants[0].score, -5);

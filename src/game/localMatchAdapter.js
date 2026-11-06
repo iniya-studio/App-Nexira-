@@ -208,7 +208,7 @@ export function createLocalMatchAdapter() {
       return getView();
     },
 
-    submitNoResponse() {
+    submitNoResponse(elapsedMs = match?.timeLimit * 1000) {
       if (!match || match.status !== 'active' || phase !== 'question') {
         throw new RangeError('There is no active question accepting a timeout.');
       }
@@ -218,7 +218,10 @@ export function createLocalMatchAdapter() {
       }
 
       const previousRoundIndex = match.roundIndex;
-      finishSubmission(previousRoundIndex, participantId, { status: 'no-response' });
+      finishSubmission(previousRoundIndex, participantId, {
+        status: 'no-response',
+        elapsedMs,
+      });
       if (match.status === 'active' && match.mode === '1vAI') {
         const opponent = match.participants.find(({ type }) => type === 'ai');
         const question = match.questionPackages[match.roundIndex];
