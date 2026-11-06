@@ -4,7 +4,7 @@ NestJS + TypeScript modular monolith for NEXIRA.
 
 ## Requirements
 
-- Node.js 20.19+
+- Node.js 24+
 - PostgreSQL 16+
 - npm
 
@@ -22,11 +22,12 @@ Set a local PostgreSQL connection string in `.env`, then run:
 npm run start:dev
 ```
 
-The initial health endpoint is:
+## Health endpoints
 
-```
-GET http://localhost:3000/api/v1/health
-```
+- `GET http://localhost:3000/api/v1/health` — liveness check; confirms that the API process is responding.
+- `GET http://localhost:3000/api/v1/health/ready` — readiness check; verifies that PostgreSQL is reachable through Prisma.
+
+The API can start while PostgreSQL is temporarily unavailable. In that case, the liveness endpoint remains available and the readiness endpoint returns HTTP 503 until the database connection succeeds.
 
 ## Architecture boundaries
 
@@ -39,4 +40,4 @@ GET http://localhost:3000/api/v1/health
 
 ## Current implementation status
 
-This is the initial application foundation only. Domain models, migrations, authentication, match workflows, ranking, AI adapters, and WebSocket gateways are added in subsequent implementation stages.
+This is the initial application foundation. It includes application bootstrap, health checks, Prisma integration, and the initial domain schema. Authentication, match workflows, ranking operations, AI adapters, WebSocket gateways, and database migrations are added in subsequent implementation stages.
