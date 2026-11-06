@@ -101,6 +101,22 @@ enum RankingScope {
   SEASON
 }
 
+enum StoreItemType {
+  AVATAR
+  AVATAR_FRAME
+  PROFILE_THEME
+  NAMEPLATE
+  EMOTE
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
 model User {
   id                String     @id @default(uuid()) @db.Uuid
   email             String?    @unique
@@ -120,6 +136,7 @@ model User {
   roomMemberships   RoomMember[]
   rankings          UserRanking[]
   rankingEvents     RankingTransaction[]
+  purchases         Purchase[]
 
   @@index([status, createdAt])
 }
@@ -274,7 +291,8 @@ model MatchResult {
   completedAt         DateTime @default(now()) @db.Timestamptz(3)
 
   match  Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  winner MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId], references: [id], onDelete: SetNull)
+  // Composite relation guarantees that the winner belongs to this match.
+  winner MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId, matchId], references: [id, matchId], onDelete: Restrict)
 }
 
 model Room {
@@ -296,6 +314,7 @@ model Room {
   @@index([status, roomType])
 }
 
+// Rejoining users must reactivate their existing (roomId, userId) row.
 model RoomMember {
   id       String           @id @default(uuid()) @db.Uuid
   roomId   String           @db.Uuid
@@ -327,6 +346,7 @@ model RankingSeason {
   @@index([status, startsAt, endsAt])
 }
 
+// Seasonal aggregate. GlobalUserRanking remains the canonical global aggregate.
 model UserRanking {
   id            String   @id @default(uuid()) @db.Uuid
   userId        String   @db.Uuid
@@ -345,6 +365,7 @@ model UserRanking {
   @@index([seasonId, rankingPoints, updatedAt])
 }
 
+// Global aggregate, maintained separately from seasonal ranking.
 model GlobalUserRanking {
   userId        String   @id @db.Uuid
   rankingPoints Int      @default(0)
@@ -376,4 +397,44 @@ model RankingTransaction {
 
   @@index([userId, scope, seasonId, createdAt])
   @@index([matchId])
+}
+
+
+model StoreItem {
+  id           String        @id @default(uuid()) @db.Uuid
+  code         String        @unique
+  name         String
+  description  String?       @db.Text
+  itemType     StoreItemType
+  priceAmount  Int
+  priceCurrency String       @db.VarChar(3)
+  isActive     Boolean       @default(true)
+  metadata     Json?
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+
+  purchases Purchase[]
+
+  @@index([isActive, itemType])
+}
+
+model Purchase {
+  id                    String         @id @default(uuid()) @db.Uuid
+  userId                String         @db.Uuid
+  storeItemId           String         @db.Uuid
+  status                PurchaseStatus @default(PENDING)
+  amount                 Int
+  currency               String         @db.VarChar(3)
+  paymentProvider        String?
+  providerTransactionId  String?        @unique
+  idempotencyKey         String         @unique
+  createdAt              DateTime       @default(now()) @db.Timestamptz(3)
+  completedAt            DateTime?      @db.Timestamptz(3)
+  updatedAt              DateTime       @updatedAt @db.Timestamptz(3)
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  storeItem StoreItem @relation(fields: [storeItemId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status, createdAt])
+  @@index([storeItemId, createdAt])
 }
