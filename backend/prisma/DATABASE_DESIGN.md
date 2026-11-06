@@ -1,0 +1,63 @@
+# NEXIRA Database Design Rules
+
+**Document ID:** NEX-BE-DB-001  
+**Version:** 1.0  
+**Status:** Database stabilization baseline
+
+## 1. Authority and consistency
+- PostgreSQL is the persistent source of truth.
+- The backend owns match state, deadlines, accepted answers, adjudication, scoring, XP, and ranking.
+- Client-provided scores, winners, elapsed times, and state transitions are never trusted without server validation.
+- Any operation that changes a match result and its derived ledgers must run in a database transaction.
+
+## 2. Match and answer integrity
+- A Round belongs to exactly one Match.
+- A MatchParticipant belongs to exactly one Match.
+- An Answer must reference a Round and a MatchParticipant from the same Match. Composite foreign keys in the Prisma schema enforce this at database level.
+- At most one accepted Answer exists per participant per Round.
+- Answer submissions may carry an idempotency key. Repeated requests with the same key must return the original outcome and must not award points twice.
+- responseText stores submitted text for audit and adjudication. It must never be exposed through another participant's public match-state response.
+- judgeStatus separates adjudication workflow from the decision itself. A timeout or provider failure remains PENDING/FAILED and must not be converted into INCORRECT.
+- decision is populated only when a judge decision exists. UNCERTAIN is a completed adjudication outcome, not a transport failure.
+- The backend validates that a MatchResult winner is a participant of that same Match before persisting it. This remains a transactional domain invariant.
+
+## 3. Room membership lifecycle
+- (roomId, userId) identifies one durable membership record.
+- Leaving a room changes the existing membership to LEFT and sets leftAt; it does not create a second membership row.
+- Rejoining reactivates that same row, clears leftAt, and restores the authorized role/status according to room policy.
+- Removed or banned members cannot reactivate themselves. Only an authorized room owner/host action may change those states.
+
+## 4. Progression and ranking
+- XP and competitive Ranking Points are independent ledgers and must never be conflated.
+- UserProgress.currentLevelXp is progress within the current level; totalXp is lifetime accumulated XP; level is the current derived level snapshot.
+- XP transactions are idempotent and applied atomically with the progress snapshot.
+- Global ranking is all-time and is stored in GlobalUserRanking.
+- Seasonal ranking is stored in UserRanking, scoped by RankingSeason.
+- RankingTransaction.scope is GLOBAL when seasonId is null, and SEASON when seasonId is non-null. The service must enforce this pairing. A database CHECK constraint should be added in the first reviewed SQL migration.
+- Only eligible, completed matches affect ranking. Guest participants are excluded from ranking.
+- Store purchases never award XP or Ranking Points and must not create competitive advantage.
+
+## 5. Security and privacy
+- Refresh tokens are stored only as hashes; each hash is unique.
+- Question answer keys and grading rubrics are server-only fields. They must not be serialized into public question DTOs or match events.
+- Public match-state payloads expose only information needed by that viewer and must not reveal another participant's submitted answer before the round's reveal point.
+- Secrets, raw refresh tokens, and sensitive authentication material must never appear in logs.
+
+## 6. Constraints and transaction requirements
+- Match completion, MatchResult creation, XP ledger insertion, ranking ledger insertion, and aggregate updates must be atomic where applicable.
+- Unique idempotency keys are required for XP and ranking ledger writes.
+- Duplicate answer submission is rejected or replayed idempotently; it never creates a second accepted answer.
+- Room membership reactivation updates the existing unique row.
+- Service-layer validation must check ownership and authorization even when foreign keys are valid.
+
+## 7. Deliberately deferred
+- Store catalog and Purchase persistence will be added with the Store domain implementation, before the first production schema release. The v1 Store UI can exist before real payment processing is enabled.
+- Payment-provider callbacks, refunds, and external transaction reconciliation are not part of the initial database foundation.
+- Room invitations, room chat messages, and room leaderboards remain v2 features.
+- No Redis, message broker, or microservice-specific persistence is introduced for v1.
+
+## 8. Migration policy
+- Do not create or apply a migration against a production database during schema stabilization.
+- The first migration must be generated against a disposable development database, reviewed as SQL, and tested from an empty database.
+- Add database CHECK constraints that Prisma schema cannot express directly, including ranking scope pairing and numeric/time bounds, in reviewed migration SQL.
+- CI schema validation and client generation are necessary but do not replace PostgreSQL integration tests.
