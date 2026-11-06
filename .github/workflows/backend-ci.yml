@@ -47,8 +47,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Check Prisma schema formatting
-        run: npx prisma format --check
+      - name: Apply official Prisma formatter and report diff
+        run: |
+          npx prisma format
+          git --no-pager diff -- prisma/schema.prisma
+          git diff --exit-code -- prisma/schema.prisma
 
       - name: Validate Prisma schema
         run: npm run prisma:validate
