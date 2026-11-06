@@ -102,17 +102,17 @@ enum RankingScope {
 }
 
 model User {
-  id                String             @id @default(uuid()) @db.Uuid
-  email             String?            @unique
-  username          String             @unique
-  displayName       String            
-  preferredLanguage String             @default("en")
-  status            UserStatus         @default(ACTIVE)
-  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
+  id                String     @id @default(uuid()) @db.Uuid
+  email             String?    @unique
+  username          String     @unique
+  displayName       String
+  preferredLanguage String     @default("en")
+  status            UserStatus @default(ACTIVE)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
 
   sessions          UserSession[]
-  progress          UserProgress?     
+  progress          UserProgress?
   xpTransactions    XPTransaction[]
   globalRanking     GlobalUserRanking?
   matchParticipants MatchParticipant[]
@@ -151,8 +151,8 @@ model XPTransaction {
   id             String   @id @default(uuid()) @db.Uuid
   userId         String   @db.Uuid
   matchId        String?  @db.Uuid
-  amount         Int     
-  reason         String  
+  amount         Int
+  reason         String
   idempotencyKey String   @unique
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
   user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -163,19 +163,19 @@ model XPTransaction {
 }
 
 model Match {
-  id           String       @id @default(uuid()) @db.Uuid
-  mode         MatchMode   
-  status       MatchStatus  @default(WAITING)
-  roomId       String?      @db.Uuid
-  currentRound Int          @default(0)
-  startedAt    DateTime?    @db.Timestamptz(3)
-  completedAt  DateTime?    @db.Timestamptz(3)
-  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  id           String      @id @default(uuid()) @db.Uuid
+  mode         MatchMode
+  status       MatchStatus @default(WAITING)
+  roomId       String?     @db.Uuid
+  currentRound Int         @default(0)
+  startedAt    DateTime?   @db.Timestamptz(3)
+  completedAt  DateTime?   @db.Timestamptz(3)
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
 
-  room         Room?        @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  room          Room?                @relation(fields: [roomId], references: [id], onDelete: SetNull)
   participants  MatchParticipant[]
   rounds        Round[]
-  result       MatchResult?
+  result        MatchResult?
   xpEvents      XPTransaction[]
   rankingEvents RankingTransaction[]
 
@@ -187,15 +187,15 @@ model MatchParticipant {
   id              String            @id @default(uuid()) @db.Uuid
   matchId         String            @db.Uuid
   userId          String?           @db.Uuid
-  participantKey  String           
-  participantType ParticipantType  
+  participantKey  String
+  participantType ParticipantType
   status          ParticipantStatus @default(ACTIVE)
   score           Int               @default(0)
   joinedAt        DateTime          @default(now()) @db.Timestamptz(3)
   finishedAt      DateTime?         @db.Timestamptz(3)
 
-  match           Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  match      Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   answers    Answer[]
   wonResults MatchResult[] @relation("MatchWinner")
 
@@ -208,14 +208,14 @@ model MatchParticipant {
 model Round {
   id          String    @id @default(uuid()) @db.Uuid
   matchId     String    @db.Uuid
-  roundNumber Int      
+  roundNumber Int
   questionId  String?   @unique @db.Uuid
   startedAt   DateTime? @db.Timestamptz(3)
   deadlineAt  DateTime? @db.Timestamptz(3)
   completedAt DateTime? @db.Timestamptz(3)
 
-  match       Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  question    Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  match    Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  question Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
   answers  Answer[]
 
   @@unique([matchId, roundNumber])
@@ -225,41 +225,41 @@ model Round {
 
 model Question {
   id                String   @id @default(uuid()) @db.Uuid
-  canonicalLanguage String  
-  answerType        String  
-  canonicalPrompt   String  
-  canonicalOptions  Json    
-  answerKey         String  
-  gradingRubric     Json    
-  localized         Json    
-  timeLimitSeconds  Int     
-  contentVersion    String  
-  judgeVersion      String? 
+  canonicalLanguage String
+  answerType        String
+  canonicalPrompt   String
+  canonicalOptions  Json
+  answerKey         String
+  gradingRubric     Json
+  localized         Json
+  timeLimitSeconds  Int
+  contentVersion    String
+  judgeVersion      String?
   createdAt         DateTime @default(now()) @db.Timestamptz(3)
 
-  round             Round?  
+  round Round?
 }
 
 model Answer {
-  id             String           @id @default(uuid()) @db.Uuid
-  matchId        String           @db.Uuid
-  roundId        String           @db.Uuid
-  participantId  String           @db.Uuid
-  responseText   String?          @db.Text
-  status         AnswerStatus    
-  judgeStatus    JudgeStatus      @default(NOT_REQUIRED)
-  decision       JudgeDecision?  
-  confidence     Float?          
-  elapsedMs      Int             
-  points         Int             
-  speedBonus     Int              @default(0)
-  judgeReason    String?         
-  judgeVersion   String?         
-  idempotencyKey String?          @unique
-  acceptedAt     DateTime         @default(now()) @db.Timestamptz(3)
+  id             String         @id @default(uuid()) @db.Uuid
+  matchId        String         @db.Uuid
+  roundId        String         @db.Uuid
+  participantId  String         @db.Uuid
+  responseText   String?        @db.Text
+  status         AnswerStatus
+  judgeStatus    JudgeStatus    @default(NOT_REQUIRED)
+  decision       JudgeDecision?
+  confidence     Float?
+  elapsedMs      Int
+  points         Int
+  speedBonus     Int            @default(0)
+  judgeReason    String?
+  judgeVersion   String?
+  idempotencyKey String?        @unique
+  acceptedAt     DateTime       @default(now()) @db.Timestamptz(3)
 
-  round          Round            @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
-  participant    MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
+  round       Round            @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
 
   @@unique([roundId, participantId])
   @@index([matchId, roundId])
@@ -267,28 +267,28 @@ model Answer {
 }
 
 model MatchResult {
-  id                  String            @id @default(uuid()) @db.Uuid
-  matchId             String            @unique @db.Uuid
-  winnerParticipantId String?           @db.Uuid
-  resultSummary       Json             
-  completedAt         DateTime          @default(now()) @db.Timestamptz(3)
+  id                  String   @id @default(uuid()) @db.Uuid
+  matchId             String   @unique @db.Uuid
+  winnerParticipantId String?  @db.Uuid
+  resultSummary       Json
+  completedAt         DateTime @default(now()) @db.Timestamptz(3)
 
-  match               Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  winner              MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId], references: [id], onDelete: SetNull)
+  match  Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  winner MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId], references: [id], onDelete: SetNull)
 }
 
 model Room {
   id            String            @id @default(uuid()) @db.Uuid
   ownerId       String            @db.Uuid
-  name          String           
+  name          String
   roomType      RoomType          @default(PRIVATE)
   matchStrategy RoomMatchStrategy @default(SYNCHRONIZED)
   status        RoomStatus        @default(OPEN)
-  settings      Json?            
+  settings      Json?
   createdAt     DateTime          @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime          @updatedAt @db.Timestamptz(3)
 
-  owner         User              @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner   User         @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members RoomMember[]
   matches Match[]
 
@@ -305,8 +305,8 @@ model RoomMember {
   joinedAt DateTime         @default(now()) @db.Timestamptz(3)
   leftAt   DateTime?        @db.Timestamptz(3)
 
-  room     Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([roomId, userId])
   @@index([userId, status])
@@ -315,7 +315,7 @@ model RoomMember {
 
 model RankingSeason {
   id        String              @id @default(uuid()) @db.Uuid
-  name      String             
+  name      String
   status    RankingSeasonStatus @default(UPCOMING)
   startsAt  DateTime            @db.Timestamptz(3)
   endsAt    DateTime            @db.Timestamptz(3)
@@ -328,18 +328,18 @@ model RankingSeason {
 }
 
 model UserRanking {
-  id            String        @id @default(uuid()) @db.Uuid
-  userId        String        @db.Uuid
-  seasonId      String        @db.Uuid
-  rankingPoints Int           @default(0)
-  wins          Int           @default(0)
-  losses        Int           @default(0)
-  draws         Int           @default(0)
-  matchesPlayed Int           @default(0)
-  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  seasonId      String   @db.Uuid
+  rankingPoints Int      @default(0)
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  draws         Int      @default(0)
+  matchesPlayed Int      @default(0)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
 
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  season        RankingSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  season RankingSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
   @@unique([userId, seasonId])
   @@index([seasonId, rankingPoints, updatedAt])
@@ -354,25 +354,25 @@ model GlobalUserRanking {
   matchesPlayed Int      @default(0)
   updatedAt     DateTime @updatedAt @db.Timestamptz(3)
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([rankingPoints, updatedAt])
 }
 
 model RankingTransaction {
-  id             String         @id @default(uuid()) @db.Uuid
-  userId         String         @db.Uuid
-  scope          RankingScope  
-  seasonId       String?        @db.Uuid
-  matchId        String?        @db.Uuid
-  pointsChange   Int           
-  reason         String        
-  idempotencyKey String         @unique
-  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  scope          RankingScope
+  seasonId       String?      @db.Uuid
+  matchId        String?      @db.Uuid
+  pointsChange   Int
+  reason         String
+  idempotencyKey String       @unique
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
 
-  user           User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  season         RankingSeason? @relation(fields: [seasonId], references: [id], onDelete: Restrict)
-  match          Match?         @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  season RankingSeason? @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  match  Match?         @relation(fields: [matchId], references: [id], onDelete: SetNull)
 
   @@index([userId, scope, seasonId, createdAt])
   @@index([matchId])
