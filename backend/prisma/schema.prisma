@@ -443,15 +443,15 @@ model Purchase {
 
 // Ownership record for non-consumable cosmetic store items.
 model UserInventory {
-  id               String    @id @default(uuid()) @db.Uuid
-  userId           String    @db.Uuid
-  storeItemId      String    @db.Uuid
-  sourcePurchaseId String?   @unique @db.Uuid
-  acquiredAt       DateTime  @default(now()) @db.Timestamptz(3)
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  storeItemId      String   @db.Uuid
+  sourcePurchaseId String?  @unique @db.Uuid
+  acquiredAt       DateTime @default(now()) @db.Timestamptz(3)
 
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storeItem       StoreItem     @relation(fields: [storeItemId], references: [id], onDelete: Restrict)
-  sourcePurchase  Purchase?     @relation(fields: [sourcePurchaseId], references: [id], onDelete: Restrict)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeItem      StoreItem @relation(fields: [storeItemId], references: [id], onDelete: Restrict)
+  sourcePurchase Purchase? @relation(fields: [sourcePurchaseId], references: [id], onDelete: Restrict)
 
   // Cosmetic items are owned once per user; duplicate grants are prevented.
   @@unique([userId, storeItemId])
