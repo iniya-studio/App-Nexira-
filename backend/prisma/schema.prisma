@@ -172,15 +172,15 @@ model XPTransaction {
 }
 
 model Match {
-  id           String      @id @default(uuid()) @db.Uuid
-  mode         MatchMode
-  status       MatchStatus @default(WAITING)
-  roomId             String?            @db.Uuid
-  roomMatchStrategy  RoomMatchStrategy?
-  currentRound       Int                @default(0)
-  startedAt    DateTime?   @db.Timestamptz(3)
-  completedAt  DateTime?   @db.Timestamptz(3)
-  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+  id                String            @id @default(uuid()) @db.Uuid
+  mode              MatchMode
+  status            MatchStatus       @default(WAITING)
+  roomId            String?           @db.Uuid
+  roomMatchStrategy RoomMatchStrategy?
+  currentRound      Int               @default(0)
+  startedAt         DateTime?         @db.Timestamptz(3)
+  completedAt       DateTime?         @db.Timestamptz(3)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(3)
 
   room          Room?                @relation(fields: [roomId], references: [id], onDelete: SetNull)
   participants  MatchParticipant[]
@@ -316,7 +316,7 @@ model Room {
 }
 
 // Private-room requests start as PENDING; approval activates membership.
- // Rejoining users reactivate their existing (roomId, userId) row and reset readiness.
+// Rejoining users reactivate their existing (roomId, userId) row and reset readiness.
 model RoomMember {
   id          String           @id @default(uuid()) @db.Uuid
   roomId      String           @db.Uuid
