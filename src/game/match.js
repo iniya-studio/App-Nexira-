@@ -9,6 +9,11 @@ function nonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function validConfidence(value) {
+  return value === null
+    || (Number.isFinite(value) && value >= 0 && value <= 1);
+}
+
 function validOptions(options, allowEmpty = false) {
   if (!Array.isArray(options) || (!allowEmpty && options.length < 2)) return false;
   if (allowEmpty && options.length === 0) return true;
@@ -36,7 +41,8 @@ function isQuestionPackage(question, expectedMatchId, expectedRoundIndex) {
       || typeof question.gradingRubric !== 'object'
       || !question.localized
       || typeof question.localized !== 'object'
-      || Array.isArray(question.localized)) return false;
+      || Array.isArray(question.localized)
+      || !Object.hasOwn(question.localized, question.canonicalLanguage)) return false;
 
   if (question.answerType === 'multiple_choice') {
     if (!validOptions(question.canonicalOptions)
@@ -78,6 +84,8 @@ function validSetup({ matchId, mode, participants, questionPackages, timeLimit }
       && nonEmptyString(participant.language || 'en'))) return false;
 
   if (new Set(participants.map(({ id }) => id)).size !== 2) return false;
+  if (new Set(questionPackages.map(({ questionId }) => questionId)).size
+      !== questionPackages.length) return false;
 
   const humanCount = participants.filter(({ type }) => type === 'human').length;
   const aiCount = participants.filter(({ type }) => type === 'ai').length;
@@ -166,6 +174,7 @@ function expectedAnswer(answer, previousStreak, timeLimit) {
     const streak = previousStreak + 1;
     if (streak > NO_RESPONSE_PENALTIES.length
         || answer.decision !== null
+        || answer.confidence !== null
         || answer.elapsedMs !== null
         || answer.speedBonus !== 0
         || answer.points !== NO_RESPONSE_PENALTIES[streak - 1]
@@ -175,6 +184,7 @@ function expectedAnswer(answer, previousStreak, timeLimit) {
 
   if (answer.status !== 'answered'
       || !DECISIONS.includes(answer.decision)
+      || !validConfidence(answer.confidence)
       || !Number.isFinite(answer.elapsedMs)
       || answer.elapsedMs < 0
       || answer.elapsedMs > timeLimit * 1000
@@ -351,9 +361,7 @@ export function recordMatchResult(match, participantId, result) {
   }
 
   if (answered && result.adjudication.confidence !== undefined
-      && (!Number.isFinite(result.adjudication.confidence)
-        || result.adjudication.confidence < 0
-        || result.adjudication.confidence > 1)) {
+      && !validConfidence(result.adjudication.confidence)) {
     throw new TypeError('Judge confidence must be between 0 and 1.');
   }
 

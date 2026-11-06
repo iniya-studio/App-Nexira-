@@ -150,6 +150,66 @@ test('rejects invalid participant rosters and malformed or mismatched question p
   }), TypeError);
 });
 
+test('rejects question packages without their canonical locale and duplicate question IDs', () => {
+  const base = {
+    matchId: 'match-1',
+    mode: '1v1',
+    participants: [
+      { id: 'a', type: 'human' },
+      { id: 'b', type: 'human' },
+    ],
+    questionPackages,
+    timeLimit: 10,
+  };
+
+  const missingCanonicalLanguage = structuredClone(questionPackages);
+  delete missingCanonicalLanguage[0].localized.en;
+  assert.throws(() => createMatch({
+    ...base,
+    questionPackages: missingCanonicalLanguage,
+  }), TypeError);
+
+  const duplicateQuestionIds = structuredClone(questionPackages);
+  duplicateQuestionIds[1].questionId = duplicateQuestionIds[0].questionId;
+  assert.throws(() => createMatch({
+    ...base,
+    questionPackages: duplicateQuestionIds,
+  }), TypeError);
+});
+
+test('rejects corrupted Judge confidence and no-response confidence in stored history', () => {
+  let match = startMatch(makeMatch());
+  match = submit(match, 'human-a', answer('correct'));
+
+  const invalidAnsweredParticipants = [...match.participants];
+  invalidAnsweredParticipants[0] = {
+    ...invalidAnsweredParticipants[0],
+    answers: invalidAnsweredParticipants[0].answers.map((item) => ({
+      ...item,
+      confidence: 1.5,
+    })),
+  };
+  assert.equal(isValidMatch({
+    ...match,
+    participants: invalidAnsweredParticipants,
+  }), false);
+
+  let noResponseMatch = startMatch(makeMatch());
+  noResponseMatch = submit(noResponseMatch, 'human-a', { status: 'no-response' });
+  const invalidNoResponseParticipants = [...noResponseMatch.participants];
+  invalidNoResponseParticipants[0] = {
+    ...invalidNoResponseParticipants[0],
+    answers: invalidNoResponseParticipants[0].answers.map((item) => ({
+      ...item,
+      confidence: 0.5,
+    })),
+  };
+  assert.equal(isValidMatch({
+    ...noResponseMatch,
+    participants: invalidNoResponseParticipants,
+  }), false);
+});
+
 test('returns localized public questions with stable option IDs and no answer key or rubric', () => {
   const match = makeMatch();
   const english = getPublicQuestion(match, 'human-a');
