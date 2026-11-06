@@ -184,8 +184,9 @@ model Match {
   id           String      @id @default(uuid()) @db.Uuid
   mode         MatchMode
   status       MatchStatus @default(WAITING)
-  roomId       String?     @db.Uuid
-  currentRound Int         @default(0)
+  roomId             String?            @db.Uuid
+  roomMatchStrategy  RoomMatchStrategy?
+  currentRound       Int                @default(0)
   startedAt    DateTime?   @db.Timestamptz(3)
   completedAt  DateTime?   @db.Timestamptz(3)
   createdAt    DateTime    @default(now()) @db.Timestamptz(3)
@@ -218,6 +219,8 @@ model MatchParticipant {
   wonResults MatchResult[] @relation("MatchWinner")
 
   @@unique([matchId, participantKey])
+  // A registered user can join a match only once; NULL userIds remain allowed.
+  @@unique([matchId, userId])
   @@unique([id, matchId])
   @@index([userId, joinedAt])
   @@index([matchId, status])
@@ -366,7 +369,7 @@ model UserRanking {
   @@index([seasonId, rankingPoints, updatedAt])
 }
 
-// Global aggregate, maintained separately from seasonal ranking.
+// Independent lifetime aggregate; it is not derived from or reset by seasonal ranking.
 model GlobalUserRanking {
   userId        String   @id @db.Uuid
   rankingPoints Int      @default(0)
