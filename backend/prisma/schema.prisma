@@ -75,6 +75,7 @@ enum RoomStatus {
 }
 
 enum RoomMemberStatus {
+  PENDING
   ACTIVE
   LEFT
   REMOVED
@@ -314,16 +315,18 @@ model Room {
   @@index([status, roomType, createdAt])
 }
 
-// Rejoining users reactivate their existing (roomId, userId) row and reset readiness.
+// Private-room requests start as PENDING; approval activates membership.
+ // Rejoining users reactivate their existing (roomId, userId) row and reset readiness.
 model RoomMember {
-  id       String           @id @default(uuid()) @db.Uuid
-  roomId   String           @db.Uuid
-  userId   String           @db.Uuid
-  status   RoomMemberStatus @default(ACTIVE)
-  isReady  Boolean          @default(false)
-  readyAt  DateTime?        @db.Timestamptz(3)
-  joinedAt DateTime         @default(now()) @db.Timestamptz(3)
-  leftAt   DateTime?        @db.Timestamptz(3)
+  id          String           @id @default(uuid()) @db.Uuid
+  roomId      String           @db.Uuid
+  userId      String           @db.Uuid
+  status      RoomMemberStatus @default(ACTIVE)
+  isReady     Boolean          @default(false)
+  readyAt     DateTime?        @db.Timestamptz(3)
+  requestedAt DateTime         @default(now()) @db.Timestamptz(3)
+  joinedAt    DateTime?        @db.Timestamptz(3)
+  leftAt      DateTime?        @db.Timestamptz(3)
 
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
