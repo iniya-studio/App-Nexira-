@@ -414,7 +414,7 @@ model StoreItem {
   updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
 
   purchases Purchase[]
-  owners     UserInventory[]
+  owners    UserInventory[]
 
   @@index([isActive, itemType])
 }
