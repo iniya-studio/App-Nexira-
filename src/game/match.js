@@ -320,10 +320,111 @@ function requireValidMatch(match) {
   if (!isValidMatch(match)) throw new TypeError('Invalid match state.');
 }
 
+function assertMatchTransition(previous, next, transition) {
+  requireValidMatch(previous);
+  requireValidMatch(next);
+
+  if (previous.matchId !== next.matchId
+      || previous.mode !== next.mode
+      || previous.timeLimit !== next.timeLimit
+      || previous.questionPackages !== next.questionPackages
+      || previous.participants.length !== next.participants.length) {
+    throw new TypeError('A match transition cannot change its identity or setup.');
+  }
+
+  if (transition === 'start') {
+    if (previous.status !== 'ready' || next.status !== 'active'
+        || previous.roundIndex !== 0 || next.roundIndex !== 0
+        || previous.participants.some((participant, index) => {
+          const updated = next.participants[index];
+          return participant.id !== updated.id
+            || participant.type !== updated.type
+            || participant.language !== updated.language
+            || participant.score !== updated.score
+            || participant.answers.length !== updated.answers.length;
+        })) {
+      throw new RangeError('Only a ready match can transition to active.');
+    }
+    return next;
+  }
+
+  if (transition !== 'result' || previous.status !== 'active'
+      || !['active', 'complete'].includes(next.status)
+      || next.roundIndex < previous.roundIndex
+      || next.roundIndex > previous.roundIndex + 1) {
+    throw new RangeError('The requested match state transition is not allowed.');
+  }
+
+  let appendedParticipantIndex = -1;
+  for (let index = 0; index < previous.participants.length; index += 1) {
+    const before = previous.participants[index];
+    const after = next.participants[index];
+    if (before.id !== after.id || before.type !== after.type
+        || before.language !== after.language
+        || after.answers.length < before.answers.length
+        || after.answers.length > before.answers.length + 1
+        || before.answers.some((answer, answerIndex) =>
+          after.answers[answerIndex] !== answer)) {
+      throw new TypeError('A result transition cannot rewrite participant identity or answer history.');
+    }
+
+    if (after.answers.length === before.answers.length + 1) {
+      if (appendedParticipantIndex !== -1
+          || after.answers.at(-1)?.roundIndex !== previous.roundIndex) {
+        throw new RangeError('A result transition must append exactly one result for the current round.');
+      }
+      appendedParticipantIndex = index;
+    }
+
+    const addedAnswer = after.answers.length > before.answers.length
+      ? after.answers.at(-1).points
+      : 0;
+    const transferredPoints = next.forfeitTransfer?.toParticipantId === after.id
+      ? FORFEIT_TRANSFER_POINTS
+      : 0;
+    if (after.score !== before.score + addedAnswer + transferredPoints) {
+      throw new TypeError('A result transition contains an unexpected score change.');
+    }
+  }
+
+  if (appendedParticipantIndex === -1) {
+    throw new RangeError('A result transition must append one participant result.');
+  }
+
+  if (next.status === 'active') {
+    const expectedRoundAdvanced = next.roundIndex === previous.roundIndex + 1;
+    const answerLengthsValid = next.participants.every(({ answers }) =>
+      answers.length === previous.roundIndex + 1);
+    if (expectedRoundAdvanced !== answerLengthsValid
+        || (!expectedRoundAdvanced
+          && next.participants.some((participant, index) =>
+            index !== appendedParticipantIndex
+              && participant.answers.length !== previous.roundIndex))) {
+      throw new RangeError('An active match can advance only after both participants submit.');
+    }
+  } else if (next.endReason === 'questions-complete') {
+    if (next.roundIndex !== previous.roundIndex
+        || !next.participants.every(({ answers }) =>
+          answers.length === previous.roundIndex + 1)) {
+      throw new RangeError('A match can finish normally only after both results in the final round.');
+    }
+  } else if (next.endReason === 'three-consecutive-no-responses') {
+    if (next.roundIndex !== previous.roundIndex
+        || next.forfeitTransfer?.fromParticipantId
+          !== previous.participants[appendedParticipantIndex].id) {
+      throw new RangeError('A forfeited match must end on the participant’s third consecutive timeout.');
+    }
+  } else {
+    throw new RangeError('A completed match must have a recognized end reason.');
+  }
+
+  return next;
+}
+
 export function startMatch(match) {
   requireValidMatch(match);
   if (match.status !== 'ready') throw new RangeError('Only a ready match can be started.');
-  return { ...match, status: 'active' };
+  return assertMatchTransition(match, { ...match, status: 'active' }, 'start');
 }
 
 /**
@@ -400,7 +501,7 @@ export function recordMatchResult(match, participantId, result) {
       ...opponent,
       score: opponent.score + FORFEIT_TRANSFER_POINTS,
     };
-    return {
+    return assertMatchTransition(match, {
       ...match,
       participants,
       status: 'complete',
@@ -411,16 +512,18 @@ export function recordMatchResult(match, participantId, result) {
         toParticipantId: opponent.id,
         points: FORFEIT_TRANSFER_POINTS,
       },
-    };
+    }, 'result');
   }
 
   const allSubmitted = participants.every(({ answers }) =>
     answers.length === match.roundIndex + 1);
-  if (!allSubmitted) return { ...match, participants };
+  if (!allSubmitted) {
+    return assertMatchTransition(match, { ...match, participants }, 'result');
+  }
 
   if (match.roundIndex === match.questionPackages.length - 1) {
     const [first, second] = participants;
-    return {
+    return assertMatchTransition(match, {
       ...match,
       participants,
       status: 'complete',
@@ -428,8 +531,12 @@ export function recordMatchResult(match, participantId, result) {
         ? null
         : first.score > second.score ? first.id : second.id,
       endReason: 'questions-complete',
-    };
+    }, 'result');
   }
 
-  return { ...match, participants, roundIndex: match.roundIndex + 1 };
+  return assertMatchTransition(match, {
+    ...match,
+    participants,
+    roundIndex: match.roundIndex + 1,
+  }, 'result');
 }

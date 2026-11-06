@@ -243,6 +243,38 @@ test('starts the match, accepts trusted Judge decisions, and advances only after
   assert.equal(isValidMatch(match), true);
 });
 
+test('enforces legal match state transitions and immutable match setup', () => {
+  const ready = makeMatch();
+  assert.throws(() => startMatch(startMatch(ready)), RangeError);
+
+  const active = startMatch(ready);
+  assert.equal(isValidMatch(active), true);
+  assert.equal(isValidMatch({ ...active, status: 'complete' }), false);
+  assert.equal(isValidMatch({ ...active, roundIndex: 1 }), false);
+
+  const afterFirstResult = submit(active, 'human-a', answer('correct'));
+  assert.equal(afterFirstResult.status, 'active');
+  assert.equal(afterFirstResult.roundIndex, 0);
+  assert.equal(isValidMatch(afterFirstResult), true);
+
+  assert.throws(() => submit(afterFirstResult, 'human-a', answer('incorrect')), RangeError);
+  assert.throws(() => submit({
+    ...afterFirstResult,
+    questionPackages: structuredClone(afterFirstResult.questionPackages),
+  }, 'human-b', answer('correct')), TypeError);
+});
+
+test('does not allow any result or restart after a match is complete', () => {
+  let match = startMatch(makeMatch());
+  for (let round = 0; round < questionPackages.length; round += 1) {
+    match = submit(match, 'human-a', answer('incorrect'));
+    match = submit(match, 'human-b', answer('incorrect'));
+  }
+  assert.equal(match.status, 'complete');
+  assert.throws(() => submit(match, 'human-a', answer('correct')), RangeError);
+  assert.throws(() => startMatch(match), RangeError);
+});
+
 test('uncertain is a valid adjudication but never receives correct-answer points', () => {
   let match = startMatch(makeMatch());
   match = submit(match, 'human-a', answer('uncertain', 1000, 0.42));
