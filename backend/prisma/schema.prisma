@@ -399,19 +399,18 @@ model RankingTransaction {
   @@index([matchId])
 }
 
-
 model StoreItem {
-  id           String        @id @default(uuid()) @db.Uuid
-  code         String        @unique
-  name         String
-  description  String?       @db.Text
-  itemType     StoreItemType
-  priceAmount  Int
-  priceCurrency String       @db.VarChar(3)
-  isActive     Boolean       @default(true)
-  metadata     Json?
-  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  id            String        @id @default(uuid()) @db.Uuid
+  code          String        @unique
+  name          String
+  description   String?       @db.Text
+  itemType      StoreItemType
+  priceAmount   Int
+  priceCurrency String        @db.VarChar(3)
+  isActive      Boolean       @default(true)
+  metadata      Json?
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
 
   purchases Purchase[]
 
@@ -423,14 +422,14 @@ model Purchase {
   userId                String         @db.Uuid
   storeItemId           String         @db.Uuid
   status                PurchaseStatus @default(PENDING)
-  amount                 Int
-  currency               String         @db.VarChar(3)
-  paymentProvider        String?
-  providerTransactionId  String?        @unique
-  idempotencyKey         String         @unique
-  createdAt              DateTime       @default(now()) @db.Timestamptz(3)
-  completedAt            DateTime?      @db.Timestamptz(3)
-  updatedAt              DateTime       @updatedAt @db.Timestamptz(3)
+  amount                Int
+  currency              String         @db.VarChar(3)
+  paymentProvider       String?
+  providerTransactionId String?        @unique
+  idempotencyKey        String         @unique
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  completedAt           DateTime?      @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
   storeItem StoreItem @relation(fields: [storeItemId], references: [id], onDelete: Restrict)
