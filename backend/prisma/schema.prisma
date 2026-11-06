@@ -1,0 +1,343 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum MatchMode {
+  ONE_V_ONE
+  ONE_V_AI
+  ROOM
+}
+
+enum MatchStatus {
+  WAITING
+  READY
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ParticipantType {
+  HUMAN
+  AI
+}
+
+enum ParticipantStatus {
+  ACTIVE
+  COMPLETED
+  DISCONNECTED
+  FORFEITED
+}
+
+enum AnswerStatus {
+  ANSWERED
+  NO_RESPONSE
+}
+
+enum JudgeDecision {
+  CORRECT
+  INCORRECT
+  UNCERTAIN
+}
+
+enum RoomType {
+  PRIVATE
+  PUBLIC
+  FAMILY
+  FRIENDS
+  CLASSROOM
+}
+
+enum RoomMatchStrategy {
+  SYNCHRONIZED
+  HOST_CONTROLLED
+}
+
+enum RoomStatus {
+  OPEN
+  IN_MATCH
+  CLOSED
+}
+
+enum RoomMemberRole {
+  OWNER
+  HOST
+  MODERATOR
+  MEMBER
+}
+
+enum RoomMemberStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+  BANNED
+}
+
+enum RankingSeasonStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+}
+
+model User {
+  id                String             @id @default(uuid()) @db.Uuid
+  email             String?            @unique
+  username          String             @unique
+  displayName       String
+  preferredLanguage String             @default("en")
+  status            UserStatus         @default(ACTIVE)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
+
+  sessions          UserSession[]
+  progress          UserProgress?
+  xpTransactions    XPTransaction[]
+  matchParticipants MatchParticipant[]
+  ownedRooms        Room[]             @relation("RoomOwner")
+  roomMemberships   RoomMember[]
+  rankings          UserRanking[]
+  rankingEvents     RankingTransaction[]
+
+  @@index([status, createdAt])
+}
+
+model UserSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String
+  expiresAt        DateTime  @db.Timestamptz(3)
+  revokedAt        DateTime? @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([revokedAt])
+}
+
+model UserProgress {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  level     Int      @default(1)
+  xp        Int      @default(0)
+  totalXp   BigInt   @default(0)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model XPTransaction {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  matchId        String?  @db.Uuid
+  amount         Int
+  reason         String
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  match          Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([matchId])
+}
+
+model Match {
+  id           String             @id @default(uuid()) @db.Uuid
+  mode         MatchMode
+  status       MatchStatus        @default(WAITING)
+  roomId       String?            @db.Uuid
+  currentRound Int                @default(0)
+  startedAt    DateTime?          @db.Timestamptz(3)
+  completedAt  DateTime?          @db.Timestamptz(3)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+
+  room         Room?              @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  participants MatchParticipant[]
+  rounds       Round[]
+  result       MatchResult?
+  xpEvents     XPTransaction[]
+  rankingEvents RankingTransaction[]
+
+  @@index([status, createdAt])
+  @@index([roomId, createdAt])
+}
+
+model MatchParticipant {
+  id             String            @id @default(uuid()) @db.Uuid
+  matchId        String            @db.Uuid
+  userId         String?           @db.Uuid
+  participantKey String
+  participantType ParticipantType
+  status         ParticipantStatus @default(ACTIVE)
+  score          Int               @default(0)
+  joinedAt       DateTime          @default(now()) @db.Timestamptz(3)
+  finishedAt     DateTime?         @db.Timestamptz(3)
+
+  match          Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  answers        Answer[]
+  wonResults     MatchResult[]     @relation("MatchWinner")
+
+  @@unique([matchId, participantKey])
+  @@index([userId, joinedAt])
+  @@index([matchId, status])
+}
+
+model Round {
+  id         String   @id @default(uuid()) @db.Uuid
+  matchId    String   @db.Uuid
+  roundNumber Int
+  questionId String?  @unique @db.Uuid
+  startedAt  DateTime? @db.Timestamptz(3)
+  deadlineAt DateTime? @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+
+  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  question   Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  answers    Answer[]
+
+  @@unique([matchId, roundNumber])
+  @@index([matchId, startedAt])
+}
+
+model Question {
+  id                String   @id @default(uuid()) @db.Uuid
+  canonicalLanguage String
+  answerType        String
+  canonicalPrompt   String
+  canonicalOptions  Json
+  answerKey         String
+  gradingRubric     Json
+  localized         Json
+  timeLimitSeconds  Int
+  contentVersion    String
+  judgeVersion      String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  round             Round?
+}
+
+model Answer {
+  id             String        @id @default(uuid()) @db.Uuid
+  roundId        String        @db.Uuid
+  participantId  String        @db.Uuid
+  status         AnswerStatus
+  decision       JudgeDecision?
+  confidence     Float?
+  elapsedMs      Int
+  points         Int
+  speedBonus     Int           @default(0)
+  judgeReason    String?
+  acceptedAt     DateTime      @default(now()) @db.Timestamptz(3)
+
+  round          Round          @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  participant    MatchParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, participantId])
+  @@index([participantId, acceptedAt])
+}
+
+model MatchResult {
+  id                   String             @id @default(uuid()) @db.Uuid
+  matchId              String             @unique @db.Uuid
+  winnerParticipantId  String?            @db.Uuid
+  resultSummary        Json
+  completedAt          DateTime           @default(now()) @db.Timestamptz(3)
+
+  match                Match              @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  winner               MatchParticipant?  @relation("MatchWinner", fields: [winnerParticipantId], references: [id], onDelete: SetNull)
+}
+
+model Room {
+  id             String            @id @default(uuid()) @db.Uuid
+  ownerId        String            @db.Uuid
+  name           String
+  roomType       RoomType          @default(PRIVATE)
+  matchStrategy  RoomMatchStrategy @default(SYNCHRONIZED)
+  status         RoomStatus        @default(OPEN)
+  settings       Json?
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+
+  owner          User              @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members        RoomMember[]
+  matches        Match[]
+
+  @@index([ownerId, createdAt])
+  @@index([status, roomType])
+}
+
+model RoomMember {
+  id        String           @id @default(uuid()) @db.Uuid
+  roomId    String           @db.Uuid
+  userId    String           @db.Uuid
+  role      RoomMemberRole   @default(MEMBER)
+  status    RoomMemberStatus @default(ACTIVE)
+  joinedAt  DateTime         @default(now()) @db.Timestamptz(3)
+  leftAt    DateTime?        @db.Timestamptz(3)
+
+  room      Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([userId, status])
+  @@index([roomId, status, role])
+}
+
+model RankingSeason {
+  id        String              @id @default(uuid()) @db.Uuid
+  name      String
+  status    RankingSeasonStatus @default(UPCOMING)
+  startsAt  DateTime            @db.Timestamptz(3)
+  endsAt    DateTime            @db.Timestamptz(3)
+  createdAt DateTime            @default(now()) @db.Timestamptz(3)
+
+  rankings  UserRanking[]
+  events    RankingTransaction[]
+
+  @@index([status, startsAt, endsAt])
+}
+
+model UserRanking {
+  id             String        @id @default(uuid()) @db.Uuid
+  userId         String        @db.Uuid
+  seasonId       String        @db.Uuid
+  rankingPoints  Int           @default(0)
+  wins           Int           @default(0)
+  losses         Int           @default(0)
+  draws          Int           @default(0)
+  matchesPlayed  Int           @default(0)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  season         RankingSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seasonId])
+  @@index([seasonId, rankingPoints, updatedAt])
+}
+
+model RankingTransaction {
+  id             String        @id @default(uuid()) @db.Uuid
+  userId         String        @db.Uuid
+  seasonId       String        @db.Uuid
+  matchId        String?       @db.Uuid
+  pointsChange   Int
+  reason         String
+  idempotencyKey String        @unique
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  season         RankingSeason @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  match          Match?        @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@index([userId, seasonId, createdAt])
+  @@index([matchId])
+}
