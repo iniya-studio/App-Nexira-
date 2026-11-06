@@ -10,6 +10,7 @@ import {
 } from './game/data.js';
 import { awardRun, categoryById, isValidAnswer, remainingTime, xpForNextLevel } from './game/scoring.js';
 import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } from './game/session.js';
+import { createLocalMatchAdapter } from './game/localMatchAdapter.js';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCopy, getQuestionCopy } from './i18n.js';
@@ -75,8 +76,13 @@ function StatCard({ icon: Icon, label, value, tone = 'cyan' }) {
 export default function App() {
   const [profile, setProfile] = useState(() => loadProfile());
   const [screen, setScreen] = useState('splash');
+  const [profileView, setProfileView] = useState('progress');
+  const [resultsView, setResultsView] = useState('summary');
   const screenRef = useRef(screen);
   const [run, setRun] = useState(null);
+  const [matchView, setMatchView] = useState(null);
+  const [matchRemaining, setMatchRemaining] = useState(10);
+  const [matchError, setMatchError] = useState('');
   const [remaining, setRemaining] = useState(10);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
@@ -87,6 +93,10 @@ export default function App() {
   const timerStartedAt = useRef(Date.now());
   const timerRemainingRef = useRef(10);
   const timerQuestionIndexRef = useRef(null);
+  const matchAdapterRef = useRef(null);
+  const matchTimerRemainingRef = useRef(10);
+  const matchTimerKeyRef = useRef(null);
+  if (!matchAdapterRef.current) matchAdapterRef.current = createLocalMatchAdapter();
 
   const language = profile.settings.language;
   const text = getCopy(language);
@@ -127,6 +137,16 @@ export default function App() {
     let cancelled = false;
     CapacitorApp.addListener('backButton', () => {
       const currentScreen = screenRef.current;
+      if (currentScreen === 'match-game') {
+        setShowExitConfirm(true);
+        return;
+      }
+      if (currentScreen === 'match-results') {
+        matchAdapterRef.current.reset();
+        setMatchView(null);
+        setScreen('modes');
+        return;
+      }
       if (currentScreen === 'home') {
         void CapacitorApp.exitApp().catch((error) => console.error('Unable to exit the app.', error));
         return;
@@ -157,6 +177,9 @@ export default function App() {
   const navigate = useCallback((destination) => setScreen(destination), []);
 
   const beginChallenge = useCallback((category, mode, modeIndex) => {
+    matchAdapterRef.current.reset();
+    setMatchView(null);
+    setMatchError('');
     if (!category || !Array.isArray(category.modes)
         || !Number.isInteger(modeIndex)
         || category.modes[modeIndex] !== mode
@@ -181,6 +204,68 @@ export default function App() {
     timerQuestionIndexRef.current = 0;
     timerStartedAt.current = Date.now();
     setScreen('game');
+  }, []);
+
+  const beginMatch = useCallback((category, mode) => {
+    try {
+      const next = matchAdapterRef.current.start({
+        category,
+        mode,
+        matchId: makeRunId(),
+        language: profileRef.current.settings.language,
+      });
+      setMatchView(next);
+      setMatchError('');
+      matchTimerKeyRef.current = `${next.matchId}:${next.roundIndex}:${next.activeParticipantId}`;
+      matchTimerRemainingRef.current = next.timeLimit;
+      setMatchRemaining(next.timeLimit);
+      setShowExitConfirm(false);
+      setScreen('match-game');
+    } catch (error) {
+      setMatchError(error instanceof Error ? error.message : 'Unable to start the local match.');
+    }
+  }, []);
+
+  const handleMatchOption = useCallback((optionId) => {
+    try {
+      const current = matchAdapterRef.current.getView();
+      if (!current || current.phase !== 'question') return;
+      const elapsedMs = Math.min(
+        current.timeLimit * 1000,
+        Math.max(0, (current.timeLimit - matchTimerRemainingRef.current) * 1000),
+      );
+      const next = matchAdapterRef.current.submitOption(optionId, elapsedMs);
+      setMatchView(next);
+      if (next.status === 'complete') setScreen('match-results');
+    } catch (error) {
+      setMatchError(error instanceof Error ? error.message : 'Unable to submit the match answer.');
+    }
+  }, []);
+
+  const handleMatchTimeout = useCallback(() => {
+    try {
+      const next = matchAdapterRef.current.submitNoResponse();
+      setMatchView(next);
+      if (next.status === 'complete') setScreen('match-results');
+    } catch (error) {
+      setMatchError(error instanceof Error ? error.message : 'Unable to submit the match timeout.');
+    }
+  }, []);
+
+  const continueMatch = useCallback(() => {
+    try {
+      setMatchView(matchAdapterRef.current.continue());
+    } catch (error) {
+      setMatchError(error instanceof Error ? error.message : 'Unable to continue the local match.');
+    }
+  }, []);
+
+  const leaveMatch = useCallback((destination = 'modes') => {
+    matchAdapterRef.current.reset();
+    setMatchView(null);
+    setMatchError('');
+    setShowExitConfirm(false);
+    setScreen(destination);
   }, []);
 
   const handleAnswer = useCallback((answerIndex, timedOut = false) => {
@@ -240,7 +325,7 @@ export default function App() {
   }, [handleAnswer, isPageVisible, run?.lastAnswer, run?.questionIndex, run?.runId, run?.status, run?.timeLimit, screen, showExitConfirm]);
 
   useEffect(() => {
-    if (screen !== 'game') return undefined;
+    if (screen !== 'game' && screen !== 'match-game') return undefined;
     window.history.pushState({ nexiraGame: true }, '', window.location.href);
     const handleHardwareBack = () => {
       setShowExitConfirm(true);
@@ -251,13 +336,34 @@ export default function App() {
   }, [screen]);
 
   useEffect(() => {
+    if (screen !== 'match-game' || matchView?.phase !== 'question'
+        || showExitConfirm || !isPageVisible) return undefined;
+    const timerKey = `${matchView.matchId}:${matchView.roundIndex}:${matchView.activeParticipantId}`;
+    if (matchTimerKeyRef.current !== timerKey) {
+      matchTimerKeyRef.current = timerKey;
+      matchTimerRemainingRef.current = matchView.timeLimit;
+    }
+    const started = Date.now();
+    const startingRemaining = matchTimerRemainingRef.current;
+    const interval = window.setInterval(() => {
+      const timeLeft = remainingTime(startingRemaining, (Date.now() - started) / 1000);
+      matchTimerRemainingRef.current = timeLeft;
+      setMatchRemaining(timeLeft);
+      if (timeLeft <= 0) {
+        window.clearInterval(interval);
+        handleMatchTimeout();
+      }
+    }, 100);
+    return () => window.clearInterval(interval);
+  }, [handleMatchTimeout, isPageVisible, matchView?.activeParticipantId, matchView?.matchId, matchView?.phase, matchView?.roundIndex, matchView?.timeLimit, screen, showExitConfirm]);
+
+  useEffect(() => {
     if (screen !== 'game' || !run?.lastAnswer || run.status !== 'active') return undefined;
     const advanceTimer = window.setTimeout(() => {
       finishOrAdvance();
-      window.requestAnimationFrame(() => document.querySelector('.question-panel')?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' }));
     }, 650);
     return () => window.clearTimeout(advanceTimer);
-  }, [finishOrAdvance, prefersReducedMotion, run?.lastAnswer, run?.questionIndex, run?.status, screen]);
+  }, [finishOrAdvance, run?.lastAnswer, run?.questionIndex, run?.status, screen]);
 
   const category = run ? categoryById(run.categoryId) : null;
   const currentAnswer = run?.lastAnswer;
@@ -270,7 +376,7 @@ export default function App() {
   >
     <div className="ambient ambient--one" />
     <div className="ambient ambient--two" />
-    {screen !== 'game' && <header className="topbar">
+    {screen !== 'game' && screen !== 'match-game' && <header className="topbar">
       <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
       <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
         <span className="top-profile-avatar"><UserRound size={17} /></span>
@@ -397,6 +503,22 @@ export default function App() {
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>)}
           </div>
+          <div className="mode-list">
+            <p className="eyebrow">{language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW'}</p>
+            <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1v1')}>
+              <span className="mode-number">P1</span>
+              <span className="mode-label">{language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1v1 · Two local players'}<small>{language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device'}</small></span>
+              <span className="difficulty-badge">{language === 'fa' ? 'محلی' : 'LOCAL'}</span>
+              <span className="mode-arrow"><ChevronRight size={16} /></span>
+            </button>
+            <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1vAI')}>
+              <span className="mode-number">AI</span>
+              <span className="mode-label">{language === 'fa' ? '۱ در برابر AI · پیش‌نمایش' : '1vAI · Scripted preview'}<small>{language === 'fa' ? 'حریف اسکریپت‌شده؛ نه AI واقعی' : 'Scripted opponent; not real AI'}</small></span>
+              <span className="difficulty-badge">{language === 'fa' ? 'آفلاین' : 'OFFLINE'}</span>
+              <span className="mode-arrow"><ChevronRight size={16} /></span>
+            </button>
+            {matchError && <p className="empty-state" role="alert">{matchError}</p>}
+          </div>
         </GlassPanel>
       </ScreenFrame>;
     })()}
@@ -473,22 +595,89 @@ export default function App() {
       </>}
     </ScreenFrame>}
 
+    {screen === 'match-game' && <ScreenFrame className="challenge-screen">
+      {!matchView ? <GlassPanel variant="feature" role="alert">
+        <p>{matchError || (language === 'fa' ? 'مسابقه در دسترس نیست.' : 'The match is unavailable.')}</p>
+        <button className="secondary-action" onClick={leaveMatch}>{text.back}</button>
+      </GlassPanel> : <>
+        <div className="challenge-head">
+          <button className="back-link" onClick={() => setShowExitConfirm(true)}><ArrowLeft size={15} /> {text.backToChallenges}</button>
+          <p>{matchView.mode === '1v1' ? '1v1' : '1vAI · LOCAL PREVIEW'} <span>·</span> {text.localOnly}</p>
+        </div>
+        {matchError && <p className="empty-state" role="alert">{matchError}</p>}
+        {matchView.phase === 'handoff' && <GlassPanel variant="feature" className="question-panel">
+          <span className="eyebrow">{language === 'fa' ? 'نوبت بعدی' : 'NEXT TURN'}</span>
+          <h2>{language === 'fa' ? 'دستگاه را به بازیکن بعدی بدهید' : 'Pass the device to the next player'}</h2>
+          <p>{matchView.participants.find(({ id }) => id === matchView.activeParticipantId)?.displayName}</p>
+          <button className="primary-button" onClick={continueMatch}><span className="primary-label">{language === 'fa' ? 'آماده‌ام' : 'Ready'}</span><ArrowRight className="primary-arrow" size={18} /></button>
+        </GlassPanel>}
+        {matchView.phase === 'round-summary' && <GlassPanel variant="feature" className="question-panel">
+          <span className="eyebrow">{text.round} {matchView.roundIndex} / {matchView.totalRounds}</span>
+          <h2>{language === 'fa' ? 'نتیجه دور' : 'Round results'}</h2>
+          <div className="results-stats">
+            {matchView.roundSummary.map((result) => {
+              const participant = matchView.participants.find(({ id }) => id === result.participantId);
+              return <StatCard key={result.participantId} icon={result.decision === 'correct' ? Check : Activity}
+                label={participant?.displayName ?? ''} value={`${result.points > 0 ? '+' : ''}${result.points}`}
+                tone={result.decision === 'correct' ? 'green' : 'cyan'} />;
+            })}
+          </div>
+          <p className="panel-note">{language === 'fa' ? 'حریف این حالت اسکریپت‌شده است؛ داوری و بازی آنلاین در دسترس نیست.' : 'The opponent is scripted; real AI judging and online play are not available.'}</p>
+          <button className="primary-button" onClick={continueMatch}><span className="primary-label">{text.continue}</span><ArrowRight className="primary-arrow" size={18} /></button>
+        </GlassPanel>}
+        {matchView.phase === 'question' && matchView.question && <>
+          <div className="gameplay-hud">
+            <div className="arena-timer">
+              <div className={`arena-timer-ring${matchRemaining <= 5 ? ' arena-timer-ring--urgent' : ''}`} style={{ '--timer-progress': `${Math.max(0, Math.min(100, matchRemaining / matchView.timeLimit * 100))}%` }} role="timer">
+                <span><small>{text.timeRemaining}</small><strong>{Math.ceil(matchRemaining)}<i>{text.secondsShort}</i></strong></span>
+              </div>
+            </div>
+            <div className="combatant-pair">
+              {matchView.participants.map((participant) => <GlassPanel key={participant.id} variant="feature" className="combatant-card">
+                <span className="combatant-avatar">{participant.type === 'ai' ? <Activity size={18} /> : <UserRound size={18} />}</span>
+                <span className="combatant-copy"><small>{participant.id === matchView.activeParticipantId ? (language === 'fa' ? 'نوبت شما' : 'ACTIVE TURN') : text.localSession}</small><strong>{participant.displayName}</strong></span>
+                <span className="combatant-score"><small>{text.score}</small><strong>{participant.score}</strong></span>
+              </GlassPanel>)}
+            </div>
+          </div>
+          <GlassPanel variant="feature" className="question-panel">
+            <div className="question-panel-top"><span><span className="live-dot" /> {text.round} <i>{String(matchView.roundIndex + 1).padStart(2, '0')} / {String(matchView.totalRounds).padStart(2, '0')}</i></span></div>
+            <div className="question-copy"><span className="question-kicker"><Sparkles size={13} /> {text.chooseAnswer}</span><h2>{matchView.question.prompt}</h2></div>
+            <div className="answer-list">
+              {matchView.question.options.map(({ id, text: optionText }, index) => <button className="answer-button" key={id} onClick={() => handleMatchOption(id)}>
+                <span className="answer-key">{String.fromCharCode(65 + index)}</span><span className="answer-text">{optionText}</span>
+              </button>)}
+            </div>
+            <p className="panel-note">{matchView.mode === '1vAI'
+              ? (language === 'fa' ? 'حالت پیش‌نمایش محلی؛ حریف اسکریپت‌شده است و AI واقعی نیست.' : 'Local preview only: the opponent is scripted, not real AI.')
+              : (language === 'fa' ? 'پیش‌نمایش محلی دو نفره روی یک دستگاه است.' : 'Local pass-and-play on one device.')}</p>
+          </GlassPanel>
+        </>}
+      </>}
+    </ScreenFrame>}
+
     {screen === 'results' && run && <ScreenFrame className="results-screen">
       <div className="results-heading">
         <span className="results-medal"><Medal size={25} /></span><span className="eyebrow"><span className="live-dot" /> {text.battleReport} · {run.categoryTitle.toUpperCase()} · {activeMode.toUpperCase()}</span>
         <h1>{text.resultsTitle} <span>{text.resultsAccent}</span></h1>
         <p>{run.correct} / {run.total} {text.correctAnswers.toLowerCase()} · {run.answers.filter((answer) => answer.timedOut).length} {text.timedOut.toLowerCase()}</p>
       </div>
-      <GlassPanel variant="feature" className="results-panel">
-        <div className="panel-top"><span className="eyebrow"><Trophy size={13} /> {text.finalScore}</span><strong className="final-score">{run.score}</strong></div>
-        <div className="results-stats">
-          <StatCard icon={Check} label={text.correctAnswers} value={`${run.correct}/${run.total}`} tone="green" />
-          <StatCard icon={Target} label={text.accuracy} value={`${run.total ? Math.round(run.correct / run.total * 100) : 0}%`} tone="cyan" />
-          <StatCard icon={Zap} label={text.speedBonus} value={`+${run.answers.reduce((sum, answer) => sum + answer.speedBonus, 0)}`} tone="pink" />
-          <StatCard icon={Sparkles} label={text.xpEarned} value={`+${Math.max(0, Math.floor(run.score / 5))}`} tone="gold" />
+      <GlassPanel variant="feature" className="results-panel" data-view={resultsView}>
+        <div className="screen-tabs" role="group" aria-label={text.battleReport}>
+          <button type="button" className={resultsView === 'summary' ? 'is-selected' : ''} aria-pressed={resultsView === 'summary'} onClick={() => setResultsView('summary')}>{text.finalScore}</button>
+          <button type="button" className={resultsView === 'review' ? 'is-selected' : ''} aria-pressed={resultsView === 'review'} onClick={() => setResultsView('review')}>{text.answerReview}</button>
         </div>
-        <div className="level-update"><span className="level-emblem"><Sparkles size={17} /></span><span className="level-copy"><strong>{text.level} {profile.level}</strong><small>{profile.xp} / {threshold} XP · {text.nextLevel}</small><i className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></i></span></div>
-        <div className="answer-review">
+        <div className="results-summary" hidden={resultsView !== 'summary'}>
+          <div className="panel-top"><span className="eyebrow"><Trophy size={13} /> {text.finalScore}</span><strong className="final-score">{run.score}</strong></div>
+          <div className="results-stats">
+            <StatCard icon={Check} label={text.correctAnswers} value={`${run.correct}/${run.total}`} tone="green" />
+            <StatCard icon={Target} label={text.accuracy} value={`${run.total ? Math.round(run.correct / run.total * 100) : 0}%`} tone="cyan" />
+            <StatCard icon={Zap} label={text.speedBonus} value={`+${run.answers.reduce((sum, answer) => sum + answer.speedBonus, 0)}`} tone="pink" />
+            <StatCard icon={Sparkles} label={text.xpEarned} value={`+${Math.max(0, Math.floor(run.score / 5))}`} tone="gold" />
+          </div>
+          <div className="level-update"><span className="level-emblem"><Sparkles size={17} /></span><span className="level-copy"><strong>{text.level} {profile.level}</strong><small>{profile.xp} / {threshold} XP · {text.nextLevel}</small><i className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></i></span></div>
+        </div>
+        <div className="answer-review" hidden={resultsView !== 'review'}>
           {run.questions.map((item, index) => {
             const answer = run.answers[index];
             const localizedItem = getQuestionCopy(language, run.categoryId, index, item);
@@ -508,11 +697,43 @@ export default function App() {
       </div>
     </ScreenFrame>}
 
+    {screen === 'match-results' && matchView && <ScreenFrame className="results-screen">
+      <div className="results-heading">
+        <span className="results-medal"><Trophy size={25} /></span>
+        <span className="eyebrow">{matchView.mode} · {language === 'fa' ? 'نتیجه مسابقه محلی' : 'LOCAL MATCH RESULT'}</span>
+        <h1>{matchView.winnerId
+          ? (matchView.winnerId === 'human-1' ? (language === 'fa' ? 'بازیکن ۱ برنده شد' : 'Player 1 wins') : matchView.winnerId === 'human-2' ? (language === 'fa' ? 'بازیکن ۲ برنده شد' : 'Player 2 wins') : (language === 'fa' ? 'حریف اسکریپت‌شده برنده شد' : 'Scripted opponent wins'))
+          : (language === 'fa' ? 'مساوی' : 'It’s a draw')}</h1>
+      </div>
+      <GlassPanel variant="feature" className="results-panel">
+        <div className="results-stats">
+          {matchView.participants.map((participant) => <StatCard key={participant.id} icon={participant.type === 'ai' ? Activity : UserRound}
+            label={participant.displayName} value={participant.score} tone={participant.id === matchView.winnerId ? 'green' : 'cyan'} />)}
+        </div>
+        <p className="panel-note">{language === 'fa'
+          ? 'این مسابقه پیش‌نمایش محلی است؛ نتیجه در پروفایل ذخیره نشده و AI یا سرویس آنلاین استفاده نشده است.'
+          : 'Local preview only. This result is not saved to your profile; no real AI or online service was used.'}</p>
+      </GlassPanel>
+      <div className="results-actions">
+        <button className="primary-button" onClick={() => {
+          const selectedCategory = categoryById(run?.categoryId);
+          if (selectedCategory) beginMatch(selectedCategory, matchView.mode);
+        }}><span className="play-mark"><RotateCcw size={16} /></span><span className="primary-label">{text.replay}</span><ArrowRight className="primary-arrow" size={18} /></button>
+        <button className="secondary-action" onClick={() => leaveMatch('home')}>{text.home}</button>
+      </div>
+    </ScreenFrame>}
+
     {screen === 'profile' && <ScreenFrame className="info-screen">
       <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
       <ScreenHeading eyebrow={text.operatorDossierEyebrow} title={text.profileTitle} accent={text.profileAccent} />
-      <GlassPanel className="profile-panel">
+      <GlassPanel className="profile-panel" data-view={profileView}>
         <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {profile.level} · {text.totalXp} {profile.totalXp}</small></span></div>
+        <div className="screen-tabs" role="group" aria-label={text.profile}>
+          <button type="button" className={profileView === 'progress' ? 'is-selected' : ''} aria-pressed={profileView === 'progress'} onClick={() => setProfileView('progress')}>{text.progress}</button>
+          <button type="button" className={profileView === 'honors' ? 'is-selected' : ''} aria-pressed={profileView === 'honors'} onClick={() => setProfileView('honors')}>{text.battleHonors}</button>
+          <button type="button" className={profileView === 'stats' ? 'is-selected' : ''} aria-pressed={profileView === 'stats'} onClick={() => setProfileView('stats')}>{text.stats}</button>
+        </div>
+        <div className="profile-view" hidden={profileView !== 'progress'}>
         <span className="profile-rank-chip"><Medal size={14} /> {text.arenaLevel} {String(profile.level).padStart(2, '0')}</span>
         <label className="field-label" htmlFor="player-name">{text.displayName}</label>
         <input id="player-name" className="text-input" maxLength={20} value={playerName} onChange={(event) => updateProfile((saved) => ({ ...saved, playerName: event.target.value }))} />
@@ -526,6 +747,8 @@ export default function App() {
           <div><strong>{profile.bestScore}</strong><span>{text.best}</span></div>
           <div><strong>{accuracy}%</strong><span>{text.accuracy}</span></div>
         </div>
+        </div>
+        <div className="profile-view" hidden={profileView !== 'honors'}>
         <h2 className="subsection-title"><Medal size={15} /> {text.battleHonors}</h2>
         <div className="achievement-grid">
           {[
@@ -537,6 +760,8 @@ export default function App() {
             <span><Icon size={16} /></span><strong>{title}</strong><small>{detail}</small><i>{earned ? text.unlocked : text.locked}</i>
           </div>)}
         </div>
+        </div>
+        <div className="profile-view" hidden={profileView !== 'stats'}>
         <h2 className="subsection-title"><BarChart3 size={15} /> {text.stats}</h2>
         <div className="category-stat-list">
           {CATEGORIES.filter((item) => profile.categoryStats[item.id]?.battles).map((item) => {
@@ -544,6 +769,7 @@ export default function App() {
             return <div className="category-stat-row" key={item.id}><span>{item.title}</span><span>{stats.battles} {text.battles.toLowerCase()}</span><strong>{stats.bestScore}</strong></div>;
           })}
           {!profile.battles && <p className="empty-state">{text.noRuns}</p>}
+        </div>
         </div>
         <p className="panel-note"><Activity size={13} /> {text.saved}</p>
       </GlassPanel>
@@ -616,7 +842,7 @@ export default function App() {
       </GlassPanel>
     </ScreenFrame>}
 
-    {screen !== 'game' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
+    {screen !== 'game' && screen !== 'match-game' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
       {[
         ['home', text.navHome, Play], ['rankings', text.navRanks, Trophy],
         ['profile', text.navProfile, UserRound], ['settings', text.navSettings, Settings],
@@ -624,14 +850,23 @@ export default function App() {
         <Icon className="nav-icon" size={17} /><span>{label}</span>
       </button>)}
     </nav>}
-    {screen === 'game' && showExitConfirm && <div className="overlay overlay--center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowExitConfirm(false); }}>
+    {(screen === 'game' || screen === 'match-game') && showExitConfirm && <div className="overlay overlay--center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowExitConfirm(false); }}>
       <section className="confirm-panel glass-panel" role="dialog" aria-modal="true" aria-labelledby="exit-game-title">
         <span className="confirm-icon"><Activity size={22} /></span>
-        <h2 id="exit-game-title">{language === 'fa' ? 'آیا می‌خواهید از مسابقه خارج شوید؟' : 'Leave this challenge?'}</h2>
+        <h2 id="exit-game-title">{language === 'fa' ? 'آیا می‌خواهید از مسابقه خارج شوید؟' : screen === 'match-game' ? 'Leave this match?' : 'Leave this challenge?'}</h2>
         <p>{language === 'fa' ? 'پیشرفت این مسابقه ثبت نخواهد شد.' : 'Your current challenge will not be saved.'}</p>
         <div className="confirm-actions">
           <button className="stay-button" onClick={() => setShowExitConfirm(false)}>{language === 'fa' ? 'خیر، ادامه بازی' : 'No, keep playing'}</button>
-          <button className="leave-button" onClick={() => { setShowExitConfirm(false); runRef.current = null; setRun(null); navigate('categories'); }}>{language === 'fa' ? 'بله، خروج' : 'Yes, leave'}</button>
+          <button className="leave-button" onClick={() => {
+            if (screen === 'match-game') {
+              leaveMatch();
+            } else {
+              setShowExitConfirm(false);
+              runRef.current = null;
+              setRun(null);
+              navigate('categories');
+            }
+          }}>{language === 'fa' ? 'بله، خروج' : 'Yes, leave'}</button>
         </div>
       </section>
     </div>}
