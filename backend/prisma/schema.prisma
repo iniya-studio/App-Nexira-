@@ -108,6 +108,9 @@ enum PurchaseStatus {
   REFUNDED
 }
 
+// Account deletion is a controlled soft-delete/anonymization workflow, not routine row deletion.
+// Preserve competitive and purchase history; revoke active sessions and restrict account access.
+// Personal-data retention and anonymization details are handled by an explicit application policy.
 model User {
   id                String     @id @default(uuid()) @db.Uuid
   email             String?    @unique
