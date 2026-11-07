@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import {
   AnswerStatus,
+  JudgeDecision,
   JudgeStatus,
   MatchMode,
   MatchStatus,
@@ -26,6 +27,7 @@ describe('AnswerService', () => {
     $queryRaw: jest.Mock;
     round: { findFirst: jest.Mock };
     answer: { findUnique: jest.Mock; create: jest.Mock };
+    matchParticipant: { update: jest.Mock };
   };
   let prisma: { $transaction: jest.Mock };
   let service: AnswerService;
@@ -40,6 +42,7 @@ describe('AnswerService', () => {
     question: {
       answerType: 'MULTIPLE_CHOICE',
       canonicalOptions: [{ id: 'A', text: 'Alpha' }, { id: 'B', text: 'Beta' }],
+      answerKey: 'B',
     },
     match: {
       mode: MatchMode.ONE_V_ONE,
@@ -75,6 +78,7 @@ describe('AnswerService', () => {
           elapsedMs: 4250,
         }),
       },
+      matchParticipant: { update: jest.fn().mockResolvedValue({ id: 'participant-1' }) },
     };
     prisma = {
       $transaction: jest.fn(async (callback: (transaction: typeof tx) => unknown) =>
@@ -84,7 +88,7 @@ describe('AnswerService', () => {
     service = new AnswerService(prisma as unknown as PrismaService);
   });
 
-  it('accepts an answer using the database timestamp and keeps adjudication pending', async () => {
+  it('accepts and deterministically adjudicates a correct MCQ using database elapsed time', async () => {
     const result = await service.submitAnswer(
       'match-1',
       'round-1',
@@ -101,9 +105,13 @@ describe('AnswerService', () => {
         participantId: 'participant-1',
         responseText: 'B',
         status: AnswerStatus.ANSWERED,
-        judgeStatus: JudgeStatus.PENDING,
-        points: 0,
-        speedBonus: 0,
+        judgeStatus: JudgeStatus.COMPLETED,
+        decision: JudgeDecision.CORRECT,
+        confidence: 1,
+        points: 20,
+        speedBonus: 10,
+        judgeReason: 'CANONICAL_OPTION_ID_MATCH',
+        judgeVersion: 'mcq-exact-v1',
         elapsedMs: 4250,
         idempotencyKey: 'request-key-0001',
         acceptedAt,
@@ -126,6 +134,36 @@ describe('AnswerService', () => {
     });
     expect(result).not.toHaveProperty('decision');
     expect(result).not.toHaveProperty('points');
+    expect(tx.matchParticipant.update).toHaveBeenCalledWith({
+      where: { id: 'participant-1' },
+      data: { score: { increment: 20 } },
+    });
+  });
+
+  it('persists an incorrect MCQ decision without awarding points', async () => {
+    const result = await service.submitAnswer(
+      'match-1',
+      'round-1',
+      principal,
+      'A',
+      'request-key-wrong-1',
+    );
+
+    expect(result.status).toBe('ACCEPTED');
+    expect(tx.answer.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          judgeStatus: JudgeStatus.COMPLETED,
+          decision: JudgeDecision.INCORRECT,
+          confidence: 1,
+          points: 0,
+          speedBonus: 0,
+          judgeReason: 'CANONICAL_OPTION_ID_MISMATCH',
+          judgeVersion: 'mcq-exact-v1',
+        }),
+      }),
+    );
+    expect(tx.matchParticipant.update).not.toHaveBeenCalled();
   });
 
   it('replays the original receipt for an identical idempotent retry', async () => {
@@ -205,7 +243,7 @@ describe('AnswerService', () => {
   it('accepts free-text responses for a free-text question', async () => {
     tx.round.findFirst.mockResolvedValue(
       roundRecord({
-        question: { answerType: 'FREE_TEXT', canonicalOptions: null },
+        question: { answerType: 'FREE_TEXT', canonicalOptions: null, answerKey: 'Mars' },
       }),
     );
 
@@ -214,9 +252,16 @@ describe('AnswerService', () => {
     ).resolves.toMatchObject({ status: 'ACCEPTED' });
     expect(tx.answer.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ responseText: 'Mars' }),
+        data: expect.objectContaining({
+          responseText: 'Mars',
+          judgeStatus: JudgeStatus.PENDING,
+          decision: null,
+          points: 0,
+          speedBonus: 0,
+        }),
       }),
     );
+    expect(tx.matchParticipant.update).not.toHaveBeenCalled();
   });
 
   it('rejects V2 ROOM answers through the V1 answer path', async () => {
