@@ -404,6 +404,7 @@ model RankingTransaction {
   @@index([matchId])
 }
 
+// Monetary amounts use the currency's smallest unit (for example, cents).
 model StoreItem {
   id            String        @id @default(uuid()) @db.Uuid
   code          String        @unique
@@ -423,6 +424,7 @@ model StoreItem {
   @@index([isActive, itemType])
 }
 
+// amount/currency are immutable purchase-time snapshots, also in the smallest currency unit.
 model Purchase {
   id                    String         @id @default(uuid()) @db.Uuid
   userId                String         @db.Uuid
@@ -445,7 +447,9 @@ model Purchase {
   @@index([storeItemId, createdAt])
 }
 
-// Ownership record for non-consumable cosmetic store items.
+// Current ownership record for non-consumable cosmetic store items.
+// sourcePurchaseId points to the latest purchase backing this grant; refund handlers must
+// revoke only when the refunded purchase is still the sourcePurchaseId.
 model UserInventory {
   id               String    @id @default(uuid()) @db.Uuid
   userId           String    @db.Uuid
