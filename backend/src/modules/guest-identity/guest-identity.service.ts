@@ -45,6 +45,14 @@ export class GuestIdentityService {
     }
     const now = Date.now();
     const current = this.attempts.get(clientKey);
+    if (this.attempts.size >= 10000) {
+      for (const [key, value] of this.attempts) {
+        if (value.resetAt <= now) this.attempts.delete(key);
+      }
+      if (this.attempts.size >= 10000 && !this.attempts.has(clientKey)) {
+        throw new TooManyRequestsException('Guest start limiter is at capacity');
+      }
+    }
     if (!current || current.resetAt <= now) {
       this.attempts.set(clientKey, { count: 1, resetAt: now + windowMs });
       return;
