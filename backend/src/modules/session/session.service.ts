@@ -66,7 +66,8 @@ export class SessionService {
   }
 
   async refresh(rawToken: string, idempotencyKey: string): Promise<TokenResponse> {
-    if (Buffer.byteLength(rawToken, 'utf8') < 32 || Buffer.byteLength(idempotencyKey, 'utf8') < 32) {
+    const highEntropyTokenPattern = /^[A-Za-z0-9_-]{43,128}$/;
+    if (!highEntropyTokenPattern.test(rawToken) || !highEntropyTokenPattern.test(idempotencyKey)) {
       throw new UnauthorizedException('Invalid refresh credentials');
     }
     const tokenHash = this.hash(rawToken);
