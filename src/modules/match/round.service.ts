@@ -31,10 +31,6 @@ type MatchForRound = Prisma.MatchGetPayload<{
   };
 }>;
 
-type RoundWithQuestion = Prisma.RoundGetPayload<{
-  include: { question: true };
-}>;
-
 @Injectable()
 export class RoundService {
   constructor(private readonly prisma: PrismaService) {}
@@ -58,6 +54,8 @@ export class RoundService {
     this.validateQuestion(generatedQuestion);
 
     return this.prisma.$transaction(async (tx) => {
+      // Serialize all round transitions for this match. The database row lock
+      // remains effective across processes and does not rely on local timers.
       await tx.$queryRaw<Array<{ id: string }>>`
         SELECT "id"
         FROM "Match"
@@ -76,14 +74,17 @@ export class RoundService {
       if (!match) throw new NotFoundException('Match not found');
       this.assertParticipantPolicy(match);
 
-      if (
-        match.status === MatchStatus.COMPLETED ||
-        match.status === MatchStatus.CANCELLED
-      ) {
-        throw new ConflictException('Match cannot accept another round');
-      }
-
-      if (match.currentRound > 0) {
+      if (match.currentRound === 0) {
+        if (
+          match.status !== MatchStatus.WAITING &&
+          match.status !== MatchStatus.READY
+        ) {
+          throw new ConflictException('Match is not ready for its first round');
+        }
+      } else {
+        if (match.status !== MatchStatus.ACTIVE) {
+          throw new ConflictException('Match is not active');
+        }
         const previousRound = await tx.round.findUnique({
           where: {
             matchId_roundNumber: {
@@ -95,6 +96,13 @@ export class RoundService {
         if (!previousRound?.completedAt) {
           throw new ConflictException('The previous round is not finalized');
         }
+      }
+
+      if (
+        match.status === MatchStatus.COMPLETED ||
+        match.status === MatchStatus.CANCELLED
+      ) {
+        throw new ConflictException('Match cannot accept another round');
       }
 
       const clock = await tx.$queryRaw<Array<{ now: Date }>>`
@@ -159,8 +167,7 @@ export class RoundService {
 
   /**
    * Returns a participant-specific localized view of the shared question.
-   * Canonical option IDs and order are retained; private answer material is
-   * never selected into or serialized from this DTO.
+   * The query deliberately does not select answerKey or gradingRubric.
    */
   async getRoundQuestion(
     matchId: string,
@@ -179,7 +186,24 @@ export class RoundService {
         matchId,
         match: { participants: { some: ownership } },
       },
-      include: { question: true },
+      select: {
+        id: true,
+        matchId: true,
+        roundNumber: true,
+        questionId: true,
+        startedAt: true,
+        deadlineAt: true,
+        question: {
+          select: {
+            id: true,
+            answerType: true,
+            canonicalPrompt: true,
+            canonicalOptions: true,
+            localized: true,
+            timeLimitSeconds: true,
+          },
+        },
+      },
     });
 
     if (!round?.question || !round.startedAt || !round.deadlineAt) {
@@ -219,7 +243,7 @@ export class RoundService {
     const active = match.participants.filter(
       (participant) => participant.status === ParticipantStatus.ACTIVE,
     );
-    if (active.length !== 2) {
+    if (match.participants.length !== 2 || active.length !== 2) {
       throw new ConflictException('V1 matches require exactly two active participants');
     }
 
@@ -253,21 +277,26 @@ export class RoundService {
     }
 
     if (question.answerType === 'MULTIPLE_CHOICE') {
-      const options = question.canonicalOptions;
-      if (
-        !Array.isArray(options) ||
-        options.length < 2 ||
-        options.some(
-          (option) =>
-            !option.id?.trim() ||
-            !option.text?.trim() ||
-            typeof option.id !== 'string' ||
-            typeof option.text !== 'string',
-        ) ||
-        new Set(options.map((option) => option.id)).size !== options.length ||
-        !options.some((option) => option.id === question.answerKey)
-      ) {
+      const options = question.canonicalOptions as unknown;
+      if (!Array.isArray(options) || options.length < 2) {
         throw new BadRequestException('Multiple-choice question options are invalid');
+      }
+      const normalized: CanonicalOption[] = [];
+      for (const value of options as unknown[]) {
+        const option = this.asRecord(value);
+        if (
+          typeof option?.id !== 'string' ||
+          !option.id.trim() ||
+          typeof option.text !== 'string' ||
+          !option.text.trim()
+        ) {
+          throw new BadRequestException('Multiple-choice question options are invalid');
+        }
+        normalized.push({ id: option.id, text: option.text });
+      }
+      const ids = normalized.map((option) => option.id);
+      if (new Set(ids).size !== ids.length || !ids.includes(question.answerKey)) {
+        throw new BadRequestException('Multiple-choice answer key is invalid');
       }
     } else if (question.answerType === 'FREE_TEXT') {
       if (question.canonicalOptions !== null) {

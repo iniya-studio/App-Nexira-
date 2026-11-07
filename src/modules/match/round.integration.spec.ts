@@ -49,7 +49,7 @@ describe('Round persistence integration', () => {
     await prisma.$disconnect();
   });
 
-  it('persists one question and a shared round deadline, and returns no private grading data', async () => {
+  it('persists one question and a shared round deadline without exposing private grading data', async () => {
     const guest = await prisma.guestIdentity.create({ data: {} });
     guestIds.push(guest.id);
     const match = await matches.createAiMatch({
@@ -64,7 +64,10 @@ describe('Round persistence integration', () => {
       where: { id: started.roundId },
       include: { question: true },
     });
-    expect(stored?.startedAt).toEqual(stored?.deadlineAt && new Date(stored.deadlineAt.getTime() - 15_000));
+    expect(stored).not.toBeNull();
+    expect(stored?.startedAt).toEqual(
+      new Date(stored!.deadlineAt!.getTime() - question.timeLimitSeconds * 1000),
+    );
     expect(stored?.question?.answerKey).toBe('B');
 
     const publicQuestion = await rounds.getRoundQuestion(
@@ -100,8 +103,6 @@ describe('Round persistence integration', () => {
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
-    expect(
-      await prisma.round.count({ where: { matchId: match.id } }),
-    ).toBe(1);
+    expect(await prisma.round.count({ where: { matchId: match.id } })).toBe(1);
   });
 });

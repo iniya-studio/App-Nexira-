@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   MatchMode,
   MatchStatus,
@@ -40,7 +40,7 @@ describe('RoundService', () => {
     $queryRaw: jest.Mock;
     match: { findUnique: jest.Mock; update: jest.Mock };
     question: { create: jest.Mock };
-    round: { create: jest.Mock; findUnique: jest.Mock; findFirst: jest.Mock };
+    round: { create: jest.Mock; findUnique: jest.Mock };
   };
   let prisma: { $transaction: jest.Mock; round: { findFirst: jest.Mock } };
   let service: RoundService;
@@ -69,7 +69,6 @@ describe('RoundService', () => {
       round: {
         create: jest.fn().mockResolvedValue({ id: 'round-1' }),
         findUnique: jest.fn().mockResolvedValue(null),
-        findFirst: jest.fn(),
       },
     };
     prisma = {
@@ -138,6 +137,42 @@ describe('RoundService', () => {
     expect(tx.question.create).not.toHaveBeenCalled();
   });
 
+  it('rejects matches with extra inactive participants', async () => {
+    tx.match.findUnique.mockResolvedValue({
+      id: 'match-1',
+      mode: MatchMode.ONE_V_AI,
+      status: MatchStatus.WAITING,
+      currentRound: 0,
+      participants: [
+        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
+        { participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE },
+        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.FORFEITED },
+      ],
+    });
+
+    await expect(service.startNextRound('match-1', question)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('rejects a match in an invalid lifecycle state before creating a round', async () => {
+    tx.match.findUnique.mockResolvedValue({
+      id: 'match-1',
+      mode: MatchMode.ONE_V_AI,
+      status: MatchStatus.READY,
+      currentRound: 1,
+      participants: [
+        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
+        { participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE },
+      ],
+    });
+
+    await expect(service.startNextRound('match-1', question)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(tx.question.create).not.toHaveBeenCalled();
+  });
+
   it('rejects starting a next round before the previous round is finalized', async () => {
     tx.match.findUnique.mockResolvedValue({
       id: 'match-1',
@@ -166,7 +201,6 @@ describe('RoundService', () => {
       questionId: 'question-1',
       startedAt,
       deadlineAt,
-      completedAt: null,
       question: {
         id: 'question-1',
         answerType: 'MULTIPLE_CHOICE',
@@ -185,6 +219,31 @@ describe('RoundService', () => {
 
     const result = await service.getRoundQuestion('match-1', 'round-1', principal, 'fa');
 
+    expect(prisma.round.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 'round-1',
+        matchId: 'match-1',
+        match: { participants: { some: { guestIdentityId: 'guest-1' } } },
+      },
+      select: {
+        id: true,
+        matchId: true,
+        roundNumber: true,
+        questionId: true,
+        startedAt: true,
+        deadlineAt: true,
+        question: {
+          select: {
+            id: true,
+            answerType: true,
+            canonicalPrompt: true,
+            canonicalOptions: true,
+            localized: true,
+            timeLimitSeconds: true,
+          },
+        },
+      },
+    });
     expect(result.prompt).toBe('پرسش فارسی');
     expect(result.options).toEqual([
       { id: 'A', text: 'گزینه الف' },
@@ -192,6 +251,45 @@ describe('RoundService', () => {
     ]);
     expect(result).not.toHaveProperty('answerKey');
     expect(result).not.toHaveProperty('gradingRubric');
+  });
+
+  it('falls back to canonical text when the requested language is unavailable', async () => {
+    prisma.round.findFirst.mockResolvedValue({
+      id: 'round-1',
+      matchId: 'match-1',
+      roundNumber: 1,
+      questionId: 'question-1',
+      startedAt,
+      deadlineAt: new Date(startedAt.getTime() + 20_000),
+      question: {
+        id: 'question-1',
+        answerType: 'MULTIPLE_CHOICE',
+        canonicalPrompt: 'Canonical prompt',
+        canonicalOptions: [
+          { id: 'A', text: 'Canonical A' },
+          { id: 'B', text: 'Canonical B' },
+        ],
+        localized: {},
+        timeLimitSeconds: 20,
+      },
+    });
+
+    const result = await service.getRoundQuestion('match-1', 'round-1', principal, 'fr');
+
+    expect(result.prompt).toBe('Canonical prompt');
+    expect(result.options[0].text).toBe('Canonical A');
+  });
+
+  it('rejects malformed generated multiple-choice options', async () => {
+    const malformed = {
+      ...question,
+      canonicalOptions: [{ id: 5, text: 'Bad option' }, { id: 'B', text: 'Option B' }],
+    } as unknown as GeneratedQuestion;
+
+    await expect(service.startNextRound('match-1', malformed)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(tx.match.findUnique).not.toHaveBeenCalled();
   });
 
   it('does not return a round to a non-participant', async () => {

@@ -1,108 +1,79 @@
-# NEX-BE-007 — Match Entry API & Initial Lifecycle Slice
+# NEX-BE-007 — Match Entry & Synchronized Round Foundation
 
 **Project:** NEXIRA  
-**Version:** 1.1  
+**Version:** 1.2  
 **Status:** Initial implementation in progress; not a playable match release  
-**Target branch:** `feature/backend-foundation`
+**Target branch:** `feature/backend-foundation`  
+**Related contract:** NEX-BE-006 Match Core & Synchronized Round Contracts
 
-## 1. Scope
+## 1. Implemented scope
 
-This document describes the first authenticated Match API slice and the initial internal lifecycle services.
+The current backend branch contains:
 
-Implemented:
-- Create a persisted 1vAI match shell.
-- Retrieve a safe match summary for an authenticated participant.
-- Internal service entry point to create a 1v1 match from two authenticated principals. It is not exposed as a public route until matchmaking and pairing rules are implemented.
-- Internal first-round activation against an already persisted Question, using PostgreSQL `clock_timestamp()`, a conditional match-state claim, and a serializable transaction.
+- Authenticated creation of a persisted 1vAI match shell.
+- Safe match summary retrieval for an authenticated participant.
+- Internal first-round/next-round activation from a trusted server-generated question package.
+- PostgreSQL row locking for per-match round transitions.
+- Database-derived `startedAt` using `clock_timestamp()` and one shared `deadlineAt`.
+- Canonical question persistence and participant-specific localization that preserves canonical option IDs and order.
+- A public question projection that does not select or expose `answerKey` or `gradingRubric`.
 
-Not yet implemented:
-- Public question generation/selection and localization.
-- Public delivery of a safe question payload.
-- Answer submission, judging, scoring, timeout processing, round finalization, match completion, and realtime delivery.
-- A server-side AI opponent strategy. The AI participant row is currently only a persistence placeholder.
+The AI participant row remains a persistence placeholder. It is not a functioning AI opponent.
 
-A created match remains `WAITING` until a trusted server-side flow invokes the internal first-round operation. Do not describe the current slice as a playable 1vAI or 1v1 experience.
+## 2. Authenticated Match API
 
-## 2. Authentication
-
-The HTTP routes require the existing access-token/session guard:
-
-`Authorization: Bearer <access-token>`
-
-Registered users and active guest identities are supported. The authenticated principal is derived from the validated session; caller-supplied user IDs, guest IDs, participant IDs, or ownership fields are not accepted.
-
-## 3. Create a 1vAI match
+### Create a 1vAI match
 
 - **Method:** `POST`
 - **Path:** `/api/v1/matches/ai`
 - **Body:** empty
-- **Success:** `201 Created`
+- **Authentication:** existing access-token/session guard
 
-The server creates one `Match` in `WAITING` state with exactly two participants: the authenticated HUMAN principal and one AI participant placeholder. The AI participant row is not evidence that the server-side AI opponent is implemented.
+The server creates a `WAITING` match with one HUMAN participant derived from the authenticated principal and one AI placeholder participant.
 
-Example response:
-
-```json
-{
-  "id": "match-uuid",
-  "mode": "ONE_V_AI",
-  "status": "WAITING",
-  "currentRound": 0,
-  "createdAt": "2026-11-08T00:00:00.000Z",
-  "startedAt": null,
-  "completedAt": null,
-  "participants": [
-    { "type": "HUMAN", "status": "ACTIVE" },
-    { "type": "AI", "status": "ACTIVE" }
-  ]
-}
-```
-
-The response intentionally omits participant identity IDs, scores, questions, answer keys, and judge metadata.
-
-## 4. Read match summary
+### Read a match summary
 
 - **Method:** `GET`
 - **Path:** `/api/v1/matches/:matchId`
-- **Success:** `200 OK`
+- **Authentication:** existing access-token/session guard
 
-The caller must be a participant in the requested match. Non-members receive `404 Not Found`, so the endpoint does not disclose whether another user's match exists.
+Only a participant can retrieve the summary. Non-members receive `404 Not Found`. The response omits participant identity IDs, answer content, and scores.
 
-The response contains match lifecycle metadata and participant types/statuses only. It never returns interim scores.
+## 3. Internal round activation
 
-## 5. Internal first-round activation
+`RoundService.startNextRound(matchId, generatedQuestion)` is a trusted application-service operation, not a public HTTP endpoint.
 
-`RoundService.startFirstRound(matchId, questionId)` is a trusted server-side service operation, not an HTTP endpoint.
+The question package is expected to come from the future provider-independent AI Question Generator port. This service:
 
-It:
-- accepts only V1 modes with exactly two participants and the required HUMAN/AI composition;
-- requires a persisted Question with a positive time limit;
-- obtains the start instant from PostgreSQL `clock_timestamp()`;
-- derives one shared `deadlineAt` from that instant and the Question time limit;
-- conditionally claims the match from `WAITING/currentRound=0` to `ACTIVE/currentRound=1`;
-- creates round 1 in the same serializable transaction;
-- rejects repeated/concurrent starts and maps serialization conflicts to a conflict response.
+1. Validates the generated question package and canonical multiple-choice option IDs.
+2. Locks the Match row in PostgreSQL before checking lifecycle state.
+3. Enforces exactly two active participants and the V1 HUMAN/AI composition for the selected match mode.
+4. Requires the first match round to be in `WAITING` or `READY`; later rounds require an ACTIVE match and a finalized previous round.
+5. Uses the database clock to establish one `startedAt` and one shared `deadlineAt`.
+6. Persists the private Question package, creates the Round, and advances the Match in one transaction.
+7. Rejects duplicate/concurrent starts and invalid state transitions.
 
-No client clock or client-selected question is accepted by this operation.
+Question localization uses a `localized[language]` object with a `prompt` string and an optional `options` map keyed by canonical option ID. Missing translations fall back to canonical content. The public question query selects only public question fields.
 
-## 6. Verification included in this slice
+## 4. Verification added
 
-- Unit tests for guest/user 1vAI creation and internal 1v1 pairing.
-- Unit tests for participant-only match reads and score omission.
-- Unit tests for participant composition, database-derived deadlines, conditional start, serializable isolation, and invalid time limits.
-- PostgreSQL integration tests for guest and registered ownership, synchronized first-round persistence, and concurrent first-round start race.
+- Unit tests for shared database-derived deadlines and match lifecycle checks.
+- Unit tests for V1 participant composition and invalid generated question packages.
+- Unit tests for language fallback and preservation of canonical option IDs/order.
+- Unit tests that assert private grading fields are not selected or returned.
+- PostgreSQL integration tests for persisted question/round creation, localized public projection, and concurrent round-start attempts.
 
-The tests have been added to the repository, but CI has not yet reported a run for the current branch head. They must be executed before treating this slice as verified.
+These tests are present in the branch but have not yet been confirmed green by CI on the current head.
 
-## 7. Remaining delivery gates
+## 5. Not yet implemented
 
-- Matchmaking and public 1v1 creation route.
-- Question generation, selection, validation, and safe localized question delivery.
-- Server-side AI opponent and provider-independent AI judge.
-- Answer submission with server acceptance timestamp, idempotency, and duplicate/race protection.
-- Deadline finalization and explicit `NO_RESPONSE` persistence.
-- Approved scoring policy, result creation, XP/ranking events.
-- Realtime delivery and reconnect/state recovery.
-- Full PostgreSQL concurrency/security test matrix and green CI on the exact branch head.
+- 1v1 matchmaking and the public match creation/pairing API.
+- A real AI Question Generator provider; current round service accepts its trusted output.
+- Server-side AI opponent strategy.
+- Answer submission, adjudication, idempotency, and duplicate-answer protection.
+- Shared-deadline timeout processing and explicit `NO_RESPONSE` persistence.
+- Scoring, round finalization, match completion, result/history APIs.
+- XP/ranking settlement and realtime events/reconnect recovery.
+- Full PostgreSQL concurrency/security matrix and end-to-end two-client verification.
 
-Do not describe this initial slice as a playable match. The phase is complete only after the NEX-BE-006 delivery gates are satisfied.
+Do not describe the current backend as a playable 1v1 or 1vAI game. Completion remains governed by the NEX-BE-006 delivery gates.
