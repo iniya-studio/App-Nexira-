@@ -2,13 +2,16 @@ import { PrincipalType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchService } from './match.service';
+import { RoundService } from './round.service';
 
-describe('Match persistence integration', () => {
+describe('Match and round persistence integration', () => {
   const prisma = new PrismaService();
-  const service = new MatchService(prisma);
+  const matches = new MatchService(prisma);
+  const rounds = new RoundService(prisma);
   const matchIds: string[] = [];
   const guestIds: string[] = [];
   const userIds: string[] = [];
+  const questionIds: string[] = [];
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -18,6 +21,10 @@ describe('Match persistence integration', () => {
     if (matchIds.length) {
       await prisma.match.deleteMany({ where: { id: { in: matchIds } } });
       matchIds.length = 0;
+    }
+    if (questionIds.length) {
+      await prisma.question.deleteMany({ where: { id: { in: questionIds } } });
+      questionIds.length = 0;
     }
     if (guestIds.length) {
       await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
@@ -33,13 +40,93 @@ describe('Match persistence integration', () => {
     await prisma.$disconnect();
   });
 
-  it('persists a guest 1vAI match with exactly one human and one AI participant', async () => {
+  async function createGuest() {
     const guest = await prisma.guestIdentity.create({ data: {} });
     guestIds.push(guest.id);
+    return guest.id;
+  }
 
-    const result = await service.createAiMatch({
+  async function createQuestion() {
+    const question = await prisma.question.create({
+      data: {
+        canonicalLanguage: 'en',
+        answerType: 'TEXT',
+        canonicalPrompt: 'Which planet is known as the Red Planet?',
+        answerKey: 'Mars',
+        gradingRubric: { strategy: 'exact-or-semantic' },
+        localized: { en: { prompt: 'Which planet is known as the Red Planet?' } },
+        timeLimitSeconds: 20,
+        contentVersion: `integration-${randomUUID()}`,
+      },
+    });
+    questionIds.push(question.id);
+    return question.id;
+  }
+
+  async function createGuestOneVsOne() {
+    const firstGuestId = await createGuest();
+    const secondGuestId = await createGuest();
+    const match = await matches.createOneVsOne(
+      {
+        principalType: PrincipalType.GUEST,
+        principalId: firstGuestId,
+        sessionId: randomUUID(),
+      },
+      {
+        principalType: PrincipalType.GUEST,
+        principalId: secondGuestId,
+        sessionId: randomUUID(),
+      },
+    );
+    matchIds.push(match.id);
+    return match.id;
+  }
+
+  it('starts one synchronized round for both human participants using the database clock', async () => {
+    const matchId = await createGuestOneVsOne();
+    const questionId = await createQuestion();
+
+    const started = await rounds.startFirstRound(matchId, questionId);
+
+    expect(started.matchId).toBe(matchId);
+    expect(started.roundNumber).toBe(1);
+    expect(started.startedAt).toBeInstanceOf(Date);
+    expect(started.deadlineAt.getTime() - started.startedAt.getTime()).toBe(20_000);
+
+    const storedMatch = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: { participants: true, rounds: true },
+    });
+    expect(storedMatch?.status).toBe('ACTIVE');
+    expect(storedMatch?.currentRound).toBe(1);
+    expect(storedMatch?.participants).toHaveLength(2);
+    expect(storedMatch?.rounds).toHaveLength(1);
+    expect(storedMatch?.rounds[0].startedAt).toEqual(storedMatch?.rounds[0].deadlineAt
+      ? new Date(storedMatch.rounds[0].deadlineAt.getTime() - 20_000)
+      : null);
+  });
+
+  it('allows only one concurrent first-round start to commit', async () => {
+    const matchId = await createGuestOneVsOne();
+    const questionId = await createQuestion();
+
+    const outcomes = await Promise.allSettled([
+      rounds.startFirstRound(matchId, questionId),
+      rounds.startFirstRound(matchId, questionId),
+    ]);
+
+    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1);
+    expect(await prisma.round.count({ where: { matchId } })).toBe(1);
+    expect(await prisma.match.count({ where: { id: matchId, status: 'ACTIVE', currentRound: 1 } })).toBe(1);
+  });
+
+  it('persists a guest 1vAI match and hides it from non-participants', async () => {
+    const guestId = await createGuest();
+
+    const result = await matches.createAiMatch({
       principalType: PrincipalType.GUEST,
-      principalId: guest.id,
+      principalId: guestId,
       sessionId: randomUUID(),
     });
     matchIds.push(result.id);
@@ -54,22 +141,21 @@ describe('Match persistence integration', () => {
     expect(stored?.participants).toHaveLength(2);
     expect(stored?.participants.filter((participant) => participant.participantType === 'HUMAN')).toHaveLength(1);
     expect(stored?.participants.filter((participant) => participant.participantType === 'AI')).toHaveLength(1);
-    expect(stored?.participants.find((participant) => participant.participantType === 'HUMAN')?.guestIdentityId).toBe(guest.id);
+    expect(stored?.participants.find((participant) => participant.participantType === 'HUMAN')?.guestIdentityId).toBe(guestId);
 
     await expect(
-      service.getMatch(result.id, {
+      matches.getMatch(result.id, {
         principalType: PrincipalType.GUEST,
-        principalId: guest.id,
+        principalId: guestId,
         sessionId: randomUUID(),
       }),
     ).resolves.toMatchObject({ id: result.id });
 
-    const outsider = await prisma.guestIdentity.create({ data: {} });
-    guestIds.push(outsider.id);
+    const outsiderId = await createGuest();
     await expect(
-      service.getMatch(result.id, {
+      matches.getMatch(result.id, {
         principalType: PrincipalType.GUEST,
-        principalId: outsider.id,
+        principalId: outsiderId,
         sessionId: randomUUID(),
       }),
     ).rejects.toThrow('Match not found');
@@ -84,7 +170,7 @@ describe('Match persistence integration', () => {
     });
     userIds.push(user.id);
 
-    const result = await service.createAiMatch({
+    const result = await matches.createAiMatch({
       principalType: PrincipalType.USER,
       principalId: user.id,
       sessionId: randomUUID(),
