@@ -1,8 +1,8 @@
 # NEX-BE-008 — AI Judge & Server-Side Scoring Contract
 
 **Project:** NEXIRA  
-**Version:** 0.1  
-**Status:** Draft — technical contract for implementation planning; scoring-policy values require reconciliation with NEX-BE-006 before implementation  
+**Version:** 0.2  
+**Status:** Draft — technical contract for implementation planning; scoring values and cumulative no-response/forfeit accounting are aligned with NEX-BE-006 Version 1.1  
 **Target branch:** `feature/backend-foundation`  
 **Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance
 
@@ -120,15 +120,18 @@ Rules:
 
 A missing answer must be represented by an explicit `NO_RESPONSE` record after the server deadline has passed. It must not be inferred solely from the absence of an answer row.
 
-The carried-forward project proposal is:
-- first consecutive no-response: -5 points;
-- second consecutive no-response: -5 points;
-- third consecutive no-response: -10 points and surrender/forfeit;
-- surrender bonus: transfer 20 points to the remaining player.
+The V1 consecutive no-response and forfeit rule is aligned with NEX-BE-006 Version 1.1:
+- first consecutive no-response: apply -5 points to the non-responding participant;
+- second consecutive no-response: apply a further -5 points to that participant;
+- third consecutive no-response: apply a further -10 points and trigger surrender/forfeit;
+- the three deductions total exactly -20 points for the forfeiting participant;
+- credit the remaining participant with +20 points once as the forfeit transfer, representing the same accumulated penalty amount.
 
-**Approval gate:** Reconcile these exact values and the 20-point transfer semantics with NEX-BE-006 before implementation. The contract must define whether the transfer is a one-time match bonus, how it is represented in the score ledger, and how it behaves if the opponent is an AI participant.
+**No additional -20 deduction is permitted at the moment of forfeiture.** The forfeiting participant's total penalty across the three consecutive no-responses is -20, not -40. The +20 transfer to the remaining participant is not another deduction from the forfeiting participant.
 
-A valid submitted answer breaks the consecutive no-response streak. A technical interruption or voided round must not count as a no-response.
+The score ledger must make the accounting explicit and auditable. Record the three penalty entries against the forfeiting participant and one corresponding transfer credit for the remaining participant. Apply the transfer only once, using a stable idempotency key tied to the match/forfeit event. Round retries, match finalization retries, and recovery workers must never duplicate deductions or the transfer. The settlement must be atomic.
+
+A valid submitted answer breaks the consecutive no-response streak. A technical interruption or voided round must not count as a no-response. A disconnect alone is not a no-response; the server deadline and explicit outcome determine it.
 
 ## 6. Round finalization
 
@@ -198,7 +201,10 @@ The generation service must remain provider-independent, versioned, observable, 
 - simultaneous finalization attempts;
 - no-response streak reset after a valid answer;
 - technical/void round excluded from no-response penalties;
-- surrender applied once only;
+- the three no-response penalties total exactly -20 for the forfeiting participant; no additional -20 deduction is applied at forfeit;
+- the remaining participant receives exactly one +20 transfer credit;
+- retries/recovery cannot duplicate any of the three penalties or the transfer credit;
+- surrender/forfeit settlement is atomic and idempotent;
 - match result, XP, and ranking settlement idempotency.
 
 ### Release gates
@@ -211,7 +217,7 @@ The generation service must remain provider-independent, versioned, observable, 
 
 ## 10. Implementation sequence
 
-1. Reconcile and approve scoring/penalty values against NEX-BE-006.
+1. Implement the scoring and cumulative no-response/forfeit accounting exactly as locked in NEX-BE-006 Version 1.1; do not add a second -20 deduction.
 2. Define typed internal AI Judge port, provider adapter, strict schema, and policy versioning.
 3. Implement deterministic multiple-choice adjudication and free-text AI adjudication.
 4. Implement transactional scoring and idempotent score ledger writes.
