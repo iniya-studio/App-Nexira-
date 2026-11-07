@@ -189,6 +189,7 @@ describe('AnswerService', () => {
     expect(result.answerId).toBe('answer-existing');
     expect(result.acceptedAt).toEqual(acceptedAt);
     expect(tx.answer.create).not.toHaveBeenCalled();
+    expect(tx.matchParticipant.update).not.toHaveBeenCalled();
     expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
