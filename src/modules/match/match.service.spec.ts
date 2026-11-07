@@ -5,11 +5,16 @@ import { MatchService } from './match.service';
 
 describe('MatchService', () => {
   const createdAt = new Date('2026-11-08T00:00:00.000Z');
+  const principalCases: Array<[
+    PrincipalType,
+    { userId?: string; guestIdentityId?: string },
+    string,
+  ]> = [
+    [PrincipalType.USER, { userId: 'user-1' }, 'user-1'],
+    [PrincipalType.GUEST, { guestIdentityId: 'guest-1' }, 'guest-1'],
+  ];
 
-  it.each([
-    [PrincipalType.USER, { userId: 'user-1' }],
-    [PrincipalType.GUEST, { guestIdentityId: 'guest-1' }],
-  ])('creates a waiting 1vAI match for a %s principal', async (principalType, ownerData) => {
+  it.each(principalCases)('creates a waiting 1vAI match for a %s principal', async (principalType, ownerData, principalId) => {
     const matchRecord = {
       id: 'match-1',
       mode: MatchMode.ONE_V_AI,
@@ -27,7 +32,7 @@ describe('MatchService', () => {
     const service = new MatchService(prisma);
     const principal: AuthenticatedPrincipal = {
       principalType,
-      principalId: principalType === PrincipalType.USER ? 'user-1' : 'guest-1',
+      principalId,
       sessionId: 'session-1',
     };
 
