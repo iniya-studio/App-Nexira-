@@ -1,4 +1,5 @@
-import { CanActivate, ExecutionContext, Injectable, WsException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { WsException } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import { AccessTokenGuard } from './access-token.guard';
 
