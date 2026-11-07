@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService } from '../session/session.service';
 import { ConfigService } from '@nestjs/config';
 import { GoogleIdentityVerifier } from './google-identity-verifier';
+import { EmailVerificationService } from './email-verification.service';
 
 describe('AuthService', () => {
   const user = {
@@ -41,6 +42,7 @@ describe('AuthService', () => {
   };
   let sessions: { createSessionInTransaction: jest.Mock };
   let google: { verify: jest.Mock };
+  let emailVerification: { issueAndSend: jest.Mock };
 
   beforeEach(() => {
     tx = {
@@ -55,6 +57,7 @@ describe('AuthService', () => {
     };
     sessions = { createSessionInTransaction: jest.fn().mockResolvedValue(sessionResponse) };
     google = { verify: jest.fn() };
+    emailVerification = { issueAndSend: jest.fn().mockResolvedValue('NOT_CONFIGURED') };
     const config = {
       get: jest.fn((key: string) => ({
         ARGON2_MEMORY_COST_KIB: '1024',
@@ -67,6 +70,7 @@ describe('AuthService', () => {
       sessions as unknown as SessionService,
       config as unknown as ConfigService,
       google as unknown as GoogleIdentityVerifier,
+      emailVerification as unknown as EmailVerificationService,
     );
   });
 

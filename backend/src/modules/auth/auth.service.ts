@@ -13,6 +13,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService } from '../session/session.service';
 import { GoogleIdentityVerifier } from './google-identity-verifier';
 import { RegisterDto } from './dto/register.dto';
+import { EmailVerificationService } from './email-verification.service';
 
 type RateEntry = { count: number; resetAt: number };
 
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly sessions: SessionService,
     private readonly config: ConfigService,
     private readonly google: GoogleIdentityVerifier,
+    private readonly emailVerification: EmailVerificationService,
   ) {
     this.dummyHash = this.hashPassword('NEXIRA_DUMMY_PASSWORD_DO_NOT_USE');
   }
@@ -38,7 +40,7 @@ export class AuthService {
 
     const passwordHash = await this.hashPassword(input.password);
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const created = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
             email,
@@ -69,12 +71,10 @@ export class AuthService {
             result: 'SUCCESS',
           },
         });
-        return {
-          user,
-          ...session,
-          emailVerification: { required: true, verified: false, delivery: 'NOT_CONFIGURED' },
-        };
+        return { user, ...session };
       });
+      const delivery = await this.emailVerification.issueAndSend(created.user.id);
+      return { ...created, emailVerification: { required: true, verified: false, delivery } };
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException('An account with this email or username already exists');
