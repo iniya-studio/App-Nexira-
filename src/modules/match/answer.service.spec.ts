@@ -183,6 +183,7 @@ describe('AnswerService', () => {
 
   it('rejects an answer at the exact exclusive deadline boundary', async () => {
     tx.$queryRaw
+      .mockReset()
       .mockResolvedValueOnce([{ id: 'round-1' }])
       .mockResolvedValueOnce([{ now: deadlineAt }]);
 
