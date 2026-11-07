@@ -8,10 +8,9 @@ export class GuestIdentityController {
 
   @Post('start')
   start(@Req() request: Request) {
-    const forwardedFor = request.headers['x-forwarded-for'];
-    const ip = typeof forwardedFor === 'string'
-      ? forwardedFor.split(',')[0].trim()
-      : request.ip || request.socket.remoteAddress || 'unknown';
+    // Use the socket-derived Express IP. Do not trust arbitrary X-Forwarded-For
+    // values unless a trusted proxy chain is explicitly configured. 
+    const ip = request.ip || request.socket.remoteAddress || 'unknown';
     return this.guests.start(ip);
   }
 }
