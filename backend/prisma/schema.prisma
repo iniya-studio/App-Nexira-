@@ -193,6 +193,8 @@ model Match {
   @@index([roomId, createdAt])
 }
 
+// Participant count is intentionally not constrained in the schema.
+// Match-mode rules (1v1, 1vAI, or variable-capacity ROOM) belong to the Match Engine.
 model MatchParticipant {
   id              String            @id @default(uuid()) @db.Uuid
   matchId         String            @db.Uuid
