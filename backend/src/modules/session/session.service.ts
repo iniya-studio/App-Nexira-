@@ -92,7 +92,7 @@ export class SessionService {
           current.retryResponseCiphertext &&
           current.retryResponseExpiresAt &&
           current.retryResponseExpiresAt > now
-        ) return this.decryptResponse(current.retryResponseCiphertext);
+        ) return { replayDetected: false as const, response: this.decryptResponse(current.retryResponseCiphertext) };
         await tx.userSession.update({ where: { id: session.id }, data: { revokedAt: now } });
         await tx.refreshToken.updateMany({
           where: { sessionId: session.id, revokedAt: null },
