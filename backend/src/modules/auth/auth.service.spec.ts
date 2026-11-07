@@ -135,4 +135,66 @@ describe('AuthService', () => {
     expect(sessions.createSessionInTransaction).not.toHaveBeenCalled();
     expect(prisma.identityAuditEvent.create).toHaveBeenCalled();
   });
+
+  it('rejects suspended accounts even when the password is correct', async () => {
+    const passwordHash = await argon2.hash('correct-horse-battery-staple', {
+      type: argon2.argon2id, memoryCost: 1024, timeCost: 2, parallelism: 1,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      ...user, status: 'SUSPENDED', credential: { passwordHash },
+    });
+    await expect(service.login({
+      email: 'player@example.com', password: 'correct-horse-battery-staple',
+    }, '127.0.0.1')).rejects.toThrow('Invalid email or password');
+    expect(sessions.createSessionInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('signs in an already-linked Google identity by provider subject', async () => {
+    prisma.externalIdentity.findUnique.mockResolvedValue({ user: { ...user } });
+    google.verify.mockResolvedValue({
+      sub: 'google-subject-123', email: 'player@example.com', email_verified: true,
+    });
+    const result = await service.googleSignIn('signed-google-id-token', '127.0.0.1');
+    expect(prisma.externalIdentity.findUnique).toHaveBeenCalledWith({
+      where: { provider_providerSubject: { provider: 'GOOGLE', providerSubject: 'google-subject-123' } },
+      include: { user: true },
+    });
+    expect(sessions.createSessionInTransaction).toHaveBeenCalled();
+    expect(result.user.id).toBe('user-1');
+  });
+
+  it('does not auto-link Google to an existing email account', async () => {
+    prisma.externalIdentity.findUnique.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue({ ...user });
+    google.verify.mockResolvedValue({
+      sub: 'google-subject-456', email: 'player@example.com', email_verified: true,
+    });
+    await expect(service.googleSignIn('signed-google-id-token', '127.0.0.1'))
+      .rejects.toBeInstanceOf(ConflictException);
+    expect(sessions.createSessionInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('creates a new Google account from a verified provider identity', async () => {
+    prisma.externalIdentity.findUnique.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue(null);
+    google.verify.mockResolvedValue({
+      sub: 'google-subject-new', email: 'newplayer@example.com',
+      email_verified: true, name: 'New Player',
+    });
+    await service.googleSignIn('signed-google-id-token', '127.0.0.1');
+    expect(tx.user.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        email: 'newplayer@example.com',
+        emailVerifiedAt: expect.any(Date),
+        externalIdentities: {
+          create: expect.objectContaining({
+            provider: 'GOOGLE',
+            providerSubject: 'google-subject-new',
+            emailVerified: true,
+          }),
+        },
+      }),
+    }));
+    expect(sessions.createSessionInTransaction).toHaveBeenCalled();
+  });
 });
