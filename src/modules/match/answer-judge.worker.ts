@@ -141,7 +141,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
               (a."judgeStatus" = 'PENDING' AND a."judgeAvailableAt" <= clock_timestamp())
               OR
               (a."judgeStatus" = 'PROCESSING'
-                AND a."judgeStartedAt" <= clock_timestamp() - INTERVAL '${STALE_LEASE_SECONDS} seconds')
+                AND a."judgeStartedAt" <= clock_timestamp() - (${STALE_LEASE_SECONDS} * INTERVAL '1 second'))
             )
           ORDER BY a."acceptedAt" ASC
           LIMIT 1
