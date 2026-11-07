@@ -1,11 +1,10 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
 import { AccessTokenGuard } from '../identity/access-token.guard';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { RefreshSessionDto } from './refresh-session.dto';
 import { SessionService } from './session.service';
 
-type PrincipalRequest = Request & { principal: AuthenticatedPrincipal };
+type PrincipalRequest = { principal: AuthenticatedPrincipal };
 
 @Controller('sessions')
 export class SessionController {
