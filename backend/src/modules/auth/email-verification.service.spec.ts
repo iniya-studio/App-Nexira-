@@ -1,4 +1,4 @@
-import { BadRequestException, TooManyRequestsException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -72,6 +72,7 @@ describe('EmailVerificationService', () => {
     await service.resend(principal);
     await service.resend(principal);
     await service.resend(principal);
-    await expect(service.resend(principal)).rejects.toBeInstanceOf(TooManyRequestsException);
+    await expect(service.resend(principal)).rejects.toBeInstanceOf(HttpException);
+    await expect(service.resend(principal)).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
   });
 });

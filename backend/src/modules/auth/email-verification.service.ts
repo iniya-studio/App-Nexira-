@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, TooManyRequestsException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrincipalType, UserStatus } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
@@ -109,7 +109,7 @@ export class EmailVerificationService {
       this.resendAttempts.set(userId, { count: 1, resetAt: now + windowSeconds * 1000 });
       return;
     }
-    if (current.count >= max) throw new TooManyRequestsException('Too many verification email requests');
+    if (current.count >= max) throw new HttpException('Too many verification email requests', HttpStatus.TOO_MANY_REQUESTS);
     current.count += 1;
   }
 
