@@ -143,21 +143,21 @@ model User {
   createdAt         DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
 
-  sessions          UserSession[]
-  credential        AccountCredential?
-  externalIdentities ExternalIdentity[]
-  guestConversions  GuestIdentity[]       @relation("GuestConvertedUser")
+  sessions                UserSession[]
+  credential              AccountCredential?
+  externalIdentities      ExternalIdentity[]
+  guestConversions        GuestIdentity[]          @relation("GuestConvertedUser")
   emailVerificationTokens EmailVerificationToken[]
-  progress          UserProgress?
-  xpTransactions    XPTransaction[]
-  globalRanking     GlobalUserRanking?
-  matchParticipants MatchParticipant[]
-  hostedRooms       Room[]               @relation("RoomHost")
-  roomMemberships   RoomMember[]
-  rankings          UserRanking[]
-  rankingEvents     RankingTransaction[]
-  purchases         Purchase[]
-  inventoryItems    UserInventory[]
+  progress                UserProgress?
+  xpTransactions          XPTransaction[]
+  globalRanking           GlobalUserRanking?
+  matchParticipants       MatchParticipant[]
+  hostedRooms             Room[]                   @relation("RoomHost")
+  roomMemberships         RoomMember[]
+  rankings                UserRanking[]
+  rankingEvents            RankingTransaction[]
+  purchases               Purchase[]
+  inventoryItems          UserInventory[]
 
   @@index([status, createdAt])
 }
@@ -214,10 +214,10 @@ model GuestIdentity {
   createdAt         DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime            @updatedAt @db.Timestamptz(3)
 
-  convertedToUser User?                  @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: SetNull)
-  sessions        UserSession[]
-  matchParticipants MatchParticipant[]   @relation("CurrentGuestParticipant")
-  sourceMatchParticipants MatchParticipant[] @relation("SourceGuestParticipant")
+  convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: SetNull)
+  sessions                UserSession[]
+  matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
+  sourceMatchParticipants MatchParticipant[]       @relation("SourceGuestParticipant")
   emailVerificationTokens EmailVerificationToken[]
 
   @@index([status, updatedAt])
@@ -236,7 +236,7 @@ model RefreshToken {
   retryResponseExpiresAt  DateTime? @db.Timestamptz(3)
   createdAt               DateTime  @default(now()) @db.Timestamptz(3)
 
-  session    UserSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session    UserSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   replacedBy RefreshToken? @relation("RefreshTokenReplacement", fields: [replacedByTokenId], references: [id], onDelete: Restrict)
   replaces   RefreshToken? @relation("RefreshTokenReplacement")
 
@@ -304,15 +304,15 @@ model XPTransaction {
 }
 
 model Match {
-  id                String            @id @default(uuid()) @db.Uuid
+  id                String             @id @default(uuid()) @db.Uuid
   mode              MatchMode
-  status            MatchStatus       @default(WAITING)
-  roomId            String?           @db.Uuid
+  status            MatchStatus        @default(WAITING)
+  roomId            String?            @db.Uuid
   roomMatchStrategy RoomMatchStrategy?
-  currentRound      Int               @default(0)
-  startedAt         DateTime?         @db.Timestamptz(3)
-  completedAt       DateTime?         @db.Timestamptz(3)
-  createdAt         DateTime          @default(now()) @db.Timestamptz(3)
+  currentRound      Int                @default(0)
+  startedAt         DateTime?          @db.Timestamptz(3)
+  completedAt       DateTime?          @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
 
   room          Room?                @relation(fields: [roomId], references: [id], onDelete: Restrict)
   participants  MatchParticipant[]
@@ -340,12 +340,12 @@ model MatchParticipant {
   joinedAt              DateTime          @default(now()) @db.Timestamptz(3)
   finishedAt            DateTime?         @db.Timestamptz(3)
 
-  match              Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  user               User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  guestIdentity      GuestIdentity? @relation("CurrentGuestParticipant", fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  match               Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user                User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestIdentity       GuestIdentity? @relation("CurrentGuestParticipant", fields: [guestIdentityId], references: [id], onDelete: Restrict)
   sourceGuestIdentity GuestIdentity? @relation("SourceGuestParticipant", fields: [sourceGuestIdentityId], references: [id], onDelete: Restrict)
-  answers            Answer[]
-  wonResults         MatchResult[] @relation("MatchWinner")
+  answers             Answer[]
+  wonResults          MatchResult[]  @relation("MatchWinner")
 
   @@unique([matchId, participantKey])
   // A HUMAN participant belongs to exactly one User or GuestIdentity. AI has neither.
@@ -437,20 +437,20 @@ model MatchResult {
 // Room is a V2 runtime feature; V1 keeps this room-ready data foundation only.
 // ROOM matches must snapshot roomMatchStrategy; non-room matches must keep roomId/strategy null.
 model Room {
-  id                  String            @id @default(uuid()) @db.Uuid
-  hostUserId          String            @db.Uuid
-  name                String
-  roomType            RoomType          @default(PRIVATE)
-  inviteCodeHash      String?           @unique
-  matchStrategy       RoomMatchStrategy @default(SYNCHRONIZED)
-  status              RoomStatus        @default(OPEN)
-  maxPlayers          Int
-  minPlayersToStart   Int
-  countdownStartedAt  DateTime?         @db.Timestamptz(3)
-  countdownEndsAt     DateTime?         @db.Timestamptz(3)
-  settings            Json?
-  createdAt           DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime          @updatedAt @db.Timestamptz(3)
+  id                 String            @id @default(uuid()) @db.Uuid
+  hostUserId         String            @db.Uuid
+  name               String
+  roomType           RoomType          @default(PRIVATE)
+  inviteCodeHash     String?           @unique
+  matchStrategy      RoomMatchStrategy @default(SYNCHRONIZED)
+  status             RoomStatus        @default(OPEN)
+  maxPlayers         Int
+  minPlayersToStart  Int
+  countdownStartedAt DateTime?         @db.Timestamptz(3)
+  countdownEndsAt    DateTime?         @db.Timestamptz(3)
+  settings           Json?
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
 
   host    User         @relation("RoomHost", fields: [hostUserId], references: [id], onDelete: Restrict)
   members RoomMember[]
