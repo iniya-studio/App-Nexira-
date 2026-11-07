@@ -155,7 +155,7 @@ model User {
   hostedRooms             Room[]                   @relation("RoomHost")
   roomMemberships         RoomMember[]
   rankings                UserRanking[]
-  rankingEvents            RankingTransaction[]
+  rankingEvents           RankingTransaction[]
   purchases               Purchase[]
   inventoryItems          UserInventory[]
 
