@@ -68,7 +68,7 @@ jobs:
           mkdir -p prisma/migrations/00000000000000_init
           npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/00000000000000_init/migration.sql
           test -s prisma/migrations/00000000000000_init/migration.sql
-          printf 'provider = "postgresql"\\n' > prisma/migrations/migration_lock.toml
+          printf 'provider = "postgresql"\n' > prisma/migrations/migration_lock.toml
 
       - name: Apply generated SQL to disposable PostgreSQL
         run: |
