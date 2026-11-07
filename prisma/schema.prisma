@@ -79,6 +79,12 @@ enum JudgeStatus {
   FAILED
 }
 
+enum MatchScoreEntryType {
+  ANSWER_SCORE
+  NO_RESPONSE_PENALTY
+  FORFEIT_TRANSFER
+}
+
 enum RoomType {
   PRIVATE
   PUBLIC
@@ -321,6 +327,7 @@ model Match {
   result        MatchResult?
   xpEvents      XPTransaction[]
   rankingEvents RankingTransaction[]
+  scoreEntries  MatchScoreEntry[]
 
   @@index([status, createdAt])
   @@index([roomId, createdAt])
@@ -344,6 +351,7 @@ model MatchParticipant {
   user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   guestIdentity GuestIdentity? @relation("CurrentGuestParticipant", fields: [guestIdentityId], references: [id], onDelete: Restrict)
   answers       Answer[]
+  scoreEntries  MatchScoreEntry[]
   wonResults    MatchResult[]  @relation("MatchWinner")
 
   @@unique([matchId, participantKey])
@@ -368,7 +376,8 @@ model Round {
 
   match    Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
   question Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
-  answers  Answer[]
+  answers      Answer[]
+  scoreEntries MatchScoreEntry[]
 
   @@unique([matchId, roundNumber])
   @@unique([id, matchId])
@@ -418,11 +427,33 @@ model Answer {
 
   round       Round            @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
   participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
+  scoreEntry  MatchScoreEntry?
 
   @@unique([roundId, participantId])
   @@index([matchId, roundId])
   @@index([participantId, acceptedAt])
   @@index([judgeStatus, judgeAvailableAt])
+}
+
+model MatchScoreEntry {
+  id             String               @id @default(uuid()) @db.Uuid
+  matchId        String               @db.Uuid
+  participantId  String               @db.Uuid
+  roundId        String?              @db.Uuid
+  answerId       String?              @unique @db.Uuid
+  entryType      MatchScoreEntryType
+  pointsChange   Int
+  idempotencyKey String               @unique
+  createdAt      DateTime             @default(now()) @db.Timestamptz(3)
+
+  match       Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
+  round       Round?           @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  answer      Answer?          @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, createdAt])
+  @@index([participantId, createdAt])
+  @@index([roundId])
 }
 
 model MatchResult {
