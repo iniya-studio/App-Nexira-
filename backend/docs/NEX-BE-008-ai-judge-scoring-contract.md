@@ -1,8 +1,8 @@
 # NEX-BE-008 — AI Judge & Server-Side Scoring Contract
 
 **Project:** NEXIRA  
-**Version:** 0.3  
-**Status:** Implementation in progress — deterministic MCQ judging/scoring and asynchronous free-text AI Judge worker implemented; timeout penalties and finalization remain pending  
+**Version:** 0.4  
+**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, and exactly-once match score ledger implemented; timeout penalties and finalization remain pending  
 **Target branch:** `feature/backend-foundation`  
 **Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance
 
@@ -41,11 +41,12 @@ Implemented in the current branch:
 - provider-independent `FreeTextAnswerJudge` port;
 - first provider adapter using the OpenAI Responses API with strict JSON Schema output;
 - asynchronous free-text worker with database-backed leases, retry attempts, stale-lease recovery, and explicit `UNCERTAIN` handling;
-- no answer correctness or score in the submission receipt.
+- no answer correctness or score in the submission receipt;
+- durable `MatchScoreEntry` records for positive MCQ and AI-judged answer scores, written atomically with the participant score aggregate and protected by per-answer uniqueness/idempotency.
 
 Still pending:
 - explicit `NO_RESPONSE` creation and consecutive penalty processing;
-- durable score ledger entries for the three penalties and one forfeit transfer;
+- durable score ledger entries for the three penalties and one forfeit transfer (ledger foundation now exists; timeout/forfeit writers remain pending);
 - round deadline processing and atomic round finalization;
 - match finalization, immutable result, and XP/ranking settlement;
 - provider fallback, operational metrics, and manual two-client verification.
@@ -238,8 +239,8 @@ The generation service must remain provider-independent, versioned, observable, 
 1. Implement the scoring and cumulative no-response/forfeit accounting exactly as locked in NEX-BE-006 Version 1.1; do not add a second -20 deduction.
 2. Define typed internal AI Judge port, provider adapter, strict schema, and policy versioning.
 3. Implement deterministic multiple-choice adjudication and free-text AI adjudication.
-4. Implement transactional scoring and idempotent score ledger writes.
-5. Implement explicit no-response processing and consecutive-penalty state.
+4. Complete transactional scoring and idempotent score ledger writes for all score-changing events (answer-score ledger writes are implemented).
+5. Implement explicit no-response processing and consecutive-penalty/forfeit ledger entries.
 6. Implement round finalization, then match finalization and settlement.
 7. Add bounded generation/judge recovery, observability, and end-to-end verification.
 
