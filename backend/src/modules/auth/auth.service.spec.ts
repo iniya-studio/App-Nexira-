@@ -58,7 +58,7 @@ describe('AuthService', () => {
     const config = {
       get: jest.fn((key: string) => ({
         ARGON2_MEMORY_COST_KIB: '1024',
-        ARGON2_TIME_COST: '1',
+        ARGON2_TIME_COST: '2',
         ARGON2_PARALLELISM: '1',
       })[key]),
     };
@@ -109,7 +109,7 @@ describe('AuthService', () => {
     const passwordHash = await argon2.hash('correct-horse-battery-staple', {
       type: argon2.argon2id,
       memoryCost: 1024,
-      timeCost: 1,
+      timeCost: 2,
       parallelism: 1,
     });
     prisma.user.findUnique.mockResolvedValue({
