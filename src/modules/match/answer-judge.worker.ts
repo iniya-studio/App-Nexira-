@@ -123,7 +123,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
             ("judgeStatus" = 'PENDING' AND "judgeAvailableAt" <= clock_timestamp())
             OR
             ("judgeStatus" = 'PROCESSING'
-              AND "judgeStartedAt" <= clock_timestamp() - INTERVAL '${STALE_LEASE_SECONDS} seconds')
+              AND "judgeStartedAt" <= clock_timestamp() - (${STALE_LEASE_SECONDS} * INTERVAL '1 second'))
           )
       `;
 
