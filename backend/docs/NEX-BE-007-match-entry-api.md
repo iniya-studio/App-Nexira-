@@ -1,8 +1,8 @@
 # NEX-BE-007 — Match Entry & Synchronized Round Foundation
 
 **Project:** NEXIRA  
-**Version:** 1.2  
-**Status:** Initial implementation in progress; not a playable match release  
+**Version:** 1.3  
+**Status:** Initial implementation verified by CI; not a playable match release  
 **Target branch:** `feature/backend-foundation`  
 **Related contract:** NEX-BE-006 Match Core & Synchronized Round Contracts
 
@@ -12,7 +12,8 @@ The current backend branch contains:
 
 - Authenticated creation of a persisted 1vAI match shell.
 - Safe match summary retrieval for an authenticated participant.
-- Internal first-round/next-round activation from a trusted server-generated question package.
+- An internal 1v1 aggregate creation entry point for trusted matchmaking; it is not exposed as a public route.
+- Internal first/next-round activation from a trusted server-generated question package.
 - PostgreSQL row locking for per-match round transitions.
 - Database-derived `startedAt` using `clock_timestamp()` and one shared `deadlineAt`.
 - Canonical question persistence and participant-specific localization that preserves canonical option IDs and order.
@@ -55,25 +56,28 @@ The question package is expected to come from the future provider-independent AI
 
 Question localization uses a `localized[language]` object with a `prompt` string and an optional `options` map keyed by canonical option ID. Missing translations fall back to canonical content. The public question query selects only public question fields.
 
-## 4. Verification added
+## 4. Verification
 
-- Unit tests for shared database-derived deadlines and match lifecycle checks.
-- Unit tests for V1 participant composition and invalid generated question packages.
-- Unit tests for language fallback and preservation of canonical option IDs/order.
-- Unit tests that assert private grading fields are not selected or returned.
-- PostgreSQL integration tests for persisted question/round creation, localized public projection, and concurrent round-start attempts.
+CI run [#42413170621](https://github.com/iniya-studio/App-Nexira-/actions/runs/42413170621) validated implementation commit `0fe1f3b748a5dd8912755cfdbdea82f7ebbcb330`:
 
-These tests are present in the branch but have not yet been confirmed green by CI on the current head.
+- 13/13 Jest suites passed.
+- 52/52 tests passed, including PostgreSQL integration tests.
+- Prisma formatting, validation, client generation, and migration deployment passed.
+- NestJS production build passed.
+- ESLint passed.
+
+The PostgreSQL integration tests cover synchronized 1v1 start, same question identity and deadline for both human participants, localized text with preserved option IDs/order, safe public projection, and concurrent start protection.
 
 ## 5. Not yet implemented
 
-- 1v1 matchmaking and the public match creation/pairing API.
+- Public 1v1 matchmaking and pairing API.
 - A real AI Question Generator provider; current round service accepts its trusted output.
 - Server-side AI opponent strategy.
 - Answer submission, adjudication, idempotency, and duplicate-answer protection.
 - Shared-deadline timeout processing and explicit `NO_RESPONSE` persistence.
 - Scoring, round finalization, match completion, result/history APIs.
 - XP/ranking settlement and realtime events/reconnect recovery.
-- Full PostgreSQL concurrency/security matrix and end-to-end two-client verification.
+- Full answer/timeout concurrency and security matrix.
+- End-to-end client integration and manual two-client gameplay verification.
 
 Do not describe the current backend as a playable 1v1 or 1vAI game. Completion remains governed by the NEX-BE-006 delivery gates.
