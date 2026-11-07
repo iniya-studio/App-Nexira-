@@ -16,6 +16,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
+import { judgeMultipleChoiceAnswer } from './scoring.policy';
 
 export type AnswerReceipt = {
   answerId: string;
@@ -196,6 +197,17 @@ export class AnswerService {
         throw new Error('Database clock returned an invalid answer elapsed time');
       }
 
+      // Multiple-choice questions have an exact, deterministic server-side judge.
+      // Free-text answers remain pending until the AI Judge adapter is executed.
+      const mcqDecision =
+        round.question.answerType === 'MULTIPLE_CHOICE'
+          ? judgeMultipleChoiceAnswer(
+              input.responseText,
+              round.question.answerKey,
+              elapsedMs,
+            )
+          : null;
+
       const answer = await tx.answer.create({
         data: {
           matchId,
@@ -203,9 +215,13 @@ export class AnswerService {
           participantId: participant.id,
           responseText: input.responseText,
           status: AnswerStatus.ANSWERED,
-          judgeStatus: JudgeStatus.PENDING,
-          points: 0,
-          speedBonus: 0,
+          judgeStatus: mcqDecision ? JudgeStatus.COMPLETED : JudgeStatus.PENDING,
+          decision: mcqDecision?.decision ?? null,
+          confidence: mcqDecision ? 1 : null,
+          points: mcqDecision?.points ?? 0,
+          speedBonus: mcqDecision?.speedBonus ?? 0,
+          judgeReason: mcqDecision?.judgeReason ?? null,
+          judgeVersion: mcqDecision?.judgeVersion ?? null,
           elapsedMs,
           idempotencyKey: input.idempotencyKey,
           acceptedAt,
@@ -218,6 +234,13 @@ export class AnswerService {
           elapsedMs: true,
         },
       });
+
+      if (mcqDecision && mcqDecision.points > 0) {
+        await tx.matchParticipant.update({
+          where: { id: participant.id },
+          data: { score: { increment: mcqDecision.points } },
+        });
+      }
 
       return this.toReceipt(answer);
     });
