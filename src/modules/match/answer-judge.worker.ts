@@ -5,8 +5,8 @@ import { calculateCorrectAnswerScore } from './scoring.policy';
 import {
   FREE_TEXT_ANSWER_JUDGE,
   FreeTextAnswerJudge,
+  FreeTextJudgeError,
 } from './answer-judge.port';
-import { AnswerJudgeProviderError } from './openai-responses-answer-judge.adapter';
 
 const MAX_ATTEMPTS = 3;
 const STALE_LEASE_SECONDS = 30;
@@ -80,7 +80,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
       await this.persistDecision(claim, answer, result);
     } catch (error) {
       const code =
-        error instanceof AnswerJudgeProviderError
+        error instanceof FreeTextJudgeError
           ? error.code
           : 'JUDGE_INTERNAL_ERROR';
       await this.releaseClaim(claim, code);
