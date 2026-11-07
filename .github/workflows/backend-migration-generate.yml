@@ -168,14 +168,16 @@ jobs:
             CHECK ("amount" >= 0);
           SQL
 
-      - name: Apply generated SQL to disposable PostgreSQL
+      - name: Apply migration through Prisma Migrate
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -f prisma/migrations/00000000000000_init/migration.sql
+          npm run prisma:migrate:deploy
+          npx prisma migrate status
 
-      - name: Verify generated database objects
+      - name: Verify generated database objects and migration history
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';"
           PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) AS enum_count FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = 'public' AND t.typtype = 'e';"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -c "SELECT migration_name, finished_at IS NOT NULL AS applied FROM public.\"_prisma_migrations\";"
 
       - name: Commit verified initial migration
         run: |
