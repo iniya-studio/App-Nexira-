@@ -16,7 +16,7 @@ on:
       - ".github/workflows/backend-migration-generate.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: backend-migration-generation-${{ github.ref }}
@@ -70,6 +70,104 @@ jobs:
           test -s prisma/migrations/00000000000000_init/migration.sql
           printf 'provider = "postgresql"\n' > prisma/migrations/migration_lock.toml
 
+      - name: Add reviewed PostgreSQL CHECK constraints
+        run: |
+          cat >> prisma/migrations/00000000000000_init/migration.sql <<'SQL'
+
+          -- Enforce exactly one session owner: registered user or guest identity.
+          ALTER TABLE "UserSession"
+            ADD CONSTRAINT "UserSession_exactly_one_owner_check"
+            CHECK (("userId" IS NOT NULL AND "guestIdentityId" IS NULL)
+                OR ("userId" IS NULL AND "guestIdentityId" IS NOT NULL));
+
+          -- Guest conversion state must agree with its conversion metadata.
+          ALTER TABLE "GuestIdentity"
+            ADD CONSTRAINT "GuestIdentity_conversion_state_check"
+            CHECK (
+              ("status" = 'ACTIVE' AND "convertedToUserId" IS NULL AND "convertedAt" IS NULL)
+              OR ("status" = 'CONVERTED' AND "convertedToUserId" IS NOT NULL AND "convertedAt" IS NOT NULL)
+              OR ("status" = 'REVOKED' AND (
+                ("convertedToUserId" IS NULL AND "convertedAt" IS NULL)
+                OR ("convertedToUserId" IS NOT NULL AND "convertedAt" IS NOT NULL)
+              ))
+            );
+
+          -- A HUMAN is backed by exactly one account/guest; an AI has neither.
+          ALTER TABLE "MatchParticipant"
+            ADD CONSTRAINT "MatchParticipant_identity_by_type_check"
+            CHECK (
+              ("participantType" = 'HUMAN' AND num_nonnulls("userId", "guestIdentityId") = 1)
+              OR ("participantType" = 'AI' AND "userId" IS NULL AND "guestIdentityId" IS NULL)
+            ),
+            ADD CONSTRAINT "MatchParticipant_score_nonnegative_check"
+            CHECK ("score" >= 0);
+
+          -- ROOM matches snapshot room and strategy; other modes must not carry room data.
+          ALTER TABLE "Match"
+            ADD CONSTRAINT "Match_room_fields_by_mode_check"
+            CHECK (
+              ("mode" = 'ROOM' AND "roomId" IS NOT NULL AND "roomMatchStrategy" IS NOT NULL)
+              OR ("mode" <> 'ROOM' AND "roomId" IS NULL AND "roomMatchStrategy" IS NULL)
+            ),
+            ADD CONSTRAINT "Match_current_round_nonnegative_check"
+            CHECK ("currentRound" >= 0);
+
+          -- Keep encrypted refresh retry payload and its expiry as an atomic pair.
+          ALTER TABLE "RefreshToken"
+            ADD CONSTRAINT "RefreshToken_retry_response_pair_check"
+            CHECK (("retryResponseCiphertext" IS NULL AND "retryResponseExpiresAt" IS NULL)
+                OR ("retryResponseCiphertext" IS NOT NULL AND "retryResponseExpiresAt" IS NOT NULL)),
+            ADD CONSTRAINT "RefreshToken_not_own_replacement_check"
+            CHECK ("replacedByTokenId" IS NULL OR "replacedByTokenId" <> "id");
+
+          ALTER TABLE "RankingTransaction"
+            ADD CONSTRAINT "RankingTransaction_scope_season_check"
+            CHECK (("scope" = 'GLOBAL' AND "seasonId" IS NULL)
+                OR ("scope" = 'SEASON' AND "seasonId" IS NOT NULL));
+
+          ALTER TABLE "RankingSeason"
+            ADD CONSTRAINT "RankingSeason_valid_period_check"
+            CHECK ("startsAt" < "endsAt");
+
+          ALTER TABLE "UserProgress"
+            ADD CONSTRAINT "UserProgress_nonnegative_values_check"
+            CHECK ("level" >= 1 AND "currentLevelXp" >= 0 AND "totalXp" >= 0);
+
+          ALTER TABLE "Room"
+            ADD CONSTRAINT "Room_valid_capacity_check"
+            CHECK ("minPlayersToStart" >= 1 AND "maxPlayers" >= "minPlayersToStart");
+
+          ALTER TABLE "Question"
+            ADD CONSTRAINT "Question_positive_time_limit_check"
+            CHECK ("timeLimitSeconds" > 0);
+
+          ALTER TABLE "Round"
+            ADD CONSTRAINT "Round_positive_number_check"
+            CHECK ("roundNumber" >= 1);
+
+          ALTER TABLE "Answer"
+            ADD CONSTRAINT "Answer_nonnegative_scoring_values_check"
+            CHECK ("elapsedMs" >= 0 AND "points" >= 0 AND "speedBonus" >= 0),
+            ADD CONSTRAINT "Answer_confidence_range_check"
+            CHECK ("confidence" IS NULL OR ("confidence" >= 0 AND "confidence" <= 1)),
+            ADD CONSTRAINT "Answer_no_response_consistency_check"
+            CHECK (
+              "status" <> 'NO_RESPONSE'
+              OR ("responseText" IS NULL AND "decision" IS NULL
+                  AND "judgeStatus" = 'NOT_REQUIRED' AND "points" = 0 AND "speedBonus" = 0)
+            ),
+            ADD CONSTRAINT "Answer_answered_has_response_check"
+            CHECK ("status" <> 'ANSWERED' OR "responseText" IS NOT NULL);
+
+          ALTER TABLE "StoreItem"
+            ADD CONSTRAINT "StoreItem_nonnegative_price_check"
+            CHECK ("priceAmount" >= 0);
+
+          ALTER TABLE "Purchase"
+            ADD CONSTRAINT "Purchase_nonnegative_amount_check"
+            CHECK ("amount" >= 0);
+          SQL
+
       - name: Apply generated SQL to disposable PostgreSQL
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -f prisma/migrations/00000000000000_init/migration.sql
@@ -78,6 +176,18 @@ jobs:
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';"
           PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) AS enum_count FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = 'public' AND t.typtype = 'e';"
+
+      - name: Commit verified initial migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/migrations/00000000000000_init/migration.sql prisma/migrations/migration_lock.toml
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(backend): add verified initial database migration"
+            git push
+          else
+            echo "Initial migration is already up to date."
+          fi
 
       - name: Upload generated migration for review
         uses: actions/upload-artifact@v4
