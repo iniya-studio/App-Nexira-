@@ -31,6 +31,21 @@ jobs:
       run:
         working-directory: backend
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexira_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexira_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       CI: true
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nexira_ci?schema=public
@@ -59,10 +74,13 @@ jobs:
       - name: Generate Prisma Client
         run: npm run prisma:generate
 
+      - name: Apply migrations to CI PostgreSQL
+        run: npm run prisma:migrate:deploy
+
       - name: Build NestJS for production
         run: npm run build
 
-      - name: Run unit tests
+      - name: Run unit and PostgreSQL integration tests
         run: npm test -- --runInBand
 
       - name: Run ESLint
