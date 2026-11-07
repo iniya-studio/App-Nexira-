@@ -1,0 +1,89 @@
+name: Backend Migration Generation
+
+on:
+  push:
+    branches:
+      - feature/backend-foundation
+    paths:
+      - "backend/prisma/schema.prisma"
+      - ".github/workflows/backend-migration-generate.yml"
+  pull_request:
+    branches:
+      - feature/backend-foundation
+    paths:
+      - "backend/prisma/schema.prisma"
+      - ".github/workflows/backend-migration-generate.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-migration-generation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-and-smoke-test:
+    name: Generate and Smoke-Test Initial Migration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexira_migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexira_migration_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nexira_migration_test?schema=public
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install backend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
+
+      - name: Generate initial migration SQL from the checked-in schema
+        run: |
+          mkdir -p prisma/migrations/00000000000000_init
+          npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/00000000000000_init/migration.sql
+          test -s prisma/migrations/00000000000000_init/migration.sql
+          printf 'provider = "postgresql"\n' > prisma/migrations/migration_lock.toml
+
+      - name: Apply generated SQL to disposable PostgreSQL
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -f prisma/migrations/00000000000000_init/migration.sql
+
+      - name: Verify generated database objects
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d nexira_migration_test -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) AS enum_count FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = 'public' AND t.typtype = 'e';"
+
+      - name: Upload generated migration for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexira-initial-migration-sql
+          path: |
+            backend/prisma/migrations/00000000000000_init/migration.sql
+            backend/prisma/migrations/migration_lock.toml
+          if-no-files-found: error
+          retention-days: 7
