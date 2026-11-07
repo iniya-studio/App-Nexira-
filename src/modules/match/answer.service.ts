@@ -96,6 +96,7 @@ export class AnswerService {
             select: {
               answerType: true,
               canonicalOptions: true,
+              answerKey: true,
             },
           },
           match: {
