@@ -1,8 +1,8 @@
 # NEX-BE-008 — AI Judge & Server-Side Scoring Contract
 
 **Project:** NEXIRA  
-**Version:** 0.2  
-**Status:** Draft — technical contract for implementation planning; scoring values and cumulative no-response/forfeit accounting are aligned with NEX-BE-006 Version 1.1  
+**Version:** 0.3  
+**Status:** Implementation in progress — deterministic MCQ judging/scoring and asynchronous free-text AI Judge worker implemented; timeout penalties and finalization remain pending  
 **Target branch:** `feature/backend-foundation`  
 **Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance
 
@@ -21,14 +21,34 @@ The client may display results but must never submit or determine correctness, p
 
 ## 2. Existing implementation baseline
 
-The current V1 answer-acceptance path:
+The current V1 answer path:
 - accepts canonical option IDs for multiple-choice questions and text for free-text questions;
 - records database-derived `acceptedAt` and `elapsedMs`;
 - enforces one answer per participant per round and idempotent retries;
-- persists accepted answers with `judgeStatus=PENDING`, `points=0`, and `speedBonus=0`;
-- does not reveal correctness or score in the answer receipt.
+- deterministically adjudicates multiple-choice answers during the submission transaction and applies the approved score once;
+- persists free-text answers as pending AI Judge work and processes them asynchronously through a leased, retryable worker;
+- never reveals correctness or score in the answer receipt.
+
+The current `Answer` model stores judge attempts, availability, lease ID, and lease start time so crashed workers can be recovered without allowing an expired worker to apply a stale result.
 
 The Prisma schema already contains `JudgeDecision` (`CORRECT`, `INCORRECT`, `UNCERTAIN`), `JudgeStatus` (`NOT_REQUIRED`, `PENDING`, `COMPLETED`, `FAILED`), and fields for confidence, reason, and judge version. This contract must be implemented against the actual schema and migrations; do not duplicate existing fields without a demonstrated need.
+
+### 2.1 Implementation status
+
+Implemented in the current branch:
+- deterministic multiple-choice judging against canonical option IDs;
+- locked base/speed scoring, persisted on the Answer row and atomically added to the participant score;
+- provider-independent `FreeTextAnswerJudge` port;
+- first provider adapter using the OpenAI Responses API with strict JSON Schema output;
+- asynchronous free-text worker with database-backed leases, retry attempts, stale-lease recovery, and explicit `UNCERTAIN` handling;
+- no answer correctness or score in the submission receipt.
+
+Still pending:
+- explicit `NO_RESPONSE` creation and consecutive penalty processing;
+- durable score ledger entries for the three penalties and one forfeit transfer;
+- round deadline processing and atomic round finalization;
+- match finalization, immutable result, and XP/ranking settlement;
+- provider fallback, operational metrics, and manual two-client verification.
 
 ## 3. Adjudication strategy
 
@@ -98,7 +118,7 @@ Exact retry counts, timeout budgets, and fallback-provider order are deployment 
 
 ### 5.1 Correct-answer points
 
-The current proposed V1 scoring table is:
+The locked V1 scoring table from NEX-BE-006 Version 1.1 is:
 
 | Server-measured elapsed time | Base points | Speed bonus | Total |
 |---|---:|---:|---:|
@@ -113,8 +133,6 @@ Rules:
 - Use the server-persisted `elapsedMs`; never trust a client timer.
 - Boundaries are inclusive as shown and must have explicit unit tests.
 - Calculate and persist the score once, transactionally and idempotently.
-
-**Approval gate:** These values are a carried-forward project proposal, not yet confirmed against the canonical NEX-BE-006 source. Reconcile and lock the scoring table before implementation. Do not change these values silently.
 
 ### 5.2 No-response and consecutive penalties
 
