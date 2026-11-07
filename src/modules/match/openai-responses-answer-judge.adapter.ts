@@ -5,6 +5,7 @@ import {
   FreeTextAnswerJudge,
   FreeTextJudgeInput,
   FreeTextJudgeResult,
+  FreeTextJudgeError,
 } from './answer-judge.port';
 
 const POLICY_VERSION = 'free-text-semantic-v1';
@@ -28,16 +29,6 @@ type ResponsesApiPayload = {
   }>;
 };
 
-export class AnswerJudgeProviderError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'AnswerJudgeProviderError';
-  }
-}
-
 @Injectable()
 export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
   constructor(private readonly config: ConfigService) {}
@@ -53,13 +44,13 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
     const timeoutMs = Number(this.config.get<string>('AI_JUDGE_TIMEOUT_MS', '8000'));
 
     if (!apiKey || !model) {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_PROVIDER_NOT_CONFIGURED',
         'The configured AI Judge provider is not available',
       );
     }
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 30000) {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_CONFIGURATION_INVALID',
         'AI_JUDGE_TIMEOUT_MS must be between 1000 and 30000',
       );
@@ -141,16 +132,16 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
       }),
     }).catch((error: unknown) => {
       if (error instanceof Error && error.name === 'TimeoutError') {
-        throw new AnswerJudgeProviderError('JUDGE_PROVIDER_TIMEOUT', 'AI Judge request timed out');
+        throw new FreeTextJudgeError('JUDGE_PROVIDER_TIMEOUT', 'AI Judge request timed out');
       }
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_PROVIDER_NETWORK_ERROR',
         'AI Judge provider request failed',
       );
     });
 
     if (!response.ok) {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         `JUDGE_PROVIDER_HTTP_${response.status}`,
         'AI Judge provider returned an unsuccessful response',
       );
@@ -158,7 +149,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
 
     const payload = (await response.json()) as ResponsesApiPayload;
     if (payload.status && payload.status !== 'completed') {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_PROVIDER_INCOMPLETE',
         'AI Judge provider did not complete the response',
       );
@@ -166,7 +157,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
 
     const content = (payload.output ?? []).flatMap((item) => item.content ?? []);
     if (content.some((item) => item.type === 'refusal' || item.refusal)) {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_PROVIDER_REFUSAL',
         'AI Judge provider refused to adjudicate the answer',
       );
@@ -174,7 +165,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
 
     const outputText = content.find((item) => item.type === 'output_text')?.text;
     if (!outputText) {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_PROVIDER_EMPTY_OUTPUT',
         'AI Judge provider returned no structured result',
       );
@@ -184,7 +175,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
     try {
       parsed = JSON.parse(outputText);
     } catch {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_PROVIDER_INVALID_JSON',
         'AI Judge provider returned malformed structured output',
       );
@@ -207,7 +198,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
       !input.participantResponse.trim() ||
       input.participantResponse.length > 2000
     ) {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_INPUT_INVALID',
         'AI Judge input is invalid',
       );
@@ -219,7 +210,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
     'provider' | 'model' | 'policyVersion'
   > {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_PROVIDER_INVALID_RESULT',
         'AI Judge result has an invalid shape',
       );
@@ -237,7 +228,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
       typeof result.rationale !== 'string' ||
       result.rationale.length > 500
     ) {
-      throw new AnswerJudgeProviderError(
+      throw new FreeTextJudgeError(
         'JUDGE_PROVIDER_INVALID_RESULT',
         'AI Judge result failed validation',
       );
