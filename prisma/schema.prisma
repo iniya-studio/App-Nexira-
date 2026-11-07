@@ -347,12 +347,12 @@ model MatchParticipant {
   joinedAt        DateTime          @default(now()) @db.Timestamptz(3)
   finishedAt      DateTime?         @db.Timestamptz(3)
 
-  match         Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
-  guestIdentity GuestIdentity? @relation("CurrentGuestParticipant", fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  match         Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user          User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestIdentity GuestIdentity?    @relation("CurrentGuestParticipant", fields: [guestIdentityId], references: [id], onDelete: Restrict)
   answers       Answer[]
   scoreEntries  MatchScoreEntry[]
-  wonResults    MatchResult[]  @relation("MatchWinner")
+  wonResults    MatchResult[]     @relation("MatchWinner")
 
   @@unique([matchId, participantKey])
   // A HUMAN participant belongs to exactly one User or GuestIdentity. AI has neither.
@@ -374,8 +374,8 @@ model Round {
   deadlineAt  DateTime? @db.Timestamptz(3)
   completedAt DateTime? @db.Timestamptz(3)
 
-  match    Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  question Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  match        Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  question     Question?         @relation(fields: [questionId], references: [id], onDelete: SetNull)
   answers      Answer[]
   scoreEntries MatchScoreEntry[]
 
@@ -436,15 +436,15 @@ model Answer {
 }
 
 model MatchScoreEntry {
-  id             String               @id @default(uuid()) @db.Uuid
-  matchId        String               @db.Uuid
-  participantId  String               @db.Uuid
-  roundId        String?              @db.Uuid
-  answerId       String?              @unique @db.Uuid
+  id             String              @id @default(uuid()) @db.Uuid
+  matchId        String              @db.Uuid
+  participantId  String              @db.Uuid
+  roundId        String?             @db.Uuid
+  answerId       String?             @unique @db.Uuid
   entryType      MatchScoreEntryType
   pointsChange   Int
-  idempotencyKey String               @unique
-  createdAt      DateTime             @default(now()) @db.Timestamptz(3)
+  idempotencyKey String              @unique
+  createdAt      DateTime            @default(now()) @db.Timestamptz(3)
 
   match       Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
   participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
