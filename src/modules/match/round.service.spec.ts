@@ -1,52 +1,98 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
-import { MatchMode, MatchStatus, ParticipantType, Prisma } from '@prisma/client';
+import { ConflictException } from '@nestjs/common';
+import {
+  MatchMode,
+  MatchStatus,
+  ParticipantStatus,
+  ParticipantType,
+  PrincipalType,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
+import { GeneratedQuestion } from './question.types';
 import { RoundService } from './round.service';
 
 describe('RoundService', () => {
-  const startedAt = new Date('2026-11-08T00:00:00.000Z');
-  const question = { id: 'question-1', timeLimitSeconds: 20 };
+  const startedAt = new Date('2026-11-08T10:00:00.000Z');
+  const principal: AuthenticatedPrincipal = {
+    principalType: PrincipalType.GUEST,
+    principalId: 'guest-1',
+    sessionId: 'session-1',
+  };
+  const question: GeneratedQuestion = {
+    canonicalLanguage: 'en',
+    answerType: 'MULTIPLE_CHOICE',
+    canonicalPrompt: 'Canonical prompt',
+    canonicalOptions: [
+      { id: 'A', text: 'Canonical A' },
+      { id: 'B', text: 'Canonical B' },
+    ],
+    answerKey: 'B',
+    gradingRubric: { type: 'exact-option' },
+    localized: {
+      en: { prompt: 'English prompt', options: { A: 'English A', B: 'English B' } },
+      fa: { prompt: 'پرسش فارسی', options: { A: 'گزینه الف', B: 'گزینه ب' } },
+    },
+    timeLimitSeconds: 20,
+    contentVersion: 'test-v1',
+  };
 
-  function setup(participants = [
-    { participantType: ParticipantType.HUMAN },
-    { participantType: ParticipantType.HUMAN },
-  ]) {
-    const tx = {
+  let tx: {
+    $queryRaw: jest.Mock;
+    match: { findUnique: jest.Mock; update: jest.Mock };
+    question: { create: jest.Mock };
+    round: { create: jest.Mock; findUnique: jest.Mock; findFirst: jest.Mock };
+  };
+  let prisma: { $transaction: jest.Mock; round: { findFirst: jest.Mock } };
+  let service: RoundService;
+
+  beforeEach(() => {
+    tx = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([{ id: 'match-1' }])
+        .mockResolvedValueOnce([{ now: startedAt }]),
       match: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'match-1',
-          mode: MatchMode.ONE_V_ONE,
+          mode: MatchMode.ONE_V_AI,
           status: MatchStatus.WAITING,
           currentRound: 0,
-          participants,
+          startedAt: null,
+          participants: [
+            { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
+            { participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE },
+          ],
         }),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn().mockResolvedValue({ id: 'match-1' }),
       },
-      question: { findUnique: jest.fn().mockResolvedValue(question) },
-      $queryRaw: jest.fn().mockResolvedValue([{ now: startedAt }]),
+      question: { create: jest.fn().mockResolvedValue({ id: 'question-1' }) },
       round: {
-        create: jest.fn().mockImplementation(({ data }) => ({
-          id: 'round-1',
-          ...data,
-        })),
+        create: jest.fn().mockResolvedValue({ id: 'round-1' }),
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn(),
       },
     };
-    const prisma = {
-      $transaction: jest.fn((callback: (transaction: typeof tx) => unknown) => callback(tx)),
-    } as unknown as PrismaService;
-    return { service: new RoundService(prisma), prisma, tx };
-  }
+    prisma = {
+      $transaction: jest.fn(async (callback: (transaction: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+      round: { findFirst: jest.fn() },
+    };
+    service = new RoundService(prisma as unknown as PrismaService);
+  });
 
-  it('starts a round with a shared database-derived deadline', async () => {
-    const { service, tx } = setup();
+  it('creates one persisted question and one shared server deadline for 1vAI', async () => {
+    const result = await service.startNextRound('match-1', question);
 
-    const result = await service.startFirstRound('match-1', 'question-1');
-
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(tx.match.updateMany).toHaveBeenCalledWith({
-      where: { id: 'match-1', status: MatchStatus.WAITING, currentRound: 0 },
-      data: { status: MatchStatus.ACTIVE, currentRound: 1, startedAt },
-    });
+    expect(tx.question.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          answerKey: 'B',
+          canonicalLanguage: 'en',
+          timeLimitSeconds: 20,
+        }),
+      }),
+    );
     expect(tx.round.create).toHaveBeenCalledWith({
       data: {
         matchId: 'match-1',
@@ -55,54 +101,104 @@ describe('RoundService', () => {
         startedAt,
         deadlineAt: new Date(startedAt.getTime() + 20_000),
       },
-      select: {
-        id: true,
-        matchId: true,
-        roundNumber: true,
-        startedAt: true,
-        deadlineAt: true,
+    });
+    expect(tx.match.update).toHaveBeenCalledWith({
+      where: { id: 'match-1' },
+      data: {
+        status: MatchStatus.ACTIVE,
+        currentRound: 1,
+        startedAt,
       },
     });
-    expect(result.deadlineAt).toEqual(new Date(startedAt.getTime() + 20_000));
+    expect(result).toMatchObject({
+      matchId: 'match-1',
+      roundId: 'round-1',
+      roundNumber: 1,
+      questionId: 'question-1',
+      startedAt,
+      deadlineAt: new Date(startedAt.getTime() + 20_000),
+    });
   });
 
-  it('rejects invalid participant composition before changing match state', async () => {
-    const { service, tx } = setup([{ participantType: ParticipantType.AI }, { participantType: ParticipantType.AI }]);
+  it('rejects a match whose participant composition does not match its mode', async () => {
+    tx.match.findUnique.mockResolvedValue({
+      id: 'match-1',
+      mode: MatchMode.ONE_V_AI,
+      status: MatchStatus.WAITING,
+      currentRound: 0,
+      participants: [
+        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
+        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
+      ],
+    });
 
-    await expect(service.startFirstRound('match-1', 'question-1')).rejects.toThrow(
-      'Participant types do not satisfy the V1 match mode',
+    await expect(service.startNextRound('match-1', question)).rejects.toBeInstanceOf(
+      ConflictException,
     );
-    expect(tx.match.updateMany).not.toHaveBeenCalled();
+    expect(tx.question.create).not.toHaveBeenCalled();
   });
 
-  it('rejects a concurrent or repeated start when the conditional claim fails', async () => {
-    const { service, tx } = setup();
-    tx.match.updateMany.mockResolvedValue({ count: 0 });
+  it('rejects starting a next round before the previous round is finalized', async () => {
+    tx.match.findUnique.mockResolvedValue({
+      id: 'match-1',
+      mode: MatchMode.ONE_V_AI,
+      status: MatchStatus.ACTIVE,
+      currentRound: 1,
+      startedAt,
+      participants: [
+        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
+        { participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE },
+      ],
+    });
+    tx.round.findUnique.mockResolvedValue({ completedAt: null });
 
-    await expect(service.startFirstRound('match-1', 'question-1')).rejects.toThrow(
-      'Match was started by another operation',
-    );
-    expect(tx.round.create).not.toHaveBeenCalled();
-  });
-
-  it('uses serializable isolation for the start transition', async () => {
-    const { service, prisma } = setup();
-
-    await service.startFirstRound('match-1', 'question-1');
-
-    expect(prisma.$transaction).toHaveBeenCalledWith(
-      expect.any(Function),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    await expect(service.startNextRound('match-1', question)).rejects.toBeInstanceOf(
+      ConflictException,
     );
   });
 
-  it('rejects non-positive question time limits', async () => {
-    const { service, tx } = setup();
-    tx.question.findUnique.mockResolvedValue({ id: 'question-1', timeLimitSeconds: 0 });
+  it('localizes prompt and options while preserving canonical option IDs and order', async () => {
+    const deadlineAt = new Date(startedAt.getTime() + 20_000);
+    prisma.round.findFirst.mockResolvedValue({
+      id: 'round-1',
+      matchId: 'match-1',
+      roundNumber: 1,
+      questionId: 'question-1',
+      startedAt,
+      deadlineAt,
+      completedAt: null,
+      question: {
+        id: 'question-1',
+        answerType: 'MULTIPLE_CHOICE',
+        canonicalPrompt: 'Canonical prompt',
+        canonicalOptions: [
+          { id: 'A', text: 'Canonical A' },
+          { id: 'B', text: 'Canonical B' },
+        ],
+        localized: {
+          en: { prompt: 'English prompt', options: { A: 'English A', B: 'English B' } },
+          fa: { prompt: 'پرسش فارسی', options: { A: 'گزینه الف', B: 'گزینه ب' } },
+        },
+        timeLimitSeconds: 20,
+      },
+    });
 
-    await expect(service.startFirstRound('match-1', 'question-1')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    expect(tx.match.updateMany).not.toHaveBeenCalled();
+    const result = await service.getRoundQuestion('match-1', 'round-1', principal, 'fa');
+
+    expect(result.prompt).toBe('پرسش فارسی');
+    expect(result.options).toEqual([
+      { id: 'A', text: 'گزینه الف' },
+      { id: 'B', text: 'گزینه ب' },
+    ]);
+    expect(result).not.toHaveProperty('answerKey');
+    expect(result).not.toHaveProperty('gradingRubric');
+  });
+
+  it('does not return a round to a non-participant', async () => {
+    prisma.round.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.getRoundQuestion('match-1', 'round-1', principal, 'en'),
+    ).rejects.toThrow('Round not found');
   });
 });

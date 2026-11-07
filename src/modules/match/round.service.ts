@@ -7,120 +7,296 @@ import {
 import {
   MatchMode,
   MatchStatus,
+  ParticipantStatus,
   ParticipantType,
+  PrincipalType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
+import {
+  CanonicalOption,
+  GeneratedQuestion,
+  PublicRoundQuestion,
+} from './question.types';
+
+type MatchForRound = Prisma.MatchGetPayload<{
+  include: {
+    participants: {
+      select: {
+        participantType: true;
+        status: true;
+      };
+    };
+  };
+}>;
+
+type RoundWithQuestion = Prisma.RoundGetPayload<{
+  include: { question: true };
+}>;
 
 @Injectable()
 export class RoundService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Trusted server-side entry point. Question selection/generation must happen
-  // before this call; clients never choose a question or control the deadline.
-  async startFirstRound(matchId: string, questionId: string) {
-    try {
-      return await this.prisma.$transaction(
-        async (tx) => {
-          const match = await tx.match.findUnique({
-            where: { id: matchId },
-            select: {
-              id: true,
-              mode: true,
-              status: true,
-              currentRound: true,
-              participants: { select: { participantType: true } },
-            },
-          });
+  /**
+   * Persists one canonical question and one shared round clock.
+   * The question package is supplied by the AI/question-generation port;
+   * this service owns persistence and lifecycle, not provider selection.
+   */
+  async startNextRound(
+    matchId: string,
+    generatedQuestion: GeneratedQuestion,
+  ): Promise<{
+    matchId: string;
+    roundId: string;
+    roundNumber: number;
+    questionId: string;
+    startedAt: Date;
+    deadlineAt: Date;
+  }> {
+    this.validateQuestion(generatedQuestion);
 
-          if (!match) throw new NotFoundException('Match not found');
-          if (match.status !== MatchStatus.WAITING || match.currentRound !== 0) {
-            throw new ConflictException('Match is not ready to start its first round');
-          }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id"
+        FROM "Match"
+        WHERE "id" = ${matchId}::uuid
+        FOR UPDATE
+      `;
 
-          this.assertValidParticipants(match.mode, match.participants);
-
-          const question = await tx.question.findUnique({
-            where: { id: questionId },
-            select: { id: true, timeLimitSeconds: true },
-          });
-          if (!question) throw new NotFoundException('Question not found');
-          if (!Number.isSafeInteger(question.timeLimitSeconds) || question.timeLimitSeconds < 1) {
-            throw new BadRequestException('Question has an invalid time limit');
-          }
-
-          const clockRows = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS now`;
-          const startedAt = clockRows[0]?.now;
-          if (!(startedAt instanceof Date) || Number.isNaN(startedAt.getTime())) {
-            throw new Error('Database clock did not return a valid timestamp');
-          }
-          const deadlineAt = new Date(startedAt.getTime() + question.timeLimitSeconds * 1000);
-
-          const claimed = await tx.match.updateMany({
-            where: { id: matchId, status: MatchStatus.WAITING, currentRound: 0 },
-            data: {
-              status: MatchStatus.ACTIVE,
-              currentRound: 1,
-              startedAt,
-            },
-          });
-          if (claimed.count !== 1) {
-            throw new ConflictException('Match was started by another operation');
-          }
-
-          const round = await tx.round.create({
-            data: {
-              matchId,
-              roundNumber: 1,
-              questionId: question.id,
-              startedAt,
-              deadlineAt,
-            },
-            select: {
-              id: true,
-              matchId: true,
-              roundNumber: true,
-              startedAt: true,
-              deadlineAt: true,
-            },
-          });
-
-          return round;
+      const match = await tx.match.findUnique({
+        where: { id: matchId },
+        include: {
+          participants: {
+            select: { participantType: true, status: true },
+          },
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
-    } catch (error) {
+      });
+      if (!match) throw new NotFoundException('Match not found');
+      this.assertParticipantPolicy(match);
+
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2034'
+        match.status === MatchStatus.COMPLETED ||
+        match.status === MatchStatus.CANCELLED
       ) {
-        throw new ConflictException('Match start conflicted with another operation');
+        throw new ConflictException('Match cannot accept another round');
       }
-      throw error;
-    }
+
+      if (match.currentRound > 0) {
+        const previousRound = await tx.round.findUnique({
+          where: {
+            matchId_roundNumber: {
+              matchId,
+              roundNumber: match.currentRound,
+            },
+          },
+        });
+        if (!previousRound?.completedAt) {
+          throw new ConflictException('The previous round is not finalized');
+        }
+      }
+
+      const clock = await tx.$queryRaw<Array<{ now: Date }>>`
+        SELECT clock_timestamp() AS "now"
+      `;
+      const startedAt = clock[0]?.now;
+      if (!(startedAt instanceof Date) || Number.isNaN(startedAt.getTime())) {
+        throw new Error('Database clock did not return a valid timestamp');
+      }
+      const deadlineAt = new Date(
+        startedAt.getTime() + generatedQuestion.timeLimitSeconds * 1000,
+      );
+
+      const question = await tx.question.create({
+        data: {
+          canonicalLanguage: generatedQuestion.canonicalLanguage,
+          answerType: generatedQuestion.answerType,
+          canonicalPrompt: generatedQuestion.canonicalPrompt,
+          canonicalOptions:
+            generatedQuestion.canonicalOptions === null
+              ? Prisma.DbNull
+              : (generatedQuestion.canonicalOptions as unknown as Prisma.InputJsonValue),
+          answerKey: generatedQuestion.answerKey,
+          gradingRubric: generatedQuestion.gradingRubric,
+          localized: generatedQuestion.localized,
+          timeLimitSeconds: generatedQuestion.timeLimitSeconds,
+          contentVersion: generatedQuestion.contentVersion,
+          judgeVersion: generatedQuestion.judgeVersion,
+        },
+      });
+
+      const roundNumber = match.currentRound + 1;
+      const round = await tx.round.create({
+        data: {
+          matchId,
+          roundNumber,
+          questionId: question.id,
+          startedAt,
+          deadlineAt,
+        },
+      });
+
+      await tx.match.update({
+        where: { id: matchId },
+        data: {
+          status: MatchStatus.ACTIVE,
+          currentRound: roundNumber,
+          startedAt: match.startedAt ?? startedAt,
+        },
+      });
+
+      return {
+        matchId,
+        roundId: round.id,
+        roundNumber,
+        questionId: question.id,
+        startedAt,
+        deadlineAt,
+      };
+    });
   }
 
-  private assertValidParticipants(
-    mode: MatchMode,
-    participants: { participantType: ParticipantType }[],
-  ): void {
-    if (participants.length !== 2) {
-      throw new BadRequestException('V1 matches must contain exactly two participants');
+  /**
+   * Returns a participant-specific localized view of the shared question.
+   * Canonical option IDs and order are retained; private answer material is
+   * never selected into or serialized from this DTO.
+   */
+  async getRoundQuestion(
+    matchId: string,
+    roundId: string,
+    principal: AuthenticatedPrincipal,
+    language: string,
+  ): Promise<PublicRoundQuestion> {
+    const ownership =
+      principal.principalType === PrincipalType.USER
+        ? { userId: principal.principalId }
+        : { guestIdentityId: principal.principalId };
+
+    const round = await this.prisma.round.findFirst({
+      where: {
+        id: roundId,
+        matchId,
+        match: { participants: { some: ownership } },
+      },
+      include: { question: true },
+    });
+
+    if (!round?.question || !round.startedAt || !round.deadlineAt) {
+      throw new NotFoundException('Round not found');
     }
 
-    const humanCount = participants.filter(
+    const question = round.question;
+    const canonicalOptions = this.readCanonicalOptions(question.canonicalOptions);
+    const localizedRoot = this.asRecord(question.localized);
+    const localized = this.asRecord(localizedRoot?.[language]);
+    const localizedOptions = this.asRecord(localized?.options);
+
+    return {
+      matchId,
+      roundId: round.id,
+      roundNumber: round.roundNumber,
+      questionId: question.id,
+      answerType: question.answerType,
+      prompt:
+        typeof localized?.prompt === 'string'
+          ? localized.prompt
+          : question.canonicalPrompt,
+      options: canonicalOptions.map((option) => ({
+        id: option.id,
+        text:
+          typeof localizedOptions?.[option.id] === 'string'
+            ? (localizedOptions[option.id] as string)
+            : option.text,
+      })),
+      timeLimitSeconds: question.timeLimitSeconds,
+      startedAt: round.startedAt,
+      deadlineAt: round.deadlineAt,
+    };
+  }
+
+  private assertParticipantPolicy(match: MatchForRound): void {
+    const active = match.participants.filter(
+      (participant) => participant.status === ParticipantStatus.ACTIVE,
+    );
+    if (active.length !== 2) {
+      throw new ConflictException('V1 matches require exactly two active participants');
+    }
+
+    const humans = active.filter(
       (participant) => participant.participantType === ParticipantType.HUMAN,
     ).length;
-    const aiCount = participants.filter(
+    const ai = active.filter(
       (participant) => participant.participantType === ParticipantType.AI,
     ).length;
 
     if (
-      (mode === MatchMode.ONE_V_ONE && (humanCount !== 2 || aiCount !== 0)) ||
-      (mode === MatchMode.ONE_V_AI && (humanCount !== 1 || aiCount !== 1)) ||
-      (mode !== MatchMode.ONE_V_ONE && mode !== MatchMode.ONE_V_AI)
+      (match.mode === MatchMode.ONE_V_ONE && (humans !== 2 || ai !== 0)) ||
+      (match.mode === MatchMode.ONE_V_AI && (humans !== 1 || ai !== 1)) ||
+      match.mode === MatchMode.ROOM
     ) {
-      throw new BadRequestException('Participant types do not satisfy the V1 match mode');
+      throw new ConflictException('Participant composition does not match the V1 mode');
     }
+  }
+
+  private validateQuestion(question: GeneratedQuestion): void {
+    if (
+      !question.canonicalLanguage.trim() ||
+      !question.canonicalPrompt.trim() ||
+      !question.answerKey.trim() ||
+      !question.contentVersion.trim() ||
+      !Number.isSafeInteger(question.timeLimitSeconds) ||
+      question.timeLimitSeconds < 1 ||
+      question.timeLimitSeconds > 300
+    ) {
+      throw new BadRequestException('Generated question package is invalid');
+    }
+
+    if (question.answerType === 'MULTIPLE_CHOICE') {
+      const options = question.canonicalOptions;
+      if (
+        !Array.isArray(options) ||
+        options.length < 2 ||
+        options.some(
+          (option) =>
+            !option.id?.trim() ||
+            !option.text?.trim() ||
+            typeof option.id !== 'string' ||
+            typeof option.text !== 'string',
+        ) ||
+        new Set(options.map((option) => option.id)).size !== options.length ||
+        !options.some((option) => option.id === question.answerKey)
+      ) {
+        throw new BadRequestException('Multiple-choice question options are invalid');
+      }
+    } else if (question.answerType === 'FREE_TEXT') {
+      if (question.canonicalOptions !== null) {
+        throw new BadRequestException('Free-text questions cannot include options');
+      }
+    } else {
+      throw new BadRequestException('Unsupported question answer type');
+    }
+  }
+
+  private readCanonicalOptions(value: Prisma.JsonValue | null): CanonicalOption[] {
+    if (value === null) return [];
+    if (!Array.isArray(value)) throw new Error('Stored question options are invalid');
+    return value.map((item) => {
+      const option = this.asRecord(item);
+      if (
+        typeof option?.id !== 'string' ||
+        typeof option.text !== 'string'
+      ) {
+        throw new Error('Stored question option is invalid');
+      }
+      return { id: option.id, text: option.text };
+    });
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return null;
+    }
+    return value as Record<string, unknown>;
   }
 }
