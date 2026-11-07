@@ -28,6 +28,7 @@ describe('AnswerService', () => {
     round: { findFirst: jest.Mock };
     answer: { findUnique: jest.Mock; create: jest.Mock };
     matchParticipant: { update: jest.Mock };
+    matchScoreEntry: { create: jest.Mock };
   };
   let prisma: { $transaction: jest.Mock };
   let service: AnswerService;
@@ -79,6 +80,7 @@ describe('AnswerService', () => {
         }),
       },
       matchParticipant: { update: jest.fn().mockResolvedValue({ id: 'participant-1' }) },
+      matchScoreEntry: { create: jest.fn().mockResolvedValue({ id: 'score-entry-1' }) },
     };
     prisma = {
       $transaction: jest.fn(async (callback: (transaction: typeof tx) => unknown) =>
@@ -138,6 +140,17 @@ describe('AnswerService', () => {
       where: { id: 'participant-1' },
       data: { score: { increment: 20 } },
     });
+    expect(tx.matchScoreEntry.create).toHaveBeenCalledWith({
+      data: {
+        matchId: 'match-1',
+        participantId: 'participant-1',
+        roundId: 'round-1',
+        answerId: 'answer-1',
+        entryType: 'ANSWER_SCORE',
+        pointsChange: 20,
+        idempotencyKey: 'answer:answer-1:score:v1',
+      },
+    });
   });
 
   it('persists an incorrect MCQ decision without awarding points', async () => {
@@ -164,6 +177,7 @@ describe('AnswerService', () => {
       }),
     );
     expect(tx.matchParticipant.update).not.toHaveBeenCalled();
+    expect(tx.matchScoreEntry.create).not.toHaveBeenCalled();
   });
 
   it('replays the original receipt for an identical idempotent retry', async () => {
