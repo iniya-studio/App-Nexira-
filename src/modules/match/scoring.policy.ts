@@ -1,7 +1,5 @@
 import { JudgeDecision } from '@prisma/client';
 
-export const SCORING_POLICY_VERSION = 'v1-speed-bands-1';
-
 export type AnswerScore = {
   decision: JudgeDecision;
   points: number;
