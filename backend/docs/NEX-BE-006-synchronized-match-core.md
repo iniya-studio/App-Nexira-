@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Document:** NEX-BE-006  
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** Implementation contract — synchronized 1v1 product behavior approved  
 **Target branch:** `feature/backend-foundation`  
 **Related contracts:** NEX-BE-002 Identity & Access; NEX-BE-003 Guest & Session Foundation
@@ -46,12 +46,25 @@ The current competitive match engine defines:
 - Correct answer: 10 base points.
 - Speed bonus for correct answers: under 3s = +15; under 5s = +10; under 7s = +5; otherwise +2.
 - Incorrect answer: 0 points.
-- Consecutive no-response penalties: first = -5, second = -5, third = -10 and triggers the existing forfeit rule.
-- The existing forfeit transfer is 20 points to the remaining participant.
+- Consecutive no-response penalties: first = -5, second = -5, third = -10 and triggers the forfeit rule.
+- The three deductions above are the complete 20-point penalty for the forfeiting participant. **Do not apply another -20 deduction** when the third consecutive no-response triggers forfeiture.
+- The existing forfeit transfer is 20 points to the remaining participant. This is a single +20 credit to the remaining participant, corresponding to the same three accumulated penalties; it is not a second deduction from the forfeiting participant and must not cause the forfeiting participant to lose 40 points in total.
+- Both the three penalty entries and the single transfer credit must be recorded at most once. Finalization/retry/recovery must not duplicate either side of this settlement.
 
 Backend implementation must port and test this single canonical rule set. The older generic `scoreAnswer(..., timedOut)` helper in the client must not silently override the competitive engine's consecutive-no-response behavior. Reconcile client behavior when wiring it to the backend.
 
 XP and Ranking Points remain separate ledgers. Match Core must not infer a ranking/ELO formula. XP and ranking settlement must be idempotent and use their respective existing persistence models when their policies are implemented.
+
+### 2.4 Scoring clarification amendment (Version 1.1)
+
+This amendment clarifies the already-approved no-response/forfeit scoring rule without changing the three penalty values or the 20-point transfer amount:
+
+- The forfeiting participant receives exactly three consecutive deductions: -5, -5, and -10 (20 points total).
+- No additional -20 deduction is applied at forfeiture.
+- The remaining participant receives one +20 transfer credit, representing the same accumulated 20-point penalty.
+- The forfeiture settlement is atomic and idempotent: neither the deductions nor the transfer may be applied more than once.
+
+This clarification supersedes any interpretation of Version 1.0 that could be read as imposing an additional 20-point deduction on top of the three listed penalties.
 
 ## 3. Existing persistence baseline
 
