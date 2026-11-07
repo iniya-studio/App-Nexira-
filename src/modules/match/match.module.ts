@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AnswerController } from './answer.controller';
+import { FREE_TEXT_ANSWER_JUDGE } from './answer-judge.port';
+import { OpenAiResponsesAnswerJudgeAdapter } from './openai-responses-answer-judge.adapter';
 import { AnswerService } from './answer.service';
 import { MatchController } from './match.controller';
 import { MatchService } from './match.service';
@@ -8,7 +10,15 @@ import { RoundService } from './round.service';
 
 @Module({
   controllers: [MatchController, RoundController, AnswerController],
-  providers: [MatchService, RoundService, AnswerService],
+  providers: [
+    MatchService,
+    RoundService,
+    AnswerService,
+    {
+      provide: FREE_TEXT_ANSWER_JUDGE,
+      useClass: OpenAiResponsesAnswerJudgeAdapter,
+    },
+  ],
   exports: [MatchService, RoundService, AnswerService],
 })
 export class MatchModule {}
