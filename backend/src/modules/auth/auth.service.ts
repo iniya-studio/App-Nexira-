@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IdentityProvider, Prisma, PrincipalType, UserStatus } from '@prisma/client';
+import { IdentityProvider, PrincipalType, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -316,6 +316,6 @@ export class AuthService {
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
-    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
   }
 }
