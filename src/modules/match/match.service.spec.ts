@@ -70,6 +70,64 @@ describe('MatchService', () => {
     });
   });
 
+  it('creates a 1v1 match from two distinct authenticated principals', async () => {
+    const matchRecord = {
+      id: 'match-1v1',
+      mode: MatchMode.ONE_V_ONE,
+      status: MatchStatus.WAITING,
+      currentRound: 0,
+      createdAt,
+      participants: [
+        { participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+        { participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+      ],
+    };
+    const prisma = {
+      match: { create: jest.fn().mockResolvedValue(matchRecord) },
+    } as unknown as PrismaService;
+    const service = new MatchService(prisma);
+
+    await expect(
+      service.createOneVsOne(
+        { principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1' },
+        { principalType: PrincipalType.GUEST, principalId: 'guest-2', sessionId: 'session-2' },
+      ),
+    ).resolves.toMatchObject({
+      id: 'match-1v1',
+      mode: MatchMode.ONE_V_ONE,
+      participants: [{ type: ParticipantType.HUMAN }, { type: ParticipantType.HUMAN }],
+    });
+
+    expect(prisma.match.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          mode: MatchMode.ONE_V_ONE,
+          participants: {
+            create: [
+              expect.objectContaining({ userId: 'user-1', participantType: ParticipantType.HUMAN }),
+              expect.objectContaining({ guestIdentityId: 'guest-2', participantType: ParticipantType.HUMAN }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it('rejects matching a principal against itself', async () => {
+    const prisma = { match: { create: jest.fn() } } as unknown as PrismaService;
+    const service = new MatchService(prisma);
+    const principal = {
+      principalType: PrincipalType.USER,
+      principalId: 'same-user',
+      sessionId: 'session-1',
+    };
+
+    await expect(service.createOneVsOne(principal, principal)).rejects.toThrow(
+      'A participant cannot be matched against themselves',
+    );
+    expect(prisma.match.create).not.toHaveBeenCalled();
+  });
+
   it('returns match state only to a participant and never includes interim scores', async () => {
     const prisma = {
       match: {
