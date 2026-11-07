@@ -209,18 +209,18 @@ model ExternalIdentity {
 model GuestIdentity {
   id                String              @id @default(uuid()) @db.Uuid
   status            GuestIdentityStatus @default(ACTIVE)
-  convertedToUserId String?             @unique @db.Uuid
+  convertedToUserId String?             @db.Uuid
   convertedAt       DateTime?           @db.Timestamptz(3)
   createdAt         DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime            @updatedAt @db.Timestamptz(3)
 
-  convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: SetNull)
+  convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: Restrict)
   sessions                UserSession[]
   matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
-  sourceMatchParticipants MatchParticipant[]       @relation("SourceGuestParticipant")
   emailVerificationTokens EmailVerificationToken[]
 
   @@index([status, updatedAt])
+  @@index([convertedToUserId])
 }
 
 model RefreshToken {
@@ -231,7 +231,7 @@ model RefreshToken {
   consumedAt              DateTime? @db.Timestamptz(3)
   revokedAt               DateTime? @db.Timestamptz(3)
   replacedByTokenId       String?   @unique @db.Uuid
-  idempotencyKeyHash      String?
+  idempotencyKeyHash      String    @db.VarChar(255)
   retryResponseCiphertext String?   @db.Text
   retryResponseExpiresAt  DateTime? @db.Timestamptz(3)
   createdAt               DateTime  @default(now()) @db.Timestamptz(3)
@@ -332,7 +332,6 @@ model MatchParticipant {
   matchId               String            @db.Uuid
   userId                String?           @db.Uuid
   guestIdentityId       String?           @db.Uuid
-  sourceGuestIdentityId String?           @db.Uuid
   participantKey        String
   participantType       ParticipantType
   status                ParticipantStatus @default(ACTIVE)
@@ -343,7 +342,6 @@ model MatchParticipant {
   match               Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
   user                User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   guestIdentity       GuestIdentity? @relation("CurrentGuestParticipant", fields: [guestIdentityId], references: [id], onDelete: Restrict)
-  sourceGuestIdentity GuestIdentity? @relation("SourceGuestParticipant", fields: [sourceGuestIdentityId], references: [id], onDelete: Restrict)
   answers             Answer[]
   wonResults          MatchResult[]  @relation("MatchWinner")
 
@@ -355,7 +353,6 @@ model MatchParticipant {
   @@unique([id, matchId])
   @@index([userId, joinedAt])
   @@index([guestIdentityId, joinedAt])
-  @@index([sourceGuestIdentityId, joinedAt])
   @@index([matchId, status])
 }
 
