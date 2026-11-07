@@ -238,6 +238,17 @@ export class AnswerService {
       });
 
       if (mcqDecision && mcqDecision.points > 0) {
+        await tx.matchScoreEntry.create({
+          data: {
+            matchId,
+            participantId: participant.id,
+            roundId,
+            answerId: answer.id,
+            entryType: 'ANSWER_SCORE',
+            pointsChange: mcqDecision.points,
+            idempotencyKey: `answer:${answer.id}:score:v1`,
+          },
+        });
         await tx.matchParticipant.update({
           where: { id: participant.id },
           data: { score: { increment: mcqDecision.points } },
