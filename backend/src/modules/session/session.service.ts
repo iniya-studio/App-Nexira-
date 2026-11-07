@@ -71,7 +71,7 @@ export class SessionService {
     }
     const tokenHash = this.hash(rawToken);
     const keyHash = this.hash(idempotencyKey);
-    return this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
       const current = await tx.refreshToken.findUnique({
         where: { tokenHash },
         include: { session: { include: { user: true, guestIdentity: true } } },
@@ -107,7 +107,7 @@ export class SessionService {
             result: 'FAILURE',
           },
         });
-        throw new UnauthorizedException('Refresh token reuse detected');
+        return { replayDetected: true as const };
       }
 
       if (current.revokedAt || current.expiresAt <= now) throw new UnauthorizedException('Refresh token is not active');
@@ -156,8 +156,10 @@ export class SessionService {
           result: 'SUCCESS',
         },
       });
-      return response;
+      return { replayDetected: false as const, response };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    if (outcome.replayDetected) throw new UnauthorizedException('Refresh token reuse detected');
+    return outcome.response;
   }
 
   async logout(principal: AuthenticatedPrincipal): Promise<{ success: true }> {
