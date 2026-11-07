@@ -39,6 +39,7 @@ type SubmissionRound = Prisma.RoundGetPayload<{
       select: {
         answerType: true;
         canonicalOptions: true;
+        answerKey: true;
       };
     };
     match: {
