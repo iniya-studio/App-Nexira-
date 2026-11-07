@@ -3,7 +3,6 @@ import {
   AnswerStatus,
   JudgeDecision,
   JudgeStatus,
-  MatchMode,
   MatchStatus,
   ParticipantStatus,
   ParticipantType,
