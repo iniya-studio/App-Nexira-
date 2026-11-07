@@ -155,6 +155,7 @@ export class AnswerService {
       }
 
       if (
+        participant.status !== ParticipantStatus.ACTIVE ||
         round.completedAt ||
         round.match.status !== MatchStatus.ACTIVE ||
         round.match.currentRound !== round.roundNumber ||
@@ -248,10 +249,7 @@ export class AnswerService {
     principal: AuthenticatedPrincipal,
   ) {
     return round.match.participants.find((participant) => {
-      if (
-        participant.participantType !== ParticipantType.HUMAN ||
-        participant.status !== ParticipantStatus.ACTIVE
-      ) {
+      if (participant.participantType !== ParticipantType.HUMAN) {
         return false;
       }
       return principal.principalType === PrincipalType.USER

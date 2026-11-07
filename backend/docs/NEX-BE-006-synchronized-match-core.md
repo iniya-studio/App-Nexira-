@@ -104,9 +104,9 @@ The exact start timestamp is shared. Socket delivery latency may differ, but it 
 - Use UTC timestamps and the database clock as the authority for answer acceptance.
 - Never accept client-reported `elapsedMs` as the scoring source.
 - Derive `acceptedAt` and elapsed time from the persisted round start and server/database receipt time.
-- Accept an answer only if the round is ACTIVE, the participant belongs to the match, no answer already exists for that participant/round, and the authoritative receipt time is at or before `deadlineAt`.
-- An answer received after the deadline is rejected or treated as timeout according to the already-finalized round state; it must never replace a NO_RESPONSE row.
-- Define and test the exact deadline boundary consistently (`acceptedAt <= deadlineAt` is on time).
+- Accept an answer only if the round is ACTIVE, the participant belongs to the match, no answer already exists for that participant/round, and the authoritative receipt time is strictly before `deadlineAt`.
+- An answer received at or after the deadline is rejected or treated as timeout according to the already-finalized round state; it must never replace a NO_RESPONSE row.
+- Define and test the exact deadline boundary consistently (`acceptedAt < deadlineAt` is on time; equality is late).
 - A duplicate request with the same valid idempotency key returns the original accepted result without awarding points twice. A conflicting second answer for the same participant/round is rejected.
 - Concurrent submissions must be safe. Use a transaction/row lock or equivalent conditional write and retain the unique `(roundId, participantId)` constraint as the final guard.
 - Do not reveal an opponent's submitted answer before the round completes.

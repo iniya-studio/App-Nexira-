@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import {
   AnswerStatus,
   JudgeStatus,
+  MatchMode,
   MatchStatus,
   ParticipantStatus,
   ParticipantType,
@@ -266,6 +267,78 @@ describe('AnswerService', () => {
     await expect(
       service.submitAnswer('match-1', 'round-1', principal, 'B', 'request-key-0005'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('replays an accepted answer after the participant and match are completed', async () => {
+    tx.round.findFirst.mockResolvedValue(
+      roundRecord({
+        completedAt: acceptedAt,
+        match: {
+          mode: MatchMode.ONE_V_ONE,
+          status: MatchStatus.COMPLETED,
+          currentRound: 1,
+          participants: [
+            {
+              id: 'participant-1',
+              userId: null,
+              guestIdentityId: principal.principalId,
+              participantType: ParticipantType.HUMAN,
+              status: ParticipantStatus.COMPLETED,
+            },
+          ],
+        },
+      }),
+    );
+    tx.answer.findUnique.mockResolvedValue({
+      id: 'answer-finalized',
+      matchId: 'match-1',
+      roundId: 'round-1',
+      participantId: 'participant-1',
+      responseText: 'B',
+      status: AnswerStatus.ANSWERED,
+      acceptedAt,
+      elapsedMs: 4250,
+    });
+
+    const result = await service.submitAnswer(
+      'match-1',
+      'round-1',
+      principal,
+      'B',
+      'request-key-0001',
+    );
+
+    expect(result.answerId).toBe('answer-finalized');
+    expect(result.acceptedAt).toEqual(acceptedAt);
+    expect(tx.answer.create).not.toHaveBeenCalled();
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a new answer from a completed participant', async () => {
+    tx.round.findFirst.mockResolvedValue(
+      roundRecord({
+        completedAt: acceptedAt,
+        match: {
+          mode: MatchMode.ONE_V_ONE,
+          status: MatchStatus.COMPLETED,
+          currentRound: 1,
+          participants: [
+            {
+              id: 'participant-1',
+              userId: null,
+              guestIdentityId: principal.principalId,
+              participantType: ParticipantType.HUMAN,
+              status: ParticipantStatus.COMPLETED,
+            },
+          ],
+        },
+      }),
+    );
+
+    await expect(
+      service.submitAnswer('match-1', 'round-1', principal, 'B', 'request-key-0007'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.answer.create).not.toHaveBeenCalled();
   });
 
   it('rejects answers for a completed or non-current round', async () => {
