@@ -74,6 +74,7 @@ enum JudgeDecision {
 enum JudgeStatus {
   NOT_REQUIRED
   PENDING
+  PROCESSING
   COMPLETED
   FAILED
 }
@@ -400,10 +401,14 @@ model Answer {
   participantId  String         @db.Uuid
   responseText   String?        @db.Text
   status         AnswerStatus
-  judgeStatus    JudgeStatus    @default(NOT_REQUIRED)
-  decision       JudgeDecision?
-  confidence     Float?
-  elapsedMs      Int
+  judgeStatus      JudgeStatus    @default(NOT_REQUIRED)
+  judgeAttempts    Int            @default(0)
+  judgeStartedAt   DateTime?      @db.Timestamptz(3)
+  judgeAvailableAt DateTime       @default(now()) @db.Timestamptz(3)
+  judgeLeaseId     String?        @db.Uuid
+  decision         JudgeDecision?
+  confidence       Float?
+  elapsedMs        Int
   points         Int
   speedBonus     Int            @default(0)
   judgeReason    String?
@@ -417,6 +422,7 @@ model Answer {
   @@unique([roundId, participantId])
   @@index([matchId, roundId])
   @@index([participantId, acceptedAt])
+  @@index([judgeStatus, judgeAvailableAt])
 }
 
 model MatchResult {
