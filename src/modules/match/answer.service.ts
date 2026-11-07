@@ -169,7 +169,7 @@ export class AnswerService {
         throw new ConflictException('An answer has already been submitted for this round');
       }
 
-      this.validateResponseForQuestion(input.responseText, round);
+      this.validateResponseForQuestion(input.responseText, round.question);
 
       const clock = await tx.$queryRaw<Array<{ now: Date }>>`
         SELECT clock_timestamp() AS "now"
@@ -254,15 +254,15 @@ export class AnswerService {
 
   private validateResponseForQuestion(
     responseText: string,
-    round: SubmissionRound,
+    question: NonNullable<SubmissionRound['question']>,
   ): void {
-    if (round.question.answerType === 'FREE_TEXT') return;
+    if (question.answerType === 'FREE_TEXT') return;
 
-    if (round.question.answerType !== 'MULTIPLE_CHOICE') {
+    if (question.answerType !== 'MULTIPLE_CHOICE') {
       throw new ConflictException('This question answer type is not supported');
     }
 
-    const options = round.question.canonicalOptions;
+    const options = question.canonicalOptions;
     if (!Array.isArray(options)) {
       throw new Error('Stored multiple-choice question options are invalid');
     }
