@@ -182,7 +182,7 @@ model Match {
   completedAt       DateTime?         @db.Timestamptz(3)
   createdAt         DateTime          @default(now()) @db.Timestamptz(3)
 
-  room          Room?                @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  room          Room?                @relation(fields: [roomId], references: [id], onDelete: Restrict)
   participants  MatchParticipant[]
   rounds        Round[]
   result        MatchResult?
