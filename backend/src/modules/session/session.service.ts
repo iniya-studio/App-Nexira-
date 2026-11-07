@@ -73,13 +73,17 @@ export class SessionService {
     const tokenHash = this.hash(rawToken);
     const keyHash = this.hash(idempotencyKey);
     const outcome = await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.refreshToken.updateMany({
+        where: { retryResponseExpiresAt: { lte: now }, retryResponseCiphertext: { not: null } },
+        data: { retryResponseCiphertext: null, retryResponseExpiresAt: null },
+      });
       const current = await tx.refreshToken.findUnique({
         where: { tokenHash },
         include: { session: { include: { user: true, guestIdentity: true } } },
       });
       if (!current) throw new UnauthorizedException('Invalid refresh credentials');
       const session = current.session;
-      const now = new Date();
       const owner: SessionOwner | null = session.userId && session.user?.status === 'ACTIVE'
         ? { principalType: PrincipalType.USER, principalId: session.userId }
         : session.guestIdentityId && session.guestIdentity?.status === 'ACTIVE'
@@ -97,7 +101,7 @@ export class SessionService {
         await tx.userSession.update({ where: { id: session.id }, data: { revokedAt: now } });
         await tx.refreshToken.updateMany({
           where: { sessionId: session.id, revokedAt: null },
-          data: { revokedAt: now },
+          data: { revokedAt: now, retryResponseCiphertext: null, retryResponseExpiresAt: null },
         });
         await tx.identityAuditEvent.create({
           data: {
@@ -178,7 +182,7 @@ export class SessionService {
       });
       await tx.refreshToken.updateMany({
         where: { sessionId: principal.sessionId, revokedAt: null },
-        data: { revokedAt: now },
+        data: { revokedAt: now, retryResponseCiphertext: null, retryResponseExpiresAt: null },
       });
       await tx.identityAuditEvent.create({
         data: {
