@@ -235,6 +235,17 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
       });
 
       if (score.totalPoints > 0) {
+        await tx.matchScoreEntry.create({
+          data: {
+            matchId: answer.matchId,
+            participantId: answer.participantId,
+            roundId: answer.roundId,
+            answerId: answer.id,
+            entryType: 'ANSWER_SCORE',
+            pointsChange: score.totalPoints,
+            idempotencyKey: `answer:${answer.id}:score:v1`,
+          },
+        });
         await tx.matchParticipant.update({
           where: { id: answer.participantId },
           data: { score: { increment: score.totalPoints } },
