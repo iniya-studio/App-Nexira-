@@ -2,6 +2,7 @@ import { PrincipalType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchService } from './match.service';
+import { GeneratedQuestion } from './question.types';
 import { RoundService } from './round.service';
 
 describe('Match and round persistence integration', () => {
@@ -12,6 +13,30 @@ describe('Match and round persistence integration', () => {
   const guestIds: string[] = [];
   const userIds: string[] = [];
   const questionIds: string[] = [];
+
+  const generatedQuestion: GeneratedQuestion = {
+    canonicalLanguage: 'en',
+    answerType: 'MULTIPLE_CHOICE',
+    canonicalPrompt: 'Which planet is known as the Red Planet?',
+    canonicalOptions: [
+      { id: 'A', text: 'Venus' },
+      { id: 'B', text: 'Mars' },
+    ],
+    answerKey: 'B',
+    gradingRubric: { strategy: 'exact-option' },
+    localized: {
+      en: {
+        prompt: 'Which planet is known as the Red Planet?',
+        options: { A: 'Venus', B: 'Mars' },
+      },
+      fa: {
+        prompt: 'کدام سیاره به سیاره سرخ معروف است؟',
+        options: { A: 'زهره', B: 'مریخ' },
+      },
+    },
+    timeLimitSeconds: 20,
+    contentVersion: `integration-${randomUUID()}`,
+  };
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -46,23 +71,6 @@ describe('Match and round persistence integration', () => {
     return guest.id;
   }
 
-  async function createQuestion() {
-    const question = await prisma.question.create({
-      data: {
-        canonicalLanguage: 'en',
-        answerType: 'TEXT',
-        canonicalPrompt: 'Which planet is known as the Red Planet?',
-        answerKey: 'Mars',
-        gradingRubric: { strategy: 'exact-or-semantic' },
-        localized: { en: { prompt: 'Which planet is known as the Red Planet?' } },
-        timeLimitSeconds: 20,
-        contentVersion: `integration-${randomUUID()}`,
-      },
-    });
-    questionIds.push(question.id);
-    return question.id;
-  }
-
   async function createGuestOneVsOne() {
     const firstGuestId = await createGuest();
     const secondGuestId = await createGuest();
@@ -79,14 +87,14 @@ describe('Match and round persistence integration', () => {
       },
     );
     matchIds.push(match.id);
-    return match.id;
+    return { matchId: match.id, firstGuestId, secondGuestId };
   }
 
-  it('starts one synchronized round for both human participants using the database clock', async () => {
-    const matchId = await createGuestOneVsOne();
-    const questionId = await createQuestion();
+  it('starts one synchronized round and gives both humans the same question and deadline', async () => {
+    const { matchId, firstGuestId, secondGuestId } = await createGuestOneVsOne();
 
-    const started = await rounds.startFirstRound(matchId, questionId);
+    const started = await rounds.startNextRound(matchId, generatedQuestion);
+    questionIds.push(started.questionId);
 
     expect(started.matchId).toBe(matchId);
     expect(started.roundNumber).toBe(1);
@@ -101,24 +109,61 @@ describe('Match and round persistence integration', () => {
     expect(storedMatch?.currentRound).toBe(1);
     expect(storedMatch?.participants).toHaveLength(2);
     expect(storedMatch?.rounds).toHaveLength(1);
-    expect(storedMatch?.rounds[0].startedAt).toEqual(storedMatch?.rounds[0].deadlineAt
-      ? new Date(storedMatch.rounds[0].deadlineAt.getTime() - 20_000)
-      : null);
+    expect(storedMatch?.rounds[0].startedAt).toEqual(started.startedAt);
+    expect(storedMatch?.rounds[0].deadlineAt).toEqual(started.deadlineAt);
+
+    const firstView = await rounds.getRoundQuestion(
+      matchId,
+      started.roundId,
+      {
+        principalType: PrincipalType.GUEST,
+        principalId: firstGuestId,
+        sessionId: randomUUID(),
+      },
+      'en',
+    );
+    const secondView = await rounds.getRoundQuestion(
+      matchId,
+      started.roundId,
+      {
+        principalType: PrincipalType.GUEST,
+        principalId: secondGuestId,
+        sessionId: randomUUID(),
+      },
+      'fa',
+    );
+
+    expect(firstView.questionId).toBe(secondView.questionId);
+    expect(firstView.startedAt).toEqual(secondView.startedAt);
+    expect(firstView.deadlineAt).toEqual(secondView.deadlineAt);
+    expect(firstView.options.map((option) => option.id)).toEqual(
+      secondView.options.map((option) => option.id),
+    );
+    expect(firstView.prompt).toBe('Which planet is known as the Red Planet?');
+    expect(secondView.prompt).toBe('کدام سیاره به سیاره سرخ معروف است؟');
+    expect(secondView).not.toHaveProperty('answerKey');
+    expect(secondView).not.toHaveProperty('gradingRubric');
   });
 
   it('allows only one concurrent first-round start to commit', async () => {
-    const matchId = await createGuestOneVsOne();
-    const questionId = await createQuestion();
+    const { matchId } = await createGuestOneVsOne();
 
     const outcomes = await Promise.allSettled([
-      rounds.startFirstRound(matchId, questionId),
-      rounds.startFirstRound(matchId, questionId),
+      rounds.startNextRound(matchId, generatedQuestion),
+      rounds.startNextRound(matchId, generatedQuestion),
     ]);
 
-    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
+    const fulfilled = outcomes.filter(
+      (outcome): outcome is PromiseFulfilledResult<Awaited<ReturnType<RoundService['startNextRound']>>> =>
+        outcome.status === 'fulfilled',
+    );
+    expect(fulfilled).toHaveLength(1);
     expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1);
+    questionIds.push(fulfilled[0].value.questionId);
     expect(await prisma.round.count({ where: { matchId } })).toBe(1);
-    expect(await prisma.match.count({ where: { id: matchId, status: 'ACTIVE', currentRound: 1 } })).toBe(1);
+    expect(
+      await prisma.match.count({ where: { id: matchId, status: 'ACTIVE', currentRound: 1 } }),
+    ).toBe(1);
   });
 
   it('persists a guest 1vAI match and hides it from non-participants', async () => {
@@ -139,9 +184,16 @@ describe('Match and round persistence integration', () => {
     expect(stored?.mode).toBe('ONE_V_AI');
     expect(stored?.status).toBe('WAITING');
     expect(stored?.participants).toHaveLength(2);
-    expect(stored?.participants.filter((participant) => participant.participantType === 'HUMAN')).toHaveLength(1);
-    expect(stored?.participants.filter((participant) => participant.participantType === 'AI')).toHaveLength(1);
-    expect(stored?.participants.find((participant) => participant.participantType === 'HUMAN')?.guestIdentityId).toBe(guestId);
+    expect(
+      stored?.participants.filter((participant) => participant.participantType === 'HUMAN'),
+    ).toHaveLength(1);
+    expect(
+      stored?.participants.filter((participant) => participant.participantType === 'AI'),
+    ).toHaveLength(1);
+    expect(
+      stored?.participants.find((participant) => participant.participantType === 'HUMAN')
+        ?.guestIdentityId,
+    ).toBe(guestId);
 
     await expect(
       matches.getMatch(result.id, {

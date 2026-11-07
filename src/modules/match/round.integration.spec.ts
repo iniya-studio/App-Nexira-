@@ -11,6 +11,7 @@ describe('Round persistence integration', () => {
   const rounds = new RoundService(prisma);
   const matchIds: string[] = [];
   const guestIds: string[] = [];
+  const questionIds: string[] = [];
 
   const question: GeneratedQuestion = {
     canonicalLanguage: 'en',
@@ -39,6 +40,10 @@ describe('Round persistence integration', () => {
       await prisma.match.deleteMany({ where: { id: { in: matchIds } } });
       matchIds.length = 0;
     }
+    if (questionIds.length) {
+      await prisma.question.deleteMany({ where: { id: { in: questionIds } } });
+      questionIds.length = 0;
+    }
     if (guestIds.length) {
       await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
       guestIds.length = 0;
@@ -60,6 +65,7 @@ describe('Round persistence integration', () => {
     matchIds.push(match.id);
 
     const started = await rounds.startNextRound(match.id, question);
+    questionIds.push(started.questionId);
     const stored = await prisma.round.findUnique({
       where: { id: started.roundId },
       include: { question: true },
@@ -101,8 +107,13 @@ describe('Round persistence integration', () => {
       rounds.startNextRound(match.id, question),
     ]);
 
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const fulfilled = results.filter(
+      (result): result is PromiseFulfilledResult<Awaited<ReturnType<RoundService['startNextRound']>>> =>
+        result.status === 'fulfilled',
+    );
+    expect(fulfilled).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    questionIds.push(fulfilled[0].value.questionId);
     expect(await prisma.round.count({ where: { matchId: match.id } })).toBe(1);
   });
 });
