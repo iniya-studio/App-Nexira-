@@ -1,4 +1,4 @@
-import { IsString, Length, MaxLength } from 'class-validator';
+import { IsString, Length } from 'class-validator';
 
 export class GoogleAuthDto {
   @IsString()
