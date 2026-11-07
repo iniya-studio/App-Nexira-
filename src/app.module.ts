@@ -4,6 +4,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { GuestIdentityModule } from './modules/guest-identity/guest-identity.module';
 import { IdentityModule } from './modules/identity/identity.module';
+import { MatchModule } from './modules/match/match.module';
 import { SessionModule } from './modules/session/session.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -18,6 +19,7 @@ import { PrismaModule } from './prisma/prisma.module';
     SessionModule,
     GuestIdentityModule,
     AuthModule,
+    MatchModule,
     HealthModule,
   ],
 })
