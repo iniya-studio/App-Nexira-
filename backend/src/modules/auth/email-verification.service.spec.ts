@@ -30,7 +30,7 @@ describe('EmailVerificationService', () => {
       EMAIL_VERIFICATION_RESEND_MAX_ATTEMPTS: '3',
       EMAIL_VERIFICATION_RESEND_WINDOW_SECONDS: '3600',
     })[key]) };
-    service = new EmailVerificationService(prisma as PrismaService, config as ConfigService, delivery as unknown as EmailDeliveryService);
+    service = new EmailVerificationService(prisma as PrismaService, config as unknown as ConfigService, delivery as unknown as EmailDeliveryService);
   });
 
   it('stores only a SHA-256 hash and sends a high-entropy token', async () => {
