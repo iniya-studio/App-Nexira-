@@ -1,9 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { JudgeDecision } from '@prisma/client';
-import {
-  AnswerJudgeProviderError,
-  OpenAiResponsesAnswerJudgeAdapter,
-} from './openai-responses-answer-judge.adapter';
+import { FreeTextJudgeError } from './answer-judge.port';
+import { OpenAiResponsesAnswerJudgeAdapter } from './openai-responses-answer-judge.adapter';
 
 describe('OpenAiResponsesAnswerJudgeAdapter', () => {
   const input = {
@@ -126,7 +124,7 @@ describe('OpenAiResponsesAnswerJudgeAdapter', () => {
       }),
     });
 
-    await expect(adapter.judge(input)).rejects.toBeInstanceOf(AnswerJudgeProviderError);
+    await expect(adapter.judge(input)).rejects.toBeInstanceOf(FreeTextJudgeError);
   });
 
   it('does not send a request when provider credentials are missing', async () => {
