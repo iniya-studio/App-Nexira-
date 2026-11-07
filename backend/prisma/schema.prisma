@@ -240,7 +240,7 @@ model Question {
   canonicalLanguage String
   answerType        String
   canonicalPrompt   String
-  canonicalOptions  Json
+  canonicalOptions  Json?
   answerKey         String
   gradingRubric     Json
   localized         Json
@@ -295,7 +295,7 @@ model Room {
   hostUserId          String            @db.Uuid
   name                String
   roomType            RoomType          @default(PRIVATE)
-  inviteCode          String?           @unique
+  inviteCodeHash      String?           @unique
   matchStrategy       RoomMatchStrategy @default(SYNCHRONIZED)
   status              RoomStatus        @default(OPEN)
   maxPlayers          Int
@@ -310,7 +310,7 @@ model Room {
   members RoomMember[]
   matches Match[]
 
-  // Host membership, capacity bounds, and private/public invite-code rules are enforced by the Room service.
+  // Host membership, capacity bounds, and private/public invite-token rules are enforced by the Room service.
   @@index([hostUserId, createdAt])
   @@index([status, roomType, createdAt])
 }
@@ -384,6 +384,7 @@ model GlobalUserRanking {
   @@index([rankingPoints, updatedAt])
 }
 
+// GLOBAL transactions must have no seasonId; SEASON transactions must reference one.
 model RankingTransaction {
   id             String       @id @default(uuid()) @db.Uuid
   userId         String       @db.Uuid
@@ -446,17 +447,18 @@ model Purchase {
 
 // Ownership record for non-consumable cosmetic store items.
 model UserInventory {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @db.Uuid
-  storeItemId      String   @db.Uuid
-  sourcePurchaseId String?  @unique @db.Uuid
-  acquiredAt       DateTime @default(now()) @db.Timestamptz(3)
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  storeItemId      String    @db.Uuid
+  sourcePurchaseId String?   @unique @db.Uuid
+  acquiredAt       DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt        DateTime? @db.Timestamptz(3)
 
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   storeItem      StoreItem @relation(fields: [storeItemId], references: [id], onDelete: Restrict)
   sourcePurchase Purchase? @relation(fields: [sourcePurchaseId], references: [id], onDelete: Restrict)
 
-  // Cosmetic items are owned once per user; duplicate grants are prevented.
+  // A refunded purchase revokes the active grant; the service must restore or revoke it transactionally.
   @@unique([userId, storeItemId])
-  @@index([userId, acquiredAt])
+  @@index([userId, revokedAt, acquiredAt])
 }
