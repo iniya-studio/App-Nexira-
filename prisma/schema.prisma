@@ -395,12 +395,12 @@ model Question {
 // One answer per participant per round. NO_RESPONSE is persisted as a result, not inferred
 // from a missing row; judge failures must remain distinguishable from INCORRECT decisions.
 model Answer {
-  id             String         @id @default(uuid()) @db.Uuid
-  matchId        String         @db.Uuid
-  roundId        String         @db.Uuid
-  participantId  String         @db.Uuid
-  responseText   String?        @db.Text
-  status         AnswerStatus
+  id               String         @id @default(uuid()) @db.Uuid
+  matchId          String         @db.Uuid
+  roundId          String         @db.Uuid
+  participantId    String         @db.Uuid
+  responseText     String?        @db.Text
+  status           AnswerStatus
   judgeStatus      JudgeStatus    @default(NOT_REQUIRED)
   judgeAttempts    Int            @default(0)
   judgeStartedAt   DateTime?      @db.Timestamptz(3)
@@ -409,12 +409,12 @@ model Answer {
   decision         JudgeDecision?
   confidence       Float?
   elapsedMs        Int
-  points         Int
-  speedBonus     Int            @default(0)
-  judgeReason    String?
-  judgeVersion   String?
-  idempotencyKey String?        @unique
-  acceptedAt     DateTime       @default(now()) @db.Timestamptz(3)
+  points           Int
+  speedBonus       Int            @default(0)
+  judgeReason      String?
+  judgeVersion     String?
+  idempotencyKey   String?        @unique
+  acceptedAt       DateTime       @default(now()) @db.Timestamptz(3)
 
   round       Round            @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
   participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
