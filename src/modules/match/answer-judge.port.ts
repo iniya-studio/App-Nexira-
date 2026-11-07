@@ -2,6 +2,16 @@ import { JudgeDecision, Prisma } from '@prisma/client';
 
 export const FREE_TEXT_ANSWER_JUDGE = Symbol('FREE_TEXT_ANSWER_JUDGE');
 
+export class FreeTextJudgeError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'FreeTextJudgeError';
+  }
+}
+
 export type FreeTextJudgeInput = {
   canonicalQuestion: string;
   language: string;
