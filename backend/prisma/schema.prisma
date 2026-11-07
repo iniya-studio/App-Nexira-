@@ -255,6 +255,8 @@ model Question {
   round Round?
 }
 
+// One answer per participant per round. NO_RESPONSE is persisted as a result, not inferred
+// from a missing row; judge failures must remain distinguishable from INCORRECT decisions.
 model Answer {
   id             String         @id @default(uuid()) @db.Uuid
   matchId        String         @db.Uuid
@@ -293,6 +295,8 @@ model MatchResult {
   winner MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId, matchId], references: [id, matchId], onDelete: Restrict)
 }
 
+// Room is a V2 runtime feature; V1 keeps this room-ready data foundation only.
+// ROOM matches must snapshot roomMatchStrategy; non-room matches must keep roomId/strategy null.
 model Room {
   id                  String            @id @default(uuid()) @db.Uuid
   hostUserId          String            @db.Uuid
@@ -339,6 +343,7 @@ model RoomMember {
   @@index([roomId, status, isReady])
 }
 
+// startsAt must be earlier than endsAt; overlapping ACTIVE seasons are controlled by the season service.
 model RankingSeason {
   id        String              @id @default(uuid()) @db.Uuid
   name      String
@@ -388,6 +393,8 @@ model GlobalUserRanking {
 }
 
 // GLOBAL transactions must have no seasonId; SEASON transactions must reference one.
+// The GLOBAL/SEASON to seasonId consistency rule is enforced by service logic and
+// should also become a PostgreSQL CHECK constraint in the first migration.
 model RankingTransaction {
   id             String       @id @default(uuid()) @db.Uuid
   userId         String       @db.Uuid
