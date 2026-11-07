@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { GuestIdentityModule } from './modules/guest-identity/guest-identity.module';
 import { IdentityModule } from './modules/identity/identity.module';
@@ -16,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
     IdentityModule,
     SessionModule,
     GuestIdentityModule,
+    AuthModule,
     HealthModule,
   ],
 })
