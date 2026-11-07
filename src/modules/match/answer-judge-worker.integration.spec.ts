@@ -124,12 +124,20 @@ describe('Free-text AI Judge worker integration', () => {
       where: { matchId, guestIdentityId: guestId },
     });
     expect(participant.score).toBe(persisted.points);
+    const ledgerEntries = await prisma.matchScoreEntry.findMany({ where: { answerId } });
+    expect(ledgerEntries).toHaveLength(1);
+    expect(ledgerEntries[0]).toMatchObject({
+      entryType: 'ANSWER_SCORE',
+      pointsChange: persisted.points,
+      idempotencyKey: `answer:${answerId}:score:v1`,
+    });
 
     await expect(worker.runOnce()).resolves.toBe(false);
     const unchanged = await prisma.matchParticipant.findFirstOrThrow({
       where: { matchId, guestIdentityId: guestId },
     });
     expect(unchanged.score).toBe(persisted.points);
+    await expect(prisma.matchScoreEntry.count({ where: { answerId } })).resolves.toBe(1);
     expect(judge.judge).toHaveBeenCalledTimes(1);
   });
 
