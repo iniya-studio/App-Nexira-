@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JudgeDecision } from '@prisma/client';
 import {
@@ -37,6 +38,7 @@ export class AnswerJudgeProviderError extends Error {
   }
 }
 
+@Injectable()
 export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
   constructor(private readonly config: ConfigService) {}
 
