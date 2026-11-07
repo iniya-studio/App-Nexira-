@@ -144,8 +144,8 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
                 AND a."judgeStartedAt" <= clock_timestamp() - INTERVAL '${STALE_LEASE_SECONDS} seconds')
             )
           ORDER BY a."acceptedAt" ASC
-          FOR UPDATE OF a SKIP LOCKED
           LIMIT 1
+          FOR UPDATE OF a SKIP LOCKED
         )
         UPDATE "Answer" AS a
         SET
