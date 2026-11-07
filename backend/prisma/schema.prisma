@@ -212,7 +212,8 @@ model MatchParticipant {
   wonResults MatchResult[] @relation("MatchWinner")
 
   @@unique([matchId, participantKey])
-  // A registered user can join a match only once; NULL userIds remain allowed.
+  // Registered users can join only once per match. HUMAN guests and AI participants may have NULL userId;
+  // participantType distinguishes them, while participantKey uniquely identifies each participant.
   @@unique([matchId, userId])
   @@unique([id, matchId])
   @@index([userId, joinedAt])
