@@ -4,6 +4,7 @@ import { FREE_TEXT_ANSWER_JUDGE } from './answer-judge.port';
 import { OpenAiResponsesAnswerJudgeAdapter } from './openai-responses-answer-judge.adapter';
 import { AnswerService } from './answer.service';
 import { AnswerJudgeWorker } from './answer-judge.worker';
+import { RoundDeadlineWorker } from './round-deadline.worker';
 import { MatchController } from './match.controller';
 import { MatchService } from './match.service';
 import { RoundController } from './round.controller';
@@ -16,6 +17,7 @@ import { RoundService } from './round.service';
     RoundService,
     AnswerService,
     AnswerJudgeWorker,
+    RoundDeadlineWorker,
     {
       provide: FREE_TEXT_ANSWER_JUDGE,
       useClass: OpenAiResponsesAnswerJudgeAdapter,
