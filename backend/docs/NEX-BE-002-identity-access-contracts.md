@@ -2,8 +2,8 @@
 
 **Project:** NEXIRA  
 **Document:** NEX-BE-002  
-**Version:** 1.0-draft  
-**Status:** Draft for owner review  
+**Version:** 1.0  
+**Status:** Owner-approved technical contract  
 **Target branch:** `feature/backend-foundation`  
 **Scope:** Guest Identity, Authentication, Session Management, and Guest-to-User conversion
 
@@ -385,7 +385,7 @@ The current `EmailVerificationToken` model requires `userId` and optionally refe
 - Guest start does not require or issue email verification.
 - During guest conversion, create the User first and issue a User-owned verification token.
 - Do not issue a guest-only verification token using the current schema.
-- Before implementation, confirm whether registration creates a restricted, unverified account session or requires verification before issuing a full session. The recommended V1 behavior is to allow a limited session while restricting sensitive/account-recovery actions until verification.
+- Registration may create a limited USER session before email verification. Sensitive actions, including account-recovery and other verification-dependent operations, remain restricted until the email is verified. This is an approved V1 policy.
 
 No schema change is required solely to support this policy.
 
@@ -500,18 +500,18 @@ The Identity & Access implementation is not complete until:
 - Audit logs contain no raw credentials or tokens.
 - Automated tests cover concurrency, replay, expiry, account status, and failure rollback.
 
-## 13. Decisions requiring owner confirmation before the relevant implementation
+## 13. Owner decisions and deferred policy values
 
-These are deliberately isolated so they do not block the Guest Identity foundation:
+The owner has reviewed and approved the following Identity & Access policies for V1:
 
-1. **Unverified email session:** recommended: allow a limited USER session after registration, but restrict sensitive actions until email verification.
-2. **Session lifetime values:** choose absolute session and refresh-token lifetimes before release; keep them configurable.
-3. **Google account creation:** recommended: allow first-time Google sign-in to create a NEXIRA account only when required provider claims are verified; never auto-link to an existing account solely by email.
-4. **Guest conversion target:** recommended: conversion creates/attaches one registered User and keeps the original guest identity as immutable historical provenance.
-5. **Guest retention:** define a cleanup/retention period for abandoned guest identities only after checking match-history, audit, and legal retention requirements.
+1. **Unverified email session — APPROVED:** registration may create a limited USER session. Sensitive actions remain restricted until email verification.
+2. **Session lifetime policy — APPROVED IN PRINCIPLE; VALUES DEFERRED:** absolute session lifetime and refresh-token lifetime must remain configurable. Their production values will be selected and documented before release; this does not block the current Guest Identity + Session foundation.
+3. **Google account creation — APPROVED:** first-time Google sign-in may create a NEXIRA account only after the backend verifies the required provider claims. An existing NEXIRA account must never be auto-linked solely because its email matches. Linking requires authentication to the existing account and explicit confirmation.
+4. **Guest conversion — APPROVED:** conversion creates or attaches the guest to one registered User after ownership checks. The original GuestIdentity and historical MatchParticipant references remain immutable provenance; conversion must not rewrite match history.
+5. **Abandoned guest retention — DEFERRED:** no cleanup period or deletion policy is approved yet. Define it only after reviewing match history, audit requirements, and applicable legal retention obligations. This does not block the current implementation phase.
 
-These decisions must not be silently guessed during implementation. Where a decision is not required for the current phase, implementation may proceed without it.
+No deferred value may be guessed by implementation. If a deferred decision becomes necessary for a later phase, pause only that dependent behavior, present a concrete recommendation, and obtain owner approval. Unrelated approved work may continue.
 
 ---
 
-**End of NEX-BE-002 v1.0-draft**
+**End of NEX-BE-002 v1.0**
