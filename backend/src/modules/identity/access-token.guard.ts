@@ -1,10 +1,12 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
-import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AccessTokenService } from './access-token.service';
 import { AuthenticatedPrincipal } from './authenticated-principal';
 
-type AuthenticatedRequest = Request & { principal?: AuthenticatedPrincipal };
+type AuthenticatedRequest = {
+  headers: { authorization?: string };
+  principal?: AuthenticatedPrincipal;
+};
 
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
