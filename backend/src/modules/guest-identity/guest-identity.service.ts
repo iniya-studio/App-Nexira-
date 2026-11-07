@@ -1,4 +1,4 @@
-import { Injectable, TooManyRequestsException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GuestIdentityStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -50,14 +50,14 @@ export class GuestIdentityService {
         if (value.resetAt <= now) this.attempts.delete(key);
       }
       if (this.attempts.size >= 10000 && !this.attempts.has(clientKey)) {
-        throw new TooManyRequestsException('Guest start limiter is at capacity');
+        throw new HttpException('Guest start limiter is at capacity', HttpStatus.TOO_MANY_REQUESTS);
       }
     }
     if (!current || current.resetAt <= now) {
       this.attempts.set(clientKey, { count: 1, resetAt: now + windowMs });
       return;
     }
-    if (current.count >= max) throw new TooManyRequestsException('Guest start rate limit exceeded');
+    if (current.count >= max) throw new HttpException('Guest start rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
     current.count += 1;
   }
 }
