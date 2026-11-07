@@ -98,13 +98,6 @@ export class RoundService {
         }
       }
 
-      if (
-        match.status === MatchStatus.COMPLETED ||
-        match.status === MatchStatus.CANCELLED
-      ) {
-        throw new ConflictException('Match cannot accept another round');
-      }
-
       const clock = await tx.$queryRaw<Array<{ now: Date }>>`
         SELECT clock_timestamp() AS "now"
       `;
@@ -265,10 +258,16 @@ export class RoundService {
 
   private validateQuestion(question: GeneratedQuestion): void {
     if (
+      typeof question.canonicalLanguage !== 'string' ||
       !question.canonicalLanguage.trim() ||
+      typeof question.canonicalPrompt !== 'string' ||
       !question.canonicalPrompt.trim() ||
+      typeof question.answerKey !== 'string' ||
       !question.answerKey.trim() ||
+      typeof question.contentVersion !== 'string' ||
       !question.contentVersion.trim() ||
+      !this.asRecord(question.gradingRubric) ||
+      !this.asRecord(question.localized) ||
       !Number.isSafeInteger(question.timeLimitSeconds) ||
       question.timeLimitSeconds < 1 ||
       question.timeLimitSeconds > 300
