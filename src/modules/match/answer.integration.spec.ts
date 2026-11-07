@@ -108,9 +108,25 @@ describe('Answer submission integration', () => {
 
     const persisted = await prisma.answer.findMany({ where: { roundId } });
     expect(persisted).toHaveLength(2);
-    expect(persisted.every((answer) => answer.points === 0)).toBe(true);
-    expect(persisted.every((answer) => answer.decision === null)).toBe(true);
-    expect(persisted.every((answer) => answer.judgeStatus === 'PENDING')).toBe(true);
+
+    const correct = persisted.find((answer) => answer.responseText === 'B');
+    const incorrect = persisted.find((answer) => answer.responseText === 'A');
+    expect(correct).toBeDefined();
+    expect(incorrect).toBeDefined();
+    expect(correct?.decision).toBe('CORRECT');
+    expect(correct?.judgeStatus).toBe('COMPLETED');
+    expect(correct?.points).toBeGreaterThanOrEqual(12);
+    expect(correct?.points).toBeLessThanOrEqual(25);
+    expect(correct?.speedBonus).toBeGreaterThanOrEqual(2);
+    expect(incorrect?.decision).toBe('INCORRECT');
+    expect(incorrect?.judgeStatus).toBe('COMPLETED');
+    expect(incorrect?.points).toBe(0);
+    expect(incorrect?.speedBonus).toBe(0);
+
+    const firstParticipant = await prisma.matchParticipant.findFirstOrThrow({
+      where: { matchId, guestIdentityId: firstPrincipal.principalId },
+    });
+    expect(firstParticipant.score).toBe(correct?.points);
   });
 
   it('replays identical retries and rejects a second payload from the same participant', async () => {
