@@ -1,8 +1,0 @@
-{
-  "appId": "com.nexira.prototype",
-  "appName": "NEXIRA",
-  "webDir": "dist",
-  "android": {
-    "backgroundColor": "#0D1B2A"
-  }
-}
