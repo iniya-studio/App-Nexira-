@@ -17,7 +17,12 @@ export class AccessTokenGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authorization = request.headers.authorization;
     if (!authorization?.startsWith('Bearer ')) throw new UnauthorizedException();
-    const claims = this.accessTokens.verify(authorization.slice(7));
+    request.principal = await this.authenticate(authorization.slice(7));
+    return true;
+  }
+
+  async authenticate(token: string): Promise<AuthenticatedPrincipal> {
+    const claims = this.accessTokens.verify(token);
     const session = await this.prisma.userSession.findUnique({
       where: { id: claims.sid },
       include: { user: true, guestIdentity: true },
@@ -29,11 +34,10 @@ export class AccessTokenGuard implements CanActivate {
         ? session.userId === claims.sub && session.guestIdentityId === null && session.user?.status === 'ACTIVE'
         : session.guestIdentityId === claims.sub && session.userId === null && session.guestIdentity?.status === 'ACTIVE';
     if (!ownerMatches) throw new UnauthorizedException();
-    request.principal = {
+    return {
       principalType: claims.principalType,
       principalId: claims.sub,
       sessionId: claims.sid,
     };
-    return true;
   }
 }
