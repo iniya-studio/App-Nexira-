@@ -7,6 +7,7 @@ import {
 import {
   AnswerStatus,
   JudgeStatus,
+  MatchMode,
   MatchStatus,
   ParticipantStatus,
   ParticipantType,
@@ -98,6 +99,7 @@ export class AnswerService {
           },
           match: {
             select: {
+              mode: true,
               status: true,
               currentRound: true,
               participants: {
@@ -117,6 +119,12 @@ export class AnswerService {
       if (!round?.question) throw new NotFoundException('Round not found');
       const participant = this.findHumanParticipant(round, principal);
       if (!participant) throw new NotFoundException('Round not found');
+      if (
+        round.match.mode !== MatchMode.ONE_V_ONE &&
+        round.match.mode !== MatchMode.ONE_V_AI
+      ) {
+        throw new ConflictException('This match mode is not available in V1');
+      }
 
       // Idempotent retries are replayed even if the round has since closed.
       const existingByKey = await tx.answer.findUnique({

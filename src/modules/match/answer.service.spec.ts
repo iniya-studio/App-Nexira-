@@ -41,6 +41,7 @@ describe('AnswerService', () => {
       canonicalOptions: [{ id: 'A', text: 'Alpha' }, { id: 'B', text: 'Beta' }],
     },
     match: {
+      mode: MatchMode.ONE_V_ONE,
       status: MatchStatus.ACTIVE,
       currentRound: 1,
       participants: [
@@ -198,6 +199,49 @@ describe('AnswerService', () => {
       service.submitAnswer('match-1', 'round-1', principal, 'Mars', 'request-key-0004'),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(tx.answer.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts free-text responses for a free-text question', async () => {
+    tx.round.findFirst.mockResolvedValue(
+      roundRecord({
+        question: { answerType: 'FREE_TEXT', canonicalOptions: null },
+      }),
+    );
+
+    await expect(
+      service.submitAnswer('match-1', 'round-1', principal, 'Mars', 'request-key-free-1'),
+    ).resolves.toMatchObject({ status: 'ACCEPTED' });
+    expect(tx.answer.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ responseText: 'Mars' }),
+      }),
+    );
+  });
+
+  it('rejects V2 ROOM answers through the V1 answer path', async () => {
+    tx.round.findFirst.mockResolvedValue(
+      roundRecord({
+        match: {
+          mode: MatchMode.ROOM,
+          status: MatchStatus.ACTIVE,
+          currentRound: 1,
+          participants: [
+            {
+              id: 'participant-1',
+              userId: null,
+              guestIdentityId: principal.principalId,
+              participantType: ParticipantType.HUMAN,
+              status: ParticipantStatus.ACTIVE,
+            },
+          ],
+        },
+      }),
+    );
+
+    await expect(
+      service.submitAnswer('match-1', 'round-1', principal, 'B', 'request-key-room-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.answer.findUnique).not.toHaveBeenCalled();
   });
 
   it('does not accept answers from a non-participant', async () => {

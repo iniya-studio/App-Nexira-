@@ -1,25 +1,26 @@
-# NEX-BE-007 — Match Entry & Synchronized Round Foundation
+# NEX-BE-007 — Match Entry, Synchronized Questions & Answer Acceptance
 
 **Project:** NEXIRA  
-**Version:** 1.3  
-**Status:** Initial implementation verified by CI; not a playable match release  
+**Version:** 1.4  
+**Status:** Match entry, round start, safe question delivery, and answer acceptance implemented and CI-verified; not a playable release  
 **Target branch:** `feature/backend-foundation`  
 **Related contract:** NEX-BE-006 Match Core & Synchronized Round Contracts
 
 ## 1. Implemented scope
 
-The current backend branch contains:
+The backend currently contains:
 
-- Authenticated creation of a persisted 1vAI match shell.
-- Safe match summary retrieval for an authenticated participant.
-- An internal 1v1 aggregate creation entry point for trusted matchmaking; it is not exposed as a public route.
-- Internal first/next-round activation from a trusted server-generated question package.
-- PostgreSQL row locking for per-match round transitions.
-- Database-derived `startedAt` using `clock_timestamp()` and one shared `deadlineAt`.
-- Canonical question persistence and participant-specific localization that preserves canonical option IDs and order.
-- A public question projection that does not select or expose `answerKey` or `gradingRubric`.
+- Authenticated creation of a persisted 1vAI match shell and participant-only match reads.
+- Internal 1v1 aggregate creation for trusted matchmaking; no public matchmaking route yet.
+- Trusted first/next-round activation from a generated question package.
+- PostgreSQL row locking for per-match round transitions and per-round answer submissions.
+- Database-derived shared `startedAt` and `deadlineAt` values.
+- Participant-specific localized question delivery while preserving canonical question and option IDs.
+- Safe question selection that excludes `answerKey` and `gradingRubric`.
+- Authenticated answer submission with server-derived acceptance time, one-answer-per-participant enforcement, and idempotent retry handling.
+- A minimal answer receipt that reveals neither response correctness nor score.
 
-The AI participant row remains a persistence placeholder. It is not a functioning AI opponent.
+The AI participant row remains a persistence placeholder. It is not a functioning AI opponent, and the current question package is supplied by a trusted caller; a real AI Question Generator provider is still required.
 
 ## 2. Authenticated Match API
 
@@ -28,56 +29,83 @@ The AI participant row remains a persistence placeholder. It is not a functionin
 - **Method:** `POST`
 - **Path:** `/api/v1/matches/ai`
 - **Body:** empty
-- **Authentication:** existing access-token/session guard
+- **Authentication:** access-token/session guard
 
-The server creates a `WAITING` match with one HUMAN participant derived from the authenticated principal and one AI placeholder participant.
+Creates a `WAITING` match with the authenticated HUMAN principal and one AI placeholder participant.
 
-### Read a match summary
+### Read match summary
 
 - **Method:** `GET`
 - **Path:** `/api/v1/matches/:matchId`
-- **Authentication:** existing access-token/session guard
+- **Authentication:** access-token/session guard
 
-Only a participant can retrieve the summary. Non-members receive `404 Not Found`. The response omits participant identity IDs, answer content, and scores.
+Only a participant can retrieve the summary. Non-members receive `404 Not Found`. Participant identity IDs, answer content, and scores are omitted.
 
-## 3. Internal round activation
+## 3. Synchronized round and question delivery
 
-`RoundService.startNextRound(matchId, generatedQuestion)` is a trusted application-service operation, not a public HTTP endpoint.
+`RoundService.startNextRound(matchId, generatedQuestion)` is an internal trusted operation, not a public HTTP endpoint.
 
-The question package is expected to come from the future provider-independent AI Question Generator port. This service:
+It validates the generated question package, locks the Match row, enforces the V1 participant composition, uses PostgreSQL `clock_timestamp()`, persists one canonical Question, creates the Round, and advances the Match in one transaction. All participants in the round share the same persisted `startedAt` and `deadlineAt`.
 
-1. Validates the generated question package and canonical multiple-choice option IDs.
-2. Locks the Match row in PostgreSQL before checking lifecycle state.
-3. Enforces exactly two active participants and the V1 HUMAN/AI composition for the selected match mode.
-4. Requires the first match round to be in `WAITING` or `READY`; later rounds require an ACTIVE match and a finalized previous round.
-5. Uses the database clock to establish one `startedAt` and one shared `deadlineAt`.
-6. Persists the private Question package, creates the Round, and advances the Match in one transaction.
-7. Rejects duplicate/concurrent starts and invalid state transitions.
+### Read the question
 
-Question localization uses a `localized[language]` object with a `prompt` string and an optional `options` map keyed by canonical option ID. Missing translations fall back to canonical content. The public question query selects only public question fields.
+- **Method:** `GET`
+- **Path:** `/api/v1/matches/:matchId/rounds/:roundId/question?language=fa`
+- **Authentication:** access-token/session guard
 
-## 4. Verification
+Only a participant can read the question. The response contains the canonical question identity, localized prompt/options, stable option IDs, and the shared timing fields. The query does not select `answerKey` or `gradingRubric`. Missing translations fall back to canonical content.
 
-CI run [#42413170621](https://github.com/iniya-studio/App-Nexira-/actions/runs/42413170621) validated implementation commit `0fe1f3b748a5dd8912755cfdbdea82f7ebbcb330`:
+## 4. Answer submission
 
-- 13/13 Jest suites passed.
-- 52/52 tests passed, including PostgreSQL integration tests.
+- **Method:** `POST`
+- **Path:** `/api/v1/matches/:matchId/rounds/:roundId/answers`
+- **Authentication:** access-token/session guard
+
+Request body:
+
+```json
+{
+  "responseText": "B",
+  "idempotencyKey": "client-generated-unique-key"
+}
+```
+
+The service:
+
+1. Locks the Round row in PostgreSQL before checking answer state.
+2. Verifies that the caller is an active HUMAN participant in the match.
+3. Accepts only V1 `ONE_V_ONE` and `ONE_V_AI` modes.
+4. Replays the original receipt when the same idempotency key and payload are retried; rejects key reuse with a different payload.
+5. Enforces one answer per participant per round, including concurrent duplicate submissions.
+6. Uses PostgreSQL `clock_timestamp()` for `acceptedAt` and derives `elapsedMs` from the persisted round start.
+7. Applies an exclusive deadline boundary: an answer is accepted only when `acceptedAt < deadlineAt`; at or after the deadline it is rejected.
+8. Persists the answer with `judgeStatus=PENDING`, `points=0`, and `speedBonus=0`.
+
+The response is a receipt containing answer ID, round ID, server acceptance time, and elapsed time only. It does not reveal correctness, judge reasoning, answer content, or score. No participant can read another participant's submitted answer through these routes.
+
+## 5. Verification
+
+CI run [#42414082109](https://github.com/iniya-studio/App-Nexira-/actions/runs/42414082109) validated implementation commit `56076519e99f69caf2096f8c3ea57b5356065c43`:
+
+- 15/15 Jest suites passed.
+- 64/64 tests passed.
 - Prisma formatting, validation, client generation, and migration deployment passed.
 - NestJS production build passed.
 - ESLint passed.
 
-The PostgreSQL integration tests cover synchronized 1v1 start, same question identity and deadline for both human participants, localized text with preserved option IDs/order, safe public projection, and concurrent start protection.
+PostgreSQL integration coverage includes synchronized 1v1 question identity/deadline, localized views for both participants, independent answer acceptance, idempotent retry, duplicate submission race, and late-answer rejection.
 
-## 5. Not yet implemented
+## 6. Not yet implemented
 
 - Public 1v1 matchmaking and pairing API.
-- A real AI Question Generator provider; current round service accepts its trusted output.
-- Server-side AI opponent strategy.
-- Answer submission, adjudication, idempotency, and duplicate-answer protection.
-- Shared-deadline timeout processing and explicit `NO_RESPONSE` persistence.
-- Scoring, round finalization, match completion, result/history APIs.
-- XP/ranking settlement and realtime events/reconnect recovery.
-- Full answer/timeout concurrency and security matrix.
-- End-to-end client integration and manual two-client gameplay verification.
+- Real provider-independent AI Question Generator adapter and live AI question generation.
+- Server-side AI opponent strategy and its answer generation.
+- Provider-independent AI Judge, including semantic/equivalent free-text evaluation.
+- Deadline worker/finalizer and explicit `NO_RESPONSE` persistence.
+- Round reveal/finalization and match completion.
+- Approved scoring policy, result/history APIs, XP/ranking settlement.
+- WebSocket events, reconnect recovery, and end-to-end client integration.
+- Full answer-vs-timeout and judge-failure concurrency/security matrix.
+- Manual two-client gameplay verification.
 
 Do not describe the current backend as a playable 1v1 or 1vAI game. Completion remains governed by the NEX-BE-006 delivery gates.
