@@ -193,6 +193,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
       }
 
       const judgeVersion = `${result.provider}:${result.model}:${result.policyVersion}`;
+      const judgeReason = `${result.reasonCode}: ${result.rationale}`;
       if (result.decision === JudgeDecision.UNCERTAIN) {
         const exhausted = claim.attempts >= MAX_ATTEMPTS;
         await tx.answer.update({
@@ -201,7 +202,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
             judgeStatus: exhausted ? JudgeStatus.FAILED : JudgeStatus.PENDING,
             decision: JudgeDecision.UNCERTAIN,
             confidence: result.confidence,
-            judgeReason: exhausted ? 'JUDGE_UNCERTAIN_RETRY_EXHAUSTED' : result.reasonCode,
+            judgeReason: exhausted ? 'JUDGE_UNCERTAIN_RETRY_EXHAUSTED' : judgeReason,
             judgeVersion,
             points: 0,
             speedBonus: 0,
@@ -224,7 +225,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
           judgeStatus: JudgeStatus.COMPLETED,
           decision: result.decision,
           confidence: result.confidence,
-          judgeReason: result.reasonCode,
+          judgeReason,
           judgeVersion,
           points: score.totalPoints,
           speedBonus: score.speedBonus,
