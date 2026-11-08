@@ -199,6 +199,9 @@ describe('Technical round void and recovery integration', () => {
     await expect(
       rounds.getRoundQuestion(match.id, started.roundId, firstPrincipal, 'en'),
     ).rejects.toThrow('Round not found');
+    await expect(
+      rounds.startNextRound(match.id, question),
+    ).rejects.toThrow('A replacement round must use a question not previously used in this match');
 
     const replacement = await rounds.startNextRound(match.id, replacementQuestion);
     questionIds.push(replacement.questionId);
