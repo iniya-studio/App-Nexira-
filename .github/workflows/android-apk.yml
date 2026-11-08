@@ -1,0 +1,68 @@
+name: NEXIRA Android APK
+
+on:
+  pull_request:
+    branches:
+      - integration/nexira-reconcile
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'android/**'
+      - 'capacitor.config.json'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android-apk.yml'
+  push:
+    branches:
+      - integration/nexira-reconcile
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-apk:
+    name: Build and verify Android debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run frontend and match-engine tests
+        run: npm test
+
+      - name: Build web app and Android package
+        run: npm run android:apk
+
+      - name: Verify APK artifact
+        run: |
+          test -s build/NEXIRA-Android.apk
+          ls -lh build/NEXIRA-Android.apk
+
+      - name: Upload NEXIRA debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXIRA-Android-debug
+          path: build/NEXIRA-Android.apk
+          if-no-files-found: error
+          retention-days: 14
