@@ -1,8 +1,8 @@
 # NEX-BE-008 — AI Judge & Server-Side Scoring Contract
 
 **Project:** NEXIRA  
-**Version:** 0.7  
-**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, and negative-score persistence alignment and early round finalization implemented; regular match settlement and technical-void recovery remain pending  
+**Version:** 0.8  
+**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, negative-score persistence alignment, early round finalization, and terminal AI-judge technical-void compensation implemented; automatic replacement-question generation/orchestration, regular match settlement, and XP/ranking settlement remain pending  
 **Target branch:** `feature/backend-foundation`  
 **Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance
 
@@ -46,8 +46,9 @@ Implemented in the current branch:
 
 Still pending:
 - **implemented:** early round completion when both active participants have accepted answers and every answer has a final judge state;
-- technical-void recovery for exhausted AI Judge failures; such rounds are deliberately excluded from timeout penalties;
+- **implemented:** terminal AI Judge technical-void worker, immutable original score entries with idempotent compensating ledger entries, transactional participant-score reversal, and exclusion of voided rounds from answer/deadline/finalization processing;
 - regular end-of-match settlement after the configured final round, plus XP/ranking settlement;
+- automatic orchestration from a void event to the AI Question Generator remains pending; the round lifecycle accepts a newly generated replacement package and rejects a repeated canonical-language/prompt fingerprint;
 - provider fallback, operational metrics, and manual two-client verification.
 
 ## 3. Adjudication strategy
@@ -114,6 +115,10 @@ A provider timeout, malformed response, or exhausted retry budget is a technical
 
 Exact retry counts, timeout budgets, and fallback-provider order are deployment configuration and must be load-tested before release.
 
+**Implemented terminal-failure recovery:** `RoundTechnicalVoidWorker` acts only when at least one submitted answer has terminal `FAILED` judge status and no submitted answer remains `PENDING` or `PROCESSING`. It locks the Round row, marks the round with `voidedAt`, `completedAt`, and a stable `voidReason`, and never converts the failed answer into an incorrect answer or no-response. For every positive `ANSWER_SCORE` ledger entry in that round, it appends a `ROUND_VOID_REVERSAL` entry with a stable idempotency key and decrements the participant score aggregate in the same transaction. Original answer and score ledger rows remain intact for audit. A duplicate worker run cannot apply a second reversal.
+
+Voided rounds are excluded from answer acceptance, AI Judge claims/scoring, deadline/no-response settlement, early finalization, and consecutive no-response history. A voided question is no longer served to clients. `RoundService.startNextRound` can create the next numbered round after the void is committed, but it requires the caller to supply a newly generated question package; when replacing a voided round, it rejects a canonical-language/prompt fingerprint already used in that match. The AI Question Generator is not yet wired to trigger this transition automatically.
+
 ## 5. Scoring policy
 
 ### 5.1 Correct-answer points
@@ -161,14 +166,16 @@ For each participant without an accepted answer, it writes an explicit `NO_RESPO
 
 Each penalty ledger row and participant aggregate update occur in the same database transaction. The third consecutive no-response applies only the final -10 penalty, marks that participant FORFEITED, and does not add another -20 deduction. If exactly one participant forfeits, the remaining participant receives one +20 `FORFEIT_TRANSFER` ledger credit and the match receives an immutable forfeit result. If both participants reach their third consecutive no-response in the same round, the current implementation resolves a mutual-forfeit draw with no transfer because there is no remaining participant.
 
-The worker does not finalize a round while any submitted answer is still pending, processing, or failed in AI adjudication. In particular, a `FAILED` AI Judge outcome is not converted into a no-response or a penalty; technical-void recovery for that condition remains a separate pending implementation.
+The worker does not finalize a round while any submitted answer is still pending, processing, or failed in AI adjudication. A terminal `FAILED` AI Judge outcome is handled by `RoundTechnicalVoidWorker`, not converted into a no-response or a penalty. Voided rounds are excluded from the historical no-response streak query.
 
 PostgreSQL integration coverage verifies third-streak penalties, the single +20 transfer, idempotent reprocessing, streak reset after a valid answer, and mutual-forfeit handling.
 
 
 ## 6. Round finalization
 
-**Implemented early-finalization path:** `RoundFinalizationWorker` scans active rounds before their deadline and completes a round only when exactly two active/disconnected match participants each have an `ANSWERED` record and every answer is in a final judge state (`COMPLETED` or `NOT_REQUIRED`). It locks Match then Round (matching the next-round transition lock order), uses the database clock, and writes `completedAt` once. It does not apply no-response penalties, settle a match, or automatically generate/start the next round. Deadline and no-response processing remains owned by `RoundDeadlineWorker`.
+**Implemented early-finalization path:** `RoundFinalizationWorker` scans active rounds before their deadline and completes a round only when exactly two active/disconnected match participants each have an `ANSWERED` record and every answer is in a final judge state (`COMPLETED` or `NOT_REQUIRED`). It locks the Round row, uses the database clock, and writes `completedAt` once. It does not apply no-response penalties, settle a match, or automatically generate/start the next round. Deadline and no-response processing remains owned by `RoundDeadlineWorker`.
+
+A technical void is a distinct terminal round state, represented by non-null `voidedAt` and `voidReason` alongside `completedAt`. It is not a valid gameplay result: all positive answer-score effects are compensated through ledger reversals, no participant receives a timeout penalty, and no winner is derived from that round. The match remains active so the next numbered round can be started with a fresh generated question.
 
 A round may be finalized only when:
 1. the answer deadline has passed or all required participant outcomes are otherwise closed by a valid server transition;
@@ -235,7 +242,10 @@ The generation service must remain provider-independent, versioned, observable, 
 - judge completion racing with round finalization;
 - simultaneous finalization attempts;
 - no-response streak reset after a valid answer;
-- technical/void round excluded from no-response penalties;
+- terminal AI Judge failure waits until all submitted judge jobs are terminal, then voids the round without penalizing either participant;
+- every positive score from a voided round is reversed exactly once while original ledger rows remain auditable;
+- voided rounds cannot accept answers, receive new AI Judge scores, enter deadline/finalization processing, or contribute to no-response streaks;
+- a replacement round rejects a repeated canonical-language/prompt fingerprint;
 - the three no-response penalties total exactly -20 for the forfeiting participant; no additional -20 deduction is applied at forfeit;
 - the remaining participant receives exactly one +20 transfer credit;
 - retries/recovery cannot duplicate any of the three penalties or the transfer credit;
@@ -257,7 +267,8 @@ The generation service must remain provider-independent, versioned, observable, 
 3. Implement deterministic multiple-choice adjudication and free-text AI adjudication.
 4. Complete transactional scoring and idempotent score ledger writes for all score-changing events (answer-score ledger writes are implemented).
 5. Implement explicit no-response processing and consecutive-penalty/forfeit ledger entries. **Implemented:** deadline worker, atomic ledger/aggregate writes, single +20 transfer, and forfeit result.
-6. **Partially implemented:** early round resolution worker and PostgreSQL integration coverage. Still pending: technical-void recovery, regular match finalization, and XP/ranking settlement.
-7. Add bounded generation/judge recovery, observability, and end-to-end verification.
+6. **Implemented:** early round resolution and terminal AI Judge technical-void compensation, including exactly-once ledger reversals and PostgreSQL integration coverage.
+7. Wire the AI Question Generator to the void-recovery transition so a fresh replacement question is generated and the next shared round starts only after the package is validated; then implement regular match finalization and XP/ranking settlement.
+8. Add provider fallback, observability, operational metrics, and end-to-end two-client verification.
 
 No production code should be considered complete until the tests and release gates above pass.
