@@ -96,6 +96,37 @@ export class RoundService {
         if (!previousRound?.completedAt) {
           throw new ConflictException('The previous round is not finalized');
         }
+
+        if (previousRound.voidedAt) {
+          const previousQuestions = await tx.round.findMany({
+            where: { matchId },
+            select: {
+              question: {
+                select: {
+                  canonicalLanguage: true,
+                  canonicalPrompt: true,
+                },
+              },
+            },
+          });
+          const replacementFingerprint = this.questionFingerprint(
+            generatedQuestion.canonicalLanguage,
+            generatedQuestion.canonicalPrompt,
+          );
+          const repeatsVoidedMatchQuestion = previousQuestions.some(
+            (item) =>
+              item.question !== null &&
+              this.questionFingerprint(
+                item.question.canonicalLanguage,
+                item.question.canonicalPrompt,
+              ) === replacementFingerprint,
+          );
+          if (repeatsVoidedMatchQuestion) {
+            throw new ConflictException(
+              'A replacement round must use a question not previously used in this match',
+            );
+          }
+        }
       }
 
       const clock = await tx.$queryRaw<Array<{ now: Date }>>`
@@ -184,6 +215,7 @@ export class RoundService {
         matchId: true,
         roundNumber: true,
         questionId: true,
+        voidedAt: true,
         startedAt: true,
         deadlineAt: true,
         question: {
@@ -199,7 +231,12 @@ export class RoundService {
       },
     });
 
-    if (!round?.question || !round.startedAt || !round.deadlineAt) {
+    if (
+      !round?.question ||
+      round.voidedAt ||
+      !round.startedAt ||
+      !round.deadlineAt
+    ) {
       throw new NotFoundException('Round not found');
     }
 
@@ -230,6 +267,16 @@ export class RoundService {
       startedAt: round.startedAt,
       deadlineAt: round.deadlineAt,
     };
+  }
+
+  private questionFingerprint(language: string, prompt: string): string {
+    const normalizedLanguage = language.trim().toLowerCase();
+    const normalizedPrompt = prompt
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/[\\p{P}\\p{S}\\s]+/gu, ' ')
+      .trim();
+    return `${normalizedLanguage}:${normalizedPrompt}`;
   }
 
   private assertParticipantPolicy(match: MatchForRound): void {
