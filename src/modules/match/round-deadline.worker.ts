@@ -46,6 +46,7 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
         'SELECT r."id" FROM "Round" r ' +
           'INNER JOIN "Match" m ON m."id" = r."matchId" ' +
           'WHERE r."completedAt" IS NULL ' +
+          'AND r."voidedAt" IS NULL ' +
           'AND r."deadlineAt" <= clock_timestamp() ' +
           'AND m."status" = \'ACTIVE\' ' +
           'AND NOT (m."mode" = \'ONE_V_AI\' AND EXISTS (' +
@@ -144,6 +145,7 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
             'LEFT JOIN "Answer" a ON a."roundId" = r."id" ' +
             'AND a."participantId" = $1::uuid ' +
             'WHERE r."matchId" = $2::uuid AND r."roundNumber" < $3 ' +
+            'AND r."voidedAt" IS NULL ' +
             'ORDER BY r."roundNumber" DESC LIMIT 2',
           participant.id,
           round.matchId,
