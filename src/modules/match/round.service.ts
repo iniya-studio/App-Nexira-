@@ -274,7 +274,7 @@ export class RoundService {
     const normalizedPrompt = prompt
       .normalize('NFKC')
       .toLowerCase()
-      .replace(/[\\p{P}\\p{S}\\s]+/gu, ' ')
+      .replace(/[\p{P}\p{S}\s]+/gu, ' ')
       .trim();
     return `${normalizedLanguage}:${normalizedPrompt}`;
   }
