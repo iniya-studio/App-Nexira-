@@ -197,6 +197,58 @@ describe('Round deadline and no-response scoring integration', () => {
     };
   }
 
+  it('does not penalize a human while the 1vAI opponent has no answer outcome', async () => {
+    const guest = await prisma.guestIdentity.create({ data: {} });
+    guestIds.push(guest.id);
+    const match = await matches.createAiMatch({
+      principalType: PrincipalType.GUEST,
+      principalId: guest.id,
+      sessionId: randomUUID(),
+    });
+    matchIds.push(match.id);
+
+    const question = await prisma.question.create({
+      data: {
+        canonicalLanguage: 'en',
+        answerType: 'MULTIPLE_CHOICE',
+        canonicalPrompt: 'Which option is correct?',
+        canonicalOptions: [
+          { id: 'A', text: 'Option A' },
+          { id: 'B', text: 'Option B' },
+        ],
+        answerKey: 'B',
+        gradingRubric: { strategy: 'exact-option' },
+        localized: { en: { prompt: 'Which option is correct?' } },
+        timeLimitSeconds: 20,
+        contentVersion: 'deadline-ai-' + randomUUID(),
+      },
+    });
+    questionIds.push(question.id);
+
+    const startedAt = new Date(Date.now() - 30_000);
+    const round = await prisma.round.create({
+      data: {
+        matchId: match.id,
+        roundNumber: 1,
+        questionId: question.id,
+        startedAt,
+        deadlineAt: new Date(Date.now() - 1_000),
+      },
+    });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: {
+        status: MatchStatus.ACTIVE,
+        currentRound: 1,
+        startedAt,
+      },
+    });
+
+    expect(await worker.runOnce()).toBe(false);
+    expect(await prisma.answer.count({ where: { roundId: round.id } })).toBe(0);
+    expect(await prisma.matchScoreEntry.count({ where: { matchId: match.id } })).toBe(0);
+  });
+
   it('applies the third consecutive penalty and one +20 transfer exactly once', async () => {
     const scenario = await createScenario(
       [
