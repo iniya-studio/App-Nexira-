@@ -189,7 +189,12 @@ describe('Round deadline and no-response scoring integration', () => {
       data: { deadlineAt: new Date(Date.now() - 1_000) },
     });
 
-    return {\n      matchId: match.id,\n      roundId: rounds[totalRounds - 1].id,\n      roundIds: rounds.map((round) => round.id),\n      participants,\n    };
+    return {
+      matchId: match.id,
+      roundId: rounds[totalRounds - 1].id,
+      roundIds: rounds.map((round) => round.id),
+      participants,
+    };
   }
 
   it('applies the third consecutive penalty and one +20 transfer exactly once', async () => {
