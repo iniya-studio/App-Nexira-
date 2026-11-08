@@ -76,6 +76,7 @@ function StatCard({ icon: Icon, label, value, tone = 'cyan' }) {
 export default function App() {
   const [profile, setProfile] = useState(() => loadProfile());
   const [screen, setScreen] = useState('splash');
+  const [entryMatchMode, setEntryMatchMode] = useState(null);
   const [profileView, setProfileView] = useState('progress');
   const [resultsView, setResultsView] = useState('summary');
   const screenRef = useRef(screen);
@@ -433,16 +434,26 @@ export default function App() {
         </div>
       </section>
 
-      <section className="arena-launch-panel">
-        <div className="launch-copy">
-          <span className="launch-eyebrow"><Zap size={13} /> {text.nextChallenge}</span>
-          <strong>{text.readyToEnter}</strong>
-          <small>{text.startNote}</small>
+      <section className="home-mode-section" aria-labelledby="home-mode-title">
+        <div className="home-mode-heading">
+          <span className="launch-eyebrow"><Zap size={13} /> {language === 'fa' ? 'ورود به رقابت' : 'ENTER THE ARENA'}</span>
+          <h2 id="home-mode-title">{language === 'fa' ? 'چطور می‌خواهی رقابت کنی؟' : 'Choose your battle'}</h2>
+          <p>{language === 'fa' ? 'حالت مسابقه را انتخاب کن، سپس موضوع دلخواهت را برگزین.' : 'Pick a match mode, then choose your category.'}</p>
         </div>
-        <button className="primary-button arena-launch-button" onClick={() => navigate('categories')}>
-          <span className="play-mark"><Play size={17} fill="currentColor" /></span>
-          <span className="primary-label">{text.start}<small>{text.enterArena}</small></span>
-          <ArrowRight className="primary-arrow" size={19} />
+        <div className="home-mode-grid">
+          <button className="home-mode-card home-mode-card--duel" onClick={() => { setEntryMatchMode('1v1'); navigate('categories'); }}>
+            <span className="home-mode-icon"><UserRound size={22} /></span>
+            <span className="home-mode-copy"><strong>1v1</strong><small>{language === 'fa' ? 'رقابت دونفره' : 'Head-to-head'}</small></span>
+            <ChevronRight size={18} />
+          </button>
+          <button className="home-mode-card home-mode-card--ai" onClick={() => { setEntryMatchMode('1vAI'); navigate('categories'); }}>
+            <span className="home-mode-icon"><Brain size={22} /></span>
+            <span className="home-mode-copy"><strong>1vAI</strong><small>{language === 'fa' ? 'مقابل حریف هوشمند' : 'Challenge the AI'}</small></span>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+        <button className="home-practice-link" onClick={() => { setEntryMatchMode(null); navigate('categories'); }}>
+          <Target size={16} /> {language === 'fa' ? 'تمرین انفرادی و رکورد شخصی' : 'Solo practice & personal best'} <ArrowRight size={15} />
         </button>
       </section>
 
@@ -472,7 +483,17 @@ export default function App() {
         {CATEGORIES.map((item, index) => {
           const Icon = CATEGORY_ICONS[item.icon] ?? Activity;
           const savedStats = profile.categoryStats[item.id];
-          return <button key={item.id} className={`category-tile tone-${item.tone}`} onClick={() => { runRef.current = null; setRun({ categoryId: item.id }); setScreen('modes'); }}>
+          return <button key={item.id} className={`category-tile tone-${item.tone}`} onClick={() => {
+            if (entryMatchMode) {
+              const selectedMode = entryMatchMode;
+              setEntryMatchMode(null);
+              beginMatch(item, selectedMode);
+              return;
+            }
+            runRef.current = null;
+            setRun({ categoryId: item.id });
+            setScreen('modes');
+          }}>
             <span className="tile-top"><span className="tile-icon"><Icon size={20} /></span><span className="tile-index">0{index + 1}</span></span>
             <strong>{item.title}</strong><span className="tile-subtitle">{text.categorySubtitles[item.id] ?? item.subtitle}</span>
             <span className="tile-arrow"><ChevronRight size={16} /></span>
@@ -724,7 +745,10 @@ export default function App() {
     </ScreenFrame>}
 
     {screen === 'profile' && <ScreenFrame className="info-screen">
-      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <div className="profile-screen-actions">
+        <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+        <button className="profile-settings-link" onClick={() => navigate('settings')}><Settings size={15} /> {text.settings}</button>
+      </div>
       <ScreenHeading eyebrow={text.operatorDossierEyebrow} title={text.profileTitle} accent={text.profileAccent} />
       <GlassPanel className="profile-panel" data-view={profileView}>
         <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {profile.level} · {text.totalXp} {profile.totalXp}</small></span></div>
@@ -817,6 +841,16 @@ export default function App() {
       </GlassPanel>
     </ScreenFrame>}
 
+    {screen === 'store' && <ScreenFrame className="info-screen store-screen">
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <ScreenHeading eyebrow={language === 'fa' ? 'شخصی‌سازی' : 'PERSONALIZATION'} title={language === 'fa' ? 'فروشگاه' : 'Store'} accent={language === 'fa' ? 'نکسیرا' : 'NEXIRA'} description={language === 'fa' ? 'آیتم‌های ظاهری اختیاری؛ بدون هیچ مزیت رقابتی.' : 'Optional cosmetic items. Never pay for a competitive advantage.'} />
+      <GlassPanel className="store-coming-soon">
+        <span className="store-mark"><Sparkles size={25} /></span>
+        <h2>{language === 'fa' ? 'فروشگاه در حال آماده‌سازی است' : 'The store is being prepared'}</h2>
+        <p>{language === 'fa' ? 'پرداخت و خرید هنوز فعال نیست. هیچ آیتم پولی یا مزیت رقابتی در این نسخه ارائه نمی‌شود.' : 'Purchases are not available yet. No paid items or competitive advantages are offered in this build.'}</p>
+      </GlassPanel>
+    </ScreenFrame>}
+
     {screen === 'settings' && <ScreenFrame className="info-screen">
       <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
       <ScreenHeading eyebrow={text.settingsEyebrow} title={text.settingsTitle} accent={text.settingsAccent} description={text.settingsDescription} />
@@ -844,8 +878,10 @@ export default function App() {
 
     {screen !== 'game' && screen !== 'match-game' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
       {[
-        ['home', text.navHome, Play], ['rankings', text.navRanks, Trophy],
-        ['profile', text.navProfile, UserRound], ['settings', text.navSettings, Settings],
+        ['home', text.navHome, Play],
+        ['rankings', text.navRanks, Trophy],
+        ['store', language === 'fa' ? 'فروشگاه' : 'Store', Sparkles],
+        ['profile', text.navProfile, UserRound],
       ].map(([destination, label, Icon]) => <button key={destination} className={`nav-item${screen === destination ? ' nav-item--active' : ''}`} onClick={() => navigate(destination)}>
         <Icon className="nav-icon" size={17} /><span>{label}</span>
       </button>)}
