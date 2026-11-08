@@ -158,3 +158,145 @@ A phase is not complete merely because it builds. It must:
 - No AI chat interface.
 - No gameplay, scoring, matchmaking, backend, payment, or data-model changes in visual-only phases.
 - No claim of AAA production status based only on visual styling. Quality is measured by the complete experience, reliability, responsiveness, and polish.
+
+
+## 13. Approved product-wide UX decisions
+
+These decisions consolidate the approved direction from the UI/UX review. They are the source of truth for subsequent screen audits and implementation. Where the current prototype differs, treat the difference as work to be addressed—not as an approved product decision.
+
+### 13.1 Global navigation
+
+The fixed bottom navigation has exactly four destinations, in this order:
+1. Home
+2. Ranking
+3. Store
+4. Profile
+
+Settings is accessed from Profile and may also be reached through a gear action on Home. The current prototype's separate Settings bottom-navigation item is not the target design.
+
+### 13.2 Guest-first access and account creation
+
+- The app must allow users to enter and play as guests without mandatory registration.
+- Do not show a registration wall during first launch or before a user can play.
+- Place **Create Account** and **Log In** entry points inside the Profile experience.
+- A guest Profile must still feel like a real player profile: show the guest identity and the progress/statistics that are legitimately available to that guest.
+- Explain the value of creating an account without coercive language or blocking ordinary play.
+- V1 account methods: Email + Password and Google. Apple sign-in is deferred until the iOS release phase.
+- When a guest creates or links an account, securely transfer eligible guest progress to the authenticated account. Preserve valid progress; prevent duplicate transfers, account-takeover, and unauthorized identity linking. The backend remains authoritative for identity and transfer eligibility.
+- Never imply that guest progress is permanently backed up or available across devices unless the backend actually guarantees it.
+
+### 13.3 Home and match-entry flow
+
+- Remove the current **Start a Challenge** primary card/action from Home.
+- Home presents two clear, direct match-entry choices: **1v1** and **1vAI**.
+- Category/discipline selection remains part of the match-entry flow.
+- Remove the separate full-screen difficulty-selection page. Present difficulty selection in a well-designed **Bottom Sheet** at the appropriate point in setup.
+- Preferred high-level flow: **Home → Match Mode (1v1 / 1vAI) → Category/Discipline → Difficulty Bottom Sheet → Match**.
+- If a selected discipline offers additional challenge formats or timing variants, retain those choices in the relevant setup context; do not create unnecessary extra navigation steps.
+- Reuse the same setup patterns for 1v1 and 1vAI where the rules are shared, while clearly communicating mode-specific differences.
+- This is a UX/navigation target. Do not silently change gameplay rules, matchmaking, scoring, timers, or backend contracts while implementing visual changes.
+
+### 13.4 Shared card and component system
+
+Build a coherent component family rather than designing unrelated cards page by page. The following are semantic patterns; they may share a base component but must have distinct visual hierarchy and states according to their purpose:
+
+- **Information cards:** player identity, level, XP, account and contextual information.
+- **Selection cards:** match modes, categories, disciplines, challenge formats and selectable options.
+- **Stat cards:** wins, losses, accuracy, best score, completed matches and other verified metrics.
+- **Ranking rows/cards:** rank, player identity, score/points, league/division and verified rank movement.
+- **Reward/achievement cards:** milestones, honors, badges and earned rewards.
+- **Store item cards:** cosmetic/customization item, clear ownership/availability state and price when applicable. Never suggest gameplay advantage from a purchase.
+- **Status/empty-state panels:** loading, no data, offline, error, success and disabled states.
+
+Shared standards:
+- Consistent spacing, radii, borders, typography, icon family, elevation and interaction feedback.
+- Clear hierarchy between primary, secondary and tertiary actions.
+- Selected, pressed, focused, disabled and loading states where applicable.
+- Avoid tiny dense cards, decorative empty containers and low-contrast content.
+- Do not force every card into the same dimensions or layout; adapt to content and screen purpose.
+- Use one coherent, restrained line-icon family with consistent stroke weight and sizing. Icons support meaning; they do not replace clear labels where labels are needed.
+
+### 13.5 Screen inventory and approved direction
+
+| Screen / area | Current observation | Approved direction |
+|---|---|---|
+| Splash | Existing branded entry screen | Preserve the basic identity; refine transition and motion only where useful |
+| Home | Existing dashboard and Start a Challenge action | Rework hierarchy and direct 1v1 / 1vAI entry; remove Start a Challenge |
+| Category selection | Existing category grid | Refine card size, readability, selection state and scalability |
+| Challenge setup | Separate challenge/mode/timing choices | Audit each choice; simplify navigation and use a difficulty Bottom Sheet |
+| Gameplay | Timer, question and answer choices exist | Improve answer feedback, opponent context, match state and accessibility without changing rules |
+| Matchmaking / waiting | Not represented in supplied screen review | Design clear searching, waiting, cancel, retry and connection states |
+| Match found / countdown | Not represented in supplied screen review | Design opponent confirmation and fair shared-start feedback |
+| Match result | Not represented in supplied screen review | Design outcome, score breakdown, XP/progress and next action |
+| Ranking | Current Local Rankings page is effectively an empty personal-best state | Full redesign; see Section 13.6 |
+| Profile | Basic profile, progress and tabs exist | Complete identity, progress, statistics, history and honors; support guest and registered states |
+| Settings | Currently a limited standalone screen | Keep accessible from Profile/Home; organize settings into clear groups |
+| Store | Not implemented in the reviewed UI | Design and implement a complete V1 storefront UI; real payment integration is a separate later milestone |
+| Friends / social | Not represented in supplied screen review | Include in the product UX inventory and phase it according to V1 scope; do not imply unavailable functionality is live |
+| Login / registration | Not part of first-launch flow | Provide Email/Password and Google flows from Profile; Apple later for iOS |
+
+### 13.6 Ranking experience
+
+The current **Local Rankings** screen is not an acceptable final Ranking experience. It is a local personal-best/empty-state prototype, not a global leaderboard.
+
+The redesigned Ranking area should distinguish:
+- **Global Ranking:** persistent all-time/global standing, separate from seasonal results.
+- **Seasonal Ranking:** competition within a defined season, with season identity and remaining time when applicable.
+- **Friends Ranking:** only when friend relationships and the supporting data are available.
+- **Weekly view/league:** only when the ranking rules and backend data support it.
+
+Recommended screen hierarchy:
+1. Ranking context and selected scope/season.
+2. Top-three presentation when verified ranking data exists.
+3. Ranked player list with rank, avatar/identity, display name, points/score, level or league where meaningful, and verified movement indicators.
+4. A clearly identifiable current-user position, including when the user is outside the currently visible range.
+5. Useful filters that correspond to real backend-supported ranking scopes.
+
+Rules:
+- Global and seasonal rankings are separate concepts and must not be conflated. Ending a season must not erase all-time/global standing.
+- Never fabricate players, ranks, scores, movement, league status or season countdowns. Use clearly labelled demo data only in a demo environment.
+- When there is no ranking data, show a designed empty state that explains why and offers a relevant next step; do not present an empty decorative card as a finished leaderboard.
+- Guest eligibility and visibility must follow the approved ranking/product rules and actual backend support; do not invent eligibility behavior in the UI.
+- Ranking calculations and authoritative positions come from the backend, not client-side presentation logic.
+
+### 13.7 Store and fairness
+
+- Store is a required V1 screen and a fixed bottom-navigation destination, but it is not yet implemented in the reviewed UI.
+- V1 must have a complete storefront experience even if real payment processing is deferred.
+- Purchases may offer optional cosmetic expression or personalization only.
+- No purchase may provide scoring, timing, matchmaking, ranking, question, or other competitive advantage.
+- Non-paying users must retain a complete, respectful and enjoyable core game experience.
+- Clearly distinguish owned, available, locked and not-yet-available items; do not present mock payment success as a real transaction.
+
+## 14. UI/UX audit and implementation workflow
+
+Before further broad UI implementation, perform a repository-backed audit on `feature/nexira-uiux-home-prototype`. The supplied nine-screen montage is a visual reference, not proof of the underlying implementation or behavior.
+
+Audit deliverables:
+1. Inventory every implemented route/screen, shared component, navigation entry and relevant CSS/module.
+2. Compare the actual implementation against the screen inventory in Section 13.5.
+3. For each screen/component, classify **Keep**, **Refine**, **Replace**, **Create**, or **Out of V1 scope**.
+4. Identify duplicated components/styles and opportunities for shared primitives.
+5. Record missing states: loading, empty, error, offline, disabled, selected and success as applicable.
+6. Check RTL/LTR, small-screen layout, safe areas, touch targets, accessibility and reduced motion.
+7. Separate visual-only work from behavior, data, backend and product-scope dependencies.
+8. Produce one sequenced implementation plan with dependencies and acceptance criteria before making broad screen changes.
+
+Implementation order after the audit:
+1. Shared design system and reusable components.
+2. Home and match-entry/setup flow.
+3. Gameplay, matchmaking and match-result experiences.
+4. Ranking redesign.
+5. Profile and guest/account states.
+6. Settings.
+7. Store.
+8. Remaining V1 screens and regression review.
+
+Do not treat this sequence as permission to implement backend-dependent behavior with mock data in production. Each phase must identify what is real, what is a preview, and what depends on backend work.
+
+## 15. Decision control
+
+- This document is the product-wide UI/UX source of truth for the decisions recorded above.
+- Preserve approved palette roles and the Premium Competitive Gaming direction. Minor accessibility or usability adjustments may be made with evidence; do not casually reintroduce the retired neon-first direction.
+- If a later user decision changes a rule, update this document before implementing the affected screens.
+- Keep the audit and implementation on `feature/nexira-uiux-home-prototype`; do not merge into `integration/nexira-reconcile` until checks pass and Milad approves the APK.
