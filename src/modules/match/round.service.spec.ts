@@ -230,6 +230,7 @@ describe('RoundService', () => {
         matchId: true,
         roundNumber: true,
         questionId: true,
+        voidedAt: true,
         startedAt: true,
         deadlineAt: true,
         question: {
