@@ -44,6 +44,7 @@ export class RoundFinalizationWorker implements OnModuleInit, OnModuleDestroy {
           'FROM "Round" r ' +
           'INNER JOIN "Match" m ON m."id" = r."matchId" ' +
           'WHERE r."completedAt" IS NULL ' +
+          'AND r."voidedAt" IS NULL ' +
           'AND r."deadlineAt" > clock_timestamp() ' +
           'AND m."status" = \'ACTIVE\' ' +
           'AND m."currentRound" = r."roundNumber" ' +
