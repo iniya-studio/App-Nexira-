@@ -6,7 +6,7 @@ import {
   Trophy, UserRound, Zap, Atom,
 } from 'lucide-react';
 import {
-  CATEGORIES, MODE_TIMES, loadProfile, saveProfile,
+  CATEGORIES, MODE_TIMES, completeLanguageSelection, hasCompletedLanguageSelection, loadProfile, saveProfile,
 } from './game/data.js';
 import { awardRun, categoryById, isValidAnswer, remainingTime, xpForNextLevel } from './game/scoring.js';
 import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } from './game/session.js';
@@ -75,6 +75,7 @@ function StatCard({ icon: Icon, label, value, tone = 'cyan' }) {
 
 export default function App() {
   const [profile, setProfile] = useState(() => loadProfile());
+  const [isInitialLanguageSelection, setIsInitialLanguageSelection] = useState(() => !hasCompletedLanguageSelection());
   const [screen, setScreen] = useState('splash');
   const [profileView, setProfileView] = useState('progress');
   const [resultsView, setResultsView] = useState('summary');
@@ -124,7 +125,9 @@ export default function App() {
   useEffect(() => {
     if (screen !== 'splash') return undefined;
     const fadeTimer = window.setTimeout(() => setSplashExiting(true), prefersReducedMotion ? 0 : 1250);
-    const finishTimer = window.setTimeout(() => setScreen('home'), prefersReducedMotion ? 80 : 1750);
+    const finishTimer = window.setTimeout(() => {
+      setScreen(hasCompletedLanguageSelection() ? 'home' : 'language');
+    }, prefersReducedMotion ? 80 : 1750);
     return () => {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(finishTimer);
@@ -137,6 +140,7 @@ export default function App() {
     let cancelled = false;
     CapacitorApp.addListener('backButton', () => {
       const currentScreen = screenRef.current;
+      if (currentScreen === 'language' && !hasCompletedLanguageSelection()) return;
       if (currentScreen === 'match-game') {
         setShowExitConfirm(true);
         return;
@@ -836,7 +840,7 @@ export default function App() {
       <ScreenHeading eyebrow={text.languageEyebrow} title={text.languageTitle} accent={text.languageAccent} description={text.languageDescription} />
       <GlassPanel className="language-options">
         {[['en', 'English', text.englishInterface], ['fa', 'فارسی', text.persianInterface]].map(([value, name, subtitle]) =>
-          <button className={`language-option${language === value ? ' language-option--selected' : ''}`} key={value} onClick={() => { updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, language: value } })); navigate('settings'); }}>
+          <button className={`language-option${language === value ? ' language-option--selected' : ''}`} key={value} onClick={() => { updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, language: value } })); completeLanguageSelection(); const wasInitialSelection = isInitialLanguageSelection; setIsInitialLanguageSelection(false); navigate(wasInitialSelection ? 'home' : 'settings'); }}>
             <span><strong>{name}</strong><small>{subtitle}</small></span>{language === value && <Check size={18} />}
           </button>)}
       </GlassPanel>
