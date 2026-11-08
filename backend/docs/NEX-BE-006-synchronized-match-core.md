@@ -50,6 +50,7 @@ The current competitive match engine defines:
 - The three deductions above are the complete 20-point penalty for the forfeiting participant. **Do not apply another -20 deduction** when the third consecutive no-response triggers forfeiture.
 - The existing forfeit transfer is 20 points to the remaining participant. This is a single +20 credit to the remaining participant, corresponding to the same three accumulated penalties; it is not a second deduction from the forfeiting participant and must not cause the forfeiting participant to lose 40 points in total.
 - Both the three penalty entries and the single transfer credit must be recorded at most once. Finalization/retry/recovery must not duplicate either side of this settlement.
+- Match scores may become negative. Do not clamp the three approved deductions at zero: the existing game engine contract expects the forfeiting participant to reach -20 and the remaining participant to receive +20. The backend database must preserve this behavior.
 
 Backend implementation must port and test this single canonical rule set. The older generic `scoreAnswer(..., timedOut)` helper in the client must not silently override the competitive engine's consecutive-no-response behavior. Reconcile client behavior when wiring it to the backend.
 
