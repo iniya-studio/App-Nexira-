@@ -767,3 +767,150 @@ input:focus-visible {
     transition: none !important;
   }
 }
+
+
+/* --------------------------------------------------------------------------
+   Phase A — shared design foundation
+   Tokens and interaction states are centralized here before screen refactors.
+   Keep game/session logic and screen markup unchanged in this phase.
+   -------------------------------------------------------------------------- */
+:root {
+  /* Semantic surfaces */
+  --nx-bg-deep: #0d151c;
+  --nx-surface-1: #18232d;
+  --nx-surface-2: #202e39;
+  --nx-surface-3: #263642;
+  --nx-overlay: rgba(7, 12, 17, 0.78);
+
+  /* Semantic text */
+  --nx-text-primary: #f2f5f6;
+  --nx-text-body: #c5d0d6;
+  --nx-text-subtle: #aebbc3;
+  --nx-text-disabled: #71818b;
+
+  /* Interaction */
+  --nx-focus-ring: #a5d1da;
+  --nx-brand-hover: #8bbbc6;
+  --nx-brand-pressed: #3e7583;
+  --nx-disabled-bg: #26323a;
+  --nx-disabled-border: rgba(205, 220, 228, 0.08);
+
+  /* Consistent geometry and spacing */
+  --nx-radius-sm: 8px;
+  --nx-radius-md: 12px;
+  --nx-radius-lg: 16px;
+  --nx-radius-xl: 20px;
+  --nx-space-1: 4px;
+  --nx-space-2: 8px;
+  --nx-space-3: 12px;
+  --nx-space-4: 16px;
+  --nx-space-5: 20px;
+  --nx-space-6: 24px;
+  --nx-control-height: 48px;
+  --nx-control-height-large: 56px;
+  --nx-motion-fast: 140ms;
+  --nx-motion-standard: 180ms;
+}
+
+html {
+  color-scheme: dark;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-body);
+}
+
+button,
+input,
+textarea,
+select {
+  accent-color: var(--nx-brand);
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--nx-focus-ring);
+  outline-offset: 3px;
+}
+
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.58;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Shared interactive control behavior; appearance remains screen-specific. */
+.primary-button,
+.arena-launch-button,
+.category-tile,
+.mode-option,
+.answer-button,
+.icon-button,
+.nav-item,
+.arena-shortcuts button,
+.top-profile {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.primary-button,
+.arena-launch-button,
+.category-tile,
+.mode-option,
+.answer-button,
+.icon-button,
+.nav-item,
+.arena-shortcuts button {
+  transition-duration: var(--nx-motion-standard);
+  transition-timing-function: ease;
+}
+
+.primary-button:active,
+.arena-launch-button:active,
+.category-tile:active,
+.mode-option:active,
+.answer-button:active,
+.icon-button:active,
+.nav-item:active,
+.arena-shortcuts button:active {
+  transition-duration: var(--nx-motion-fast);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primary-button:not(:disabled):hover,
+  .arena-launch-button:not(:disabled):hover {
+    border-color: rgba(160, 205, 214, 0.78);
+  }
+
+  .icon-button:not(:disabled):hover {
+    border-color: rgba(120, 174, 187, 0.55);
+    color: var(--nx-text-primary);
+    background: var(--nx-surface-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
