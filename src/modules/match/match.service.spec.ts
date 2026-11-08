@@ -16,6 +16,7 @@ describe('MatchService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       questionGenerationJob: { create: jest.fn().mockResolvedValue({}) },
+      round: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const prisma = {
       $transaction: jest.fn(async (callback: (transaction: typeof tx) => unknown) => callback(tx)),

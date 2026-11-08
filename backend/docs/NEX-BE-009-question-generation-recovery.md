@@ -28,7 +28,7 @@ Multiple-choice questions require 2–8 unique option IDs and an answer key equa
 
 Initial 1vAI and 1v1 match creation inserts the first-question job in the same database transaction as the Match and its participants. The request context snapshots the category (`general`), difficulty (`medium`), first participant's preferred language (or `en` for a guest), free-text answer type, and 30-second limit. Initial jobs have no source round and are eligible while the Match is `WAITING`. A successful initial generation creates round 1 without starting its clock, creates readiness rows (AI is ready automatically; humans are not), and moves the Match to `READY`. The same Ready endpoint starts the shared clock only when every required participant is ready. Exhausted initial generation cancels the still-waiting Match without scores or a result.
 
-## 3. Durable recovery job
+## 4. Durable recovery job
 
 `QuestionGenerationJob` is PostgreSQL-backed and has `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, and `CANCELLED` states. Each job records the match, optional source round (null for initial match generation), trigger, typed request context, attempts/max attempts, availability time, lease ID/time, last error code, idempotency key, generated question, and completion time. Initial jobs are created atomically with the Match using the `INITIAL_MATCH` trigger and a match-scoped idempotency key.
 
@@ -44,7 +44,7 @@ Workers claim eligible jobs using `FOR UPDATE SKIP LOCKED`, increment attempts, 
 
 The attempt limit is three. Retry delays are 1 second and 2 seconds before the final attempt. Expired leases are recoverable; a crashed final attempt is made terminal after lease expiry. Exhausted generation fails the job and changes the Match to `CANCELLED` using the database clock. It does not create a round, alter score, penalize participants, or create a result.
 
-## 4. Replacement round and readiness
+## 5. Replacement round and readiness
 
 On successful generation, the worker stores the Question and creates the next numbered Round without `startedAt` or `deadlineAt`. It creates one `RoundReadiness` row per required participant. AI participants are ready immediately; humans start not-ready.
 
@@ -62,7 +62,7 @@ Returns the caller-authorized recovery job state, source/replacement round IDs, 
 
 Uses the authenticated principal; request bodies cannot provide participant IDs, timestamps, deadlines, or scores. A cancelled/non-ready Match cannot start a replacement.
 
-## 5. Provider configuration and privacy
+## 6. Provider configuration and privacy
 
 Configure these values only in secure server deployment settings:
 
@@ -75,7 +75,7 @@ The generator uses a 12-second default timeout, configurable from 1–30 seconds
 
 The provider receives only category, difficulty, language, answer type, time limit, and excluded content fingerprints. Excluded question IDs remain application-side. Network errors, timeouts, HTTP failures, refusal, incomplete responses, malformed structured output, and invalid/duplicate questions have explicit error codes.
 
-## 6. Verification and release gates
+## 7. Verification and release gates
 
 Unit coverage includes valid and invalid structured output, provider refusal/incomplete responses, timeout, HTTP/network errors, strict schema use, and identity-data exclusion. PostgreSQL integration coverage exercises job idempotency, exact-match/rematch duplicate prevention, retry/backoff/exhaustion, safe cancellation, stale lease recovery/fencing, concurrent claims, score preservation, participant ownership, and readiness-gated shared clocks.
 
