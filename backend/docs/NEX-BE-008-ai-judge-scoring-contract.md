@@ -1,8 +1,8 @@
 # NEX-BE-008 — AI Judge & Server-Side Scoring Contract
 
 **Project:** NEXIRA  
-**Version:** 0.5  
-**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, and atomic forfeit transfer implemented; regular match settlement and technical-void recovery remain pending  
+**Version:** 0.6  
+**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, and negative-score persistence alignment implemented; regular match settlement and technical-void recovery remain pending  
 **Target branch:** `feature/backend-foundation`  
 **Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance
 
@@ -146,6 +146,8 @@ The V1 consecutive no-response and forfeit rule is aligned with NEX-BE-006 Versi
 - credit the remaining participant with +20 points once as the forfeit transfer, representing the same accumulated penalty amount.
 
 **No additional -20 deduction is permitted at the moment of forfeiture.** The forfeiting participant's total penalty across the three consecutive no-responses is -20, not -40. The +20 transfer to the remaining participant is not another deduction from the forfeiting participant.
+
+Negative match scores are valid and must not be clamped to zero. The existing game engine's approved scoring behavior and tests explicitly expect a forfeiting participant to reach -20 while the remaining participant receives +20. The additive migration `20261108000400_allow_negative_match_scores` removes the original database nonnegative-score check so the score aggregate remains consistent with the authoritative ledger.
 
 The score ledger must make the accounting explicit and auditable. Record the three penalty entries against the forfeiting participant and one corresponding transfer credit for the remaining participant. Apply the transfer only once, using a stable idempotency key tied to the match/forfeit event. Round retries, match finalization retries, and recovery workers must never duplicate deductions or the transfer. The settlement must be atomic.
 
