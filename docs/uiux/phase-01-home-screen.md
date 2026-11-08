@@ -1,52 +1,35 @@
 # NEXIRA UI/UX — Phase 01: Home Screen Prototype
 
 ## Status
-Planning baseline only. No application code or existing gameplay behavior is changed by this document.
+Historical planning baseline for the first Home prototype. It is not the current product-wide UX specification. The approved and current source of truth is:
+- `docs/uiux/nexira-design-system-v1.md`
 
-## Repository baseline
+If any statement in this historical document conflicts with the design system, the design system takes precedence.
+
+## Repository baseline captured at the time
 - Frontend: React 19 + Vite.
 - Android wrapper: Capacitor 7.
-- Styling: existing CSS design system in `src/styles.css`, `src/theme.css`, and `src/app.css`.
+- Styling: existing CSS in `src/styles.css`, `src/theme.css`, and `src/app.css`.
 - Icons: `lucide-react`.
-- Localization: existing Persian/English copy system with RTL/LTR direction handling.
-- Current Home screen: custom NEXIRA Battle Arena composition with a CSS-built reactor, player/level summary, primary play action, metrics, and shortcuts.
+- Localization: Persian/English with RTL/LTR handling.
+- The initial Home prototype contained a Battle Arena composition, player/level summary, a Start a Challenge action, metrics and shortcuts.
 
-## Design decision
-Keep the existing NEXIRA visual identity and component architecture. Do not replace the application with a downloaded template or introduce a new CSS framework.
+## Historical prototype notes
+The first prototype was intentionally limited to a reviewable Home-screen visual pass. It established the initial implementation branch and demonstrated that visual refinement could be layered onto the existing React/CSS application without introducing a new UI framework.
 
-Use Kenney's official **UI Pack - Sci-Fi** only as an optional source of small visual assets where they improve the interface. The official asset page identifies 130 files and a Creative Commons CC0 license:
+The first prototype is not the final Home information architecture. In particular, the current approved UX removes **Start a Challenge** and presents direct **1v1** and **1vAI** entry choices on Home, as documented in the current design system.
+
+## Current implementation guardrails
+- Keep the existing React + Vite + Capacitor architecture unless the repository audit demonstrates a concrete reason to change it.
+- Do not introduce a new UI framework or styling framework without an explicit technical justification.
+- Preserve gameplay, scoring, timers, persistence and backend contracts during visual-only work.
+- Audit the actual implementation before broad changes; screenshots alone do not establish code structure or functional behavior.
+- Keep UI/UX work on `feature/nexira-uiux-home-prototype`.
+- Do not merge into `integration/nexira-reconcile` until automated checks pass and Milad approves the APK.
+- Keep `main` untouched.
+
+## Asset reference
+Kenney's official **UI Pack - Sci-Fi** was reviewed as an optional CC0 asset source:
 https://kenney.nl/assets/ui-pack-sci-fi
 
-The pack is not a React component library. Its sprites must be selectively adapted; buttons, layout, responsive behavior, accessibility, localization, and state remain implemented in React/CSS.
-
-## Visual direction
-- Preserve the deep navy background and NEXIRA cyan/turquoise/blue palette.
-- Keep strong contrast and readable, mostly opaque panels; avoid excessive glass transparency.
-- Use restrained sci-fi framing and lighting rather than decorative clutter.
-- Preserve Orbitron for display accents and Inter for body text.
-- Keep touch targets comfortable on mobile.
-- Support Persian RTL and English LTR without duplicated screen implementations.
-- Respect reduced-motion preferences and avoid expensive mobile effects.
-
-## Phase 01 scope
-Create one reviewable Home-screen prototype before applying a design system across the app:
-1. Review the existing Home screen at mobile and desktop breakpoints.
-2. Define reusable tokens for surfaces, borders, elevation, spacing, radii, and focus states.
-3. Refine the Home screen hierarchy: player identity/progress, primary play action, match entry, and secondary dashboard information.
-4. Use Kenney assets only if a specific asset improves clarity or visual quality over the existing CSS/Lucide implementation.
-5. Verify Persian and English layouts, keyboard/focus states, reduced motion, and small-screen overflow.
-6. Run the existing test suite and production build before requesting an APK review.
-
-## Non-goals
-- No changes to match logic, scoring, timers, profile persistence, localization data, or navigation behavior.
-- No backend, server, paid AI, analytics, ads, or payment integration.
-- No wholesale UI-kit import and no new framework dependency without a demonstrated need.
-
-## Acceptance criteria
-- Existing navigation and gameplay behavior remain unchanged.
-- Home screen is visually coherent with the rest of NEXIRA.
-- Persian RTL and English LTR remain correct.
-- No horizontal overflow on supported mobile widths.
-- Text and interactive controls remain readable and accessible.
-- Automated tests and production build pass.
-- The user reviews the resulting APK before the design is propagated to other screens.
+No wholesale UI-kit import is approved. Reuse an asset only when it demonstrably improves clarity or quality and remains consistent with the current Premium Competitive Gaming direction.
