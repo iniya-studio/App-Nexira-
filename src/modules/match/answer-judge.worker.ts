@@ -135,6 +135,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
             ON r."id" = a."roundId" AND r."matchId" = a."matchId"
           INNER JOIN "Question" q ON q."id" = r."questionId"
           WHERE a."status" = 'ANSWERED'
+            AND r."voidedAt" IS NULL
             AND q."answerType" = 'FREE_TEXT'
             AND a."judgeAttempts" < ${MAX_ATTEMPTS}
             AND (
@@ -174,9 +175,13 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       // Serialize judge completion with answer submission and round finalization.
-      await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT "id" FROM "Round" WHERE "id" = ${answer.roundId}::uuid FOR UPDATE
+      const lockedRound = await tx.$queryRaw<Array<{ id: string; voidedAt: Date | null }>>`
+        SELECT "id", "voidedAt"
+        FROM "Round"
+        WHERE "id" = ${answer.roundId}::uuid
+        FOR UPDATE
       `;
+      if (!lockedRound[0] || lockedRound[0].voidedAt) return;
       await tx.$queryRaw<Array<{ id: string }>>`
         SELECT "id" FROM "Answer" WHERE "id" = ${claim.id}::uuid FOR UPDATE
       `;
