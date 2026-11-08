@@ -45,10 +45,9 @@ Implemented in the current branch:
 - durable `MatchScoreEntry` records for positive MCQ and AI-judged answer scores, written atomically with the participant score aggregate and protected by per-answer uniqueness/idempotency.
 
 Still pending:
-- explicit `NO_RESPONSE` creation and consecutive penalty processing;
-- durable score ledger entries for the three penalties and one forfeit transfer (ledger foundation now exists; timeout/forfeit writers remain pending);
-- round deadline processing and atomic round finalization;
-- match finalization, immutable result, and XP/ranking settlement;
+- early round completion when all participant outcomes are final;
+- technical-void recovery for exhausted AI Judge failures; such rounds are deliberately excluded from timeout penalties;
+- regular end-of-match settlement after the configured final round, plus XP/ranking settlement;
 - provider fallback, operational metrics, and manual two-client verification.
 
 ## 3. Adjudication strategy
@@ -253,8 +252,8 @@ The generation service must remain provider-independent, versioned, observable, 
 2. Define typed internal AI Judge port, provider adapter, strict schema, and policy versioning.
 3. Implement deterministic multiple-choice adjudication and free-text AI adjudication.
 4. Complete transactional scoring and idempotent score ledger writes for all score-changing events (answer-score ledger writes are implemented).
-5. Implement explicit no-response processing and consecutive-penalty/forfeit ledger entries.
-6. Implement round finalization, then match finalization and settlement.
+5. Implement explicit no-response processing and consecutive-penalty/forfeit ledger entries. **Implemented:** deadline worker, atomic ledger/aggregate writes, single +20 transfer, and forfeit result.
+6. Complete early round resolution, technical-void recovery, regular match finalization, and XP/ranking settlement.
 7. Add bounded generation/judge recovery, observability, and end-to-end verification.
 
 No production code should be considered complete until the tests and release gates above pass.
