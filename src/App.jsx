@@ -487,6 +487,7 @@ export default function App() {
             if (entryMatchMode) {
               const selectedMode = entryMatchMode;
               setEntryMatchMode(null);
+              setRun({ categoryId: item.id });
               beginMatch(item, selectedMode);
               return;
             }
