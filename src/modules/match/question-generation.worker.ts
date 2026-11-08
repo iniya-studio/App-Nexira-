@@ -37,7 +37,8 @@ const MAX_JOBS_PER_POLL = 5;
 type GenerationClaim = {
   id: string;
   matchId: string;
-  sourceRoundId: string;
+  sourceRoundId: string | null;
+  triggerReason: string;
   attempts: number;
   maxAttempts: number;
   leaseId: string;
@@ -117,7 +118,11 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
           "lastErrorCode" = 'MATCH_NOT_ACTIVE'
         FROM "Match" AS match
         WHERE job."matchId" = match."id"
-          AND match."status" <> 'READY'
+          AND (
+            (job."triggerReason" = 'INITIAL_MATCH' AND match."status" <> 'WAITING')
+            OR
+            (job."triggerReason" <> 'INITIAL_MATCH' AND match."status" <> 'READY')
+          )
           AND job."status" IN ('PENDING', 'PROCESSING')
       `;
       if (cancelled > 0) {
@@ -168,7 +173,7 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
       }
 
       const exhausted = await tx.$queryRaw<
-        Array<{ id: string; matchId: string }>
+        Array<{ id: string; matchId: string; triggerReason: string }>
       >`
         WITH expired AS (
           SELECT job."id"
@@ -187,13 +192,15 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
           "lastErrorCode" = 'GENERATOR_LEASE_EXPIRED'
         FROM expired
         WHERE job."id" = expired."id"
-        RETURNING job."id", job."matchId"
+        RETURNING job."id", job."matchId", job."triggerReason"
       `;
       for (const job of exhausted) {
         await tx.$executeRaw`
           UPDATE "Match"
           SET "status" = 'CANCELLED', "completedAt" = clock_timestamp()
-          WHERE "id" = ${job.matchId}::uuid AND "status" = 'READY'
+          WHERE "id" = ${job.matchId}::uuid
+            AND "status" = CASE WHEN ${job.triggerReason} = 'INITIAL_MATCH'
+              THEN 'WAITING'::"MatchStatus" ELSE 'READY'::"MatchStatus" END
         `;
         this.logger.error(
           `Question generation job ${job.id} exhausted its lease after the final attempt; match ${job.matchId} cancelled`,
@@ -205,7 +212,11 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
           SELECT job."id"
           FROM "QuestionGenerationJob" AS job
           INNER JOIN "Match" AS match ON match."id" = job."matchId"
-          WHERE match."status" = 'READY'
+          WHERE (
+              (job."triggerReason" = 'INITIAL_MATCH' AND match."status" = 'WAITING')
+              OR
+              (job."triggerReason" <> 'INITIAL_MATCH' AND match."status" = 'READY')
+            )
             AND job."attempts" < job."maxAttempts"
             AND (
               (job."status" = 'PENDING' AND job."availableAt" <= clock_timestamp())
@@ -229,6 +240,7 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
           job."id",
           job."matchId",
           job."sourceRoundId",
+          job."triggerReason",
           job."attempts",
           job."maxAttempts",
           job."leaseId",
@@ -307,25 +319,30 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
           },
         },
       });
-      const sourceRound = await tx.round.findUnique({
-        where: { id: claim.sourceRoundId },
-        select: {
-          matchId: true,
-          roundNumber: true,
-          voidedAt: true,
-          completedAt: true,
-        },
-      });
+      const isInitialGeneration = claim.triggerReason === 'INITIAL_MATCH';
+      const sourceRound = claim.sourceRoundId
+        ? await tx.round.findUnique({
+            where: { id: claim.sourceRoundId },
+            select: {
+              matchId: true,
+              roundNumber: true,
+              voidedAt: true,
+              completedAt: true,
+            },
+          })
+        : null;
+      const validInitialState = Boolean(
+        isInitialGeneration && claim.sourceRoundId === null && match &&
+        match.status === MatchStatus.WAITING && match.currentRound === 0,
+      );
+      const validRecoveryState = Boolean(
+        !isInitialGeneration && claim.sourceRoundId !== null && match &&
+        match.status === MatchStatus.READY && sourceRound &&
+        sourceRound.matchId === match.id && sourceRound.voidedAt &&
+        sourceRound.completedAt && match.currentRound === sourceRound.roundNumber,
+      );
 
-      if (
-        !match ||
-        match.status !== MatchStatus.READY ||
-        !sourceRound ||
-        sourceRound.matchId !== match.id ||
-        !sourceRound.voidedAt ||
-        !sourceRound.completedAt ||
-        match.currentRound !== sourceRound.roundNumber
-      ) {
+      if (!match || (!validInitialState && !validRecoveryState)) {
         await tx.$executeRaw`
           UPDATE "QuestionGenerationJob"
           SET
@@ -341,7 +358,9 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
         await tx.$executeRaw`
           UPDATE "Match"
           SET "status" = 'CANCELLED', "completedAt" = clock_timestamp()
-          WHERE "id" = ${claim.matchId}::uuid AND "status" = 'READY'
+          WHERE "id" = ${claim.matchId}::uuid
+            AND "status" = CASE WHEN ${isInitialGeneration}
+              THEN 'WAITING'::"MatchStatus" ELSE 'READY'::"MatchStatus" END
         `;
         return;
       }
@@ -418,7 +437,7 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
       const round = await tx.round.create({
         data: {
           matchId: match.id,
-          roundNumber: sourceRound.roundNumber + 1,
+          roundNumber: isInitialGeneration ? 1 : sourceRound!.roundNumber + 1,
           questionId: question.id,
           startedAt: null,
           deadlineAt: null,
@@ -452,6 +471,19 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
         where: { id: round.id },
         data: { readinessExpiresAt: readinessExpiry },
       });
+      if (isInitialGeneration) {
+        const readyMatch = await tx.match.updateMany({
+          where: { id: match.id, status: MatchStatus.WAITING, currentRound: 0 },
+          data: { status: MatchStatus.READY },
+        });
+        if (readyMatch.count !== 1) {
+          throw new QuestionGenerationError(
+            'GENERATOR_MATCH_STATE_CHANGED',
+            'Initial match changed state before its question was prepared',
+          );
+        }
+      }
+
       const completed = await tx.$executeRaw`
         UPDATE "QuestionGenerationJob"
         SET
@@ -548,7 +580,9 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
         await tx.$executeRaw`
           UPDATE "Match"
           SET "status" = 'CANCELLED', "completedAt" = clock_timestamp()
-          WHERE "id" = ${result.matchId}::uuid AND "status" = 'READY'
+          WHERE "id" = ${result.matchId}::uuid
+            AND "status" = CASE WHEN ${claim.triggerReason === 'INITIAL_MATCH'}
+              THEN 'WAITING'::"MatchStatus" ELSE 'READY'::"MatchStatus" END
         `;
       }
       return result;

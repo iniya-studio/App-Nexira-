@@ -430,7 +430,7 @@ model Question {
 model QuestionGenerationJob {
   id                  String                      @id @default(uuid()) @db.Uuid
   matchId             String                      @db.Uuid
-  sourceRoundId       String                      @unique @db.Uuid
+  sourceRoundId       String?                     @unique @db.Uuid
   generatedQuestionId String?                     @unique @db.Uuid
   status              QuestionGenerationJobStatus @default(PENDING)
   triggerReason       String                      @db.VarChar(64)
@@ -446,7 +446,7 @@ model QuestionGenerationJob {
   completedAt         DateTime?                   @db.Timestamptz(3)
 
   match             Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  sourceRound       Round     @relation(fields: [sourceRoundId, matchId], references: [id, matchId], onDelete: Cascade)
+  sourceRound       Round?    @relation(fields: [sourceRoundId, matchId], references: [id, matchId], onDelete: Cascade)
   generatedQuestion Question? @relation(fields: [generatedQuestionId], references: [id], onDelete: SetNull)
 
   @@unique([sourceRoundId, matchId])
