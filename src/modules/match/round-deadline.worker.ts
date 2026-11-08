@@ -48,6 +48,12 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
           'WHERE r."completedAt" IS NULL ' +
           'AND r."deadlineAt" <= clock_timestamp() ' +
           'AND m."status" = \'ACTIVE\' ' +
+          'AND NOT (m."mode" = \'ONE_V_AI\' AND EXISTS (' +
+          'SELECT 1 FROM "MatchParticipant" ai WHERE ai."matchId" = m."id" ' +
+          'AND ai."participantType" = \'AI\' ' +
+          'AND ai."status" IN (\'ACTIVE\', \'DISCONNECTED\') ' +
+          'AND NOT EXISTS (SELECT 1 FROM "Answer" ai_answer ' +
+          'WHERE ai_answer."roundId" = r."id" AND ai_answer."participantId" = ai."id"))) ' +
           'AND NOT EXISTS (SELECT 1 FROM "Answer" a WHERE a."roundId" = r."id" ' +
           'AND a."status" = \'ANSWERED\' ' +
           'AND a."judgeStatus" IN (\'PENDING\', \'PROCESSING\', \'FAILED\')) ' +
