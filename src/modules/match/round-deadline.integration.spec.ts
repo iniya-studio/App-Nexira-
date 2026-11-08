@@ -189,7 +189,7 @@ describe('Round deadline and no-response scoring integration', () => {
       data: { deadlineAt: new Date(Date.now() - 1_000) },
     });
 
-    return { matchId: match.id, roundId: rounds[totalRounds - 1].id, participants };
+    return {\n      matchId: match.id,\n      roundId: rounds[totalRounds - 1].id,\n      roundIds: rounds.map((round) => round.id),\n      participants,\n    };
   }
 
   it('applies the third consecutive penalty and one +20 transfer exactly once', async () => {
@@ -261,6 +261,32 @@ describe('Round deadline and no-response scoring integration', () => {
     });
     expect(penalty.pointsChange).toBe(-5);
     expect(await prisma.matchResult.findUnique({ where: { matchId: scenario.matchId } })).toBeNull();
+  });
+
+  it('does not carry a no-response streak across a round with no participant outcome', async () => {
+    const scenario = await createScenario(
+      [['NO_RESPONSE', 'ANSWERED'], ['ANSWERED', 'ANSWERED']],
+      [1],
+    );
+
+    await prisma.answer.delete({
+      where: {
+        roundId_participantId: {
+          roundId: scenario.roundIds[1],
+          participantId: scenario.participants[0].id,
+        },
+      },
+    });
+
+    expect(await worker.runOnce()).toBe(true);
+    const penalty = await prisma.matchScoreEntry.findFirstOrThrow({
+      where: {
+        roundId: scenario.roundId,
+        participantId: scenario.participants[0].id,
+        entryType: 'NO_RESPONSE_PENALTY',
+      },
+    });
+    expect(penalty.pointsChange).toBe(-5);
   });
 
   it('settles simultaneous forfeits as a draw without a transfer', async () => {
