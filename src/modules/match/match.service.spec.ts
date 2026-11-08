@@ -38,6 +38,7 @@ describe('MatchService', () => {
         participants: [{ type: ParticipantType.HUMAN }, { type: ParticipantType.AI }],
       });
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(tx.round.findMany).toHaveBeenCalledTimes(1);
       expect(tx.questionGenerationJob.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           matchId: 'match-1', sourceRoundId: null, triggerReason: 'INITIAL_MATCH',
