@@ -300,3 +300,12 @@ Do not treat this sequence as permission to implement backend-dependent behavior
 - Preserve approved palette roles and the Premium Competitive Gaming direction. Minor accessibility or usability adjustments may be made with evidence; do not casually reintroduce the retired neon-first direction.
 - If a later user decision changes a rule, update this document before implementing the affected screens.
 - Keep the audit and implementation on `feature/nexira-uiux-home-prototype`; do not merge into `integration/nexira-reconcile` until checks pass and Milad approves the APK.
+
+
+## 16. Repository implementation audit
+
+The repository-specific screen and component inventory, current implementation evidence, Keep/Refine/Replace/Create classifications, backend truth boundaries, and phased implementation map are maintained in:
+
+- `docs/uiux/uiux-audit-v1.md`
+
+This audit is the implementation companion to this design system. If repository details change, update the audit; if an approved product UX decision changes, update this design system first and then reconcile the audit.
