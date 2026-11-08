@@ -1,8 +1,8 @@
 # NEX-BE-008 — AI Judge & Server-Side Scoring Contract
 
 **Project:** NEXIRA  
-**Version:** 0.6  
-**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, and negative-score persistence alignment implemented; regular match settlement and technical-void recovery remain pending  
+**Version:** 0.7  
+**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, and negative-score persistence alignment and early round finalization implemented; regular match settlement and technical-void recovery remain pending  
 **Target branch:** `feature/backend-foundation`  
 **Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance
 
@@ -45,7 +45,7 @@ Implemented in the current branch:
 - durable `MatchScoreEntry` records for positive MCQ and AI-judged answer scores, written atomically with the participant score aggregate and protected by per-answer uniqueness/idempotency.
 
 Still pending:
-- early round completion when all participant outcomes are final;
+- **implemented:** early round completion when both active participants have accepted answers and every answer has a final judge state;
 - technical-void recovery for exhausted AI Judge failures; such rounds are deliberately excluded from timeout penalties;
 - regular end-of-match settlement after the configured final round, plus XP/ranking settlement;
 - provider fallback, operational metrics, and manual two-client verification.
@@ -168,6 +168,8 @@ PostgreSQL integration coverage verifies third-streak penalties, the single +20 
 
 ## 6. Round finalization
 
+**Implemented early-finalization path:** `RoundFinalizationWorker` scans active rounds before their deadline and completes a round only when exactly two active/disconnected match participants each have an `ANSWERED` record and every answer is in a final judge state (`COMPLETED` or `NOT_REQUIRED`). It locks Match then Round (matching the next-round transition lock order), uses the database clock, and writes `completedAt` once. It does not apply no-response penalties, settle a match, or automatically generate/start the next round. Deadline and no-response processing remains owned by `RoundDeadlineWorker`.
+
 A round may be finalized only when:
 1. the answer deadline has passed or all required participant outcomes are otherwise closed by a valid server transition;
 2. every submitted answer has a final adjudication decision;
@@ -255,7 +257,7 @@ The generation service must remain provider-independent, versioned, observable, 
 3. Implement deterministic multiple-choice adjudication and free-text AI adjudication.
 4. Complete transactional scoring and idempotent score ledger writes for all score-changing events (answer-score ledger writes are implemented).
 5. Implement explicit no-response processing and consecutive-penalty/forfeit ledger entries. **Implemented:** deadline worker, atomic ledger/aggregate writes, single +20 transfer, and forfeit result.
-6. Complete early round resolution, technical-void recovery, regular match finalization, and XP/ranking settlement.
+6. **Partially implemented:** early round resolution worker and PostgreSQL integration coverage. Still pending: technical-void recovery, regular match finalization, and XP/ranking settlement.
 7. Add bounded generation/judge recovery, observability, and end-to-end verification.
 
 No production code should be considered complete until the tests and release gates above pass.
