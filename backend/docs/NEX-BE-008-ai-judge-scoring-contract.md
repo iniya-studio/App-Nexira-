@@ -152,6 +152,19 @@ The score ledger must make the accounting explicit and auditable. Record the thr
 
 A valid submitted answer breaks the consecutive no-response streak. A technical interruption or voided round must not count as a no-response. A disconnect alone is not a no-response; the server deadline and explicit outcome determine it.
 
+### 5.3 Deadline worker implementation
+
+The `RoundDeadlineWorker` runs from the NestJS MatchModule and scans overdue, incomplete rounds using the database clock. It locks one due Round row with `FOR UPDATE SKIP LOCKED`, so answer submission and competing deadline processors cannot settle the same round concurrently.
+
+For each participant without an accepted answer, it writes an explicit `NO_RESPONSE` Answer with `acceptedAt` equal to the shared deadline and zero answer points. A valid `ANSWERED` outcome resets the consecutive no-response streak. The worker derives the prior streak from persisted round outcomes; it does not trust client state. Disconnected participants are still eligible for a no-response outcome after the shared deadline. AI participants do not receive human no-response penalties.
+
+Each penalty ledger row and participant aggregate update occur in the same database transaction. The third consecutive no-response applies only the final -10 penalty, marks that participant FORFEITED, and does not add another -20 deduction. If exactly one participant forfeits, the remaining participant receives one +20 `FORFEIT_TRANSFER` ledger credit and the match receives an immutable forfeit result. If both participants reach their third consecutive no-response in the same round, the current implementation resolves a mutual-forfeit draw with no transfer because there is no remaining participant.
+
+The worker does not finalize a round while any submitted answer is still pending, processing, or failed in AI adjudication. In particular, a `FAILED` AI Judge outcome is not converted into a no-response or a penalty; technical-void recovery for that condition remains a separate pending implementation.
+
+PostgreSQL integration coverage verifies third-streak penalties, the single +20 transfer, idempotent reprocessing, streak reset after a valid answer, and mutual-forfeit handling.
+
+
 ## 6. Round finalization
 
 A round may be finalized only when:
@@ -245,16 +258,3 @@ The generation service must remain provider-independent, versioned, observable, 
 7. Add bounded generation/judge recovery, observability, and end-to-end verification.
 
 No production code should be considered complete until the tests and release gates above pass.
-
-
-### 5.3 Deadline worker implementation
-
-The `RoundDeadlineWorker` runs from the NestJS MatchModule and scans overdue, incomplete rounds using the database clock. It locks one due Round row with `FOR UPDATE SKIP LOCKED`, so answer submission and competing deadline processors cannot settle the same round concurrently.
-
-For each participant without an accepted answer, it writes an explicit `NO_RESPONSE` Answer with `acceptedAt` equal to the shared deadline and zero answer points. A valid `ANSWERED` outcome resets the consecutive no-response streak. The worker derives the prior streak from persisted round outcomes; it does not trust client state. Disconnected participants are still eligible for a no-response outcome after the shared deadline. AI participants do not receive human no-response penalties.
-
-Each penalty ledger row and participant aggregate update occur in the same database transaction. The third consecutive no-response applies only the final -10 penalty, marks that participant FORFEITED, and does not add another -20 deduction. If exactly one participant forfeits, the remaining participant receives one +20 `FORFEIT_TRANSFER` ledger credit and the match receives an immutable forfeit result. If both participants reach their third consecutive no-response in the same round, the current implementation resolves a mutual-forfeit draw with no transfer because there is no remaining participant.
-
-The worker does not finalize a round while any submitted answer is still pending, processing, or failed in AI adjudication. In particular, a `FAILED` AI Judge outcome is not converted into a no-response or a penalty; technical-void recovery for that condition remains a separate pending implementation.
-
-PostgreSQL integration coverage verifies third-streak penalties, the single +20 transfer, idempotent reprocessing, streak reset after a valid answer, and mutual-forfeit handling.
