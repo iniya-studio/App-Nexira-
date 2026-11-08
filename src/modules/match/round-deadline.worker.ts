@@ -131,16 +131,18 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
         // The AI participant is not subject to human no-response penalties.
         if (participant.participantType !== ParticipantType.HUMAN) continue;
 
-        const previousAnswers = await tx.answer.findMany({
-          where: {
-            matchId: round.matchId,
-            participantId: participant.id,
-            round: { roundNumber: { lt: round.roundNumber } },
-          },
-          orderBy: { round: { roundNumber: 'desc' } },
-          take: 2,
-          select: { status: true },
-        });
+        const previousAnswers = await tx.$queryRawUnsafe<
+          Array<{ status: AnswerStatus | null }>
+        >(
+          'SELECT a."status" FROM "Round" r ' +
+            'LEFT JOIN "Answer" a ON a."roundId" = r."id" ' +
+            'AND a."participantId" = $1::uuid ' +
+            'WHERE r."matchId" = $2::uuid AND r."roundNumber" < $3 ' +
+            'ORDER BY r."roundNumber" DESC LIMIT 2',
+          participant.id,
+          round.matchId,
+          round.roundNumber,
+        );
 
         let previousStreak = 0;
         for (const previous of previousAnswers) {
