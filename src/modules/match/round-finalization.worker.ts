@@ -36,7 +36,9 @@ export class RoundFinalizationWorker implements OnModuleInit, OnModuleDestroy {
    */
   async runOnce(): Promise<boolean> {
     return this.prisma.$transaction(async (tx) => {
-      // Match -> Round is the same lock order used by startNextRound.
+      // Lock only the Round row: answer submission, judge completion, and
+      // deadline settlement use the same row as their concurrency boundary.
+      // startNextRound locks Match and observes completedAt after this commit.
       const candidates = await tx.$queryRawUnsafe<FinalizableRound[]>(
         'SELECT r."id" ' +
           'FROM "Round" r ' +
@@ -54,7 +56,7 @@ export class RoundFinalizationWorker implements OnModuleInit, OnModuleDestroy {
           'AND a."status" = \'ANSWERED\')) ' +
           'AND NOT EXISTS (SELECT 1 FROM "Answer" a WHERE a."roundId" = r."id" ' +
           'AND (a."status" <> \'ANSWERED\' OR a."judgeStatus" NOT IN (\'COMPLETED\', \'NOT_REQUIRED\'))) ' +
-          'ORDER BY r."deadlineAt" ASC LIMIT 1 FOR UPDATE OF m, r SKIP LOCKED',
+          'ORDER BY r."deadlineAt" ASC LIMIT 1 FOR UPDATE OF r SKIP LOCKED',
       );
 
       const roundId = candidates[0]?.id;
