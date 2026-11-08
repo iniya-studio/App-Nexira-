@@ -200,6 +200,15 @@ describe('Technical round void and recovery integration', () => {
       rounds.getRoundQuestion(match.id, started.roundId, firstPrincipal, 'en'),
     ).rejects.toThrow('Round not found');
     await expect(
+      answers.submitAnswer(
+        match.id,
+        started.roundId,
+        firstPrincipal,
+        'Mars',
+        randomUUID(),
+      ),
+    ).rejects.toThrow('Round is not accepting answers');
+    await expect(
       rounds.startNextRound(match.id, question),
     ).rejects.toThrow('A replacement round must use a question not previously used in this match');
 
@@ -251,18 +260,28 @@ describe('Technical round void and recovery integration', () => {
       randomUUID(),
     );
 
-    await prisma.answer.updateMany({
-      where: { roundId: started.roundId, participantId: { not: '00000000-0000-0000-0000-000000000000' } },
+    const firstParticipant = await prisma.matchParticipant.findFirstOrThrow({
+      where: { matchId: match.id, guestIdentityId: firstGuest.id },
+      select: { id: true },
+    });
+    const secondParticipant = await prisma.matchParticipant.findFirstOrThrow({
+      where: { matchId: match.id, guestIdentityId: secondGuest.id },
+      select: { id: true },
+    });
+    await prisma.answer.update({
+      where: {
+        roundId_participantId: {
+          roundId: started.roundId,
+          participantId: firstParticipant.id,
+        },
+      },
       data: { judgeStatus: 'FAILED', judgeAttempts: 3 },
     });
     await prisma.answer.update({
       where: {
         roundId_participantId: {
           roundId: started.roundId,
-          participantId: (await prisma.matchParticipant.findFirstOrThrow({
-            where: { matchId: match.id, guestIdentityId: secondGuest.id },
-            select: { id: true },
-          })).id,
+          participantId: secondParticipant.id,
         },
       },
       data: { judgeStatus: 'PENDING', judgeAttempts: 1 },
