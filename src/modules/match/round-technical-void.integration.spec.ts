@@ -9,6 +9,8 @@ import {
 } from './answer-judge.port';
 import { AnswerJudgeWorker } from './answer-judge.worker';
 import { MatchService } from './match.service';
+import { QuestionGenerator } from './question-generator.port';
+import { QuestionGenerationWorker } from './question-generation.worker';
 import { GeneratedQuestion } from './question.types';
 import { RoundService } from './round.service';
 import { RoundTechnicalVoidWorker } from './round-technical-void.worker';
@@ -24,12 +26,17 @@ describe('Technical round void and recovery integration', () => {
   const questionIds: string[] = [];
 
   const question: GeneratedQuestion = {
+    category: 'science',
+    difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'FREE_TEXT',
     canonicalPrompt: 'Which planet is known as the Red Planet?',
     canonicalOptions: null,
     answerKey: 'Mars',
-    gradingRubric: { requiredConcepts: ['Mars'], acceptEquivalentWording: true },
+    gradingRubric: {
+      requiredConcepts: ['Mars'],
+      acceptEquivalentWording: true,
+    },
     localized: {
       en: { prompt: 'Which planet is known as the Red Planet?' },
     },
@@ -40,13 +47,21 @@ describe('Technical round void and recovery integration', () => {
 
   const replacementQuestion: GeneratedQuestion = {
     ...question,
+    category: 'science',
+    difficulty: 'medium',
     canonicalPrompt: 'Which planet is the largest in our solar system?',
     answerKey: 'Jupiter',
-    gradingRubric: { requiredConcepts: ['Jupiter'], acceptEquivalentWording: true },
+    gradingRubric: {
+      requiredConcepts: ['Jupiter'],
+      acceptEquivalentWording: true,
+    },
     localized: {
       en: { prompt: 'Which planet is the largest in our solar system?' },
     },
     contentVersion: 'technical-void-replacement-v1',
+    generatorVersion: 'test-generator-v1',
+    modelVersion: 'test-model-v1',
+    generationPolicyVersion: 'test-policy-v1',
   };
 
   const judgeResult = (): FreeTextJudgeResult => ({
@@ -73,7 +88,9 @@ describe('Technical round void and recovery integration', () => {
       questionIds.length = 0;
     }
     if (guestIds.length) {
-      await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
+      await prisma.guestIdentity.deleteMany({
+        where: { id: { in: guestIds } },
+      });
       guestIds.length = 0;
     }
   });
@@ -126,9 +143,11 @@ describe('Technical round void and recovery integration', () => {
       randomUUID(),
     );
     const failingJudge: FreeTextAnswerJudge = {
-      judge: jest.fn().mockRejectedValue(
-        new FreeTextJudgeError('PROVIDER_TIMEOUT', 'Test provider timeout'),
-      ),
+      judge: jest
+        .fn()
+        .mockRejectedValue(
+          new FreeTextJudgeError('PROVIDER_TIMEOUT', 'Test provider timeout'),
+        ),
     };
     const failingWorker = new AnswerJudgeWorker(prisma, failingJudge);
 
@@ -167,6 +186,17 @@ describe('Technical round void and recovery integration', () => {
     expect(voidedRound.voidedAt).toBeInstanceOf(Date);
     expect(voidedRound.completedAt).toEqual(voidedRound.voidedAt);
     expect(voidedRound.voidReason).toBe('AI_JUDGE_RETRY_EXHAUSTED');
+    expect(
+      await prisma.match.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { status: true },
+      }),
+    ).toEqual({ status: 'READY' });
+    expect(
+      await prisma.questionGenerationJob.count({
+        where: { sourceRoundId: started.roundId },
+      }),
+    ).toBe(1);
 
     const reversal = await prisma.matchScoreEntry.findFirstOrThrow({
       where: {
@@ -180,21 +210,26 @@ describe('Technical round void and recovery integration', () => {
       idempotencyKey: `round:${started.roundId}:void:reverse:${originalScore.id}:v1`,
     });
 
-    const restoredParticipant = await prisma.matchParticipant.findUniqueOrThrow({
-      where: { id: scoredParticipant.id },
-    });
+    const restoredParticipant = await prisma.matchParticipant.findUniqueOrThrow(
+      {
+        where: { id: scoredParticipant.id },
+      },
+    );
     expect(restoredParticipant.score).toBe(0);
-    expect(await prisma.matchScoreEntry.count({
-      where: { roundId: started.roundId, entryType: 'ROUND_VOID_REVERSAL' },
-    })).toBe(1);
+    expect(
+      await prisma.matchScoreEntry.count({
+        where: { roundId: started.roundId, entryType: 'ROUND_VOID_REVERSAL' },
+      }),
+    ).toBe(1);
 
-    await expect(Promise.all([
-      technicalVoid.runOnce(),
-      technicalVoid.runOnce(),
-    ])).resolves.toEqual([false, false]);
-    expect(await prisma.matchScoreEntry.count({
-      where: { roundId: started.roundId, entryType: 'ROUND_VOID_REVERSAL' },
-    })).toBe(1);
+    await expect(
+      Promise.all([technicalVoid.runOnce(), technicalVoid.runOnce()]),
+    ).resolves.toEqual([false, false]);
+    expect(
+      await prisma.matchScoreEntry.count({
+        where: { roundId: started.roundId, entryType: 'ROUND_VOID_REVERSAL' },
+      }),
+    ).toBe(1);
 
     await expect(
       rounds.getRoundQuestion(match.id, started.roundId, firstPrincipal, 'en'),
@@ -209,17 +244,59 @@ describe('Technical round void and recovery integration', () => {
       ),
     ).rejects.toThrow('Round is not accepting answers');
     await expect(
-      rounds.startNextRound(match.id, question),
-    ).rejects.toThrow('A replacement round must use a question not previously used in this match');
+      rounds.startNextRound(match.id, replacementQuestion),
+    ).rejects.toThrow(
+      'Technical void replacements must use the question recovery workflow',
+    );
 
-    const replacement = await rounds.startNextRound(match.id, replacementQuestion);
-    questionIds.push(replacement.questionId);
-    expect(replacement.roundNumber).toBe(started.roundNumber + 1);
-    expect(replacement.questionId).not.toBe(started.questionId);
-    expect(await prisma.match.findUniqueOrThrow({
-      where: { id: match.id },
-      select: { currentRound: true },
-    })).toEqual({ currentRound: replacement.roundNumber });
+    const generator: QuestionGenerator = {
+      generate: jest.fn().mockResolvedValue(replacementQuestion),
+    };
+    const generationWorker = new QuestionGenerationWorker(prisma, generator);
+    await expect(generationWorker.runOnce()).resolves.toBe(true);
+
+    const replacementRound = await prisma.round.findFirstOrThrow({
+      where: { matchId: match.id, roundNumber: started.roundNumber + 1 },
+    });
+    questionIds.push(replacementRound.questionId!);
+    expect(replacementRound.questionId).not.toBe(started.questionId);
+    expect(replacementRound.startedAt).toBeNull();
+    expect(replacementRound.deadlineAt).toBeNull();
+    expect(
+      await prisma.roundReadiness.count({
+        where: { roundId: replacementRound.id, isReady: true },
+      }),
+    ).toBe(0);
+
+    const firstReady = await rounds.markRoundReady(
+      match.id,
+      replacementRound.id,
+      firstPrincipal,
+    );
+    expect(firstReady.allReady).toBe(false);
+    expect(firstReady.startedAt).toBeNull();
+    expect(
+      await prisma.round.findUniqueOrThrow({
+        where: { id: replacementRound.id },
+      }),
+    ).toMatchObject({ startedAt: null, deadlineAt: null });
+    const secondReady = await rounds.markRoundReady(
+      match.id,
+      replacementRound.id,
+      secondPrincipal,
+    );
+    expect(secondReady.allReady).toBe(true);
+    expect(secondReady.startedAt).toBeInstanceOf(Date);
+    expect(
+      secondReady.deadlineAt!.getTime() - secondReady.startedAt!.getTime(),
+    ).toBe(replacementQuestion.timeLimitSeconds * 1000);
+
+    expect(
+      await prisma.match.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { currentRound: true },
+      }),
+    ).toEqual({ currentRound: replacementRound.roundNumber });
   });
 
   it('does not void a round while another submitted answer is still pending', async () => {
@@ -288,7 +365,9 @@ describe('Technical round void and recovery integration', () => {
     });
 
     await expect(technicalVoid.runOnce()).resolves.toBe(false);
-    const round = await prisma.round.findUniqueOrThrow({ where: { id: started.roundId } });
+    const round = await prisma.round.findUniqueOrThrow({
+      where: { id: started.roundId },
+    });
     expect(round.voidedAt).toBeNull();
   });
 });

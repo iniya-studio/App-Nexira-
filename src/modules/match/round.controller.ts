@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -32,5 +33,34 @@ export class RoundController {
       request.principal,
       query.language?.trim() || 'en',
     );
+  }
+}
+
+@Controller('matches/:matchId/question-recovery')
+@UseGuards(AccessTokenGuard)
+export class MatchQuestionRecoveryController {
+  constructor(private readonly rounds: RoundService) {}
+
+  @Get()
+  getStatus(
+    @Param('matchId', new ParseUUIDPipe()) matchId: string,
+    @Req() request: PrincipalRequest,
+  ) {
+    return this.rounds.getQuestionRecovery(matchId, request.principal);
+  }
+}
+
+@Controller('matches/:matchId/rounds/:roundId')
+@UseGuards(AccessTokenGuard)
+export class RoundReadinessController {
+  constructor(private readonly rounds: RoundService) {}
+
+  @Post('ready')
+  markReady(
+    @Param('matchId', new ParseUUIDPipe()) matchId: string,
+    @Param('roundId', new ParseUUIDPipe()) roundId: string,
+    @Req() request: PrincipalRequest,
+  ) {
+    return this.rounds.markRoundReady(matchId, roundId, request.principal);
   }
 }

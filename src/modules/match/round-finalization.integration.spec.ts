@@ -1,8 +1,4 @@
-import {
-  AnswerStatus,
-  JudgeStatus,
-  PrincipalType,
-} from '@prisma/client';
+import { AnswerStatus, JudgeStatus, PrincipalType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AnswerService } from './answer.service';
@@ -22,6 +18,8 @@ describe('Round finalization integration', () => {
   const questionIds: string[] = [];
 
   const mcq: GeneratedQuestion = {
+    category: 'general',
+    difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'MULTIPLE_CHOICE',
     canonicalPrompt: 'Which option is correct?',
@@ -63,7 +61,9 @@ describe('Round finalization integration', () => {
       questionIds.length = 0;
     }
     if (guestIds.length) {
-      await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
+      await prisma.guestIdentity.deleteMany({
+        where: { id: { in: guestIds } },
+      });
       guestIds.length = 0;
     }
   });
@@ -100,8 +100,20 @@ describe('Round finalization integration', () => {
     const { match, started, first, second } = await createMatch(mcq);
 
     await Promise.all([
-      answers.submitAnswer(match.id, started.roundId, first, 'B', 'answer-first-001'),
-      answers.submitAnswer(match.id, started.roundId, second, 'A', 'answer-second-001'),
+      answers.submitAnswer(
+        match.id,
+        started.roundId,
+        first,
+        'B',
+        'answer-first-001',
+      ),
+      answers.submitAnswer(
+        match.id,
+        started.roundId,
+        second,
+        'A',
+        'answer-second-001',
+      ),
     ]);
 
     expect(await worker.runOnce()).toBe(true);
@@ -121,7 +133,13 @@ describe('Round finalization integration', () => {
   it('does not complete while one participant has not answered', async () => {
     const { match, started, first } = await createMatch(mcq);
 
-    await answers.submitAnswer(match.id, started.roundId, first, 'B', 'answer-only-001');
+    await answers.submitAnswer(
+      match.id,
+      started.roundId,
+      first,
+      'B',
+      'answer-only-001',
+    );
 
     expect(await worker.runOnce()).toBe(false);
     const round = await prisma.round.findUnique({
@@ -135,8 +153,20 @@ describe('Round finalization integration', () => {
     const { match, started, first, second } = await createMatch(freeText);
 
     await Promise.all([
-      answers.submitAnswer(match.id, started.roundId, first, 'Paris', 'free-text-first-001'),
-      answers.submitAnswer(match.id, started.roundId, second, 'Paris', 'free-text-second-001'),
+      answers.submitAnswer(
+        match.id,
+        started.roundId,
+        first,
+        'Paris',
+        'free-text-first-001',
+      ),
+      answers.submitAnswer(
+        match.id,
+        started.roundId,
+        second,
+        'Paris',
+        'free-text-second-001',
+      ),
     ]);
 
     const pending = await prisma.answer.count({

@@ -7,13 +7,26 @@ import { AnswerJudgeWorker } from './answer-judge.worker';
 import { RoundDeadlineWorker } from './round-deadline.worker';
 import { RoundFinalizationWorker } from './round-finalization.worker';
 import { RoundTechnicalVoidWorker } from './round-technical-void.worker';
+import { QUESTION_GENERATOR } from './question-generator.port';
+import { OpenAiResponsesQuestionGeneratorAdapter } from './openai-responses-question-generator.adapter';
+import { QuestionGenerationWorker } from './question-generation.worker';
 import { MatchController } from './match.controller';
 import { MatchService } from './match.service';
-import { RoundController } from './round.controller';
+import {
+  MatchQuestionRecoveryController,
+  RoundController,
+  RoundReadinessController,
+} from './round.controller';
 import { RoundService } from './round.service';
 
 @Module({
-  controllers: [MatchController, RoundController, AnswerController],
+  controllers: [
+    MatchController,
+    RoundController,
+    RoundReadinessController,
+    MatchQuestionRecoveryController,
+    AnswerController,
+  ],
   providers: [
     MatchService,
     RoundService,
@@ -22,9 +35,14 @@ import { RoundService } from './round.service';
     RoundDeadlineWorker,
     RoundFinalizationWorker,
     RoundTechnicalVoidWorker,
+    QuestionGenerationWorker,
     {
       provide: FREE_TEXT_ANSWER_JUDGE,
       useClass: OpenAiResponsesAnswerJudgeAdapter,
+    },
+    {
+      provide: QUESTION_GENERATOR,
+      useClass: OpenAiResponsesQuestionGeneratorAdapter,
     },
   ],
   exports: [MatchService, RoundService, AnswerService],

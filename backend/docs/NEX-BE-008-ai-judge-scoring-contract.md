@@ -2,9 +2,9 @@
 
 **Project:** NEXIRA  
 **Version:** 0.8  
-**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, negative-score persistence alignment, early round finalization, and terminal AI-judge technical-void compensation implemented; automatic replacement-question generation/orchestration, regular match settlement, and XP/ranking settlement remain pending  
+**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, negative-score persistence alignment, early round finalization, terminal AI-judge technical-void compensation, durable AI Question Generator recovery, and readiness-gated replacement rounds implemented; regular match settlement and XP/ranking settlement remain pending
 **Target branch:** `feature/backend-foundation`  
-**Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance
+**Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance; NEX-BE-009 AI Question Generation & Technical Recovery
 
 ## 1. Purpose and authority
 
@@ -47,8 +47,9 @@ Implemented in the current branch:
 Still pending:
 - **implemented:** early round completion when both active participants have accepted answers and every answer has a final judge state;
 - **implemented:** terminal AI Judge technical-void worker, immutable original score entries with idempotent compensating ledger entries, transactional participant-score reversal, and exclusion of voided rounds from answer/deadline/finalization processing;
+- **implemented:** durable replacement-question generation jobs, independent OpenAI Responses adapter, strict structured output validation, bounded retries/leases, safe cancellation, duplicate prevention across a match and an exact-participant rematch, and readiness-gated shared-clock start;
 - regular end-of-match settlement after the configured final round, plus XP/ranking settlement;
-- automatic orchestration from a void event to the AI Question Generator remains pending; the round lifecycle accepts a newly generated replacement package and rejects a repeated canonical-language/prompt fingerprint;
+- operational metrics/alerts and manual two-client verification remain pending;
 - provider fallback, operational metrics, and manual two-client verification.
 
 ## 3. Adjudication strategy
@@ -117,7 +118,7 @@ Exact retry counts, timeout budgets, and fallback-provider order are deployment 
 
 **Implemented terminal-failure recovery:** `RoundTechnicalVoidWorker` acts only when at least one submitted answer has terminal `FAILED` judge status and no submitted answer remains `PENDING` or `PROCESSING`. It locks the Round row, marks the round with `voidedAt`, `completedAt`, and a stable `voidReason`, and never converts the failed answer into an incorrect answer or no-response. For every positive `ANSWER_SCORE` ledger entry in that round, it appends a `ROUND_VOID_REVERSAL` entry with a stable idempotency key and decrements the participant score aggregate in the same transaction. Original answer and score ledger rows remain intact for audit. A duplicate worker run cannot apply a second reversal.
 
-Voided rounds are excluded from answer acceptance, AI Judge claims/scoring, deadline/no-response settlement, early finalization, and consecutive no-response history. A voided question is no longer served to clients. `RoundService.startNextRound` can create the next numbered round after the void is committed, but it requires the caller to supply a newly generated question package; when replacing a voided round, it rejects a canonical-language/prompt fingerprint already used in that match. The AI Question Generator is not yet wired to trigger this transition automatically.
+Voided rounds are excluded from answer acceptance, AI Judge claims/scoring, deadline/no-response settlement, early finalization, and consecutive no-response history. A voided question is no longer served to clients. `RoundService.startNextRound` rejects a technical-void transition; only the durable generation worker may create its replacement, and only the readiness transaction may start its clock. Normal first-round startup remains unchanged.
 
 ## 5. Scoring policy
 
@@ -175,7 +176,7 @@ PostgreSQL integration coverage verifies third-streak penalties, the single +20 
 
 **Implemented early-finalization path:** `RoundFinalizationWorker` scans active rounds before their deadline and completes a round only when exactly two active/disconnected match participants each have an `ANSWERED` record and every answer is in a final judge state (`COMPLETED` or `NOT_REQUIRED`). It locks the Round row, uses the database clock, and writes `completedAt` once. It does not apply no-response penalties, settle a match, or automatically generate/start the next round. Deadline and no-response processing remains owned by `RoundDeadlineWorker`.
 
-A technical void is a distinct terminal round state, represented by non-null `voidedAt` and `voidReason` alongside `completedAt`. It is not a valid gameplay result: all positive answer-score effects are compensated through ledger reversals, no participant receives a timeout penalty, and no winner is derived from that round. The match remains active so the next numbered round can be started with a fresh generated question.
+A technical void is a distinct terminal round state, represented by non-null `voidedAt` and `voidReason` alongside `completedAt`. It is not a valid gameplay result: all positive answer-score effects are compensated through ledger reversals, no participant receives a timeout penalty, and no winner is derived from that round. The Match moves from `ACTIVE` to `READY` in the same transaction that voids the source round and records its unique replacement-generation job. It returns to `ACTIVE` only when all required participants are ready and the replacement's shared clock starts.
 
 A round may be finalized only when:
 1. the answer deadline has passed or all required participant outcomes are otherwise closed by a valid server transition;
@@ -218,7 +219,25 @@ NEXIRA V1 does not rely on a static question bank. Questions are generated on de
 - Later-round generation should be prepared ahead of the next round transition where possible, without exposing the next question or starting its timer early.
 - Rematches must exclude the previous match's question IDs and normalized content fingerprints. Generate genuinely new questions; do not silently reuse an old question because no static bank exists.
 
-The generation service must remain provider-independent, versioned, observable, and isolated from Match/Scoring business logic.
+### 8.1 Technical-void replacement recovery
+
+The replacement path is implemented as an independent `QuestionGenerator` port and an OpenAI Responses API adapter, separate from the AI Judge adapter and configuration. It uses strict JSON Schema output and validates the answer key/options, required free-text rubric concepts, localized content, requested settings, versions, and normalized content fingerprint before persistence. Refusal, incomplete output, malformed JSON, invalid output, timeout, HTTP error, and network error are distinct bounded failure codes.
+
+The question record persists category, difficulty, canonical language, answer type, canonical prompt/options, answer key, grading rubric, localization, time limit, content version, generator/model/policy versions, and a normalized SHA-256 content fingerprint. Existing questions receive additive defaults for category/difficulty; legacy fingerprints are computed when building an exclusion set.
+
+On terminal AI Judge failure, the same database transaction:
+- reverses positive answer-score ledger effects without mutating original ledger rows;
+- marks the source round technically void;
+- moves the Match to `READY`;
+- inserts one `QuestionGenerationJob` for that source round, protected by unique source-round and idempotency keys, with source settings and excluded IDs/fingerprints.
+
+`QuestionGenerationWorker` claims PostgreSQL jobs with `FOR UPDATE SKIP LOCKED`, a UUID lease, and database lease timestamp. It sends only question settings and excluded fingerprints to the provider—never participant identities—and performs the network request outside a database transaction. Successful results are revalidated against current match/rematch history and the current lease before the Question, an unstarted Round, AI-ready/human-not-ready `RoundReadiness` rows, and completed job are committed atomically. An expired or superseded worker cannot persist its result.
+
+There are at most three attempts with 1-second then 2-second exponential backoff. A terminal generation error or an expired final-attempt lease marks the job failed and cancels the Match using the database clock. It does not create a replacement round, change player scores, add a penalty, or declare a winner. The error code remains queryable.
+
+The authorized status endpoint is `GET /matches/:matchId/question-recovery`. A replacement round stays without `startedAt` and `deadlineAt`; its question endpoint does not reveal the question before start. Humans submit idempotent readiness with `POST /matches/:matchId/rounds/:roundId/ready`; the endpoint derives the caller from the access token and can only update that participant's record. AI participants are ready when the replacement package is stored. The final readiness transaction uses `clock_timestamp()`, sets the shared deadline, advances `Match.currentRound`, and moves the Match to `ACTIVE` exactly once. Repeated Ready requests return the same start/deadline timestamps.
+
+The generation provider uses separate server-only `QUESTION_GENERATOR_OPENAI_API_KEY`, `QUESTION_GENERATOR_OPENAI_MODEL`, `QUESTION_GENERATOR_OPENAI_BASE_URL`, and `QUESTION_GENERATOR_TIMEOUT_MS` settings. Keep the key in deployment secret storage; never place it in source, GitHub, or client configuration.
 
 ## 9. Required tests and release gates
 
@@ -245,7 +264,7 @@ The generation service must remain provider-independent, versioned, observable, 
 - terminal AI Judge failure waits until all submitted judge jobs are terminal, then voids the round without penalizing either participant;
 - every positive score from a voided round is reversed exactly once while original ledger rows remain auditable;
 - voided rounds cannot accept answers, receive new AI Judge scores, enter deadline/finalization processing, or contribute to no-response streaks;
-- a replacement round rejects a repeated canonical-language/prompt fingerprint;
+- a replacement round rejects a repeated normalized content fingerprint in the Match and exact-participant rematches;
 - the three no-response penalties total exactly -20 for the forfeiting participant; no additional -20 deduction is applied at forfeit;
 - the remaining participant receives exactly one +20 transfer credit;
 - retries/recovery cannot duplicate any of the three penalties or the transfer credit;
@@ -268,7 +287,7 @@ The generation service must remain provider-independent, versioned, observable, 
 4. Complete transactional scoring and idempotent score ledger writes for all score-changing events (answer-score ledger writes are implemented).
 5. Implement explicit no-response processing and consecutive-penalty/forfeit ledger entries. **Implemented:** deadline worker, atomic ledger/aggregate writes, single +20 transfer, and forfeit result.
 6. **Implemented:** early round resolution and terminal AI Judge technical-void compensation, including exactly-once ledger reversals and PostgreSQL integration coverage.
-7. Wire the AI Question Generator to the void-recovery transition so a fresh replacement question is generated and the next shared round starts only after the package is validated; then implement regular match finalization and XP/ranking settlement.
+7. **Implemented:** wire the AI Question Generator to the void-recovery transition, validate and persist a fresh replacement question, then wait for all required participants before starting the shared clock. Regular match finalization and XP/ranking settlement remain pending.
 8. Add provider fallback, observability, operational metrics, and end-to-end two-client verification.
 
 No production code should be considered complete until the tests and release gates above pass.

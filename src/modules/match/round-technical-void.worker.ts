@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { MatchStatus, MatchScoreEntryType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { questionGenerationInputForMatch } from './question-generation.context';
 
 const POLL_INTERVAL_MS = 1_000;
 const MAX_ROUNDS_PER_POLL = 5;
@@ -53,7 +54,7 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
           'AND NOT EXISTS (SELECT 1 FROM "Answer" pending ' +
           'WHERE pending."roundId" = r."id" ' +
           'AND pending."status" = \'ANSWERED\' ' +
-          'AND pending."judgeStatus" IN (\'PENDING\', \'PROCESSING\')) ' +
+          "AND pending.\"judgeStatus\" IN ('PENDING', 'PROCESSING')) " +
           'ORDER BY r."roundNumber" ASC LIMIT 1 FOR UPDATE OF r SKIP LOCKED',
       );
 
@@ -64,6 +65,7 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
         where: { id: roundId },
         include: {
           match: { select: { status: true, currentRound: true } },
+          question: true,
           scoreEntries: {
             where: {
               entryType: MatchScoreEntryType.ANSWER_SCORE,
@@ -80,6 +82,7 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
 
       if (
         !round ||
+        !round.question ||
         round.completedAt ||
         round.voidedAt ||
         round.match.status !== MatchStatus.ACTIVE ||
@@ -101,14 +104,16 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
       // idempotent reversal is newly inserted.
       for (const entry of round.scoreEntries) {
         const reversal = await tx.matchScoreEntry.createMany({
-          data: [{
-            matchId: round.matchId,
-            participantId: entry.participantId,
-            roundId: round.id,
-            entryType: MatchScoreEntryType.ROUND_VOID_REVERSAL,
-            pointsChange: -entry.pointsChange,
-            idempotencyKey: `round:${round.id}:void:reverse:${entry.id}:v1`,
-          }],
+          data: [
+            {
+              matchId: round.matchId,
+              participantId: entry.participantId,
+              roundId: round.id,
+              entryType: MatchScoreEntryType.ROUND_VOID_REVERSAL,
+              pointsChange: -entry.pointsChange,
+              idempotencyKey: `round:${round.id}:void:reverse:${entry.id}:v1`,
+            },
+          ],
           skipDuplicates: true,
         });
 
@@ -129,8 +134,49 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
         },
       });
 
+      const matchReady = await tx.match.updateMany({
+        where: {
+          id: round.matchId,
+          status: MatchStatus.ACTIVE,
+          currentRound: round.roundNumber,
+        },
+        data: { status: MatchStatus.READY },
+      });
+      if (matchReady.count !== 1) {
+        throw new Error(
+          'Match state changed while voiding the technical round',
+        );
+      }
+
+      const answerType = round.question.answerType;
+      if (answerType !== 'MULTIPLE_CHOICE' && answerType !== 'FREE_TEXT') {
+        throw new Error('Voided round question has an unsupported answer type');
+      }
+      const requestContext = await questionGenerationInputForMatch(
+        tx,
+        round.matchId,
+        {
+          category: round.question.category,
+          difficulty: round.question.difficulty,
+          language: round.question.canonicalLanguage,
+          answerType,
+          timeLimitSeconds: round.question.timeLimitSeconds,
+        },
+      );
+      await tx.questionGenerationJob.create({
+        data: {
+          matchId: round.matchId,
+          sourceRoundId: round.id,
+          status: 'PENDING',
+          triggerReason: TECHNICAL_VOID_REASON,
+          requestContext,
+          maxAttempts: 3,
+          idempotencyKey: `round:${round.id}:question-generation:v1`,
+        },
+      });
+
       this.logger.warn(
-        `Round ${round.id} voided: ${TECHNICAL_VOID_REASON}; ${round.scoreEntries.length} score entries checked for reversal`,
+        `Round ${round.id} voided: ${TECHNICAL_VOID_REASON}; ${round.scoreEntries.length} score entries checked for reversal; replacement generation queued`,
       );
       return true;
     });

@@ -19,6 +19,11 @@ import {
   GeneratedQuestion,
   PublicRoundQuestion,
 } from './question.types';
+import {
+  GeneratedQuestionValidationError,
+  normalizedQuestionFingerprint,
+  validateGeneratedQuestion,
+} from './question-validation';
 
 type MatchForRound = Prisma.MatchGetPayload<{
   include: {
@@ -82,7 +87,10 @@ export class RoundService {
           throw new ConflictException('Match is not ready for its first round');
         }
       } else {
-        if (match.status !== MatchStatus.ACTIVE) {
+        if (
+          match.status !== MatchStatus.ACTIVE &&
+          match.status !== MatchStatus.READY
+        ) {
           throw new ConflictException('Match is not active');
         }
         const previousRound = await tx.round.findUnique({
@@ -98,34 +106,12 @@ export class RoundService {
         }
 
         if (previousRound.voidedAt) {
-          const previousQuestions = await tx.round.findMany({
-            where: { matchId },
-            select: {
-              question: {
-                select: {
-                  canonicalLanguage: true,
-                  canonicalPrompt: true,
-                },
-              },
-            },
-          });
-          const replacementFingerprint = this.questionFingerprint(
-            generatedQuestion.canonicalLanguage,
-            generatedQuestion.canonicalPrompt,
+          throw new ConflictException(
+            'Technical void replacements must use the question recovery workflow',
           );
-          const repeatsVoidedMatchQuestion = previousQuestions.some(
-            (item) =>
-              item.question !== null &&
-              this.questionFingerprint(
-                item.question.canonicalLanguage,
-                item.question.canonicalPrompt,
-              ) === replacementFingerprint,
-          );
-          if (repeatsVoidedMatchQuestion) {
-            throw new ConflictException(
-              'A replacement round must use a question not previously used in this match',
-            );
-          }
+        }
+        if (match.status !== MatchStatus.ACTIVE) {
+          throw new ConflictException('Match is not active');
         }
       }
 
@@ -142,6 +128,8 @@ export class RoundService {
 
       const question = await tx.question.create({
         data: {
+          category: generatedQuestion.category,
+          difficulty: generatedQuestion.difficulty,
           canonicalLanguage: generatedQuestion.canonicalLanguage,
           answerType: generatedQuestion.answerType,
           canonicalPrompt: generatedQuestion.canonicalPrompt,
@@ -155,6 +143,10 @@ export class RoundService {
           timeLimitSeconds: generatedQuestion.timeLimitSeconds,
           contentVersion: generatedQuestion.contentVersion,
           judgeVersion: generatedQuestion.judgeVersion,
+          generatorVersion: generatedQuestion.generatorVersion,
+          modelVersion: generatedQuestion.modelVersion,
+          generationPolicyVersion: generatedQuestion.generationPolicyVersion,
+          contentFingerprint: normalizedQuestionFingerprint(generatedQuestion),
         },
       });
 
@@ -241,7 +233,9 @@ export class RoundService {
     }
 
     const question = round.question;
-    const canonicalOptions = this.readCanonicalOptions(question.canonicalOptions);
+    const canonicalOptions = this.readCanonicalOptions(
+      question.canonicalOptions,
+    );
     const localizedRoot = this.asRecord(question.localized);
     const localized = this.asRecord(localizedRoot?.[language]);
     const localizedOptions = this.asRecord(localized?.options);
@@ -269,14 +263,343 @@ export class RoundService {
     };
   }
 
-  private questionFingerprint(language: string, prompt: string): string {
-    const normalizedLanguage = language.trim().toLowerCase();
-    const normalizedPrompt = prompt
-      .normalize('NFKC')
-      .toLowerCase()
-      .replace(/[\p{P}\p{S}\s]+/gu, ' ')
-      .trim();
-    return `${normalizedLanguage}:${normalizedPrompt}`;
+  async markRoundReady(
+    matchId: string,
+    roundId: string,
+    principal: AuthenticatedPrincipal,
+  ): Promise<{
+    matchId: string;
+    roundId: string;
+    ready: true;
+    allReady: boolean;
+    startedAt: Date | null;
+    deadlineAt: Date | null;
+  }> {
+    const ownership =
+      principal.principalType === PrincipalType.USER
+        ? { userId: principal.principalId }
+        : { guestIdentityId: principal.principalId };
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "Match" WHERE "id" = ${matchId}::uuid FOR UPDATE
+      `;
+
+      const round = await tx.round.findFirst({
+        where: {
+          id: roundId,
+          matchId,
+          match: { participants: { some: ownership } },
+        },
+        include: {
+          question: { select: { id: true, timeLimitSeconds: true } },
+          match: {
+            select: {
+              id: true,
+              status: true,
+              currentRound: true,
+              participants: {
+                select: {
+                  id: true,
+                  userId: true,
+                  guestIdentityId: true,
+                  participantType: true,
+                  status: true,
+                },
+              },
+            },
+          },
+          readiness: {
+            select: { participantId: true, isReady: true },
+          },
+        },
+      });
+      if (!round?.question) throw new NotFoundException('Round not found');
+
+      const participant = round.match.participants.find((item) =>
+        principal.principalType === PrincipalType.USER
+          ? item.userId === principal.principalId
+          : item.guestIdentityId === principal.principalId,
+      );
+      if (!participant) throw new NotFoundException('Round not found');
+
+      const requiredParticipants = round.match.participants.filter(
+        (item) =>
+          item.status === ParticipantStatus.ACTIVE ||
+          item.status === ParticipantStatus.DISCONNECTED,
+      );
+      if (Boolean(round.startedAt) !== Boolean(round.deadlineAt)) {
+        throw new Error('Replacement round clock state is inconsistent');
+      }
+      const alreadyStarted = round.startedAt !== null;
+      if (
+        (alreadyStarted && round.match.status !== MatchStatus.ACTIVE) ||
+        (!alreadyStarted && round.match.status !== MatchStatus.READY)
+      ) {
+        throw new ConflictException(
+          'Match is not accepting replacement readiness',
+        );
+      }
+      if (
+        requiredParticipants.length !== 2 ||
+        round.match.participants.length !== requiredParticipants.length ||
+        (!alreadyStarted &&
+          round.roundNumber !== round.match.currentRound + 1) ||
+        (alreadyStarted && round.roundNumber !== round.match.currentRound)
+      ) {
+        throw new ConflictException(
+          'Replacement round is not ready for participants',
+        );
+      }
+      if (!alreadyStarted && round.readinessExpiresAt) {
+        const now = await tx.$queryRaw<Array<{ now: Date }>>`
+          SELECT clock_timestamp() AS "now"
+        `;
+        if (
+          now[0]?.now instanceof Date &&
+          now[0].now.getTime() >= round.readinessExpiresAt.getTime()
+        ) {
+          throw new ConflictException(
+            'Replacement round readiness has expired',
+          );
+        }
+      }
+
+      const completedJob = await tx.questionGenerationJob.findFirst({
+        where: {
+          matchId,
+          generatedQuestionId: round.question.id,
+          status: 'COMPLETED',
+        },
+        select: { sourceRoundId: true },
+      });
+      if (!completedJob) {
+        throw new ConflictException(
+          'Replacement question generation is incomplete',
+        );
+      }
+      const sourceRound = await tx.round.findUnique({
+        where: { id: completedJob.sourceRoundId },
+        select: { roundNumber: true, completedAt: true, voidedAt: true },
+      });
+      if (
+        !sourceRound?.voidedAt ||
+        !sourceRound.completedAt ||
+        sourceRound.roundNumber !== round.roundNumber - 1
+      ) {
+        throw new ConflictException(
+          'Replacement round source is not a technical void',
+        );
+      }
+
+      const participantReadiness = round.readiness.find(
+        (item) => item.participantId === participant.id,
+      );
+      if (!participantReadiness) {
+        throw new ConflictException(
+          'Participant readiness record is unavailable',
+        );
+      }
+
+      if (
+        !round.startedAt &&
+        !round.deadlineAt &&
+        !participantReadiness.isReady
+      ) {
+        const clock = await tx.$queryRaw<Array<{ now: Date }>>`
+          SELECT clock_timestamp() AS "now"
+        `;
+        const readyAt = clock[0]?.now;
+        if (!(readyAt instanceof Date) || Number.isNaN(readyAt.getTime())) {
+          throw new Error(
+            'Database clock did not return a valid readiness timestamp',
+          );
+        }
+        await tx.roundReadiness.update({
+          where: {
+            roundId_participantId: {
+              roundId,
+              participantId: participant.id,
+            },
+          },
+          data: { isReady: true, readyAt },
+        });
+      }
+
+      const readiness = await tx.roundReadiness.findMany({
+        where: { roundId },
+        select: { participantId: true, isReady: true },
+      });
+      const allReady = requiredParticipants.every((required) =>
+        readiness.some(
+          (item) => item.participantId === required.id && item.isReady,
+        ),
+      );
+
+      if (!round.startedAt && allReady) {
+        const timestamp = await tx.$queryRaw<Array<{ now: Date }>>`
+          SELECT clock_timestamp() AS "now"
+        `;
+        const startedAt = timestamp[0]?.now;
+        if (!(startedAt instanceof Date) || Number.isNaN(startedAt.getTime())) {
+          throw new Error(
+            'Database clock did not return a valid round start time',
+          );
+        }
+        const deadlineAt = new Date(
+          startedAt.getTime() + round.question.timeLimitSeconds * 1000,
+        );
+        const updatedRound = await tx.round.updateMany({
+          where: {
+            id: roundId,
+            matchId,
+            startedAt: null,
+            deadlineAt: null,
+            completedAt: null,
+            voidedAt: null,
+          },
+          data: { startedAt, deadlineAt, readinessExpiresAt: null },
+        });
+        const updatedMatch = await tx.match.updateMany({
+          where: {
+            id: matchId,
+            status: MatchStatus.READY,
+            currentRound: round.roundNumber - 1,
+          },
+          data: {
+            status: MatchStatus.ACTIVE,
+            currentRound: round.roundNumber,
+          },
+        });
+        if (updatedRound.count !== 1 || updatedMatch.count !== 1) {
+          throw new ConflictException('Replacement round has already started');
+        }
+
+        return {
+          matchId,
+          roundId,
+          ready: true,
+          allReady: true,
+          startedAt,
+          deadlineAt,
+        };
+      }
+
+      return {
+        matchId,
+        roundId,
+        ready: true,
+        allReady,
+        startedAt: round.startedAt,
+        deadlineAt: round.deadlineAt,
+      };
+    });
+  }
+
+  async getQuestionRecovery(
+    matchId: string,
+    principal: AuthenticatedPrincipal,
+  ) {
+    const ownership =
+      principal.principalType === PrincipalType.USER
+        ? { userId: principal.principalId }
+        : { guestIdentityId: principal.principalId };
+    const match = await this.prisma.match.findFirst({
+      where: {
+        id: matchId,
+        participants: { some: ownership },
+      },
+      select: {
+        id: true,
+        status: true,
+        participants: {
+          select: {
+            id: true,
+            userId: true,
+            guestIdentityId: true,
+            status: true,
+          },
+        },
+      },
+    });
+    if (!match) throw new NotFoundException('Match not found');
+
+    const job = await this.prisma.questionGenerationJob.findFirst({
+      where: { matchId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        status: true,
+        lastErrorCode: true,
+        sourceRoundId: true,
+        generatedQuestionId: true,
+      },
+    });
+    if (!job) {
+      return {
+        matchId,
+        matchStatus: match.status,
+        status: 'NONE' as const,
+        sourceRoundId: null,
+        roundId: null,
+        ready: null,
+        allReady: false,
+        startedAt: null,
+        deadlineAt: null,
+        readinessExpiresAt: null,
+        lastErrorCode: null,
+      };
+    }
+
+    const participant = match.participants.find((item) =>
+      principal.principalType === PrincipalType.USER
+        ? item.userId === principal.principalId
+        : item.guestIdentityId === principal.principalId,
+    );
+    const round = job.generatedQuestionId
+      ? await this.prisma.round.findUnique({
+          where: { questionId: job.generatedQuestionId },
+          select: {
+            id: true,
+            startedAt: true,
+            deadlineAt: true,
+            readinessExpiresAt: true,
+            readiness: {
+              select: { participantId: true, isReady: true },
+            },
+          },
+        })
+      : null;
+    const requiredParticipants = match.participants.filter(
+      (item) =>
+        item.status === ParticipantStatus.ACTIVE ||
+        item.status === ParticipantStatus.DISCONNECTED,
+    );
+    const allReady =
+      round !== null &&
+      requiredParticipants.length > 0 &&
+      requiredParticipants.every((required) =>
+        round.readiness.some(
+          (item) => item.participantId === required.id && item.isReady,
+        ),
+      );
+
+    return {
+      matchId,
+      matchStatus: match.status,
+      status: job.status,
+      sourceRoundId: job.sourceRoundId,
+      roundId: round?.id ?? null,
+      ready: participant
+        ? (round?.readiness.find(
+            (item) => item.participantId === participant.id,
+          )?.isReady ?? null)
+        : null,
+      allReady,
+      startedAt: round?.startedAt ?? null,
+      deadlineAt: round?.deadlineAt ?? null,
+      readinessExpiresAt: round?.readinessExpiresAt ?? null,
+      lastErrorCode: job.lastErrorCode,
+    };
   }
 
   private assertParticipantPolicy(match: MatchForRound): void {
@@ -284,7 +607,9 @@ export class RoundService {
       (participant) => participant.status === ParticipantStatus.ACTIVE,
     );
     if (match.participants.length !== 2 || active.length !== 2) {
-      throw new ConflictException('V1 matches require exactly two active participants');
+      throw new ConflictException(
+        'V1 matches require exactly two active participants',
+      );
     }
 
     const humans = active.filter(
@@ -299,69 +624,32 @@ export class RoundService {
       (match.mode === MatchMode.ONE_V_AI && (humans !== 1 || ai !== 1)) ||
       match.mode === MatchMode.ROOM
     ) {
-      throw new ConflictException('Participant composition does not match the V1 mode');
+      throw new ConflictException(
+        'Participant composition does not match the V1 mode',
+      );
     }
   }
 
   private validateQuestion(question: GeneratedQuestion): void {
-    if (
-      typeof question.canonicalLanguage !== 'string' ||
-      !question.canonicalLanguage.trim() ||
-      typeof question.canonicalPrompt !== 'string' ||
-      !question.canonicalPrompt.trim() ||
-      typeof question.answerKey !== 'string' ||
-      !question.answerKey.trim() ||
-      typeof question.contentVersion !== 'string' ||
-      !question.contentVersion.trim() ||
-      !this.asRecord(question.gradingRubric) ||
-      !this.asRecord(question.localized) ||
-      !Number.isSafeInteger(question.timeLimitSeconds) ||
-      question.timeLimitSeconds < 1 ||
-      question.timeLimitSeconds > 300
-    ) {
-      throw new BadRequestException('Generated question package is invalid');
-    }
-
-    if (question.answerType === 'MULTIPLE_CHOICE') {
-      const options = question.canonicalOptions as unknown;
-      if (!Array.isArray(options) || options.length < 2) {
-        throw new BadRequestException('Multiple-choice question options are invalid');
+    try {
+      validateGeneratedQuestion(question);
+    } catch (error) {
+      if (error instanceof GeneratedQuestionValidationError) {
+        throw new BadRequestException(error.message);
       }
-      const normalized: CanonicalOption[] = [];
-      for (const value of options as unknown[]) {
-        const option = this.asRecord(value);
-        if (
-          typeof option?.id !== 'string' ||
-          !option.id.trim() ||
-          typeof option.text !== 'string' ||
-          !option.text.trim()
-        ) {
-          throw new BadRequestException('Multiple-choice question options are invalid');
-        }
-        normalized.push({ id: option.id, text: option.text });
-      }
-      const ids = normalized.map((option) => option.id);
-      if (new Set(ids).size !== ids.length || !ids.includes(question.answerKey)) {
-        throw new BadRequestException('Multiple-choice answer key is invalid');
-      }
-    } else if (question.answerType === 'FREE_TEXT') {
-      if (question.canonicalOptions !== null) {
-        throw new BadRequestException('Free-text questions cannot include options');
-      }
-    } else {
-      throw new BadRequestException('Unsupported question answer type');
+      throw error;
     }
   }
 
-  private readCanonicalOptions(value: Prisma.JsonValue | null): CanonicalOption[] {
+  private readCanonicalOptions(
+    value: Prisma.JsonValue | null,
+  ): CanonicalOption[] {
     if (value === null) return [];
-    if (!Array.isArray(value)) throw new Error('Stored question options are invalid');
+    if (!Array.isArray(value))
+      throw new Error('Stored question options are invalid');
     return value.map((item) => {
       const option = this.asRecord(item);
-      if (
-        typeof option?.id !== 'string' ||
-        typeof option.text !== 'string'
-      ) {
+      if (typeof option?.id !== 'string' || typeof option.text !== 'string') {
         throw new Error('Stored question option is invalid');
       }
       return { id: option.id, text: option.text };

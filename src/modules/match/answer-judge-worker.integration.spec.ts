@@ -18,12 +18,17 @@ describe('Free-text AI Judge worker integration', () => {
   const questionIds: string[] = [];
 
   const question: GeneratedQuestion = {
+    category: 'science',
+    difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'FREE_TEXT',
     canonicalPrompt: 'Which planet is known as the Red Planet?',
     canonicalOptions: null,
     answerKey: 'Mars',
-    gradingRubric: { requiredConcepts: ['Mars'], acceptEquivalentWording: true },
+    gradingRubric: {
+      requiredConcepts: ['Mars'],
+      acceptEquivalentWording: true,
+    },
     localized: {
       en: { prompt: 'Which planet is known as the Red Planet?' },
     },
@@ -46,7 +51,9 @@ describe('Free-text AI Judge worker integration', () => {
       questionIds.length = 0;
     }
     if (guestIds.length) {
-      await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
+      await prisma.guestIdentity.deleteMany({
+        where: { id: { in: guestIds } },
+      });
       guestIds.length = 0;
     }
   });
@@ -111,20 +118,26 @@ describe('Free-text AI Judge worker integration', () => {
 
     await expect(worker.runOnce()).resolves.toBe(true);
 
-    const persisted = await prisma.answer.findUniqueOrThrow({ where: { id: answerId } });
+    const persisted = await prisma.answer.findUniqueOrThrow({
+      where: { id: answerId },
+    });
     expect(persisted.judgeStatus).toBe('COMPLETED');
     expect(persisted.decision).toBe('CORRECT');
     expect(persisted.judgeAttempts).toBe(1);
     expect(persisted.judgeLeaseId).toBeNull();
     expect(persisted.points).toBeGreaterThanOrEqual(12);
     expect(persisted.points).toBeLessThanOrEqual(25);
-    expect(persisted.judgeVersion).toBe('test-provider:test-model:test-policy-v1');
+    expect(persisted.judgeVersion).toBe(
+      'test-provider:test-model:test-policy-v1',
+    );
 
     const participant = await prisma.matchParticipant.findFirstOrThrow({
       where: { matchId, guestIdentityId: guestId },
     });
     expect(participant.score).toBe(persisted.points);
-    const ledgerEntries = await prisma.matchScoreEntry.findMany({ where: { answerId } });
+    const ledgerEntries = await prisma.matchScoreEntry.findMany({
+      where: { answerId },
+    });
     expect(ledgerEntries).toHaveLength(1);
     expect(ledgerEntries[0]).toMatchObject({
       entryType: 'ANSWER_SCORE',
@@ -137,12 +150,15 @@ describe('Free-text AI Judge worker integration', () => {
       where: { matchId, guestIdentityId: guestId },
     });
     expect(unchanged.score).toBe(persisted.points);
-    await expect(prisma.matchScoreEntry.count({ where: { answerId } })).resolves.toBe(1);
+    await expect(
+      prisma.matchScoreEntry.count({ where: { answerId } }),
+    ).resolves.toBe(1);
     expect(judge.judge).toHaveBeenCalledTimes(1);
   });
 
   it('keeps UNCERTAIN unresolved and retries without awarding points', async () => {
-    const { matchId, guestId, answerId } = await createPendingAnswer('Maybe Mars?');
+    const { matchId, guestId, answerId } =
+      await createPendingAnswer('Maybe Mars?');
     const judge: FreeTextAnswerJudge = {
       judge: jest
         .fn()
@@ -152,7 +168,9 @@ describe('Free-text AI Judge worker integration', () => {
     const worker = new AnswerJudgeWorker(prisma, judge);
 
     await worker.runOnce();
-    const uncertain = await prisma.answer.findUniqueOrThrow({ where: { id: answerId } });
+    const uncertain = await prisma.answer.findUniqueOrThrow({
+      where: { id: answerId },
+    });
     expect(uncertain.judgeStatus).toBe('PENDING');
     expect(uncertain.decision).toBe('UNCERTAIN');
     expect(uncertain.points).toBe(0);
@@ -168,7 +186,9 @@ describe('Free-text AI Judge worker integration', () => {
     });
     await worker.runOnce();
 
-    const resolved = await prisma.answer.findUniqueOrThrow({ where: { id: answerId } });
+    const resolved = await prisma.answer.findUniqueOrThrow({
+      where: { id: answerId },
+    });
     expect(resolved.judgeStatus).toBe('COMPLETED');
     expect(resolved.decision).toBe('CORRECT');
     expect(resolved.judgeAttempts).toBe(2);

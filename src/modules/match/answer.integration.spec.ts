@@ -18,6 +18,8 @@ describe('Answer submission integration', () => {
   const questionIds: string[] = [];
 
   const generatedQuestion: GeneratedQuestion = {
+    category: 'science',
+    difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'MULTIPLE_CHOICE',
     canonicalPrompt: 'Which planet is known as the Red Planet?',
@@ -28,7 +30,10 @@ describe('Answer submission integration', () => {
     answerKey: 'B',
     gradingRubric: { strategy: 'exact-option' },
     localized: {
-      en: { prompt: 'Which planet is known as the Red Planet?', options: { A: 'Venus', B: 'Mars' } },
+      en: {
+        prompt: 'Which planet is known as the Red Planet?',
+        options: { A: 'Venus', B: 'Mars' },
+      },
     },
     timeLimitSeconds: 30,
     contentVersion: `answer-integration-${randomUUID()}`,
@@ -48,7 +53,9 @@ describe('Answer submission integration', () => {
       questionIds.length = 0;
     }
     if (guestIds.length) {
-      await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
+      await prisma.guestIdentity.deleteMany({
+        where: { id: { in: guestIds } },
+      });
       guestIds.length = 0;
     }
   });
@@ -89,15 +96,27 @@ describe('Answer submission integration', () => {
       principalId: second.id,
       sessionId: randomUUID(),
     };
-    return { matchId: match.id, roundId: started.roundId, firstPrincipal, secondPrincipal };
+    return {
+      matchId: match.id,
+      roundId: started.roundId,
+      firstPrincipal,
+      secondPrincipal,
+    };
   }
 
   it('accepts both players against one shared round and exposes no score or correctness', async () => {
-    const { matchId, roundId, firstPrincipal, secondPrincipal } = await createReadyRound();
+    const { matchId, roundId, firstPrincipal, secondPrincipal } =
+      await createReadyRound();
 
     const [first, second] = await Promise.all([
       answers.submitAnswer(matchId, roundId, firstPrincipal, 'B', randomUUID()),
-      answers.submitAnswer(matchId, roundId, secondPrincipal, 'A', randomUUID()),
+      answers.submitAnswer(
+        matchId,
+        roundId,
+        secondPrincipal,
+        'A',
+        randomUUID(),
+      ),
     ]);
 
     expect(first.roundId).toBe(second.roundId);
@@ -133,8 +152,20 @@ describe('Answer submission integration', () => {
     const { matchId, roundId, firstPrincipal } = await createReadyRound();
     const key = randomUUID();
 
-    const first = await answers.submitAnswer(matchId, roundId, firstPrincipal, 'B', key);
-    const replay = await answers.submitAnswer(matchId, roundId, firstPrincipal, 'B', key);
+    const first = await answers.submitAnswer(
+      matchId,
+      roundId,
+      firstPrincipal,
+      'B',
+      key,
+    );
+    const replay = await answers.submitAnswer(
+      matchId,
+      roundId,
+      firstPrincipal,
+      'B',
+      key,
+    );
 
     expect(replay.answerId).toBe(first.answerId);
     expect(replay.acceptedAt).toEqual(first.acceptedAt);
@@ -152,8 +183,12 @@ describe('Answer submission integration', () => {
       answers.submitAnswer(matchId, roundId, firstPrincipal, 'B', randomUUID()),
     ]);
 
-    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
-    expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1);
+    expect(
+      outcomes.filter((outcome) => outcome.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      outcomes.filter((outcome) => outcome.status === 'rejected'),
+    ).toHaveLength(1);
     expect(await prisma.answer.count({ where: { roundId } })).toBe(1);
   });
 

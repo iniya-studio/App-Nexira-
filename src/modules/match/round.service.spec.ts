@@ -19,6 +19,8 @@ describe('RoundService', () => {
     sessionId: 'session-1',
   };
   const question: GeneratedQuestion = {
+    category: 'general',
+    difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'MULTIPLE_CHOICE',
     canonicalPrompt: 'Canonical prompt',
@@ -29,7 +31,10 @@ describe('RoundService', () => {
     answerKey: 'B',
     gradingRubric: { type: 'exact-option' },
     localized: {
-      en: { prompt: 'English prompt', options: { A: 'English A', B: 'English B' } },
+      en: {
+        prompt: 'English prompt',
+        options: { A: 'English A', B: 'English B' },
+      },
       fa: { prompt: 'پرسش فارسی', options: { A: 'گزینه الف', B: 'گزینه ب' } },
     },
     timeLimitSeconds: 20,
@@ -59,8 +64,14 @@ describe('RoundService', () => {
           currentRound: 0,
           startedAt: null,
           participants: [
-            { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
-            { participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE },
+            {
+              participantType: ParticipantType.HUMAN,
+              status: ParticipantStatus.ACTIVE,
+            },
+            {
+              participantType: ParticipantType.AI,
+              status: ParticipantStatus.ACTIVE,
+            },
           ],
         }),
         update: jest.fn().mockResolvedValue({ id: 'match-1' }),
@@ -72,8 +83,8 @@ describe('RoundService', () => {
       },
     };
     prisma = {
-      $transaction: jest.fn(async (callback: (transaction: typeof tx) => unknown) =>
-        callback(tx),
+      $transaction: jest.fn(
+        async (callback: (transaction: typeof tx) => unknown) => callback(tx),
       ),
       round: { findFirst: jest.fn() },
     };
@@ -126,14 +137,20 @@ describe('RoundService', () => {
       status: MatchStatus.WAITING,
       currentRound: 0,
       participants: [
-        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
-        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
+        {
+          participantType: ParticipantType.HUMAN,
+          status: ParticipantStatus.ACTIVE,
+        },
+        {
+          participantType: ParticipantType.HUMAN,
+          status: ParticipantStatus.ACTIVE,
+        },
       ],
     });
 
-    await expect(service.startNextRound('match-1', question)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.startNextRound('match-1', question),
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(tx.question.create).not.toHaveBeenCalled();
   });
 
@@ -144,15 +161,24 @@ describe('RoundService', () => {
       status: MatchStatus.WAITING,
       currentRound: 0,
       participants: [
-        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
-        { participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE },
-        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.FORFEITED },
+        {
+          participantType: ParticipantType.HUMAN,
+          status: ParticipantStatus.ACTIVE,
+        },
+        {
+          participantType: ParticipantType.AI,
+          status: ParticipantStatus.ACTIVE,
+        },
+        {
+          participantType: ParticipantType.HUMAN,
+          status: ParticipantStatus.FORFEITED,
+        },
       ],
     });
 
-    await expect(service.startNextRound('match-1', question)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.startNextRound('match-1', question),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects a match in an invalid lifecycle state before creating a round', async () => {
@@ -162,14 +188,20 @@ describe('RoundService', () => {
       status: MatchStatus.READY,
       currentRound: 1,
       participants: [
-        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
-        { participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE },
+        {
+          participantType: ParticipantType.HUMAN,
+          status: ParticipantStatus.ACTIVE,
+        },
+        {
+          participantType: ParticipantType.AI,
+          status: ParticipantStatus.ACTIVE,
+        },
       ],
     });
 
-    await expect(service.startNextRound('match-1', question)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.startNextRound('match-1', question),
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(tx.question.create).not.toHaveBeenCalled();
   });
 
@@ -181,15 +213,21 @@ describe('RoundService', () => {
       currentRound: 1,
       startedAt,
       participants: [
-        { participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE },
-        { participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE },
+        {
+          participantType: ParticipantType.HUMAN,
+          status: ParticipantStatus.ACTIVE,
+        },
+        {
+          participantType: ParticipantType.AI,
+          status: ParticipantStatus.ACTIVE,
+        },
       ],
     });
     tx.round.findUnique.mockResolvedValue({ completedAt: null });
 
-    await expect(service.startNextRound('match-1', question)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.startNextRound('match-1', question),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('localizes prompt and options while preserving canonical option IDs and order', async () => {
@@ -210,14 +248,25 @@ describe('RoundService', () => {
           { id: 'B', text: 'Canonical B' },
         ],
         localized: {
-          en: { prompt: 'English prompt', options: { A: 'English A', B: 'English B' } },
-          fa: { prompt: 'پرسش فارسی', options: { A: 'گزینه الف', B: 'گزینه ب' } },
+          en: {
+            prompt: 'English prompt',
+            options: { A: 'English A', B: 'English B' },
+          },
+          fa: {
+            prompt: 'پرسش فارسی',
+            options: { A: 'گزینه الف', B: 'گزینه ب' },
+          },
         },
         timeLimitSeconds: 20,
       },
     });
 
-    const result = await service.getRoundQuestion('match-1', 'round-1', principal, 'fa');
+    const result = await service.getRoundQuestion(
+      'match-1',
+      'round-1',
+      principal,
+      'fa',
+    );
 
     expect(prisma.round.findFirst).toHaveBeenCalledWith({
       where: {
@@ -275,7 +324,12 @@ describe('RoundService', () => {
       },
     });
 
-    const result = await service.getRoundQuestion('match-1', 'round-1', principal, 'fr');
+    const result = await service.getRoundQuestion(
+      'match-1',
+      'round-1',
+      principal,
+      'fr',
+    );
 
     expect(result.prompt).toBe('Canonical prompt');
     expect(result.options[0].text).toBe('Canonical A');
@@ -284,12 +338,15 @@ describe('RoundService', () => {
   it('rejects malformed generated multiple-choice options', async () => {
     const malformed = {
       ...question,
-      canonicalOptions: [{ id: 5, text: 'Bad option' }, { id: 'B', text: 'Option B' }],
+      canonicalOptions: [
+        { id: 5, text: 'Bad option' },
+        { id: 'B', text: 'Option B' },
+      ],
     } as unknown as GeneratedQuestion;
 
-    await expect(service.startNextRound('match-1', malformed)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.startNextRound('match-1', malformed),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(tx.match.findUnique).not.toHaveBeenCalled();
   });
 

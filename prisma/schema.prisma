@@ -48,6 +48,14 @@ enum MatchStatus {
   CANCELLED
 }
 
+enum QuestionGenerationJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 enum ParticipantType {
   HUMAN
   AI
@@ -322,13 +330,14 @@ model Match {
   completedAt       DateTime?          @db.Timestamptz(3)
   createdAt         DateTime           @default(now()) @db.Timestamptz(3)
 
-  room          Room?                @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  participants  MatchParticipant[]
-  rounds        Round[]
-  result        MatchResult?
-  xpEvents      XPTransaction[]
-  rankingEvents RankingTransaction[]
-  scoreEntries  MatchScoreEntry[]
+  room                   Room?                   @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  participants           MatchParticipant[]
+  rounds                 Round[]
+  result                 MatchResult?
+  xpEvents               XPTransaction[]
+  rankingEvents          RankingTransaction[]
+  scoreEntries           MatchScoreEntry[]
+  questionGenerationJobs QuestionGenerationJob[]
 
   @@index([status, createdAt])
   @@index([roomId, createdAt])
@@ -354,6 +363,7 @@ model MatchParticipant {
   answers       Answer[]
   scoreEntries  MatchScoreEntry[]
   wonResults    MatchResult[]     @relation("MatchWinner")
+  readiness     RoundReadiness[]
 
   @@unique([matchId, participantKey])
   // A HUMAN participant belongs to exactly one User or GuestIdentity. AI has neither.
@@ -367,20 +377,23 @@ model MatchParticipant {
 }
 
 model Round {
-  id          String    @id @default(uuid()) @db.Uuid
-  matchId     String    @db.Uuid
-  roundNumber Int
-  questionId  String?   @unique @db.Uuid
-  startedAt   DateTime? @db.Timestamptz(3)
-  deadlineAt  DateTime? @db.Timestamptz(3)
-  completedAt DateTime? @db.Timestamptz(3)
-  voidedAt    DateTime? @db.Timestamptz(3)
-  voidReason  String?   @db.VarChar(64)
+  id                 String    @id @default(uuid()) @db.Uuid
+  matchId            String    @db.Uuid
+  roundNumber        Int
+  questionId         String?   @unique @db.Uuid
+  startedAt          DateTime? @db.Timestamptz(3)
+  deadlineAt         DateTime? @db.Timestamptz(3)
+  readinessExpiresAt DateTime? @db.Timestamptz(3)
+  completedAt        DateTime? @db.Timestamptz(3)
+  voidedAt           DateTime? @db.Timestamptz(3)
+  voidReason         String?   @db.VarChar(64)
 
-  match        Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  question     Question?         @relation(fields: [questionId], references: [id], onDelete: SetNull)
-  answers      Answer[]
-  scoreEntries MatchScoreEntry[]
+  match         Match                  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  question      Question?              @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  answers       Answer[]
+  scoreEntries  MatchScoreEntry[]
+  readiness     RoundReadiness[]
+  generationJob QuestionGenerationJob?
 
   @@unique([matchId, roundNumber])
   @@unique([id, matchId])
@@ -389,20 +402,72 @@ model Round {
 }
 
 model Question {
-  id                String   @id @default(uuid()) @db.Uuid
-  canonicalLanguage String
-  answerType        String
-  canonicalPrompt   String
-  canonicalOptions  Json?
-  answerKey         String
-  gradingRubric     Json
-  localized         Json
-  timeLimitSeconds  Int
-  contentVersion    String
-  judgeVersion      String?
-  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  id                      String   @id @default(uuid()) @db.Uuid
+  category                String   @default("general") @db.VarChar(64)
+  difficulty              String   @default("medium") @db.VarChar(32)
+  canonicalLanguage       String
+  answerType              String
+  canonicalPrompt         String
+  canonicalOptions        Json?
+  answerKey               String
+  gradingRubric           Json
+  localized               Json
+  timeLimitSeconds        Int
+  contentVersion          String
+  judgeVersion            String?
+  generatorVersion        String?
+  modelVersion            String?
+  generationPolicyVersion String?
+  contentFingerprint      String?  @db.VarChar(64)
+  createdAt               DateTime @default(now()) @db.Timestamptz(3)
 
-  round Round?
+  round          Round?
+  generatedByJob QuestionGenerationJob?
+
+  @@index([contentFingerprint])
+}
+
+model QuestionGenerationJob {
+  id                  String                      @id @default(uuid()) @db.Uuid
+  matchId             String                      @db.Uuid
+  sourceRoundId       String                      @unique @db.Uuid
+  generatedQuestionId String?                     @unique @db.Uuid
+  status              QuestionGenerationJobStatus @default(PENDING)
+  triggerReason       String                      @db.VarChar(64)
+  requestContext      Json
+  attempts            Int                         @default(0)
+  maxAttempts         Int                         @default(3)
+  availableAt         DateTime                    @default(now()) @db.Timestamptz(3)
+  leaseId             String?                     @db.Uuid
+  leaseAt             DateTime?                   @db.Timestamptz(3)
+  lastErrorCode       String?                     @db.VarChar(64)
+  idempotencyKey      String                      @unique
+  createdAt           DateTime                    @default(now()) @db.Timestamptz(3)
+  completedAt         DateTime?                   @db.Timestamptz(3)
+
+  match             Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sourceRound       Round     @relation(fields: [sourceRoundId, matchId], references: [id, matchId], onDelete: Cascade)
+  generatedQuestion Question? @relation(fields: [generatedQuestionId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceRoundId, matchId])
+  @@index([status, availableAt])
+  @@index([matchId, createdAt])
+}
+
+model RoundReadiness {
+  id            String    @id @default(uuid()) @db.Uuid
+  matchId       String    @db.Uuid
+  roundId       String    @db.Uuid
+  participantId String    @db.Uuid
+  isReady       Boolean   @default(false)
+  readyAt       DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  round       Round            @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
+
+  @@unique([roundId, participantId])
+  @@index([matchId, isReady])
 }
 
 // One answer per participant per round. NO_RESPONSE is persisted as a result, not inferred

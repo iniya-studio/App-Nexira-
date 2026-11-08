@@ -5,9 +5,13 @@ export type CanonicalOption = {
   text: string;
 };
 
+export type QuestionAnswerType = 'MULTIPLE_CHOICE' | 'FREE_TEXT';
+
 export type GeneratedQuestion = {
+  category: string;
+  difficulty: string;
   canonicalLanguage: string;
-  answerType: 'MULTIPLE_CHOICE' | 'FREE_TEXT';
+  answerType: QuestionAnswerType;
   canonicalPrompt: string;
   canonicalOptions: CanonicalOption[] | null;
   answerKey: string;
@@ -15,6 +19,10 @@ export type GeneratedQuestion = {
   localized: Prisma.InputJsonValue;
   timeLimitSeconds: number;
   contentVersion: string;
+  contentFingerprint?: string;
+  generatorVersion?: string;
+  modelVersion?: string;
+  generationPolicyVersion?: string;
   judgeVersion?: string;
 };
 

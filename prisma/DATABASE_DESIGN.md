@@ -20,6 +20,8 @@
 - judgeStatus separates adjudication workflow from the decision itself. A timeout or provider failure remains PENDING/FAILED and must not be converted into INCORRECT.
 - decision is populated only when a judge decision exists. UNCERTAIN is a completed adjudication outcome, not a transport failure.
 - The backend validates that a MatchResult winner is a participant of that same Match before persisting it. This remains a transactional domain invariant.
+- A technical-void replacement is recorded in a unique, durable QuestionGenerationJob in the same transaction as the void. PostgreSQL row locks and leases coordinate workers; provider requests must remain outside database transactions.
+- A replacement Round has no active clock until each required MatchParticipant has a RoundReadiness record marked ready. Question answer keys remain private while the replacement is waiting.
 
 ## 3. Room membership lifecycle
 - (roomId, userId) identifies one durable membership record.
@@ -49,6 +51,7 @@
 - Duplicate answer submission is rejected or replayed idempotently; it never creates a second accepted answer.
 - Room membership reactivation updates the existing unique row.
 - Service-layer validation must check ownership and authorization even when foreign keys are valid.
+- Ready requests may update only the caller's own readiness row. The server/database owns readiness timestamps, shared round start/deadline, currentRound, and score transitions.
 
 ## 7. Deliberately deferred
 - Store catalog and Purchase persistence will be added with the Store domain implementation, before the first production schema release. The v1 Store UI can exist before real payment processing is enabled.

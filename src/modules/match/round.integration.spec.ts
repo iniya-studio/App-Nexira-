@@ -14,6 +14,8 @@ describe('Round persistence integration', () => {
   const questionIds: string[] = [];
 
   const question: GeneratedQuestion = {
+    category: 'general',
+    difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'MULTIPLE_CHOICE',
     canonicalPrompt: 'Which option is correct?',
@@ -24,8 +26,14 @@ describe('Round persistence integration', () => {
     answerKey: 'B',
     gradingRubric: { type: 'exact-option' },
     localized: {
-      en: { prompt: 'Which option is correct?', options: { A: 'Option A', B: 'Option B' } },
-      fa: { prompt: 'کدام گزینه درست است؟', options: { A: 'گزینه الف', B: 'گزینه ب' } },
+      en: {
+        prompt: 'Which option is correct?',
+        options: { A: 'Option A', B: 'Option B' },
+      },
+      fa: {
+        prompt: 'کدام گزینه درست است؟',
+        options: { A: 'گزینه الف', B: 'گزینه ب' },
+      },
     },
     timeLimitSeconds: 15,
     contentVersion: 'integration-v1',
@@ -45,7 +53,9 @@ describe('Round persistence integration', () => {
       questionIds.length = 0;
     }
     if (guestIds.length) {
-      await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
+      await prisma.guestIdentity.deleteMany({
+        where: { id: { in: guestIds } },
+      });
       guestIds.length = 0;
     }
   });
@@ -72,7 +82,9 @@ describe('Round persistence integration', () => {
     });
     expect(stored).not.toBeNull();
     expect(stored?.startedAt).toEqual(
-      new Date(stored!.deadlineAt!.getTime() - question.timeLimitSeconds * 1000),
+      new Date(
+        stored!.deadlineAt!.getTime() - question.timeLimitSeconds * 1000,
+      ),
     );
     expect(stored?.question?.answerKey).toBe('B');
 
@@ -87,7 +99,10 @@ describe('Round persistence integration', () => {
       'fa',
     );
     expect(publicQuestion.prompt).toBe('کدام گزینه درست است؟');
-    expect(publicQuestion.options.map((option) => option.id)).toEqual(['A', 'B']);
+    expect(publicQuestion.options.map((option) => option.id)).toEqual([
+      'A',
+      'B',
+    ]);
     expect(publicQuestion).not.toHaveProperty('answerKey');
     expect(publicQuestion).not.toHaveProperty('gradingRubric');
   });
@@ -108,11 +123,16 @@ describe('Round persistence integration', () => {
     ]);
 
     const fulfilled = results.filter(
-      (result): result is PromiseFulfilledResult<Awaited<ReturnType<RoundService['startNextRound']>>> =>
-        result.status === 'fulfilled',
+      (
+        result,
+      ): result is PromiseFulfilledResult<
+        Awaited<ReturnType<RoundService['startNextRound']>>
+      > => result.status === 'fulfilled',
     );
     expect(fulfilled).toHaveLength(1);
-    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
     questionIds.push(fulfilled[0].value.questionId);
     expect(await prisma.round.count({ where: { matchId: match.id } })).toBe(1);
   });

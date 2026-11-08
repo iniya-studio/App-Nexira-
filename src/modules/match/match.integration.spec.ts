@@ -15,6 +15,8 @@ describe('Match and round persistence integration', () => {
   const questionIds: string[] = [];
 
   const generatedQuestion: GeneratedQuestion = {
+    category: 'science',
+    difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'MULTIPLE_CHOICE',
     canonicalPrompt: 'Which planet is known as the Red Planet?',
@@ -52,7 +54,9 @@ describe('Match and round persistence integration', () => {
       questionIds.length = 0;
     }
     if (guestIds.length) {
-      await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
+      await prisma.guestIdentity.deleteMany({
+        where: { id: { in: guestIds } },
+      });
       guestIds.length = 0;
     }
     if (userIds.length) {
@@ -91,7 +95,8 @@ describe('Match and round persistence integration', () => {
   }
 
   it('starts one synchronized round and gives both humans the same question and deadline', async () => {
-    const { matchId, firstGuestId, secondGuestId } = await createGuestOneVsOne();
+    const { matchId, firstGuestId, secondGuestId } =
+      await createGuestOneVsOne();
 
     const started = await rounds.startNextRound(matchId, generatedQuestion);
     questionIds.push(started.questionId);
@@ -99,7 +104,9 @@ describe('Match and round persistence integration', () => {
     expect(started.matchId).toBe(matchId);
     expect(started.roundNumber).toBe(1);
     expect(started.startedAt).toBeInstanceOf(Date);
-    expect(started.deadlineAt.getTime() - started.startedAt.getTime()).toBe(20_000);
+    expect(started.deadlineAt.getTime() - started.startedAt.getTime()).toBe(
+      20_000,
+    );
 
     const storedMatch = await prisma.match.findUnique({
       where: { id: matchId },
@@ -154,15 +161,22 @@ describe('Match and round persistence integration', () => {
     ]);
 
     const fulfilled = outcomes.filter(
-      (outcome): outcome is PromiseFulfilledResult<Awaited<ReturnType<RoundService['startNextRound']>>> =>
-        outcome.status === 'fulfilled',
+      (
+        outcome,
+      ): outcome is PromiseFulfilledResult<
+        Awaited<ReturnType<RoundService['startNextRound']>>
+      > => outcome.status === 'fulfilled',
     );
     expect(fulfilled).toHaveLength(1);
-    expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1);
+    expect(
+      outcomes.filter((outcome) => outcome.status === 'rejected'),
+    ).toHaveLength(1);
     questionIds.push(fulfilled[0].value.questionId);
     expect(await prisma.round.count({ where: { matchId } })).toBe(1);
     expect(
-      await prisma.match.count({ where: { id: matchId, status: 'ACTIVE', currentRound: 1 } }),
+      await prisma.match.count({
+        where: { id: matchId, status: 'ACTIVE', currentRound: 1 },
+      }),
     ).toBe(1);
   });
 
@@ -185,14 +199,19 @@ describe('Match and round persistence integration', () => {
     expect(stored?.status).toBe('WAITING');
     expect(stored?.participants).toHaveLength(2);
     expect(
-      stored?.participants.filter((participant) => participant.participantType === 'HUMAN'),
+      stored?.participants.filter(
+        (participant) => participant.participantType === 'HUMAN',
+      ),
     ).toHaveLength(1);
     expect(
-      stored?.participants.filter((participant) => participant.participantType === 'AI'),
+      stored?.participants.filter(
+        (participant) => participant.participantType === 'AI',
+      ),
     ).toHaveLength(1);
     expect(
-      stored?.participants.find((participant) => participant.participantType === 'HUMAN')
-        ?.guestIdentityId,
+      stored?.participants.find(
+        (participant) => participant.participantType === 'HUMAN',
+      )?.guestIdentityId,
     ).toBe(guestId);
 
     await expect(
