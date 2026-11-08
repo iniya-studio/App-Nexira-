@@ -1,38 +1,29 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { MatchMode, MatchStatus, ParticipantType, PrincipalType } from '@prisma/client';
+import { MatchMode, MatchStatus, ParticipantType, PrincipalType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
+import { questionGenerationInputForMatch } from './question-generation.context';
+
+const INITIAL_QUESTION_SETTINGS = {
+  category: 'general',
+  difficulty: 'medium',
+  answerType: 'FREE_TEXT' as const,
+  timeLimitSeconds: 30,
+};
 
 @Injectable()
 export class MatchService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createAiMatch(principal: AuthenticatedPrincipal) {
-    const match = await this.prisma.match.create({
-      data: {
-        mode: MatchMode.ONE_V_AI,
-        status: MatchStatus.WAITING,
-        participants: {
-          create: [
-            this.humanParticipantData(principal),
-            {
-              participantKey: 'ai:default-v1',
-              participantType: ParticipantType.AI,
-            },
-          ],
-        },
-      },
-      select: {
-        id: true,
-        mode: true,
-        status: true,
-        currentRound: true,
-        createdAt: true,
-        participants: { select: { participantType: true, status: true } },
-      },
-    });
-
-    return this.toMatchSummary(match);
+    return this.createMatchWithInitialQuestion(
+      MatchMode.ONE_V_AI,
+      [
+        this.humanParticipantData(principal),
+        { participantKey: 'ai:default-v1', participantType: ParticipantType.AI },
+      ],
+      principal,
+    );
   }
 
   // Internal entry point for the future matchmaking service. It is deliberately
@@ -45,28 +36,63 @@ export class MatchService {
       throw new BadRequestException('A participant cannot be matched against themselves');
     }
 
-    const match = await this.prisma.match.create({
-      data: {
-        mode: MatchMode.ONE_V_ONE,
-        status: MatchStatus.WAITING,
-        participants: {
-          create: [
-            this.humanParticipantData(first),
-            this.humanParticipantData(second),
-          ],
-        },
-      },
-      select: {
-        id: true,
-        mode: true,
-        status: true,
-        currentRound: true,
-        createdAt: true,
-        participants: { select: { participantType: true, status: true } },
-      },
-    });
+    return this.createMatchWithInitialQuestion(
+      MatchMode.ONE_V_ONE,
+      [this.humanParticipantData(first), this.humanParticipantData(second)],
+      first,
+    );
+  }
 
-    return this.toMatchSummary(match);
+  private async createMatchWithInitialQuestion(
+    mode: MatchMode,
+    participants: Prisma.MatchParticipantCreateWithoutMatchInput[],
+    languagePrincipal: AuthenticatedPrincipal,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const preferredLanguage =
+        languagePrincipal.principalType === PrincipalType.USER
+          ? await tx.user.findUnique({
+              where: { id: languagePrincipal.principalId },
+              select: { preferredLanguage: true },
+            })
+          : null;
+      const language = preferredLanguage?.preferredLanguage?.trim() || 'en';
+      const match = await tx.match.create({
+        data: {
+          mode,
+          status: MatchStatus.WAITING,
+          participants: { create: participants },
+        },
+        select: {
+          id: true,
+          mode: true,
+          status: true,
+          currentRound: true,
+          createdAt: true,
+          participants: {
+            select: { participantKey: true, participantType: true, status: true },
+          },
+        },
+      });
+
+      const requestContext = await questionGenerationInputForMatch(
+        tx,
+        match.id,
+        { ...INITIAL_QUESTION_SETTINGS, language },
+      );
+      await tx.questionGenerationJob.create({
+        data: {
+          matchId: match.id,
+          sourceRoundId: null,
+          triggerReason: 'INITIAL_MATCH',
+          requestContext: requestContext as Prisma.InputJsonValue,
+          idempotencyKey: `match:${match.id}:initial-question:v1`,
+          maxAttempts: 3,
+        },
+      });
+
+      return this.toMatchSummary(match);
+    });
   }
 
   async getMatch(matchId: string, principal: AuthenticatedPrincipal) {
@@ -76,10 +102,7 @@ export class MatchService {
         : { guestIdentityId: principal.principalId };
 
     const match = await this.prisma.match.findFirst({
-      where: {
-        id: matchId,
-        participants: { some: ownership },
-      },
+      where: { id: matchId, participants: { some: ownership } },
       select: {
         id: true,
         mode: true,

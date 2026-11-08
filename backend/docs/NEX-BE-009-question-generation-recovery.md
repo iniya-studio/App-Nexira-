@@ -8,7 +8,7 @@
 
 ## 1. Scope
 
-This contract defines the server-owned AI Question Generator and the recovery path from a technical round void through replacement-question readiness. It does not change the existing first-round start contract, answer adjudication, match settlement, XP, or ranking.
+This contract defines the server-owned AI Question Generator for both initial match questions and technical-void replacement questions. Both paths use durable jobs, bounded retries, validated output, duplicate prevention, and readiness-gated shared clocks. It does not change answer adjudication, match settlement, XP, or ranking.
 
 The generator is an internal `QuestionGenerator` port. The OpenAI Responses adapter is a provider implementation, not a dependency of Match or scoring services. It uses strict structured output, an explicit timeout, output validation, and separate configuration from the AI Judge.
 
@@ -24,9 +24,13 @@ Existing Question rows receive additive `general`/`medium` defaults for category
 
 Multiple-choice questions require 2–8 unique option IDs and an answer key equal to one of them. Free-text questions require no options and a rubric with at least one required concept. Both require non-empty canonical and localized prompts. The returned question must match all requested settings exactly.
 
+## 3. Durable generation jobs
+
+Initial 1vAI and 1v1 match creation inserts the first-question job in the same database transaction as the Match and its participants. The request context snapshots the category (`general`), difficulty (`medium`), first participant's preferred language (or `en` for a guest), free-text answer type, and 30-second limit. Initial jobs have no source round and are eligible while the Match is `WAITING`. A successful initial generation creates round 1 without starting its clock, creates readiness rows (AI is ready automatically; humans are not), and moves the Match to `READY`. The same Ready endpoint starts the shared clock only when every required participant is ready. Exhausted initial generation cancels the still-waiting Match without scores or a result.
+
 ## 3. Durable recovery job
 
-`QuestionGenerationJob` is PostgreSQL-backed and has `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, and `CANCELLED` states. Each job records the match/source round, trigger, typed request context, attempts/max attempts, availability time, lease ID/time, last error code, idempotency key, generated question, and completion time.
+`QuestionGenerationJob` is PostgreSQL-backed and has `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`, and `CANCELLED` states. Each job records the match, optional source round (null for initial match generation), trigger, typed request context, attempts/max attempts, availability time, lease ID/time, last error code, idempotency key, generated question, and completion time. Initial jobs are created atomically with the Match using the `INITIAL_MATCH` trigger and a match-scoped idempotency key.
 
 A unique source-round constraint and a deterministic idempotency key allow at most one recovery job per technical void. The void transaction also:
 1. reverses positive answer-score ledger effects with immutable compensating entries;

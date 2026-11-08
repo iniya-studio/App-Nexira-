@@ -212,7 +212,7 @@ The prior match result must remain immutable. A rematch creates a new Match ID a
 
 NEXIRA V1 does not rely on a static question bank. Questions are generated on demand by the AI Question Generator.
 
-- Generate and validate the first question in parallel with matchmaking/readiness work, before the shared round clock starts.
+- Generate and validate the first question through a durable initial-match job immediately after match creation. Persist it before readiness; start the shared round clock only after every required participant is ready.
 - The same canonical question package and canonical option IDs must be used for both 1v1 participants; localization may differ per participant.
 - Do not start a round with an incomplete, invalid, or unvalidated question package.
 - Do not wait indefinitely for generation. Use bounded retries and a configured fallback generation path; if no valid question can be prepared within the operational budget, cancel the pending match safely and report a recoverable technical failure rather than starting a broken round.

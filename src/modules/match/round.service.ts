@@ -371,25 +371,36 @@ export class RoundService {
           generatedQuestionId: round.question.id,
           status: 'COMPLETED',
         },
-        select: { sourceRoundId: true },
+        select: { sourceRoundId: true, triggerReason: true },
       });
       if (!completedJob) {
-        throw new ConflictException(
-          'Replacement question generation is incomplete',
-        );
+        throw new ConflictException('Question generation is incomplete');
       }
-      const sourceRound = await tx.round.findUnique({
-        where: { id: completedJob.sourceRoundId },
-        select: { roundNumber: true, completedAt: true, voidedAt: true },
-      });
-      if (
-        !sourceRound?.voidedAt ||
-        !sourceRound.completedAt ||
-        sourceRound.roundNumber !== round.roundNumber - 1
-      ) {
-        throw new ConflictException(
-          'Replacement round source is not a technical void',
-        );
+      if (completedJob.triggerReason === 'INITIAL_MATCH') {
+        if (
+          completedJob.sourceRoundId !== null ||
+          round.roundNumber !== 1 ||
+          round.match.currentRound !== 0
+        ) {
+          throw new ConflictException('Initial match question state is invalid');
+        }
+      } else {
+        if (!completedJob.sourceRoundId) {
+          throw new ConflictException('Replacement question source is unavailable');
+        }
+        const sourceRound = await tx.round.findUnique({
+          where: { id: completedJob.sourceRoundId },
+          select: { roundNumber: true, completedAt: true, voidedAt: true },
+        });
+        if (
+          !sourceRound?.voidedAt ||
+          !sourceRound.completedAt ||
+          sourceRound.roundNumber !== round.roundNumber - 1
+        ) {
+          throw new ConflictException(
+            'Replacement round source is not a technical void',
+          );
+        }
       }
 
       const participantReadiness = round.readiness.find(
