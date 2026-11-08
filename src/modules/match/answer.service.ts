@@ -35,6 +35,7 @@ type SubmissionRound = Prisma.RoundGetPayload<{
     startedAt: true;
     deadlineAt: true;
     completedAt: true;
+    voidedAt: true;
     question: {
       select: {
         answerType: true;
@@ -93,6 +94,7 @@ export class AnswerService {
           startedAt: true,
           deadlineAt: true,
           completedAt: true,
+          voidedAt: true,
           question: {
             select: {
               answerType: true,
@@ -160,6 +162,7 @@ export class AnswerService {
       if (
         participant.status !== ParticipantStatus.ACTIVE ||
         round.completedAt ||
+        round.voidedAt ||
         round.match.status !== MatchStatus.ACTIVE ||
         round.match.currentRound !== round.roundNumber ||
         !round.startedAt ||
