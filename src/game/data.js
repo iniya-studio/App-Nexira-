@@ -139,3 +139,22 @@ export function saveProfile(profile, storage = globalThis.localStorage) {
     return false;
   }
 }
+
+export const LANGUAGE_SELECTION_KEY = 'nexira.language-selection.v1';
+
+export function hasCompletedLanguageSelection(storage = globalThis.localStorage) {
+  try {
+    return storage?.getItem(LANGUAGE_SELECTION_KEY) === 'completed';
+  } catch {
+    return false;
+  }
+}
+
+export function completeLanguageSelection(storage = globalThis.localStorage) {
+  try {
+    storage?.setItem(LANGUAGE_SELECTION_KEY, 'completed');
+    return Boolean(storage);
+  } catch {
+    return false;
+  }
+}
