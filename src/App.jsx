@@ -419,18 +419,45 @@ export default function App() {
           <ProgressBar profile={profile} label={text.level} />
         </div>
 
-        <div className="arena-reactor" aria-label={text.reactorLabel}>
-          <div className="reactor-grid" />
-          <div className="reactor-ring reactor-ring--outer" />
-          <div className="reactor-ring reactor-ring--middle" />
-          <div className="reactor-ring reactor-ring--inner" />
-          <div className="reactor-orbit reactor-orbit--one"><i /></div>
-          <div className="reactor-orbit reactor-orbit--two"><i /></div>
-          <div className="reactor-core"><span>N</span><i /></div>
-          <span className="reactor-coordinate reactor-coordinate--top">{text.reactorCore}</span>
-          <span className="reactor-coordinate reactor-coordinate--bottom">{text.reactorEnergy}</span>
-          <span className="reactor-cross reactor-cross--one" />
-          <span className="reactor-cross reactor-cross--two" />
+        <div className="arena-character-scene" aria-label={language === 'fa' ? 'نگهبان هوشمند نکسیرا' : 'NEXIRA arena sentinel'}>
+          <div className="character-scanline" />
+          <div className="character-halo character-halo--outer" />
+          <div className="character-halo character-halo--inner" />
+          <div className="character-platform"><i /><i /><i /></div>
+          <span className="character-tag character-tag--top">NX-01 <b>·</b> SENTINEL</span>
+          <span className="character-tag character-tag--side">AI CORE <i /></span>
+          <svg className="arena-character" viewBox="0 0 520 620" role="img" aria-label="Original futuristic NEXIRA armored AI sentinel character">
+            <defs>
+              <linearGradient id="nxArmor" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff1b0"/><stop offset=".22" stopColor="#d8d2bf"/><stop offset=".48" stopColor="#65645f"/><stop offset=".72" stopColor="#242522"/><stop offset="1" stopColor="#0d0e0d"/></linearGradient>
+              <linearGradient id="nxGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff4b8"/><stop offset=".35" stopColor="#ffc400"/><stop offset="1" stopColor="#a95b00"/></linearGradient>
+              <linearGradient id="nxGlass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff8d8" stopOpacity=".8"/><stop offset=".45" stopColor="#ffc400" stopOpacity=".22"/><stop offset="1" stopColor="#171817" stopOpacity=".9"/></linearGradient>
+              <filter id="nxGlow"><feGaussianBlur stdDeviation="9" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <ellipse cx="260" cy="585" rx="150" ry="18" fill="#ffc400" opacity=".16"/>
+            <path d="M115 560 Q125 465 175 420 L215 395 L305 395 L345 420 Q395 465 405 560 L365 585 L155 585Z" fill="url(#nxArmor)" stroke="#aaa79a" strokeWidth="3"/>
+            <path d="M175 443 L220 418 L300 418 L345 443 L325 515 L195 515Z" fill="#191b19" stroke="#ffc400" strokeOpacity=".7" strokeWidth="3"/>
+            <path d="M218 416 L260 438 L302 416 L290 478 L260 500 L230 478Z" fill="#3c3d38" stroke="#d9d2bc" strokeWidth="2"/>
+            <path d="M245 443 L260 451 L275 443 L270 477 L260 486 L250 477Z" fill="url(#nxGold)" filter="url(#nxGlow)"/>
+            <path d="M168 455 L115 480 L90 550 L132 567 L182 510Z M352 455 L405 480 L430 550 L388 567 L338 510Z" fill="url(#nxArmor)" stroke="#aaa79a" strokeWidth="3"/>
+            <path d="M110 490 L78 535 L112 550 L145 505 M410 490 L442 535 L408 550 L375 505" fill="none" stroke="#ffc400" strokeWidth="5"/>
+            <path d="M205 398 L198 350 L322 350 L315 398 L260 425Z" fill="#252723" stroke="#b6b09e" strokeWidth="3"/>
+            <path d="M220 370 L260 392 L300 370" fill="none" stroke="#ffc400" strokeWidth="4"/>
+            <path d="M260 44 C174 44 124 111 130 212 L145 300 Q160 359 260 388 Q360 359 375 300 L390 212 C396 111 346 44 260 44Z" fill="url(#nxArmor)" stroke="#d8d2bf" strokeWidth="4"/>
+            <path d="M159 145 Q180 73 260 70 Q340 73 361 145 L346 207 L174 207Z" fill="#20221f" stroke="#ffc400" strokeWidth="3"/>
+            <path d="M158 207 Q260 178 362 207 L348 277 Q333 329 260 355 Q187 329 172 277Z" fill="#151715" stroke="#79796f" strokeWidth="3"/>
+            <path d="M171 214 Q260 187 349 214 L333 267 Q260 293 187 267Z" fill="url(#nxGlass)" stroke="#ffc400" strokeWidth="2.5"/>
+            <path d="M190 235 L238 226 L231 249 L184 258Z M330 235 L282 226 L289 249 L336 258Z" fill="#fff0a6" filter="url(#nxGlow)"/>
+            <path d="M260 205 L260 286" stroke="#ffc400" strokeOpacity=".6" strokeWidth="2"/>
+            <path d="M198 300 L260 327 L322 300" fill="none" stroke="#c5c0ad" strokeWidth="3"/>
+            <path d="M130 178 L96 218 L132 265 L151 235 M390 178 L424 218 L388 265 L369 235" fill="#33352f" stroke="#ffc400" strokeWidth="3"/>
+            <path d="M208 93 L260 58 L312 93" fill="none" stroke="#fff0a6" strokeWidth="5" opacity=".85"/>
+            <path d="M260 48 L260 13" stroke="#ffc400" strokeWidth="5" filter="url(#nxGlow)"/>
+            <circle cx="260" cy="13" r="8" fill="#fff1a5" filter="url(#nxGlow)"/>
+            <path d="M145 316 L180 355 M375 316 L340 355" stroke="#ffc400" strokeWidth="4"/>
+            <path d="M175 470 L205 495 M345 470 L315 495" stroke="#fff0a6" strokeOpacity=".65" strokeWidth="3"/>
+            <path d="M160 535 L205 548 L220 580 M360 535 L315 548 L300 580" fill="none" stroke="#ffc400" strokeWidth="3" opacity=".8"/>
+          </svg>
+          <span className="character-caption">{language === 'fa' ? 'نگهبان میدان رقابت' : 'THE ARENA SENTINEL'}</span>
         </div>
       </section>
 
