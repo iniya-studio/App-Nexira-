@@ -377,7 +377,7 @@ export default function App() {
   >
     <div className="ambient ambient--one" />
     <div className="ambient ambient--two" />
-    {screen !== 'game' && screen !== 'match-game' && <header className="topbar">
+    {screen !== 'game' && screen !== 'match-game' && screen !== 'home' && <header className="topbar">
       <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
       <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
         <span className="top-profile-avatar"><UserRound size={17} /></span>
