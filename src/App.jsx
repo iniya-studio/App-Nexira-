@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import {
   Activity, ArrowLeft, ArrowRight, BarChart3, Brain, Check,
   ChevronRight, Clock3, Flame, Globe2, Languages, Medal, Play,
-  RotateCcw, Scan, Settings, Sigma, Sparkles, Target, Timer,
+  RotateCcw, Scan, Settings, Sigma, Sparkles, Star, Target, Timer,
   Trophy, UserRound, Zap, Atom,
 } from 'lucide-react';
 import {
