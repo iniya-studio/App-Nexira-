@@ -1481,3 +1481,5 @@ button[aria-disabled="true"] {
 @media (prefers-reduced-motion: reduce) {
   .nx-home-v2 *, .nx-home-v2 *::before, .nx-home-v2 *::after { animation:none !important; transition:none !important; }
 }
+
+/* Build-triggered Home visual QA checkpoint: scoped to the reference-matched arena screen. */
