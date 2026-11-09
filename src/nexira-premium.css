@@ -1164,3 +1164,109 @@ button[aria-disabled="true"] {
   .home-mode-copy strong { font-size: 15px; }
   .home-mode-copy small { font-size: 9px; }
 }
+
+
+/* NEXIRA Home — industrial gold arena + original central sentinel */
+:root {
+  color-scheme: dark;
+  --nx-bg: #101010;
+  --nx-surface: #1b1b19;
+  --nx-raised: #292925;
+  --nx-text: #f5f3eb;
+  --nx-text-secondary: #c5c1b5;
+  --nx-text-muted: #898579;
+  --nx-brand: #ffc400;
+  --nx-brand-strong: #e2a900;
+  --nx-warning: #ffc400;
+  --nx-border: rgba(255,196,0,.2);
+  --ink: #101010;
+  --paper: #f5f3eb;
+  --gold: #ffc400;
+}
+.app-shell {
+  color: var(--nx-text);
+  background:
+    radial-gradient(ellipse at 72% 22%, rgba(255,196,0,.105), transparent 34rem),
+    radial-gradient(ellipse at 10% 70%, rgba(255,196,0,.045), transparent 28rem),
+    linear-gradient(145deg,#191916 0%,#101010 52%,#080909 100%);
+}
+.app-shell::before { opacity:.18; }
+.topbar { border-color:rgba(255,196,0,.16); }
+.brand-glyph { border-color:var(--nx-brand); box-shadow:0 0 18px rgba(255,196,0,.22); }
+.brand-name span { color:var(--nx-brand); }
+.top-profile { background:rgba(31,31,28,.82); border:1px solid rgba(255,196,0,.2); }
+.top-profile-avatar { background:rgba(255,196,0,.12); color:var(--nx-brand); }
+.home-arena-screen { width:min(100% - 32px,1240px); padding-top:20px; }
+.home-arena-screen .arena-status-row { color:#aaa596; }
+.home-arena-screen .arena-status i { background:#ffc400; box-shadow:0 0 12px #ffc400; }
+.home-arena-screen .arena-season,.home-arena-screen .arena-season b { color:#8f897a; }
+.arena-stage { position:relative; isolation:isolate; min-height:440px; display:grid; grid-template-columns:minmax(240px,.82fr) minmax(320px,1.18fr); align-items:center; gap:0; overflow:hidden; border:1px solid rgba(255,196,0,.18); border-radius:26px; background:linear-gradient(115deg,rgba(24,24,21,.96),rgba(14,15,13,.72) 55%,rgba(34,29,14,.72)); box-shadow:inset 0 1px rgba(255,255,255,.05),0 24px 70px rgba(0,0,0,.34); }
+.arena-stage::before { content:""; position:absolute; inset:0; z-index:-1; opacity:.26; background:linear-gradient(rgba(255,196,0,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,196,0,.08) 1px,transparent 1px); background-size:44px 44px; mask-image:linear-gradient(90deg,transparent,black 45%,black); }
+.arena-copy { z-index:2; padding:34px 0 34px 38px; }
+[dir="rtl"] .arena-copy { padding:34px 38px 34px 0; }
+.arena-copy .arena-kicker { color:#ffc400; letter-spacing:2px; font-weight:800; }
+.arena-copy h1 { color:#f5f3eb; text-shadow:0 8px 34px rgba(0,0,0,.5); }
+.arena-copy h1 span { color:#ffc400; text-shadow:0 0 28px rgba(255,196,0,.24); }
+.arena-description { color:#b8b3a5; max-width:390px; }
+.arena-operator { border-color:rgba(255,196,0,.2); background:rgba(255,255,255,.035); backdrop-filter:blur(14px); }
+.operator-emblem { color:#ffc400; background:rgba(255,196,0,.12); }
+.operator-record { color:#ffc400; }
+.rank-progress-heading { color:#c9c4b7; }
+.rank-track { background:rgba(255,255,255,.1); }
+.rank-track>span { background:linear-gradient(90deg,#9d7000,#ffc400); box-shadow:0 0 12px rgba(255,196,0,.35); }
+.arena-character-scene { position:relative; align-self:stretch; min-height:440px; display:grid; place-items:center; overflow:hidden; }
+.character-halo { position:absolute; left:50%; top:48%; transform:translate(-50%,-50%); border-radius:50%; pointer-events:none; }
+.character-halo--outer { width:min(90%,430px); aspect-ratio:1; border:1px solid rgba(255,196,0,.23); box-shadow:0 0 55px rgba(255,196,0,.09),inset 0 0 45px rgba(255,196,0,.06); }
+.character-halo--inner { width:min(72%,340px); aspect-ratio:1; border:1px dashed rgba(255,196,0,.26); animation:nxOrbit 32s linear infinite; }
+.character-scanline { position:absolute; inset:0; background:repeating-linear-gradient(0deg,transparent 0 5px,rgba(255,255,255,.018) 6px); opacity:.4; pointer-events:none; }
+.arena-character { position:relative; z-index:2; width:min(100%,490px); height:auto; max-height:430px; margin-top:8px; overflow:visible; filter:drop-shadow(0 20px 32px rgba(0,0,0,.65)) drop-shadow(0 0 24px rgba(255,196,0,.12)); animation:nxSentinelFloat 5s ease-in-out infinite; }
+.character-platform { position:absolute; z-index:1; left:50%; bottom:8%; transform:translateX(-50%); width:55%; height:38px; border:2px solid rgba(255,196,0,.7); border-radius:50%; background:radial-gradient(ellipse,rgba(255,196,0,.22),rgba(255,196,0,.02) 62%,transparent 70%); box-shadow:0 0 34px rgba(255,196,0,.28); }
+.character-platform i { position:absolute; inset:7px 12%; border-top:1px solid rgba(255,240,166,.5); border-radius:50%; }
+.character-platform i:nth-child(2) { inset:-8px 22%; border:1px solid rgba(255,196,0,.22); }
+.character-platform i:nth-child(3) { inset:14px 28%; border-bottom:1px solid rgba(255,196,0,.4); }
+.character-tag { position:absolute; z-index:3; color:#bcb6a4; font:700 9px/1.2 var(--font-body); letter-spacing:1.6px; padding:8px 11px; border:1px solid rgba(255,196,0,.25); background:rgba(15,16,14,.7); backdrop-filter:blur(12px); }
+.character-tag b { color:#ffc400; }
+.character-tag--top { top:9%; right:10%; }
+.character-tag--side { bottom:24%; left:5%; writing-mode:vertical-rl; }
+.character-tag--side i { display:inline-block; width:5px; height:5px; margin-top:8px; border-radius:50%; background:#ffc400; box-shadow:0 0 9px #ffc400; }
+.character-caption { position:absolute; z-index:3; bottom:4%; left:50%; transform:translateX(-50%); color:#8d8777; font:700 8px var(--font-body); letter-spacing:2.2px; white-space:nowrap; }
+.home-mode-section { margin-top:24px; padding:24px; border:1px solid rgba(255,196,0,.18); border-radius:22px; background:linear-gradient(120deg,rgba(38,36,27,.72),rgba(19,20,18,.88)); box-shadow:inset 0 1px rgba(255,255,255,.04); }
+.home-mode-heading .launch-eyebrow { color:#ffc400; }
+.home-mode-heading h2 { color:#f5f3eb; }
+.home-mode-heading p { color:#a9a394; }
+.home-mode-card { border:1px solid rgba(255,196,0,.24); background:linear-gradient(135deg,rgba(255,255,255,.075),rgba(255,255,255,.025)); backdrop-filter:blur(18px); box-shadow:inset 0 1px rgba(255,255,255,.07),0 12px 28px rgba(0,0,0,.2); }
+.home-mode-card:hover,.home-mode-card:focus-visible { border-color:#ffc400; box-shadow:0 0 26px rgba(255,196,0,.14),inset 0 1px rgba(255,255,255,.08); }
+.home-mode-card--duel .home-mode-icon,.home-mode-card--ai .home-mode-icon { color:#ffc400; background:rgba(255,196,0,.12); }
+.home-mode-copy strong { color:#f5f3eb; }
+.home-mode-copy small,.home-practice-link { color:#b9b3a4; }
+.home-practice-link svg:first-child { color:#ffc400; }
+.arena-dashboard { border-color:rgba(255,196,0,.16); background:rgba(22,22,19,.86); }
+.arena-dashboard-heading { color:#ffc400; }
+.arena-dashboard-heading small,.arena-metric small { color:#969080; }
+.arena-metric { border-color:rgba(255,196,0,.13); }
+.arena-metric>span,.shortcut-icon { color:#ffc400; background:rgba(255,196,0,.1); }
+.arena-metric strong { color:#f5f3eb; }
+.arena-shortcuts button { border-color:rgba(255,196,0,.14); background:rgba(255,255,255,.025); }
+.arena-shortcuts button strong { color:#f5f3eb; }
+.arena-shortcuts button small,.home-footer { color:#928c7e; }
+.shortcut-icon--violet { color:#ffc400; background:rgba(255,196,0,.1); }
+@keyframes nxSentinelFloat { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-9px); } }
+@keyframes nxOrbit { to { transform:translate(-50%,-50%) rotate(360deg); } }
+@media (max-width:760px) {
+  .arena-stage { grid-template-columns:1fr; min-height:unset; }
+  .arena-copy { padding:26px 24px 0; }
+  [dir="rtl"] .arena-copy { padding:26px 24px 0; }
+  .arena-copy h1 { font-size:clamp(2rem,8vw,3rem); }
+  .arena-character-scene { min-height:330px; margin-top:-4px; }
+  .arena-character { width:min(100%,370px); max-height:330px; }
+  .character-halo--outer { width:min(88%,330px); }
+  .character-halo--inner { width:min(70%,260px); }
+  .character-tag--top { top:5%; right:6%; }
+  .character-tag--side { bottom:22%; left:3%; }
+  .character-platform { bottom:7%; width:62%; }
+  .character-caption { bottom:2%; }
+  .home-mode-section { padding:19px 16px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .arena-character,.character-halo--inner { animation:none; }
+}
