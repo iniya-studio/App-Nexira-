@@ -395,111 +395,55 @@ export default function App() {
       </div>
     </div>}
 
-    {screen === 'home' && <ScreenFrame className="home-screen home-arena-screen">
-      <div className="arena-status-row">
-        <span className="arena-status"><i /> {text.arenaStatus}</span>
-        <span className="arena-season">NEXIRA <b>//</b> 01</span>
-      </div>
-
-      <section className="arena-stage">
-        <div className="arena-copy">
-          <p className="arena-kicker">{text.welcome}</p>
-          <h1>{text.arenaTitle}<br /><span>{text.arenaAccent}</span></h1>
-          <p className="arena-description">{text.arenaDescription}</p>
-
-          <div className="arena-operator">
-            <span className="operator-emblem"><UserRound size={20} /></span>
-            <span className="operator-details">
-              <small>{text.operator}</small>
-              <strong>{playerName}</strong>
-              <i>{text.level} {profile.level} <b>·</b> {profile.totalXp} XP</i>
-            </span>
-            <span className="operator-record"><Trophy size={13} /> {profile.bestScore}</span>
-          </div>
-          <ProgressBar profile={profile} label={text.level} />
-        </div>
-
-        <div className="arena-character-scene" aria-label={language === 'fa' ? 'نگهبان هوشمند نکسیرا' : 'NEXIRA arena sentinel'}>
-          <div className="character-scanline" />
-          <div className="character-halo character-halo--outer" />
-          <div className="character-halo character-halo--inner" />
-          <div className="character-platform"><i /><i /><i /></div>
-          <span className="character-tag character-tag--top">NX-01 <b>·</b> SENTINEL</span>
-          <span className="character-tag character-tag--side">AI CORE <i /></span>
-          <svg className="arena-character" viewBox="0 0 520 620" role="img" aria-label="Original futuristic NEXIRA armored AI sentinel character">
+    {screen === 'home' && <ScreenFrame className="home-screen home-arena-screen nx-home-v2">
+      <div className="nx-home-backdrop" aria-hidden="true"><div className="nx-arena-rings"/><div className="nx-arena-light nx-arena-light--left"/><div className="nx-arena-light nx-arena-light--right"/></div>
+      <section className="nx-home-hero">
+        <div className="nx-home-brandline"><span className="nx-brand-mark">N</span><span className="nx-brand-word">NEXIRA</span><small>PLAY · COMPETE · WIN</small></div>
+        <button className="nx-home-profile" onClick={() => navigate('profile')}><span className="nx-avatar"><UserRound size={22}/></span><span className="nx-profile-data"><strong>{playerName}</strong><b>{text.level} {profile.level}</b><i><span style={{width:Math.min(100,profile.xp/threshold*100)+'%'}}/></i></span><small>{profile.xp} / {threshold} XP</small></button>
+        <button className="nx-home-settings" onClick={() => navigate('settings')} aria-label={text.settings}><Settings size={21}/></button>
+        <div className="nx-home-character-wrap" aria-label={language === 'fa' ? 'موجود هوشمند فرازمینی نکسیرا' : 'NEXIRA alien intelligence champion'}>
+          <div className="nx-character-aura"/><div className="nx-character-platform"><i/><i/><i/></div>
+          <svg className="nx-alien-character" viewBox="0 0 560 900" role="img" aria-label="Full-body original NEXIRA extraterrestrial intelligence champion">
             <defs>
-              <linearGradient id="nxArmor" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff1b0"/><stop offset=".22" stopColor="#d8d2bf"/><stop offset=".48" stopColor="#65645f"/><stop offset=".72" stopColor="#242522"/><stop offset="1" stopColor="#0d0e0d"/></linearGradient>
-              <linearGradient id="nxGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff4b8"/><stop offset=".35" stopColor="#ffc400"/><stop offset="1" stopColor="#a95b00"/></linearGradient>
-              <linearGradient id="nxGlass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff8d8" stopOpacity=".8"/><stop offset=".45" stopColor="#ffc400" stopOpacity=".22"/><stop offset="1" stopColor="#171817" stopOpacity=".9"/></linearGradient>
-              <filter id="nxGlow"><feGaussianBlur stdDeviation="9" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <linearGradient id="nxAlienArmor" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#f6e7bd"/><stop offset=".16" stopColor="#9c988b"/><stop offset=".34" stopColor="#343735"/><stop offset=".66" stopColor="#101413"/><stop offset="1" stopColor="#050807"/></linearGradient>
+              <linearGradient id="nxAlienGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff5a8"/><stop offset=".38" stopColor="#ffc400"/><stop offset="1" stopColor="#9a5100"/></linearGradient>
+              <linearGradient id="nxAlienVisor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff9d9"/><stop offset=".18" stopColor="#ffd84a"/><stop offset=".55" stopColor="#55431b"/><stop offset="1" stopColor="#090c0b"/></linearGradient>
+              <linearGradient id="nxAlienLimb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#080b0a"/><stop offset=".5" stopColor="#77766d"/><stop offset=".72" stopColor="#242824"/><stop offset="1" stopColor="#070a09"/></linearGradient>
+              <filter id="nxAlienGlow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
             </defs>
-            <ellipse cx="260" cy="585" rx="150" ry="18" fill="#ffc400" opacity=".16"/>
-            <path d="M115 560 Q125 465 175 420 L215 395 L305 395 L345 420 Q395 465 405 560 L365 585 L155 585Z" fill="url(#nxArmor)" stroke="#aaa79a" strokeWidth="3"/>
-            <path d="M175 443 L220 418 L300 418 L345 443 L325 515 L195 515Z" fill="#191b19" stroke="#ffc400" strokeOpacity=".7" strokeWidth="3"/>
-            <path d="M218 416 L260 438 L302 416 L290 478 L260 500 L230 478Z" fill="#3c3d38" stroke="#d9d2bc" strokeWidth="2"/>
-            <path d="M245 443 L260 451 L275 443 L270 477 L260 486 L250 477Z" fill="url(#nxGold)" filter="url(#nxGlow)"/>
-            <path d="M168 455 L115 480 L90 550 L132 567 L182 510Z M352 455 L405 480 L430 550 L388 567 L338 510Z" fill="url(#nxArmor)" stroke="#aaa79a" strokeWidth="3"/>
-            <path d="M110 490 L78 535 L112 550 L145 505 M410 490 L442 535 L408 550 L375 505" fill="none" stroke="#ffc400" strokeWidth="5"/>
-            <path d="M205 398 L198 350 L322 350 L315 398 L260 425Z" fill="#252723" stroke="#b6b09e" strokeWidth="3"/>
-            <path d="M220 370 L260 392 L300 370" fill="none" stroke="#ffc400" strokeWidth="4"/>
-            <path d="M260 44 C174 44 124 111 130 212 L145 300 Q160 359 260 388 Q360 359 375 300 L390 212 C396 111 346 44 260 44Z" fill="url(#nxArmor)" stroke="#d8d2bf" strokeWidth="4"/>
-            <path d="M159 145 Q180 73 260 70 Q340 73 361 145 L346 207 L174 207Z" fill="#20221f" stroke="#ffc400" strokeWidth="3"/>
-            <path d="M158 207 Q260 178 362 207 L348 277 Q333 329 260 355 Q187 329 172 277Z" fill="#151715" stroke="#79796f" strokeWidth="3"/>
-            <path d="M171 214 Q260 187 349 214 L333 267 Q260 293 187 267Z" fill="url(#nxGlass)" stroke="#ffc400" strokeWidth="2.5"/>
-            <path d="M190 235 L238 226 L231 249 L184 258Z M330 235 L282 226 L289 249 L336 258Z" fill="#fff0a6" filter="url(#nxGlow)"/>
-            <path d="M260 205 L260 286" stroke="#ffc400" strokeOpacity=".6" strokeWidth="2"/>
-            <path d="M198 300 L260 327 L322 300" fill="none" stroke="#c5c0ad" strokeWidth="3"/>
-            <path d="M130 178 L96 218 L132 265 L151 235 M390 178 L424 218 L388 265 L369 235" fill="#33352f" stroke="#ffc400" strokeWidth="3"/>
-            <path d="M208 93 L260 58 L312 93" fill="none" stroke="#fff0a6" strokeWidth="5" opacity=".85"/>
-            <path d="M260 48 L260 13" stroke="#ffc400" strokeWidth="5" filter="url(#nxGlow)"/>
-            <circle cx="260" cy="13" r="8" fill="#fff1a5" filter="url(#nxGlow)"/>
-            <path d="M145 316 L180 355 M375 316 L340 355" stroke="#ffc400" strokeWidth="4"/>
-            <path d="M175 470 L205 495 M345 470 L315 495" stroke="#fff0a6" strokeOpacity=".65" strokeWidth="3"/>
-            <path d="M160 535 L205 548 L220 580 M360 535 L315 548 L300 580" fill="none" stroke="#ffc400" strokeWidth="3" opacity=".8"/>
-          </svg>
-          <span className="character-caption">{language === 'fa' ? 'نگهبان میدان رقابت' : 'THE ARENA SENTINEL'}</span>
+            <ellipse cx="280" cy="860" rx="180" ry="24" fill="#ffc400" opacity=".2"/>
+            <path d="M190 520 L267 535 L253 715 L229 817 L167 824 L174 745 L153 621Z M294 535 L371 520 L407 621 L386 745 L393 817 L331 824 L307 715Z" fill="url(#nxAlienLimb)" stroke="#9c9277" strokeWidth="4"/>
+            <path d="M176 745 L235 758 L227 814 L153 845 L104 837 L126 800Z M325 758 L386 745 L434 800 L456 837 L407 845 L333 814Z" fill="url(#nxAlienArmor)" stroke="#b5aa8e" strokeWidth="4"/>
+            <path d="M125 814 L211 798 L224 822 L111 846Z M435 814 L349 798 L336 822 L449 846Z" fill="url(#nxAlienGold)"/>
+            <path d="M203 303 Q280 270 357 303 L414 359 L397 527 Q347 573 280 581 Q213 573 163 527 L146 359Z" fill="url(#nxAlienArmor)" stroke="#b7ae98" strokeWidth="5"/>
+            <path d="M207 325 L280 359 L353 325 L383 390 L353 514 L280 546 L207 514 L177 390Z" fill="#101513" stroke="#ffc400" strokeWidth="4"/>
+            <path d="M236 344 L280 375 L324 344 L311 436 L280 462 L249 436Z" fill="#343831" stroke="#b9b19a" strokeWidth="3"/>
+            <path d="M257 397 L280 382 L303 397 L294 442 L280 454 L266 442Z" fill="#ffc400" filter="url(#nxAlienGlow)"/>
+            <path d="M252 402 L268 402 L293 430 L293 402 L309 402 L309 447 L292 447 L268 420 L268 447 L252 447Z" fill="#f8f4e9"/>
+            <path d="M179 330 L120 345 L78 414 L101 482 L153 462 L190 398Z M381 330 L440 345 L482 414 L459 482 L407 462 L370 398Z" fill="url(#nxAlienArmor)" stroke="#a9a18e" strokeWidth="4"/>
+            <path d="M91 488 L136 500 L126 607 L96 680 L48 669 L69 588Z M469 488 L424 500 L434 607 L464 680 L512 669 L491 588Z" fill="url(#nxAlienLimb)" stroke="#a69c83" strokeWidth="4"/>
+            <path d="M73 568 L132 586 L117 621 L60 605Z M487 568 L428 586 L443 621 L500 605Z" fill="url(#nxAlienGold)"/>
+            <path d="M96 674 L143 665 L154 710 L127 746 L84 738 L65 711Z M464 674 L417 665 L406 710 L433 746 L476 738 L495 711Z" fill="url(#nxAlienArmor)" stroke="#b9ad8f" strokeWidth="4"/>
+            <path d="M239 273 L239 315 L280 344 L321 315 L321 273Z" fill="#171d19" stroke="#b5aa8d" strokeWidth="4"/>
+            <path d="M280 44 C220 44 183 94 187 163 L201 247 Q213 291 280 317 Q347 291 359 247 L373 163 C377 94 340 44 280 44Z" fill="url(#nxAlienArmor)" stroke="#d8c9a3" strokeWidth="5"/>
+            <path d="M207 113 Q224 60 280 58 Q336 60 353 113 L345 169 L215 169Z" fill="#111714" stroke="#ffc400" strokeWidth="4"/>
+            <path d="M198 160 Q280 132 362 160 L346 224 Q333 269 280 285 Q227 269 214 224Z" fill="#090e0c" stroke="#8d897b" strokeWidth="4"/>
+            <path d="M207 169 Q280 143 353 169 L340 212 Q280 237 220 212Z" fill="url(#nxAlienVisor)" stroke="#ffc400" strokeWidth="3"/>
+            <path d="M222 182 L263 175 L255 196 L217 204Z M338 182 L297 175 L305 196 L343 204Z" fill="#eafcff" filter="url(#nxAlienGlow)"/>
+            <path d="M223 240 Q280 265 337 240" fill="none" stroke="#d8c9a3" strokeWidth="3"/>
+            <path d="M207 119 L161 71 L174 154 L204 183 M353 119 L399 71 L386 154 L356 183" fill="#202620" stroke="#ffc400" strokeWidth="4"/>
+            <path d="M225 74 L280 19 L335 74 M280 22 L280 3" fill="none" stroke="#d8c9a3" strokeWidth="6"/>
+            <circle cx="280" cy="8" r="9" fill="#fff2a6" filter="url(#nxAlienGlow)"/>
+            <path d="M189 286 L218 314 M371 286 L342 314 M157 531 L197 550 M403 531 L363 550 M188 690 L223 704 M372 690 L337 704" stroke="#ffc400" strokeWidth="4"/>
+          </svg><span className="nx-character-caption">NEXIRA · THE FIRST INTELLIGENCE</span>
         </div>
+        <button className="nx-mode-card nx-mode-card--duel" onClick={() => {setEntryMatchMode('1v1');navigate('categories');}}><span className="nx-mode-icon"><UserRound size={43}/></span><strong><span>1</span>v1</strong><small>{language==='fa'?'با بازیکنان سراسر جهان رقابت کن':'Challenge a player from around the world!'}</small><b className="nx-play-button">{language==='fa'?'شروع بازی':'Play Now'} <ChevronRight size={22}/></b></button>
+        <button className="nx-mode-card nx-mode-card--ai" onClick={() => {setEntryMatchMode('1vAI');navigate('categories');}}><span className="nx-ai-chip">AI <Brain size={16}/></span><span className="nx-ai-robot"><i/><i/><b/></span><strong><span>1</span>v<em>AI</em></strong><small>{language==='fa'?'مهارتت را در برابر هوش مصنوعی بسنج':'Test your skills against AI!'}</small><b className="nx-play-button">{language==='fa'?'شروع بازی':'Play Now'} <ChevronRight size={22}/></b></button>
+        <aside className="nx-daily-card"><span className="nx-daily-trophy"><Trophy size={57}/></span><span className="nx-daily-copy"><strong>Daily Challenge</strong><small>{language==='fa'?'برای دریافت جایزه به ۵ سؤال پاسخ بده!':'Answer 5 questions to earn rewards!'}</small><i><span/></i><b>0 / 5</b></span><span className="nx-gift">🎁</span><button aria-label="Start daily challenge" onClick={() => {setEntryMatchMode(null);navigate('categories');}}><ChevronRight size={22}/></button></aside>
+        <aside className="nx-level-card"><div className="nx-level-top"><span className="nx-level-badge"><Star size={35} fill="currentColor"/></span><span><strong>{text.level} <em>{profile.level}</em></strong><i><span style={{width:Math.min(100,profile.xp/threshold*100)+'%'}}/></i><small>{profile.xp} / {threshold} XP</small></span></div><div className="nx-stats-title">Your Stats</div><div className="nx-stats-row"><span><Trophy size={20}/><b>{profile.bestScore}</b></span><span><Flame size={20}/><b>{profile.battles}</b></span><span><Zap size={20}/><b>12h+</b></span></div></aside>
       </section>
-
-      <section className="home-mode-section" aria-labelledby="home-mode-title">
-        <div className="home-mode-heading">
-          <span className="launch-eyebrow"><Zap size={13} /> {language === 'fa' ? 'ورود به رقابت' : 'ENTER THE ARENA'}</span>
-          <h2 id="home-mode-title">{language === 'fa' ? 'چطور می‌خواهی رقابت کنی؟' : 'Choose your battle'}</h2>
-          <p>{language === 'fa' ? 'حالت مسابقه را انتخاب کن، سپس موضوع دلخواهت را برگزین.' : 'Pick a match mode, then choose your category.'}</p>
-        </div>
-        <div className="home-mode-grid">
-          <button className="home-mode-card home-mode-card--duel" onClick={() => { setEntryMatchMode('1v1'); navigate('categories'); }}>
-            <span className="home-mode-icon"><UserRound size={22} /></span>
-            <span className="home-mode-copy"><strong>1v1</strong><small>{language === 'fa' ? 'رقابت دونفره' : 'Head-to-head'}</small></span>
-            <ChevronRight size={18} />
-          </button>
-          <button className="home-mode-card home-mode-card--ai" onClick={() => { setEntryMatchMode('1vAI'); navigate('categories'); }}>
-            <span className="home-mode-icon"><Brain size={22} /></span>
-            <span className="home-mode-copy"><strong>1vAI</strong><small>{language === 'fa' ? 'مقابل حریف هوشمند' : 'Challenge the AI'}</small></span>
-            <ChevronRight size={18} />
-          </button>
-        </div>
-        <button className="home-practice-link" onClick={() => { setEntryMatchMode(null); navigate('categories'); }}>
-          <Target size={16} /> {language === 'fa' ? 'تمرین انفرادی و رکورد شخصی' : 'Solo practice & personal best'} <ArrowRight size={15} />
-        </button>
-      </section>
-
-      <section className="arena-dashboard">
-        <div className="arena-dashboard-heading">
-          <span>{text.operatorTelemetry}</span>
-          <small>{text.localRecord}</small>
-        </div>
-        <div className="arena-metrics">
-          <div className="arena-metric"><span><Flame size={15} /></span><strong>{profile.battles}</strong><small>{text.battles}</small></div>
-          <div className="arena-metric"><span><Trophy size={15} /></span><strong>{profile.bestScore}</strong><small>{text.best}</small></div>
-          <div className="arena-metric"><span><Target size={15} /></span><strong>{accuracy}%</strong><small>{text.accuracy}</small></div>
-        </div>
-        <div className="arena-shortcuts">
-          <button onClick={() => navigate('rankings')}><span className="shortcut-icon"><Trophy size={17} /></span><span><strong>{text.rankings}</strong><small>{text.personalBest}</small></span><ChevronRight size={16} /></button>
-          <button onClick={() => navigate('profile')}><span className="shortcut-icon shortcut-icon--violet"><UserRound size={17} /></span><span><strong>{text.profile}</strong><small>{text.operatorDossier}</small></span><ChevronRight size={16} /></button>
-        </div>
-      </section>
-      <footer className="home-footer"><span>{text.footerBrand}</span><span>{text.localMode}</span></footer>
+      <button className="nx-quick-battle" onClick={() => {setEntryMatchMode('1vAI');navigate('categories');}}><span className="nx-quick-arrows">≪</span><strong><Zap size={30} fill="currentColor"/> {language==='fa'?'نبرد سریع':'Quick Battle'}</strong><span className="nx-quick-arrows">≫</span></button>
+      <footer className="nx-home-footer"><span>{text.footerBrand}</span><span>{text.localMode}</span></footer>
     </ScreenFrame>}
 
     {screen === 'categories' && <ScreenFrame className="categories-screen">
