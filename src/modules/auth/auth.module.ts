@@ -11,6 +11,6 @@ import { EmailDeliveryService } from './email-delivery.service';
   imports: [SessionModule],
   controllers: [AuthController],
   providers: [AuthService, GoogleIdentityVerifier, EmailVerifiedGuard, EmailVerificationService, EmailDeliveryService],
-  exports: [AuthService, EmailVerifiedGuard],
+  exports: [AuthService, EmailVerifiedGuard, EmailVerificationService],
 })
 export class AuthModule {}
