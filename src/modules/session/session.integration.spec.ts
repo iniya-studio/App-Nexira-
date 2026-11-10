@@ -19,6 +19,11 @@ describe('Guest identity and session integration', () => {
     REFRESH_RETRY_ENCRYPTION_KEY: Buffer.alloc(32, 19).toString('base64'),
     GUEST_START_MAX_ATTEMPTS: '20',
     GUEST_START_WINDOW_SECONDS: '60',
+    GUEST_CONVERSION_MAX_ATTEMPTS: '20',
+    GUEST_CONVERSION_WINDOW_SECONDS: '3600',
+    ARGON2_MEMORY_COST_KIB: '1024',
+    ARGON2_TIME_COST: '2',
+    ARGON2_PARALLELISM: '1',
   };
   const config = {
     getOrThrow: (key: string) => {
@@ -36,6 +41,7 @@ describe('Guest identity and session integration', () => {
   const guests = new GuestIdentityService(prisma, sessions, config, emailVerification as never);
   const accessGuard = new AccessTokenGuard(accessTokens, prisma);
   const guestIds: string[] = [];
+  const convertedUserIds: string[] = [];
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -47,6 +53,11 @@ describe('Guest identity and session integration', () => {
       await prisma.identityAuditEvent.deleteMany({ where: { principalId: { in: guestIds } } });
       await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
       guestIds.length = 0;
+    }
+    if (convertedUserIds.length) {
+      await prisma.identityAuditEvent.deleteMany({ where: { principalId: { in: convertedUserIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: convertedUserIds } } });
+      convertedUserIds.length = 0;
     }
   });
 
@@ -107,4 +118,70 @@ describe('Guest identity and session integration', () => {
       sessions.refresh(started.tokens.refreshToken, randomBytes(32).toString('base64url')),
     ).rejects.toThrow('Session is not active');
   });
+  it('converts an active guest in PostgreSQL, transfers Companion, revokes guest credentials, and issues a USER session', async () => {
+    const started = await startGuest();
+    const guestId = started.principal.principalId;
+    const guestSessionId = started.session.sessionId;
+
+    const companion = await prisma.companionProfile.create({
+      data: { guestIdentityId: guestId },
+    });
+
+    const result = await guests.convert({
+      principalType: PrincipalType.GUEST,
+      principalId: guestId,
+      sessionId: guestSessionId,
+    }, {
+      email: `conversion-${randomUUID()}@example.test`,
+      password: 'integration-test-password-strong',
+      username: `player_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+      displayName: 'Integration Player',
+    });
+
+    const userId = result.principal.principalId;
+    convertedUserIds.push(userId);
+
+    expect(result.principal.principalType).toBe(PrincipalType.USER);
+    expect(await accessGuard.authenticate(result.tokens.accessToken)).toEqual({
+      principalType: PrincipalType.USER,
+      principalId: userId,
+      sessionId: result.session.sessionId,
+    });
+
+    const [guest, transferredProfile, oldSession, newSession, oldRefreshTokens, audit] = await Promise.all([
+      prisma.guestIdentity.findUnique({ where: { id: guestId } }),
+      prisma.companionProfile.findUnique({ where: { id: companion.id } }),
+      prisma.userSession.findUnique({ where: { id: guestSessionId } }),
+      prisma.userSession.findUnique({ where: { id: result.session.sessionId } }),
+      prisma.refreshToken.findMany({ where: { sessionId: guestSessionId } }),
+      prisma.identityAuditEvent.findFirst({
+        where: { principalType: PrincipalType.GUEST, principalId: guestId, eventType: 'GUEST_IDENTITY_CONVERTED' },
+      }),
+    ]);
+
+    expect(guest?.status).toBe(GuestIdentityStatus.CONVERTED);
+    expect(guest?.convertedToUserId).toBe(userId);
+    expect(guest?.convertedAt).toBeInstanceOf(Date);
+    expect(transferredProfile).toMatchObject({
+      id: companion.id,
+      userId,
+      guestIdentityId: null,
+    });
+    expect(oldSession?.revokedAt).toBeInstanceOf(Date);
+    expect(newSession).toMatchObject({ userId, guestIdentityId: null, revokedAt: null });
+    expect(oldRefreshTokens.length).toBeGreaterThan(0);
+    expect(oldRefreshTokens.every((token) => token.revokedAt instanceof Date)).toBe(true);
+    expect(audit).toBeTruthy();
+
+    await expect(accessGuard.authenticate(started.tokens.accessToken)).rejects.toThrow();
+    await expect(
+      sessions.refresh(started.tokens.refreshToken, randomBytes(32).toString('base64url')),
+    ).rejects.toThrow();
+    expect(result.emailVerification).toEqual({
+      required: true,
+      verified: false,
+      delivery: 'SENT',
+    });
+  });
+
 });
