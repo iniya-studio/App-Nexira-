@@ -59,7 +59,7 @@ export class GuestIdentityService {
     });
 
     let converted: {
-      user: { id: string; email: string; username: string; displayName: string; preferredLanguage: string; emailVerifiedAt: Date | null };
+      user: { id: string; email: string | null; username: string; displayName: string; preferredLanguage: string; emailVerifiedAt: Date | null };
       session: Awaited<ReturnType<SessionService['createSessionInTransaction']>>;
     };
     try {
@@ -88,7 +88,7 @@ export class GuestIdentityService {
 
         // Move the existing profile row, preserving its stable ID and appearance.
         // If the guest never created a Companion profile, keep the user's profile lazy.
-        await tx.companionProfile.updateMany({
+        const profileTransfer = await tx.companionProfile.updateMany({
           where: { guestIdentityId: guest.id, userId: null },
           data: { guestIdentityId: null, userId: user.id },
         });
@@ -124,7 +124,7 @@ export class GuestIdentityService {
             principalId: guest.id,
             sessionId: session.session.sessionId,
             result: 'SUCCESS',
-            metadata: { convertedToUserId: user.id, companionProfileTransferred: true },
+            metadata: { convertedToUserId: user.id, companionProfileTransferred: profileTransfer.count === 1 },
           },
         });
         return { user, session };
