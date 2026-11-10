@@ -672,9 +672,9 @@ model StoreItem {
   createdAt     DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
 
-  purchases Purchase[]
-  owners              UserInventory[]
-  equippedCompanions  CompanionProfile[]
+  purchases          Purchase[]
+  owners             UserInventory[]
+  equippedCompanions CompanionProfile[]
 
   @@index([isActive, itemType])
 }
@@ -722,16 +722,15 @@ model UserInventory {
   @@index([userId, revokedAt, acquiredAt])
 }
 
-
 // One stable AI Companion profile per authenticated principal.
 // Cosmetic appearance never owns AI behavior or conversation state.
 model CompanionProfile {
-  id                        String   @id @default(uuid()) @db.Uuid
-  userId                    String?  @unique @db.Uuid
-  guestIdentityId           String?  @unique @db.Uuid
-  activeCharacterStoreItemId String? @db.Uuid
-  createdAt                 DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt                 DateTime @updatedAt @db.Timestamptz(3)
+  id                         String   @id @default(uuid()) @db.Uuid
+  userId                     String?  @unique @db.Uuid
+  guestIdentityId            String?  @unique @db.Uuid
+  activeCharacterStoreItemId String?  @db.Uuid
+  createdAt                  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime @updatedAt @db.Timestamptz(3)
 
   user            User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
   guestIdentity   GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Cascade)
