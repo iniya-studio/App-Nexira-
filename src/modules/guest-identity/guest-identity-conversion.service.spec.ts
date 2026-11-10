@@ -1,6 +1,6 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GuestIdentityStatus, PrincipalType, UserStatus } from '@prisma/client';
+import { GuestIdentityStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService } from '../session/session.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
