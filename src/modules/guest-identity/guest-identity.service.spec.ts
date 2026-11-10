@@ -2,8 +2,13 @@ import { ConfigService } from '@nestjs/config';
 import { GuestIdentityService } from './guest-identity.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService } from '../session/session.service';
+import { EmailVerificationService } from '../auth/email-verification.service';
 
 describe('GuestIdentityService', () => {
+  const emailVerification = {
+    issueAndSend: jest.fn().mockResolvedValue('SENT'),
+  } as unknown as EmailVerificationService;
+
   it('creates guest identity and its session in one transaction', async () => {
     const tx = {
       guestIdentity: { create: jest.fn().mockResolvedValue({ id: 'guest-1' }) },
@@ -28,7 +33,7 @@ describe('GuestIdentityService', () => {
     const config = {
       get: (key: string, fallback: string) => fallback,
     } as unknown as ConfigService;
-    const service = new GuestIdentityService(prisma, sessions, config);
+    const service = new GuestIdentityService(prisma, sessions, config, emailVerification);
 
     await expect(service.start('127.0.0.1')).resolves.toEqual(sessionResponse);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -54,7 +59,7 @@ describe('GuestIdentityService', () => {
     const config = {
       get: (key: string, fallback: string) => key === 'GUEST_START_MAX_ATTEMPTS' ? '1' : fallback,
     } as unknown as ConfigService;
-    const service = new GuestIdentityService(prisma, sessions, config);
+    const service = new GuestIdentityService(prisma, sessions, config, emailVerification);
 
     await service.start('127.0.0.2');
     await expect(service.start('127.0.0.2')).rejects.toThrow();
