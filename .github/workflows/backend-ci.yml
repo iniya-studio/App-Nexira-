@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/backend-foundation
+      - feature/ai-companion-character-foundation
     paths:
       - "src/**"
       - "backend/docs/**"
