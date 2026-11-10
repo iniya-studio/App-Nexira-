@@ -32,7 +32,8 @@ describe('Guest identity and session integration', () => {
   const prisma = new PrismaService();
   const accessTokens = new AccessTokenService(config);
   const sessions = new SessionService(prisma, config, accessTokens);
-  const guests = new GuestIdentityService(prisma, sessions, config);
+  const emailVerification = { issueAndSend: async () => 'SENT' };
+  const guests = new GuestIdentityService(prisma, sessions, config, emailVerification as never);
   const accessGuard = new AccessTokenGuard(accessTokens, prisma);
   const guestIds: string[] = [];
 
