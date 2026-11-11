@@ -443,7 +443,7 @@ export default function App() {
 
       <section className="reference-lower-grid">
         <div className="reference-stats-panel">
-          <div className="reference-stats-heading"><Trophy size={28} /><strong>{language === 'fa' ? 'آمار شما' : 'Your Stats'}</strong></div>
+          <div className="reference-stats-heading"><Activity size={28} /><strong>{language === 'fa' ? 'آمار شما' : 'Your Stats'}</strong></div>
           <div className="reference-stats">
             <div><Trophy size={20} /><strong>{profile.battles.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</strong><small>{language === 'fa' ? 'مسابقات' : 'Matches'}</small></div>
             <div><Flame size={20} /><strong>{profile.bestScore.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</strong><small>{language === 'fa' ? 'بهترین امتیاز' : 'Best Score'}</small></div>
