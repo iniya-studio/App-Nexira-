@@ -1678,50 +1678,19 @@ button[aria-disabled="true"] {
 }
 
 
-/* NEXIRA shared soft-focus background for non-Home screens */
+/* NEXIRA shared soft-focus background for non-Home screens
+   Keep the approved Home artwork on the app shell's own background layer.
+   This avoids a negative-z pseudo-element being hidden by screen layers and
+   preserves the shared grid texture from theme.css. */
 .app-shell:not([data-screen="home"]) {
-  position: relative;
-  isolation: isolate;
   background-color: #070d1d;
   background-image:
     linear-gradient(180deg, rgba(3, 7, 18, .52), rgba(4, 8, 22, .38) 48%, rgba(3, 8, 20, .66)),
+    var(--nexira-background-image),
     radial-gradient(ellipse at 15% 34%, rgba(170, 0, 255, .13), transparent 42%),
     radial-gradient(ellipse at 90% 55%, rgba(0, 197, 255, .14), transparent 38%),
     linear-gradient(145deg, #080d20, #0b1027 55%, #07101e);
-}
-.app-shell:not([data-screen="home"])::before {
-  position: absolute;
-  z-index: -1;
-  inset: -10px;
-  content: "";
-  pointer-events: none;
-  background-image:
-    var(--nexira-background-image),
-    linear-gradient(rgba(123, 159, 189, .035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(123, 159, 189, .035) 1px, transparent 1px);
-  background-position: center top, center, center;
-  background-size: cover, 48px 48px, 48px 48px;
-  background-repeat: no-repeat, repeat, repeat;
-  filter: blur(4px) saturate(1.08);
-  opacity: .76;
-  transform: scale(1.025);
-}
-.app-shell:not([data-screen="home"])::after {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  height: auto;
-  content: "";
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(4, 8, 24, .12), rgba(4, 8, 24, .22) 58%, rgba(4, 8, 24, .42));
-}
-@media (max-width: 380px) {
-  .app-shell:not([data-screen="home"])::before {
-    filter: blur(3px) saturate(1.04);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .app-shell:not([data-screen="home"])::before {
-    transform: none;
-  }
+  background-position: center top;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
