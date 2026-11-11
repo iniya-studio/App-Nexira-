@@ -511,13 +511,13 @@ export default function App() {
             <p className="eyebrow">{language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW'}</p>
             <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1v1')}>
               <span className="mode-number">P1</span>
-              <span className="mode-label">{language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1v1 · Two local players'}<small>{language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device'}</small></span>
+              <span className="mode-label">{language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1vs1 · Two local players'}<small>{language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device'}</small></span>
               <span className="difficulty-badge">{language === 'fa' ? 'محلی' : 'LOCAL'}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
             <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1vAI')}>
               <span className="mode-number">AI</span>
-              <span className="mode-label">{language === 'fa' ? '۱ در برابر AI · پیش‌نمایش' : '1vAI · Scripted preview'}<small>{language === 'fa' ? 'حریف اسکریپت‌شده؛ نه AI واقعی' : 'Scripted opponent; not real AI'}</small></span>
+              <span className="mode-label">{language === 'fa' ? '۱ در برابر AI · پیش‌نمایش' : '1vsAI · Scripted preview'}<small>{language === 'fa' ? 'حریف اسکریپت‌شده؛ نه AI واقعی' : 'Scripted opponent; not real AI'}</small></span>
               <span className="difficulty-badge">{language === 'fa' ? 'آفلاین' : 'OFFLINE'}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
@@ -606,7 +606,7 @@ export default function App() {
       </GlassPanel> : <>
         <div className="challenge-head">
           <button className="back-link" onClick={() => setShowExitConfirm(true)}><ArrowLeft size={15} /> {text.backToChallenges}</button>
-          <p>{matchView.mode === '1v1' ? '1v1' : '1vAI · LOCAL PREVIEW'} <span>·</span> {text.localOnly}</p>
+          <p>{matchView.mode === '1v1' ? '1vs1' : '1vsAI · LOCAL PREVIEW'} <span>·</span> {text.localOnly}</p>
         </div>
         {matchError && <p className="empty-state" role="alert">{matchError}</p>}
         {matchView.phase === 'handoff' && <GlassPanel variant="feature" className="question-panel">
@@ -863,7 +863,7 @@ export default function App() {
       {[
         ['home', text.navHome, Home],
         ['rankings', text.navRanks, Trophy],
-        ['store', language === 'fa' ? 'فروشگاه' : 'Store', Sparkles],
+        ['store', language === 'fa' ? 'فروشگاه' : 'Store', ShoppingCart],
         ['profile', text.navProfile, UserRound],
       ].map(([destination, label, Icon]) => <button key={destination} className={`nav-item${screen === destination ? ' nav-item--active' : ''}`} onClick={() => navigate(destination)}>
         <Icon className="nav-icon" size={17} /><span>{label}</span>
