@@ -13,7 +13,7 @@
 NEXIRA is a global, AI-powered competitive game. Its interface must communicate:
 
 1. **Competition:** clear game modes, player progress, match state, challenge and reward.
-2. **Intelligent technology:** AI is part of the game experience, especially in 1vAI and AI-powered question generation/judging; NEXIRA is not an AI chat application.
+2. **Intelligent technology:** AI is part of the game experience, especially in 1vsAI and AI-powered question generation/judging; NEXIRA is not an AI chat application.
 3. **Premium gaming identity:** a distinctive, immersive, futuristic game environment with carefully composed graphics, polished surfaces and responsive feedback.
 4. **Fairness:** purchases and customization never create competitive advantage.
 
@@ -108,29 +108,48 @@ Rules:
 - Do not force every component into an identical shape. Shared design language should coexist with the different roles of mode cards, stats, challenges and primary actions.
 - Match corner radii, border thickness, bevel/angle treatment and internal padding to the reference as closely as practical.
 
-## 4. Home screen — reference specification
+## 4. Home screen — approved portrait reference specification
 
-Home is the first and primary visual validation target. Its structure and visual hierarchy must follow the supplied reference image.
+Home is the first and primary visual validation target. The supplied image is the authority for its content, composition, hierarchy and visual treatment. The uploaded file measures **1024 × 1536 pixels (2:3 portrait)**; it is not a 16:9 landscape image. The intended app presentation is a tall, mobile-first portrait layout, targeting a 9:16 phone viewport. The reference composition must be adapted responsively to the actual device viewport without changing the order or hierarchy of its sections.
 
-### 4.1 Main composition
+### 4.1 Exact Home composition
 
-The reference includes the following visual regions, in their shown order and relative positions:
+Implement the following regions in the order and relative arrangement shown in the reference:
 
-1. **Top header:** NEXIRA identity/logo area and the compact account/resource/action indicators shown in the reference (including currency/resource, notification and profile/settings affordances as applicable to the supplied composition).
-2. **Match-mode area:** two prominent mode cards:
-   - **1vs1**
-   - **1vsAI**
-3. **AI character treatment:** the dedicated robot/AI artwork belongs to the 1vsAI visual treatment. It should be implemented as a proper visual asset where possible, not approximated with emoji or an unrelated generic icon.
-4. **Daily Challenge:** a distinct featured challenge card/section, retaining the reference's position, hierarchy and visual treatment.
-5. **Level and statistics:** player progression and compact statistics presented in the arrangement shown in the reference.
-6. **Quick Battle:** a prominent gold/yellow primary action, retaining its strong visual priority and placement from the reference.
-7. **Bottom navigation:** fixed four-destination navigation:
-   - Home
-   - Ranking
-   - Store
-   - Profile
+1. **Top brand/resource header**
+   - NEXIRA logo and wordmark with the tagline “PLAY • COMPETE • WIN”.
+   - Coin balance with its add action.
+   - Diamond balance with its add action.
+   - Notification bell with its unread-count badge.
+2. **Player identity and progression strip**
+   - Circular player avatar with the luminous purple/blue ring.
+   - Player display name.
+   - Level label and number, emphasized in gold/yellow.
+   - XP progress bar and current/required XP value.
+   - Separate settings gear control to the right of the player strip.
+3. **Two match-mode selection cards**
+   - Left card title must be exactly **1vs1**.
+   - Right card title must be exactly **1vsAI**.
+   - The literal substring **“vs” is mandatory in both labels**. Do not render “1v1”, “1vAI”, “1vsAi”, “1vsai” or any other variation. Preserve the exact casing **1vs1** and **1vsAI** in UI labels, accessibility labels, tests and relevant UI copy.
+   - The 1vs1 card uses the player-versus-player visual, with the gold player/group icon and purple/blue luminous treatment.
+   - The 1vsAI card uses the dedicated robot artwork, AI marker and cyan/blue luminous treatment. Use a proper project asset where possible; do not substitute an emoji or unrelated generic icon.
+   - Preserve the cards' distinct angled silhouettes, relative scale, spacing and side-by-side arrangement as shown.
+4. **Quick Battle primary action**
+   - A wide, dominant gold/yellow button below the mode cards.
+   - Lightning symbol, exact title **Quick Battle**, supporting line **Jump in instantly!**, and the stopwatch visual at the right.
+   - Preserve its high visual priority, luminous gold treatment and central placement.
+5. **Player statistics and Store feature**
+   - A wide statistics panel with trophy artwork and the heading **Your Stats**.
+   - Three visible metric columns in the reference: **Total Wins**, **Win Streak**, and **Play Time**, each with its own icon and value.
+   - A separate Store feature tile to the right, with shopping-cart icon and the notification indicator shown in the reference.
+   - Do not insert a Daily Challenge card into this reference layout. Daily Challenge is not present in this supplied image and must not be added to Home under this reference specification unless the product owner separately approves it.
+6. **Fixed bottom navigation**
+   - Exactly four destinations, in this order: **Home**, **Ranking**, **Store**, **Profile**.
+   - Use the matching home, trophy/ranking, storefront and profile icon treatments.
+   - The selected Home destination has the emphasized gold active treatment and indicator shown in the reference.
+   - Keep the navigation anchored to the bottom safe area and prevent content overlap.
 
-The list describes the reference's content, not permission to rearrange it. The image remains authoritative for exact alignment, proportions, spacing and relative scale.
+The reference image governs exact alignment, proportions, spacing, card angles, icon placement, color balance and relative scale. The ordered description above clarifies the content and exact labels; it is not permission to rearrange the design. Do not invent additional Home sections.
 
 ### 4.2 Home interaction expectations
 
@@ -182,7 +201,7 @@ Build reusable components directly in the existing application architecture. At 
 - Primary, secondary, tertiary and destructive buttons.
 - Header actions and resource indicators.
 - Bottom navigation and active states.
-- Match-mode cards (1vs1 and 1vsAI).
+- Match-mode cards with exact labels **1vs1** and **1vsAI**; the substring **vs** is required and must be covered by UI regression checks.
 - AI character/illustration container.
 - Daily Challenge card.
 - Player level, XP and progression indicators.
@@ -239,7 +258,7 @@ All components must maintain:
 | Screen / area | Approved direction |
 |---|---|
 | Splash | Preserve the existing branded entry identity; refine transition only where useful |
-| Home | Match the supplied reference; direct 1vs1 / 1vsAI entry, Daily Challenge, level/statistics and gold Quick Battle action |
+| Home | Match the supplied portrait reference: brand/resource header, player/XP strip and settings, exact 1vs1 / 1vsAI cards, gold Quick Battle, statistics plus Store tile, and four-item bottom navigation; no Daily Challenge card in this reference |
 | Category selection | Refine readability, card size, selection state and scalability |
 | Challenge setup | Simplify navigation; use a difficulty Bottom Sheet |
 | Gameplay | Improve readability, answer feedback, opponent context and match state without changing rules |
@@ -305,7 +324,7 @@ All components must maintain:
 3. Inventory existing styles, components, fonts and assets; identify reusable and conflicting layers.
 4. Translate the approved reference into measurable layout regions, spacing, proportions, colors and component states.
 5. Implement foundational visual tokens and shared primitives without changing behavior.
-6. Rebuild Home against the reference, including the header, 1vs1/1vsAI cards, AI character treatment, Daily Challenge, level/statistics, Quick Battle and bottom navigation.
+6. Rebuild Home against the reference, including the brand/resource header, player/XP strip and settings, exact 1vs1/1vsAI cards, AI character artwork, Quick Battle, statistics/Store region and bottom navigation.
 7. Compare real APK screenshots with the reference and correct visual differences iteratively.
 8. Verify existing interactions and regression behavior after each controlled change.
 9. Apply the approved system to the remaining screens in phases.
@@ -318,6 +337,8 @@ Do not rewrite large files wholesale. Make controlled changes, preserve known-go
 A phase is complete only when:
 
 - The screen follows the approved reference and this design system.
+- Home mode labels render exactly **1vs1** and **1vsAI**; automated/UI review explicitly catches omission or misplacement of the letters **vs**.
+- Home uses the reference's portrait composition; responsive adaptation must not reorder or omit its approved regions.
 - Layout, proportions, spacing, hierarchy and placement have been visually compared—not merely judged by whether the app builds.
 - Buttons and cards have polished interaction feedback.
 - Existing product behavior remains intact.
@@ -352,4 +373,4 @@ A phase is complete only when:
 
 ---
 
-**Revision note:** This version supersedes the earlier neutral-first / restrained-teal visual direction. It restores the custom reference-led Neon Sci‑Fi identity and explicitly protects the approved Home composition. It does not authorize source-code implementation or backend changes.
+**Revision note:** This version supersedes the earlier neutral-first / restrained-teal visual direction. It restores the custom reference-led Neon Sci‑Fi identity and now records the supplied portrait Home reference in detail. The exact mode labels are **1vs1** and **1vsAI** (both include “vs”). Daily Challenge is not part of this supplied Home reference. This document revision does not authorize backend changes.
