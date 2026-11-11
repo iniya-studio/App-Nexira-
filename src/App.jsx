@@ -452,7 +452,7 @@ export default function App() {
         </div>
         <button className="reference-store-card" onClick={() => navigate('store')}>
           <ShoppingCart size={42} />
-          <strong>{text.navStore ?? (language === 'fa' ? 'فروشگاه' : 'Store')}</strong>
+          <strong>{language === 'fa' ? 'فروشگاه' : 'Store'}</strong>
         </button>
       </section>
     </ScreenFrame>}
