@@ -155,7 +155,6 @@ The reference image governs exact alignment, proportions, spacing, card angles, 
 
 - The 1vs1 and 1vsAI cards must be clearly interactive and route into their correct existing match-entry flows.
 - Quick Battle must invoke the approved quick-match behavior supported by the current product implementation. Do not invent a new matchmaking rule or bypass required setup.
-- Daily Challenge must reflect real supported challenge behavior/data. If a live service is not yet available, show an explicitly designed unavailable/preview state rather than fabricated completion or reward data.
 - Level, XP, currency and statistics must display actual available values. Do not hardcode fake progress as production data.
 - Header controls must preserve their existing intended destinations and behavior.
 - Bottom navigation must preserve the approved four destinations and existing navigation behavior.
@@ -203,7 +202,6 @@ Build reusable components directly in the existing application architecture. At 
 - Bottom navigation and active states.
 - Match-mode cards with exact labels **1vs1** and **1vsAI**; the substring **vs** is required and must be covered by UI regression checks.
 - AI character/illustration container.
-- Daily Challenge card.
 - Player level, XP and progression indicators.
 - Statistic cards and compact metrics.
 - Selection cards, category cards, badges and chips.
