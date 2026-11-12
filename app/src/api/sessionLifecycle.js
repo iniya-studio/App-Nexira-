@@ -6,6 +6,7 @@ const INITIAL_STATE = Object.freeze({
   principal: null,
   session: null,
   error: null,
+  emailVerification: null,
 });
 
 export function createSessionLifecycle({
@@ -50,6 +51,7 @@ export function createSessionLifecycle({
         status: principal.principalType === 'GUEST' ? 'guest' : 'authenticated',
         principal,
         session,
+        emailVerification: response?.emailVerification ?? state.emailVerification,
         error: null,
       });
     } catch (error) {
@@ -126,6 +128,12 @@ export function createSessionLifecycle({
 
     signInWithGoogle(idToken) {
       return performAccountAction('signInWithGoogle', idToken);
+    },
+
+    async resendVerification() {
+      const activeServices = ensureServices();
+      const result = await activeServices.coordinator.resendVerification();
+      return publish({ ...state, emailVerification: { ...state.emailVerification, ...result } });
     },
 
     async logout() {
