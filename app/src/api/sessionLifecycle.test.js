@@ -160,7 +160,7 @@ test('email verification resend is exposed through the lifecycle', async () => {
   assert.deepEqual(services.calls, ['restore', 'startGuest', 'resendVerification']);
 });
 
-\ntest('email login exposes account details and derives verification state', async () => {
+test('email login exposes account details and derives verification state', async () => {
   const loginResponse = {
     ...userResponse,
     user: { id: 'user-1', email: 'player@example.com', displayName: 'Player One', emailVerifiedAt: null },
