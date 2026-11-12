@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { MatchStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { questionGenerationInputForMatch } from './question-generation.context';
 
 const POLL_INTERVAL_MS = 1_000;
 const MAX_ROUNDS_PER_POLL = 10;
@@ -63,6 +64,30 @@ export class RoundFinalizationWorker implements OnModuleInit, OnModuleDestroy {
       const roundId = candidates[0]?.id;
       if (!roundId) return false;
 
+      const round = await tx.round.findUnique({
+        where: { id: roundId },
+        include: {
+          question: {
+            select: {
+              category: true,
+              difficulty: true,
+              canonicalLanguage: true,
+              answerType: true,
+              timeLimitSeconds: true,
+            },
+          },
+          match: {
+            select: {
+              id: true,
+              status: true,
+              currentRound: true,
+              roundsTarget: true,
+            },
+          },
+        },
+      });
+      if (!round?.question || round.match.status !== MatchStatus.ACTIVE) return false;
+
       const timestamp = await tx.$queryRawUnsafe<Array<{ now: Date }>>(
         'SELECT clock_timestamp() AS "now"',
       );
@@ -80,7 +105,51 @@ export class RoundFinalizationWorker implements OnModuleInit, OnModuleDestroy {
         data: { completedAt },
       });
 
-      return result.count === 1;
+      if (result.count !== 1) return false;
+
+      // A completed non-final round advances the match to READY and queues
+      // exactly one next question. Technical void recovery remains separate.
+      if (round.roundNumber < round.match.roundsTarget) {
+        const ready = await tx.match.updateMany({
+          where: {
+            id: round.matchId,
+            status: MatchStatus.ACTIVE,
+            currentRound: round.roundNumber,
+          },
+          data: { status: MatchStatus.READY },
+        });
+        if (ready.count !== 1) {
+          throw new Error('Match could not enter READY for the next round');
+        }
+        const answerType = round.question.answerType;
+        if (answerType !== 'MULTIPLE_CHOICE' && answerType !== 'FREE_TEXT') {
+          throw new Error('Completed round question has an unsupported answer type');
+        }
+        const requestContext = await questionGenerationInputForMatch(
+          tx,
+          round.matchId,
+          {
+            category: round.question.category,
+            difficulty: round.question.difficulty,
+            language: round.question.canonicalLanguage,
+            answerType,
+            timeLimitSeconds: round.question.timeLimitSeconds,
+          },
+        );
+        await tx.questionGenerationJob.create({
+          data: {
+            matchId: round.matchId,
+            sourceRoundId: round.id,
+            status: 'PENDING',
+            triggerReason: 'NEXT_ROUND',
+            requestContext,
+            maxAttempts: 3,
+            idempotencyKey: `round:${round.id}:next-question:v1`,
+          },
+        });
+      }
+
+      return true;
     });
   }
 

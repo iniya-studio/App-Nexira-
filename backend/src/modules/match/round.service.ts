@@ -392,13 +392,15 @@ export class RoundService {
           where: { id: completedJob.sourceRoundId },
           select: { roundNumber: true, completedAt: true, voidedAt: true },
         });
+        const isNextRound = completedJob.triggerReason === 'NEXT_ROUND';
         if (
-          !sourceRound?.voidedAt ||
-          !sourceRound.completedAt ||
-          sourceRound.roundNumber !== round.roundNumber - 1
+          !sourceRound?.completedAt ||
+          sourceRound.roundNumber !== round.roundNumber - 1 ||
+          (isNextRound && sourceRound.voidedAt !== null) ||
+          (!isNextRound && !sourceRound.voidedAt)
         ) {
           throw new ConflictException(
-            'Replacement round source is not a technical void',
+            'Replacement round source does not match its generation reason',
           );
         }
       }

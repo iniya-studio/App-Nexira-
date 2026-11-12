@@ -314,6 +314,7 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
           mode: true,
           status: true,
           currentRound: true,
+          roundsTarget: true,
           participants: {
             select: { id: true, status: true, participantType: true },
           },
@@ -335,14 +336,23 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
         isInitialGeneration && claim.sourceRoundId === null && match &&
         match.status === MatchStatus.WAITING && match.currentRound === 0,
       );
+      const validNextRoundState = Boolean(
+        claim.triggerReason === 'NEXT_ROUND' && claim.sourceRoundId !== null &&
+        match && match.status === MatchStatus.READY && sourceRound &&
+        sourceRound.matchId === match.id && sourceRound.completedAt &&
+        !sourceRound.voidedAt && match.currentRound === sourceRound.roundNumber &&
+        sourceRound.roundNumber < match.roundsTarget,
+      );
       const validRecoveryState = Boolean(
-        !isInitialGeneration && claim.sourceRoundId !== null && match &&
+        claim.triggerReason !== 'INITIAL_MATCH' &&
+        claim.triggerReason !== 'NEXT_ROUND' &&
+        claim.sourceRoundId !== null && match &&
         match.status === MatchStatus.READY && sourceRound &&
         sourceRound.matchId === match.id && sourceRound.voidedAt &&
         sourceRound.completedAt && match.currentRound === sourceRound.roundNumber,
       );
 
-      if (!match || (!validInitialState && !validRecoveryState)) {
+      if (!match || (!validInitialState && !validRecoveryState && !validNextRoundState)) {
         await tx.$executeRaw`
           UPDATE "QuestionGenerationJob"
           SET
