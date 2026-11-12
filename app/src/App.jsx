@@ -748,6 +748,14 @@ export default function App() {
       <ScreenHeading eyebrow={text.operatorDossierEyebrow} title={text.profileTitle} accent={text.profileAccent} />
       <GlassPanel className="profile-panel" data-view={profileView}>
         <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {profile.level} · {text.totalXp} {profile.totalXp}</small></span></div>
+        <div className="panel-note" role="status" data-session-state={sessionState.status}>
+          {language === 'fa'
+            ? ({ idle: 'وضعیت حساب: در انتظار اتصال', initializing: 'وضعیت حساب: در حال اتصال امن…', guest: 'حساب مهمان: فعال', authenticated: 'حساب ثبت‌شده: متصل', offline: 'اتصال به سرور برقرار نیست؛ اطلاعات محلی اپ در دسترس است.', error: 'اتصال نشست کامل نشد؛ تنظیمات سرور را بررسی کنید.', unsupported: 'نشست پایدار در این پلتفرم هنوز فعال نیست.', 'signed-out': 'از حساب خارج شده‌اید.' }[sessionState.status] ?? 'وضعیت حساب نامشخص است.')
+            : ({ idle: 'Account: waiting for connection', initializing: 'Account: securing session…', guest: 'Guest account: active', authenticated: 'Registered account: connected', offline: 'Server is unreachable; local app content remains available.', error: 'Session could not be initialized; check server configuration.', unsupported: 'Persistent sessions are not enabled on this platform yet.', 'signed-out': 'You are signed out.' }[sessionState.status] ?? 'Account status unavailable.')}
+        </div>
+        {['offline', 'error'].includes(sessionState.status) && <button type="button" className="secondary-action" onClick={() => { void appSessionLifecycle.retry(); }}>
+          {language === 'fa' ? 'تلاش دوباره برای اتصال' : 'Retry secure connection'}
+        </button>}
         <div className="screen-tabs" role="group" aria-label={text.profile}>
           <button type="button" className={profileView === 'progress' ? 'is-selected' : ''} aria-pressed={profileView === 'progress'} onClick={() => setProfileView('progress')}>{text.progress}</button>
           <button type="button" className={profileView === 'honors' ? 'is-selected' : ''} aria-pressed={profileView === 'honors'} onClick={() => setProfileView('honors')}>{text.battleHonors}</button>
