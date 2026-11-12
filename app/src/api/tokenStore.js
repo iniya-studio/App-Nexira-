@@ -45,24 +45,25 @@ export function createTokenStore({ secureStorage = null } = {}) {
     if (!secureStorage) return { refreshToken: null, pendingRefreshAttempt: null };
     const raw = await secureStorage.get(SESSION_STATE_KEY);
     if (typeof raw === 'string') {
+      let parsed;
       try {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-            && isRefreshToken(parsed.refreshToken)) {
-          const pending = parsed.pendingRefreshAttempt;
-          if (pending !== null && pending !== undefined
-              && !isPendingAttempt(pending, parsed.refreshToken)) {
-            throw new Error('Pending refresh metadata is invalid; refusing to rotate the session.');
-          }
-          return {
-            refreshToken: parsed.refreshToken,
-            pendingRefreshAttempt: pending ?? null,
-          };
-        }
-        if (parsed === null) return { refreshToken: null, pendingRefreshAttempt: null };
+        parsed = JSON.parse(raw);
       } catch {
-        // Invalid encrypted payload is rejected rather than treated as a session.
+        throw new Error('Secure session state is invalid; refusing to overwrite it.');
       }
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          && isRefreshToken(parsed.refreshToken)) {
+        const pending = parsed.pendingRefreshAttempt;
+        if (pending !== null && pending !== undefined
+            && !isPendingAttempt(pending, parsed.refreshToken)) {
+          throw new Error('Pending refresh metadata is invalid; refusing to rotate the session.');
+        }
+        return {
+          refreshToken: parsed.refreshToken,
+          pendingRefreshAttempt: pending ?? null,
+        };
+      }
+      if (parsed === null) return { refreshToken: null, pendingRefreshAttempt: null };
       throw new Error('Secure session state is invalid; refusing to overwrite it.');
     }
 
