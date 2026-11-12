@@ -45,12 +45,12 @@ export function createSessionLifecycle({
       if (initialization) return initialization;
 
       initialization = (async () => {
-        if (platform() !== 'android') {
-          return publish({ status: 'unsupported', principal: null, session: null, error: null });
-        }
-
-        publish({ status: 'initializing', principal: null, session: null, error: null });
         try {
+          if (platform() !== 'android') {
+            return publish({ status: 'unsupported', principal: null, session: null, error: null });
+          }
+
+          publish({ status: 'initializing', principal: null, session: null, error: null });
           services = createServices();
           let response = await services.coordinator.restore();
           if (!response) response = await services.coordinator.startGuest();
