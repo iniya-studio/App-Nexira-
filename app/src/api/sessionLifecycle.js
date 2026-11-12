@@ -74,6 +74,13 @@ export function createSessionLifecycle({
       return initialization;
     },
 
+    retry() {
+      if (!['offline', 'error'].includes(state.status)) return initialization ?? Promise.resolve(state);
+      initialization = null;
+      services = null;
+      return this.initialize();
+    },
+
     async logout() {
       if (!services) throw new Error('NEXIRA session services are not initialized.');
       try {
