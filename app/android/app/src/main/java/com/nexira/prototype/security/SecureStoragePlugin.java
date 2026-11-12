@@ -27,6 +27,12 @@ public class SecureStoragePlugin extends Plugin {
     private static final String PREFS = "nexira_secure_session_v1";
     private static final int IV_LENGTH = 12;
     private static final int TAG_LENGTH_BITS = 128;
+    private static final int MAX_VALUE_LENGTH = 8192;
+
+    private boolean isAllowedKey(String key) {
+        return "nexira.session.state.v1".equals(key)
+            || "nexira.session.refresh.v1".equals(key);
+    }
 
     private SecretKey getOrCreateKey() throws Exception {
         KeyStore keyStore = KeyStore.getInstance(KEYSTORE);
@@ -77,7 +83,7 @@ public class SecureStoragePlugin extends Plugin {
     @PluginMethod
     public void get(PluginCall call) {
         String key = call.getString("key");
-        if (key == null || key.trim().isEmpty()) { call.reject("A storage key is required."); return; }
+        if (!isAllowedKey(key)) { call.reject("Unsupported secure storage key."); return; }
         try {
             String record = getContext().getSharedPreferences(PREFS, 0).getString(key, null);
             JSObject result = new JSObject();
@@ -92,8 +98,8 @@ public class SecureStoragePlugin extends Plugin {
     public void set(PluginCall call) {
         String key = call.getString("key");
         String value = call.getString("value");
-        if (key == null || key.trim().isEmpty() || value == null) {
-            call.reject("A storage key and value are required."); return;
+        if (!isAllowedKey(key) || value == null || value.length() > MAX_VALUE_LENGTH) {
+            call.reject("Unsupported secure storage key or invalid value."); return;
         }
         try {
             boolean saved = getContext().getSharedPreferences(PREFS, 0)
@@ -108,7 +114,7 @@ public class SecureStoragePlugin extends Plugin {
     @PluginMethod
     public void remove(PluginCall call) {
         String key = call.getString("key");
-        if (key == null || key.trim().isEmpty()) { call.reject("A storage key is required."); return; }
+        if (!isAllowedKey(key)) { call.reject("Unsupported secure storage key."); return; }
         try {
             boolean saved = getContext().getSharedPreferences(PREFS, 0).edit().remove(key).commit();
             if (!saved) throw new IllegalStateException("Secure record could not be removed.");
