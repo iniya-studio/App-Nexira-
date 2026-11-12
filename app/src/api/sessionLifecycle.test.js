@@ -159,3 +159,17 @@ test('email verification resend is exposed through the lifecycle', async () => {
   assert.equal(result.emailVerification.delivery, 'SENT');
   assert.deepEqual(services.calls, ['restore', 'startGuest', 'resendVerification']);
 });
+
+\ntest('email login exposes account details and derives verification state', async () => {
+  const loginResponse = {
+    ...userResponse,
+    user: { id: 'user-1', email: 'player@example.com', displayName: 'Player One', emailVerifiedAt: null },
+  };
+  const services = makeServices({ guest: guestResponse, login: loginResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.login({ email: 'player@example.com', password: 'correct-password' });
+  assert.equal(state.status, 'authenticated');
+  assert.equal(state.account.email, 'player@example.com');
+  assert.deepEqual(state.emailVerification, { required: true, verified: false, delivery: null });
+});

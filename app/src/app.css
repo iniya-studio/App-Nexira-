@@ -594,3 +594,51 @@
 .toggle-control.is-on {
   background-color: rgba(0, 197, 255, 0.26);
 }
+
+\n.account-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 14px 0 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(4, 17, 29, 0.68);
+}
+
+.account-mode-switch button {
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #9eb1c4;
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.account-mode-switch button.is-selected {
+  border-color: rgba(0, 197, 255, 0.42);
+  color: #e8f8ff;
+  background: linear-gradient(110deg, rgba(0, 197, 255, 0.2), rgba(12, 35, 53, 0.92));
+  box-shadow: 0 0 14px rgba(0, 197, 255, 0.08);
+}
+
+.account-email {
+  margin: 8px 0 12px;
+  color: #c8d8e7;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.account-warning {
+  padding: 9px 10px;
+  border-inline-start: 2px solid var(--gold);
+  background: rgba(255, 215, 0, 0.06);
+  line-height: 1.6;
+}
+
+.account-recovery-note {
+  margin-top: 12px;
+  line-height: 1.6;
+}

@@ -140,7 +140,7 @@ export function createSessionLifecycle({
       if (!services) throw new Error('NEXIRA session services are not initialized.');
       try {
         await services.coordinator.logout();
-        return publish({ status: 'signed-out', principal: null, session: null, error: null });
+        return publish({ status: 'signed-out', principal: null, session: null, emailVerification: null, account: null, error: null });
       } catch (error) {
         classifyFailure(error);
         throw error;
