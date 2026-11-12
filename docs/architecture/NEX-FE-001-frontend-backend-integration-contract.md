@@ -51,16 +51,17 @@ All route names above are verified against the current backend controllers. DTOs
 
 ## 4. Known backend readiness gaps (must not be hidden by the client)
 
-The existing backend match API creates a 1vAI match shell and enqueues initial question generation. The AI participant row is currently a persistence placeholder, not yet a complete AI opponent. The following capabilities are not yet exposed as a complete playable client contract:
+The backend already contains substantial server-side match infrastructure: canonical question generation and persistence, a shared database-owned round clock, participant readiness, answer acceptance with idempotency, deterministic multiple-choice judging, an AI Judge worker for free-text answers, round deadline/finalization workers, and technical-void recovery. These are real backend capabilities and must be reused; they must not be reimplemented in the client.
 
-- Public 1v1 matchmaking/queue and pairing.
-- A complete client-visible match/round state transition or polling contract for every lifecycle phase.
-- A server-authoritative answer/judge finalization and result reveal lifecycle.
-- Complete match completion, results/history, XP and ranking settlement APIs.
-- A real-time WebSocket client event contract and reconnect lifecycle.
-- Full end-to-end 1vAI behavior with generated questions, AI answers, and judging.
+However, the current public API is not yet a complete playable V1 contract:
 
-Therefore, do not wire the existing local 1v1 simulation to pretend it is online 1v1. First online vertical slice is guest → authenticated 1vAI match → question readiness/recovery → question delivery → answer submission → authoritative finalized result, once the backend finalization/result contract is complete.
+- Public 1v1 matchmaking/queue and pairing are not exposed; `createOneVsOne` is an internal service method only.
+- `GET /matches/:matchId` returns a match summary but not a complete active-round/result snapshot. `GET /matches/:matchId/question-recovery` exposes generation/readiness recovery details, but the client still needs a documented, complete polling/state-transition contract.
+- Answer submission returns an acceptance receipt, not the final judge decision or round/match result. Internal judge/finalization workers exist, but there is no participant-authorized result/history/XP/ranking settlement read API in this controller surface.
+- The 1vAI creation path currently inserts an AI participant persistence row and queues a question; a complete AI opponent answer/turn implementation and end-to-end match lifecycle are not yet exposed.
+- A real-time WebSocket client event contract and reconnect lifecycle are not exposed.
+
+Therefore, do not wire the existing local simulation to pretend it is online 1v1 or real 1vAI. The first online vertical slice must wait for a small, explicit backend contract for AI turns and participant-authorized authoritative result retrieval/polling, while reusing the existing question, readiness, answer, judge, deadline, and finalization services. Any backend additions must be narrow and covered by tests; no identity/session or match-engine redesign is authorized.
 
 ## 5. Client architecture to add
 
