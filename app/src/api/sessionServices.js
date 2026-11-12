@@ -31,7 +31,7 @@ export function createSessionServices({
 
   const tokenStore = createTokenStore({ secureStorage });
   const http = createHttpClient({
-    baseUrl: baseUrl.replace(/\\/+$/, ''),
+    baseUrl,
     getAccessToken: () => tokenStore.getAccessToken(),
     fetchImpl,
   });
