@@ -10,6 +10,7 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [resending, setResending] = useState(false);
 
   const guest = sessionState.status === 'guest';
   const authenticated = sessionState.status === 'authenticated';
@@ -22,9 +23,12 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
     try {
       const next = await lifecycle.convertGuest({ email, username, displayName, password });
       setPassword('');
-      setNotice(isFa
-        ? 'حساب دائمی ساخته شد و هویت مهمان قبلی حفظ شد. برای فعال‌سازی کامل، ایمیل خود را تأیید کنید.'
-        : 'Your permanent account is ready and your guest identity was preserved. Verify your email to complete activation.');
+      const delivery = next.emailVerification?.delivery;
+      setNotice(delivery === 'SENT'
+        ? (isFa ? 'حساب ساخته شد؛ لینک تأیید به ایمیل شما ارسال شد.' : 'Account created; a verification link was sent to your email.')
+        : delivery === 'NOT_CONFIGURED'
+          ? (isFa ? 'حساب ساخته شد، اما ارسال ایمیل هنوز روی سرور پیکربندی نشده است.' : 'Account created, but email delivery is not configured on the server yet.')
+          : (isFa ? 'حساب ساخته شد، اما ارسال ایمیل ناموفق بود. می‌توانید دوباره درخواست دهید.' : 'Account created, but email delivery failed. You can request another email.'));
       setEmail('');
       setUsername('');
       setDisplayName(next.account?.displayName ?? displayName);
@@ -32,6 +36,22 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
       setError(cause instanceof Error ? cause.message : (isFa ? 'تبدیل حساب انجام نشد.' : 'Account conversion failed.'));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function resendVerification() {
+    setError('');
+    setNotice('');
+    setResending(true);
+    try {
+      const result = await lifecycle.resendVerification();
+      setNotice(result.delivery === 'SENT'
+        ? (isFa ? 'ایمیل تأیید دوباره ارسال شد.' : 'Verification email sent again.')
+        : (isFa ? 'ارسال ایمیل فعلاً در دسترس نیست.' : 'Email delivery is currently unavailable.'));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (isFa ? 'ارسال ایمیل ناموفق بود.' : 'Could not resend verification email.'));
+    } finally {
+      setResending(false);
     }
   }
 
@@ -82,6 +102,12 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
 
     {authenticated && <div className="account-signed-in">
       <p className="panel-note"><Check size={14} /> {isFa ? 'حساب دائمی متصل است.' : 'Permanent account connected.'}</p>
+      {sessionState.emailVerification?.required && !sessionState.emailVerification?.verified && <div className="account-verification">
+        <p className="panel-note">{isFa ? 'برای تکمیل امنیت حساب، ایمیل خود را تأیید کنید.' : 'Verify your email to complete account security.'}</p>
+        <button type="button" className="secondary-action" disabled={busy || resending} onClick={resendVerification}>
+          {resending ? (isFa ? 'در حال ارسال…' : 'Sending…') : (isFa ? 'ارسال دوباره ایمیل تأیید' : 'Resend verification email')}
+        </button>
+      </div>}
       <button type="button" className="secondary-action" disabled={busy} onClick={logout}>
         <LogOut size={15} /> {isFa ? 'خروج از حساب' : 'Sign out'}
       </button>
