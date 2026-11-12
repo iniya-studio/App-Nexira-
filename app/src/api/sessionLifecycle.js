@@ -7,6 +7,7 @@ const INITIAL_STATE = Object.freeze({
   session: null,
   error: null,
   emailVerification: null,
+  account: null,
 });
 
 export function createSessionLifecycle({
@@ -51,7 +52,10 @@ export function createSessionLifecycle({
         status: principal.principalType === 'GUEST' ? 'guest' : 'authenticated',
         principal,
         session,
-        emailVerification: response?.emailVerification ?? state.emailVerification,
+        emailVerification: response?.emailVerification ?? (response?.user
+          ? { required: true, verified: Boolean(response.user.emailVerifiedAt), delivery: null }
+          : state.emailVerification),
+        account: response?.user ?? response?.account ?? state.account,
         error: null,
       });
     } catch (error) {
