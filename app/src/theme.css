@@ -3307,3 +3307,28 @@ body,
     min-height: 36px;
   }
 }
+
+
+/* Secure guest-to-account conversion */
+.account-session-panel {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid rgba(0, 197, 255, 0.28);
+  border-radius: 18px;
+  background: rgba(10, 24, 39, 0.72);
+}
+.account-session-heading { display: flex; align-items: center; gap: 11px; }
+.account-session-heading > span:last-child { display: grid; gap: 3px; }
+.account-session-heading strong { color: var(--text-primary, #fff); }
+.account-session-heading small { color: var(--text-secondary, #aab8c7); line-height: 1.5; }
+.account-conversion-form { display: grid; gap: 9px; }
+.account-conversion-form .panel-note { margin: 0 0 4px; line-height: 1.65; }
+.account-conversion-form .field-label { margin-top: 5px; }
+.account-conversion-form .text-input { width: 100%; box-sizing: border-box; }
+.account-submit { width: 100%; margin-top: 8px; }
+.account-submit:disabled, .account-signed-in button:disabled { opacity: .6; cursor: wait; }
+.account-signed-in { display: grid; gap: 10px; }
+.account-feedback { margin: 0; color: #79e6bd; font-size: .9rem; line-height: 1.6; }
+.account-feedback--error { color: #ff8f9b; overflow-wrap: anywhere; }
