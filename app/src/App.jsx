@@ -15,6 +15,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCopy, getQuestionCopy } from './i18n.js';
 import { getHardwareBackDestination } from './navigation.js';
+import { appSessionLifecycle } from './api/sessionLifecycle.js';
 
 const CATEGORY_ICONS = {
   brain: Brain,
@@ -89,6 +90,7 @@ export default function App() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
   const [storageFailed, setStorageFailed] = useState(false);
+  const [sessionState, setSessionState] = useState(() => appSessionLifecycle.getState());
   const [splashExiting, setSplashExiting] = useState(false);
   const profileRef = useRef(profile);
   const runRef = useRef(run);
@@ -115,6 +117,12 @@ export default function App() {
   useLayoutEffect(() => {
     screenRef.current = screen;
   }, [screen]);
+
+  useEffect(() => {
+    const unsubscribe = appSessionLifecycle.subscribe(setSessionState);
+    void appSessionLifecycle.initialize();
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -376,6 +384,7 @@ export default function App() {
   return <div
     className={`app-shell${prefersReducedMotion ? ' reduced-motion' : ''}`}
     data-screen={screen}
+    data-session-state={sessionState.status}
     dir={language === 'fa' ? 'rtl' : 'ltr'}
     style={{ '--page-background-image': `var(--background-${screen}, var(--nexira-background-image))` }}
   >
