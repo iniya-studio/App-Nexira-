@@ -3,7 +3,7 @@ import { Check, LogIn, LogOut, ShieldCheck, UserRound } from 'lucide-react';
 
 export function AccountSessionPanel({ lifecycle, sessionState, language }) {
   const isFa = language === 'fa';
-  const [mode, setMode] = useState('convert');
+  const [mode, setMode] = useState(sessionState.status === 'signed-out' ? 'login' : 'convert');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
