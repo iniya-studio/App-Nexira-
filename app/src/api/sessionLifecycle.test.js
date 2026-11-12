@@ -92,3 +92,32 @@ test('subscribers receive initial and subsequent lifecycle states', async () => 
   unsubscribe();
   assert.deepEqual(seen, ['idle', 'initializing', 'guest']);
 });
+
+
+test('a transient startup failure can be retried without reloading the app', async () => {
+  let attempts = 0;
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({
+    platform: () => 'android',
+    createServices: () => {
+      attempts++;
+      if (attempts === 1) throw Object.assign(new Error('API URL is not configured'), { code: 'CONFIGURATION_ERROR' });
+      return services;
+    },
+  });
+  const failed = await lifecycle.initialize();
+  assert.equal(failed.status, 'error');
+  const recovered = await lifecycle.retry();
+  assert.equal(recovered.status, 'guest');
+  assert.equal(attempts, 2);
+  assert.deepEqual(services.calls, ['restore', 'startGuest']);
+});
+
+test('retry is a no-op while a valid session is already active', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  const active = await lifecycle.initialize();
+  const retried = await lifecycle.retry();
+  assert.equal(retried, active);
+  assert.deepEqual(services.calls, ['restore', 'startGuest']);
+});
