@@ -6,6 +6,7 @@ import { AnswerService } from './answer.service';
 import { AnswerJudgeWorker } from './answer-judge.worker';
 import { RoundDeadlineWorker } from './round-deadline.worker';
 import { RoundFinalizationWorker } from './round-finalization.worker';
+import { MatchFinalizationWorker } from './match-finalization.worker';
 import { RoundTechnicalVoidWorker } from './round-technical-void.worker';
 import { QUESTION_GENERATOR } from './question-generator.port';
 import { OpenAiResponsesQuestionGeneratorAdapter } from './openai-responses-question-generator.adapter';
@@ -34,6 +35,7 @@ import { RoundService } from './round.service';
     AnswerJudgeWorker,
     RoundDeadlineWorker,
     RoundFinalizationWorker,
+    MatchFinalizationWorker,
     RoundTechnicalVoidWorker,
     QuestionGenerationWorker,
     {
