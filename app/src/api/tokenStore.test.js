@@ -95,3 +95,14 @@ test('expired access token is discarded from memory', async () => {
   await store.saveTokenResponse(response({ accessTokenExpiresAt: '2000-01-01T00:00:00.000Z' }));
   assert.equal(store.getAccessToken(), null);
 });
+
+test('invalid pending refresh metadata fails closed instead of generating a new rotation attempt', async () => {
+  const secureStorage = memoryStorage();
+  secureStorage.values.set('nexira.session.state.v1', JSON.stringify({
+    refreshToken: token('r'),
+    pendingRefreshAttempt: { refreshToken: token('x'), idempotencyKey: token('i') },
+  }));
+  const store = createTokenStore({ secureStorage });
+  await assert.rejects(store.getSessionState(), /Pending refresh metadata is invalid/);
+  assert.equal(JSON.parse(secureStorage.values.get('nexira.session.state.v1')).refreshToken, token('r'));
+});
