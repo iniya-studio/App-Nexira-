@@ -31,6 +31,34 @@ export function createSessionLifecycle({
     return state;
   }
 
+  function ensureServices() {
+    if (platform() !== 'android') {
+      throw new Error('Account sessions are currently supported on Android only.');
+    }
+    if (!services) services = createServices();
+    return services;
+  }
+
+  async function performAccountAction(action, ...args) {
+    const activeServices = ensureServices();
+    try {
+      const response = await activeServices.coordinator[action](...args);
+      const principal = activeServices.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
+      const session = activeServices.coordinator.getCurrentSession() ?? response?.session ?? null;
+      if (!principal || !session) throw new Error('Backend did not provide a valid NEXIRA account session.');
+      return publish({
+        status: principal.principalType === 'GUEST' ? 'guest' : 'authenticated',
+        principal,
+        session,
+        error: null,
+      });
+    } catch (error) {
+      // A failed login or guest conversion must not discard a still-valid guest session.
+      publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
+      throw error;
+    }
+  }
+
   return Object.freeze({
     getState: () => state,
 
@@ -79,6 +107,25 @@ export function createSessionLifecycle({
       initialization = null;
       services = null;
       return this.initialize();
+    },
+
+    login(credentials) {
+      return performAccountAction('login', credentials);
+    },
+
+    register(credentials) {
+      return performAccountAction('register', credentials);
+    },
+
+    convertGuest(credentials) {
+      if (state.principal?.principalType !== 'GUEST') {
+        return Promise.reject(new Error('Only an active guest account can be converted.'));
+      }
+      return performAccountAction('convertGuest', credentials);
+    },
+
+    signInWithGoogle(idToken) {
+      return performAccountAction('signInWithGoogle', idToken);
     },
 
     async logout() {
