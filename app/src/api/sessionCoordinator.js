@@ -84,6 +84,7 @@ export function createSessionCoordinator({
     async register(credentials) { return acceptSession(await sessionApi.register(credentials)); },
     async convertGuest(credentials) { return acceptSession(await sessionApi.convertGuest(credentials)); },
     async signInWithGoogle(idToken) { return acceptSession(await sessionApi.signInWithGoogle(idToken)); },
+    async resendVerification() { return sessionApi.resendVerification(); },
     refresh: refreshSession,
 
     async restore() {
