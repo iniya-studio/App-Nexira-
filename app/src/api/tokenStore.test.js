@@ -16,28 +16,66 @@ function response(overrides = {}) {
     },
   };
 }
-
-test('access token remains memory-only and refresh token uses only injected secure storage', async () => {
+function memoryStorage() {
   const values = new Map();
-  const calls = [];
-  const secureStorage = {
-    async get(key) { calls.push(['get', key]); return values.get(key) ?? null; },
-    async set(key, value) { calls.push(['set', key]); values.set(key, value); },
-    async remove(key) { calls.push(['remove', key]); values.delete(key); },
+  return {
+    values,
+    async get(key) { return values.get(key) ?? null; },
+    async set(key, value) { values.set(key, value); },
+    async remove(key) { values.delete(key); },
   };
-  const store = createTokenStore({ secureStorage });
+}
 
-  assert.deepEqual(await store.saveTokenResponse(response()), { persisted: true });
-  assert.equal(store.getAccessToken(), 'short-lived-access-token');
-  assert.equal(await store.getRefreshToken(), token('r'));
-  assert.equal(values.has('nexira.session.refresh.v1'), true);
-  assert.equal(calls.some(([method]) => method === 'set'), true);
-  await store.clear();
-  assert.equal(store.getAccessToken(), null);
-  assert.equal(await store.getRefreshToken(), null);
+test('refresh token and pending retry metadata are atomically stored as one secure value', async () => {
+  const secureStorage = memoryStorage();
+  const store = createTokenStore({ secureStorage });
+  await store.saveTokenResponse(response());
+  await store.savePendingRefreshAttempt({ refreshToken: token('r'), idempotencyKey: token('i') });
+  const raw = secureStorage.values.get('nexira.session.state.v1');
+  assert.deepEqual(JSON.parse(raw), {
+    refreshToken: token('r'),
+    pendingRefreshAttempt: { refreshToken: token('r'), idempotencyKey: token('i') },
+  });
+  assert.equal(secureStorage.values.has('nexira.session.refresh.v1'), false);
 });
 
-test('without a secure adapter, refresh tokens are never persisted', async () => {
+test('legacy secure refresh token is migrated to the versioned session state', async () => {
+  const secureStorage = memoryStorage();
+  secureStorage.values.set('nexira.session.refresh.v1', token('l'));
+  const store = createTokenStore({ secureStorage });
+  assert.equal(await store.getRefreshToken(), token('l'));
+  assert.equal(secureStorage.values.has('nexira.session.refresh.v1'), false);
+  assert.equal(JSON.parse(secureStorage.values.get('nexira.session.state.v1')).refreshToken, token('l'));
+});
+
+test('new token response clears pending attempt in the same secure write', async () => {
+  const secureStorage = memoryStorage();
+  const store = createTokenStore({ secureStorage });
+  await store.saveTokenResponse(response());
+  await store.savePendingRefreshAttempt({ refreshToken: token('r'), idempotencyKey: token('i') });
+  await store.saveTokenResponse(response({ refreshToken: token('n') }));
+  assert.deepEqual(JSON.parse(secureStorage.values.get('nexira.session.state.v1')), {
+    refreshToken: token('n'), pendingRefreshAttempt: null,
+  });
+});
+
+test('invalid secure state fails closed and is not overwritten', async () => {
+  const secureStorage = memoryStorage();
+  secureStorage.values.set('nexira.session.state.v1', '{broken');
+  const store = createTokenStore({ secureStorage });
+  await assert.rejects(store.getSessionState(), /Secure session state is invalid/);
+  assert.equal(secureStorage.values.get('nexira.session.state.v1'), '{broken');
+});
+
+test('secure write failure prevents access token from being exposed', async () => {
+  const secureStorage = memoryStorage();
+  secureStorage.set = async () => { throw new Error('keystore unavailable'); };
+  const store = createTokenStore({ secureStorage });
+  await assert.rejects(store.saveTokenResponse(response()), /keystore unavailable/);
+  assert.equal(store.getAccessToken(), null);
+});
+
+test('without a secure adapter refresh tokens are never persisted', async () => {
   const store = createTokenStore();
   assert.deepEqual(await store.saveTokenResponse(response()), { persisted: false });
   assert.equal(store.getAccessToken(), 'short-lived-access-token');
@@ -45,20 +83,15 @@ test('without a secure adapter, refresh tokens are never persisted', async () =>
   assert.equal(store.hasPersistentRefreshStorage(), false);
 });
 
-test('invalid token response is rejected without changing current access token', async () => {
+test('invalid token response does not change current access token', async () => {
   const store = createTokenStore();
   await store.saveTokenResponse(response());
-  await assert.rejects(
-    store.saveTokenResponse(response({ refreshToken: 'not-a-high-entropy-token' })),
-    /invalid session token response/,
-  );
+  await assert.rejects(store.saveTokenResponse(response({ refreshToken: 'invalid' })), /invalid session token response/);
   assert.equal(store.getAccessToken(), 'short-lived-access-token');
 });
 
 test('expired access token is discarded from memory', async () => {
   const store = createTokenStore();
-  await store.saveTokenResponse(response({
-    accessTokenExpiresAt: '2000-01-01T00:00:00.000Z',
-  }));
+  await store.saveTokenResponse(response({ accessTokenExpiresAt: '2000-01-01T00:00:00.000Z' }));
   assert.equal(store.getAccessToken(), null);
 });
