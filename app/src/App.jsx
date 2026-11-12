@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  Activity, ArrowLeft, ArrowRight, BarChart3, Brain, Check,
-  ChevronRight, Clock3, Flame, Globe2, Languages, Medal, Play,
-  RotateCcw, Scan, Settings, Sigma, Sparkles, Target, Timer,
+  Activity, ArrowLeft, ArrowRight, BarChart3, Bell, Brain, Check, Cpu,
+  ChevronRight, Clock3, Flame, Globe2, Home, Languages, Medal, Play,
+  RotateCcw, Scan, Settings, ShoppingCart, Sigma, Sparkles, Target, Timer,
   Trophy, UserRound, Zap, Atom,
 } from 'lucide-react';
 import {
@@ -77,6 +77,7 @@ export default function App() {
   const [profile, setProfile] = useState(() => loadProfile());
   const [isInitialLanguageSelection, setIsInitialLanguageSelection] = useState(() => !hasCompletedLanguageSelection());
   const [screen, setScreen] = useState('splash');
+  const [entryMatchMode, setEntryMatchMode] = useState(null);
   const [profileView, setProfileView] = useState('progress');
   const [resultsView, setResultsView] = useState('summary');
   const screenRef = useRef(screen);
@@ -380,7 +381,7 @@ export default function App() {
   >
     <div className="ambient ambient--one" />
     <div className="ambient ambient--two" />
-    {screen !== 'game' && screen !== 'match-game' && <header className="topbar">
+    {screen !== 'game' && screen !== 'match-game' && screen !== 'home' && <header className="topbar">
       <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
       <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
         <span className="top-profile-avatar"><UserRound size={17} /></span>
@@ -398,74 +399,66 @@ export default function App() {
       </div>
     </div>}
 
-    {screen === 'home' && <ScreenFrame className="home-screen home-arena-screen">
-      <div className="arena-status-row">
-        <span className="arena-status"><i /> {text.arenaStatus}</span>
-        <span className="arena-season">NEXIRA <b>//</b> 01</span>
-      </div>
+    {screen === 'home' && <ScreenFrame className="home-screen home-reference-screen">
+      <header className="reference-header">
+        <button className="reference-brand-button" onClick={() => navigate('home')} aria-label="NEXIRA Home">
+          <Brand />
+          <span className="reference-tagline">PLAY · COMPETE · WIN</span>
+        </button>
+        <div className="reference-header-actions">
+          <button className="reference-icon-button" onClick={() => navigate('settings')} aria-label={text.settings}><Settings size={22} /></button>
+          <button className="reference-icon-button" onClick={() => navigate('profile')} aria-label={text.profile}><UserRound size={22} /></button>
+        </div>
+      </header>
 
-      <section className="arena-stage">
-        <div className="arena-copy">
-          <p className="arena-kicker">{text.welcome}</p>
-          <h1>{text.arenaTitle}<br /><span>{text.arenaAccent}</span></h1>
-          <p className="arena-description">{text.arenaDescription}</p>
-
-          <div className="arena-operator">
-            <span className="operator-emblem"><UserRound size={20} /></span>
-            <span className="operator-details">
-              <small>{text.operator}</small>
-              <strong>{playerName}</strong>
-              <i>{text.level} {profile.level} <b>·</b> {profile.totalXp} XP</i>
-            </span>
-            <span className="operator-record"><Trophy size={13} /> {profile.bestScore}</span>
+      <section className="reference-player-panel" aria-label={text.profile}>
+        <button className="reference-avatar" onClick={() => navigate('profile')} aria-label={text.profile}><UserRound size={34} /></button>
+        <div className="reference-player-info">
+          <strong>{playerName}</strong>
+          <span className="reference-level">{text.level} {profile.level}</span>
+          <div className="reference-xp-row">
+            <span className="reference-xp-track"><i style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></span>
+            <small>{profile.xp.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')} / {threshold.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')} XP</small>
           </div>
-          <ProgressBar profile={profile} label={text.level} />
         </div>
-
-        <div className="arena-reactor" aria-label={text.reactorLabel}>
-          <div className="reactor-grid" />
-          <div className="reactor-ring reactor-ring--outer" />
-          <div className="reactor-ring reactor-ring--middle" />
-          <div className="reactor-ring reactor-ring--inner" />
-          <div className="reactor-orbit reactor-orbit--one"><i /></div>
-          <div className="reactor-orbit reactor-orbit--two"><i /></div>
-          <div className="reactor-core"><span>N</span><i /></div>
-          <span className="reactor-coordinate reactor-coordinate--top">{text.reactorCore}</span>
-          <span className="reactor-coordinate reactor-coordinate--bottom">{text.reactorEnergy}</span>
-          <span className="reactor-cross reactor-cross--one" />
-          <span className="reactor-cross reactor-cross--two" />
-        </div>
+        <button className="reference-settings-button" onClick={() => navigate('settings')} aria-label={text.settings}><Settings size={25} /></button>
       </section>
 
-      <section className="arena-launch-panel">
-        <div className="launch-copy">
-          <span className="launch-eyebrow"><Zap size={13} /> {text.nextChallenge}</span>
-          <strong>{text.readyToEnter}</strong>
-          <small>{text.startNote}</small>
-        </div>
-        <button className="primary-button arena-launch-button" onClick={() => navigate('categories')}>
-          <span className="play-mark"><Play size={17} fill="currentColor" /></span>
-          <span className="primary-label">{text.start}<small>{text.enterArena}</small></span>
-          <ArrowRight className="primary-arrow" size={19} />
+      <section className="reference-mode-grid" aria-label={language === 'fa' ? 'حالت مسابقه' : 'Match modes'}>
+        <button className="reference-mode-card reference-mode-card--duel" onClick={() => { setEntryMatchMode('1v1'); navigate('categories'); }}>
+          <span className="reference-mode-art reference-mode-art--duel"><UserRound size={54} /><UserRound size={36} /></span>
+          <strong>1vs1</strong>
+          <span>{language === 'fa' ? 'با بازیکنان دیگر رقابت کن' : 'Challenge a player from around the world!'}</span>
+          <i aria-hidden="true">»»»</i>
+        </button>
+        <button className="reference-mode-card reference-mode-card--ai" onClick={() => { setEntryMatchMode('1vAI'); navigate('categories'); }}>
+          <span className="reference-ai-art" aria-hidden="true"><span className="reference-ai-face"><i /><i /></span><Cpu size={24} /></span>
+          <strong>1vsAI</strong>
+          <span>{language === 'fa' ? 'مهارتت را مقابل هوش مصنوعی بسنج' : 'Test your skills against AI!'}</span>
+          <i aria-hidden="true">»»»</i>
         </button>
       </section>
 
-      <section className="arena-dashboard">
-        <div className="arena-dashboard-heading">
-          <span>{text.operatorTelemetry}</span>
-          <small>{text.localRecord}</small>
+      <button className="reference-quick-battle" onClick={() => { setEntryMatchMode('1v1'); navigate('categories'); }}>
+        <Zap size={34} fill="currentColor" />
+        <span><strong>Quick Battle</strong><small>{language === 'fa' ? 'برای شروع، موضوع مسابقه را انتخاب کن' : 'Choose a category to start a local preview'}</small></span>
+        <Clock3 size={30} />
+      </button>
+
+      <section className="reference-lower-grid">
+        <div className="reference-stats-panel">
+          <div className="reference-stats-heading"><Activity size={28} /><strong>{language === 'fa' ? 'آمار شما' : 'Your Stats'}</strong></div>
+          <div className="reference-stats">
+            <div><Trophy size={20} /><strong>{profile.battles.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</strong><small>{language === 'fa' ? 'مسابقات' : 'Matches'}</small></div>
+            <div><Flame size={20} /><strong>{profile.bestScore.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</strong><small>{language === 'fa' ? 'بهترین امتیاز' : 'Best Score'}</small></div>
+            <div><Target size={20} /><strong>{accuracy}%</strong><small>{language === 'fa' ? 'دقت پاسخ' : 'Accuracy'}</small></div>
+          </div>
         </div>
-        <div className="arena-metrics">
-          <div className="arena-metric"><span><Flame size={15} /></span><strong>{profile.battles}</strong><small>{text.battles}</small></div>
-          <div className="arena-metric"><span><Trophy size={15} /></span><strong>{profile.bestScore}</strong><small>{text.best}</small></div>
-          <div className="arena-metric"><span><Target size={15} /></span><strong>{accuracy}%</strong><small>{text.accuracy}</small></div>
-        </div>
-        <div className="arena-shortcuts">
-          <button onClick={() => navigate('rankings')}><span className="shortcut-icon"><Trophy size={17} /></span><span><strong>{text.rankings}</strong><small>{text.personalBest}</small></span><ChevronRight size={16} /></button>
-          <button onClick={() => navigate('profile')}><span className="shortcut-icon shortcut-icon--violet"><UserRound size={17} /></span><span><strong>{text.profile}</strong><small>{text.operatorDossier}</small></span><ChevronRight size={16} /></button>
-        </div>
+        <button className="reference-store-card" onClick={() => navigate('store')}>
+          <ShoppingCart size={42} />
+          <strong>{language === 'fa' ? 'فروشگاه' : 'Store'}</strong>
+        </button>
       </section>
-      <footer className="home-footer"><span>{text.footerBrand}</span><span>{text.localMode}</span></footer>
     </ScreenFrame>}
 
     {screen === 'categories' && <ScreenFrame className="categories-screen">
@@ -476,7 +469,18 @@ export default function App() {
         {CATEGORIES.map((item, index) => {
           const Icon = CATEGORY_ICONS[item.icon] ?? Activity;
           const savedStats = profile.categoryStats[item.id];
-          return <button key={item.id} className={`category-tile tone-${item.tone}`} onClick={() => { runRef.current = null; setRun({ categoryId: item.id }); setScreen('modes'); }}>
+          return <button key={item.id} className={`category-tile tone-${item.tone}`} onClick={() => {
+            if (entryMatchMode) {
+              const selectedMode = entryMatchMode;
+              setEntryMatchMode(null);
+              setRun({ categoryId: item.id });
+              beginMatch(item, selectedMode);
+              return;
+            }
+            runRef.current = null;
+            setRun({ categoryId: item.id });
+            setScreen('modes');
+          }}>
             <span className="tile-top"><span className="tile-icon"><Icon size={20} /></span><span className="tile-index">0{index + 1}</span></span>
             <strong>{item.title}</strong><span className="tile-subtitle">{text.categorySubtitles[item.id] ?? item.subtitle}</span>
             <span className="tile-arrow"><ChevronRight size={16} /></span>
@@ -511,13 +515,13 @@ export default function App() {
             <p className="eyebrow">{language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW'}</p>
             <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1v1')}>
               <span className="mode-number">P1</span>
-              <span className="mode-label">{language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1v1 · Two local players'}<small>{language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device'}</small></span>
+              <span className="mode-label">{language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1vs1 · Two local players'}<small>{language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device'}</small></span>
               <span className="difficulty-badge">{language === 'fa' ? 'محلی' : 'LOCAL'}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
             <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1vAI')}>
               <span className="mode-number">AI</span>
-              <span className="mode-label">{language === 'fa' ? '۱ در برابر AI · پیش‌نمایش' : '1vAI · Scripted preview'}<small>{language === 'fa' ? 'حریف اسکریپت‌شده؛ نه AI واقعی' : 'Scripted opponent; not real AI'}</small></span>
+              <span className="mode-label">{language === 'fa' ? '۱ در برابر AI · پیش‌نمایش' : '1vsAI · Scripted preview'}<small>{language === 'fa' ? 'حریف اسکریپت‌شده؛ نه AI واقعی' : 'Scripted opponent; not real AI'}</small></span>
               <span className="difficulty-badge">{language === 'fa' ? 'آفلاین' : 'OFFLINE'}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
@@ -606,7 +610,7 @@ export default function App() {
       </GlassPanel> : <>
         <div className="challenge-head">
           <button className="back-link" onClick={() => setShowExitConfirm(true)}><ArrowLeft size={15} /> {text.backToChallenges}</button>
-          <p>{matchView.mode === '1v1' ? '1v1' : '1vAI · LOCAL PREVIEW'} <span>·</span> {text.localOnly}</p>
+          <p>{matchView.mode === '1v1' ? '1vs1' : '1vsAI · LOCAL PREVIEW'} <span>·</span> {text.localOnly}</p>
         </div>
         {matchError && <p className="empty-state" role="alert">{matchError}</p>}
         {matchView.phase === 'handoff' && <GlassPanel variant="feature" className="question-panel">
@@ -728,7 +732,10 @@ export default function App() {
     </ScreenFrame>}
 
     {screen === 'profile' && <ScreenFrame className="info-screen">
-      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <div className="profile-screen-actions">
+        <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+        <button className="profile-settings-link" onClick={() => navigate('settings')}><Settings size={15} /> {text.settings}</button>
+      </div>
       <ScreenHeading eyebrow={text.operatorDossierEyebrow} title={text.profileTitle} accent={text.profileAccent} />
       <GlassPanel className="profile-panel" data-view={profileView}>
         <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {profile.level} · {text.totalXp} {profile.totalXp}</small></span></div>
@@ -821,6 +828,16 @@ export default function App() {
       </GlassPanel>
     </ScreenFrame>}
 
+    {screen === 'store' && <ScreenFrame className="info-screen store-screen">
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <ScreenHeading eyebrow={language === 'fa' ? 'شخصی‌سازی' : 'PERSONALIZATION'} title={language === 'fa' ? 'فروشگاه' : 'Store'} accent={language === 'fa' ? 'نکسیرا' : 'NEXIRA'} description={language === 'fa' ? 'آیتم‌های ظاهری اختیاری؛ بدون هیچ مزیت رقابتی.' : 'Optional cosmetic items. Never pay for a competitive advantage.'} />
+      <GlassPanel className="store-coming-soon">
+        <span className="store-mark"><Sparkles size={25} /></span>
+        <h2>{language === 'fa' ? 'فروشگاه در حال آماده‌سازی است' : 'The store is being prepared'}</h2>
+        <p>{language === 'fa' ? 'پرداخت و خرید هنوز فعال نیست. هیچ آیتم پولی یا مزیت رقابتی در این نسخه ارائه نمی‌شود.' : 'Purchases are not available yet. No paid items or competitive advantages are offered in this build.'}</p>
+      </GlassPanel>
+    </ScreenFrame>}
+
     {screen === 'settings' && <ScreenFrame className="info-screen">
       <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
       <ScreenHeading eyebrow={text.settingsEyebrow} title={text.settingsTitle} accent={text.settingsAccent} description={text.settingsDescription} />
@@ -848,8 +865,10 @@ export default function App() {
 
     {screen !== 'game' && screen !== 'match-game' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
       {[
-        ['home', text.navHome, Play], ['rankings', text.navRanks, Trophy],
-        ['profile', text.navProfile, UserRound], ['settings', text.navSettings, Settings],
+        ['home', text.navHome, Home],
+        ['rankings', text.navRanks, Trophy],
+        ['store', language === 'fa' ? 'فروشگاه' : 'Store', ShoppingCart],
+        ['profile', text.navProfile, UserRound],
       ].map(([destination, label, Icon]) => <button key={destination} className={`nav-item${screen === destination ? ' nav-item--active' : ''}`} onClick={() => navigate(destination)}>
         <Icon className="nav-icon" size={17} /><span>{label}</span>
       </button>)}
