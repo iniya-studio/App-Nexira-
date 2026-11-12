@@ -67,9 +67,8 @@ jobs:
 
       - name: Verify Prisma formatting
         run: |
-          npx prisma format
-          git diff --exit-code -- backend/prisma/schema.prisma
-        working-directory: .
+          npx prisma format --schema prisma/schema.prisma
+          git -C .. diff --exit-code -- backend/prisma/schema.prisma
 
       - name: Validate Prisma schema
         run: npm run prisma:validate
