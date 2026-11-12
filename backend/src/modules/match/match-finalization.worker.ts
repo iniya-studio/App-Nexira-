@@ -2,11 +2,9 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { MatchStatus, ParticipantStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
-// V1 match length is centralized for future mode-specific policies.
-export const V1_MATCH_ROUNDS = 5;
 const POLL_INTERVAL_MS = 1_000;
 const MAX_MATCHES_PER_POLL = 10;
-type FinalizableMatch = { id: string };
+type FinalizableMatch = { id: string; roundsTarget: number };
 
 @Injectable()
 export class MatchFinalizationWorker implements OnModuleInit, OnModuleDestroy {
@@ -20,26 +18,27 @@ export class MatchFinalizationWorker implements OnModuleInit, OnModuleDestroy {
   async runOnce(): Promise<boolean> {
     return this.prisma.$transaction(async (tx) => {
       const candidates = await tx.$queryRawUnsafe<FinalizableMatch[]>(
-        'SELECT m."id" FROM "Match" m ' +
+        'SELECT m."id", m."roundsTarget" FROM "Match" m ' +
         'INNER JOIN "Round" r ON r."matchId" = m."id" AND r."roundNumber" = m."currentRound" ' +
-        'WHERE m."status" = \'ACTIVE\' AND m."currentRound" >= $1 ' +
+        'WHERE m."status" = \'ACTIVE\' AND m."currentRound" >= m."roundsTarget" ' +
         'AND r."completedAt" IS NOT NULL AND r."voidedAt" IS NULL ' +
         'AND NOT EXISTS (SELECT 1 FROM "MatchResult" result WHERE result."matchId" = m."id") ' +
         'ORDER BY r."completedAt" ASC LIMIT 1 FOR UPDATE OF m SKIP LOCKED',
-        V1_MATCH_ROUNDS,
       );
-      const matchId = candidates[0]?.id;
-      if (!matchId) return false;
+      const candidate = candidates[0];
+      const matchId = candidate?.id;
+      if (!candidate || !matchId) return false;
+      const roundsTarget = candidate.roundsTarget;
       const match = await tx.match.findUnique({
         where: { id: matchId },
         include: {
           participants: { select: { id: true, score: true, status: true } },
-          rounds: { where: { roundNumber: { lte: V1_MATCH_ROUNDS } }, select: { roundNumber: true, completedAt: true, voidedAt: true }, orderBy: { roundNumber: 'asc' } },
+          rounds: { where: { roundNumber: { lte: roundsTarget } }, select: { roundNumber: true, completedAt: true, voidedAt: true }, orderBy: { roundNumber: 'asc' } },
         },
       });
       if (!match || match.status !== MatchStatus.ACTIVE) return false;
       const validRounds = match.rounds.filter((round) => round.completedAt !== null && round.voidedAt === null);
-      if (validRounds.length !== V1_MATCH_ROUNDS || validRounds.some((round, index) => round.roundNumber !== index + 1)) return false;
+      if (validRounds.length !== roundsTarget || validRounds.some((round, index) => round.roundNumber !== index + 1)) return false;
       const participants = match.participants;
       if (participants.length !== 2 || participants.some((p) => p.status === ParticipantStatus.FORFEITED)) return false;
       const [first, second] = participants;
@@ -56,7 +55,7 @@ export class MatchFinalizationWorker implements OnModuleInit, OnModuleDestroy {
       if (updated.count !== 1) return false;
       const summary: Prisma.InputJsonObject = {
         outcome: winnerParticipantId ? 'SCORE_WIN' : 'DRAW',
-        roundsPlayed: V1_MATCH_ROUNDS,
+        roundsPlayed: roundsTarget,
         winnerParticipantId,
         finalScores: { [first.id]: first.score, [second.id]: second.score },
       };

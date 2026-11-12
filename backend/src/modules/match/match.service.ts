@@ -4,6 +4,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { questionGenerationInputForMatch } from './question-generation.context';
 
+// Snapshot match length at creation; deployment changes never alter active matches.
+const DEFAULT_V1_MATCH_ROUNDS = 10;
+const SUPPORTED_V1_MATCH_ROUNDS = new Set([10, 15]);
+const configuredV1MatchRounds = (): number => {
+  const configured = Number(process.env.NEXIRA_MATCH_ROUNDS ?? DEFAULT_V1_MATCH_ROUNDS);
+  if (!SUPPORTED_V1_MATCH_ROUNDS.has(configured)) {
+    throw new Error('NEXIRA_MATCH_ROUNDS must be either 10 or 15');
+  }
+  return configured;
+};
+
 const INITIAL_QUESTION_SETTINGS = {
   category: 'general',
   difficulty: 'medium',
@@ -61,6 +72,7 @@ export class MatchService {
         data: {
           mode,
           status: MatchStatus.WAITING,
+          roundsTarget: configuredV1MatchRounds(),
           participants: { create: participants },
         },
         select: {
@@ -68,6 +80,7 @@ export class MatchService {
           mode: true,
           status: true,
           currentRound: true,
+          roundsTarget: true,
           createdAt: true,
           participants: {
             select: { participantKey: true, participantType: true, status: true },
@@ -108,6 +121,7 @@ export class MatchService {
         mode: true,
         status: true,
         currentRound: true,
+        roundsTarget: true,
         createdAt: true,
         startedAt: true,
         completedAt: true,
@@ -134,6 +148,7 @@ export class MatchService {
     mode: MatchMode;
     status: MatchStatus;
     currentRound: number;
+    roundsTarget: number;
     createdAt: Date;
     startedAt?: Date | null;
     completedAt?: Date | null;
@@ -144,6 +159,7 @@ export class MatchService {
       mode: match.mode,
       status: match.status,
       currentRound: match.currentRound,
+      roundsTarget: match.roundsTarget,
       createdAt: match.createdAt,
       startedAt: match.startedAt ?? null,
       completedAt: match.completedAt ?? null,

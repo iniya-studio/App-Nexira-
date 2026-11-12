@@ -328,6 +328,7 @@ model Match {
   roomId            String?            @db.Uuid
   roomMatchStrategy RoomMatchStrategy?
   currentRound      Int                @default(0)
+  roundsTarget      Int                @default(10)
   startedAt         DateTime?          @db.Timestamptz(3)
   completedAt       DateTime?          @db.Timestamptz(3)
   createdAt         DateTime           @default(now()) @db.Timestamptz(3)
