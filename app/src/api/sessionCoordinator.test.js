@@ -48,7 +48,9 @@ test('concurrent refresh calls share one backend rotation request', async () => 
     tokenStore: store, createIdempotencyKey: () => token('i'),
   });
   const first = coordinator.refresh(); const second = coordinator.refresh();
-  await Promise.resolve(); await Promise.resolve();
+  for (let i = 0; i < 20 && calls === 0; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
   assert.equal(calls, 1);
   gate.resolve(sessionResponse('GUEST', token('n')));
   const [a,b] = await Promise.all([first,second]);
