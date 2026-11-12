@@ -1,0 +1,96 @@
+name: Backend CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/backend-foundation
+      - feature/ai-companion-character-foundation
+    paths:
+      - "src/**"
+      - "backend/docs/**"
+      - "prisma/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - "jest.config.js"
+      - "eslint.config.mjs"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches:
+      - feature/backend-foundation
+    paths:
+      - "src/**"
+      - "prisma/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - "jest.config.js"
+      - "eslint.config.mjs"
+      - ".github/workflows/backend-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-quality:
+    name: Backend Quality Checks
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexira_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexira_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      CI: true
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nexira_ci?schema=public
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Verify Prisma formatting
+        run: |
+          npx prisma format
+          git diff --exit-code -- prisma/schema.prisma
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
+
+      - name: Generate Prisma Client
+        run: npm run prisma:generate
+
+      - name: Apply migrations to CI PostgreSQL
+        run: npm run prisma:migrate:deploy
+
+      - name: Build NestJS for production
+        run: npm run build
+
+      - name: Run unit and PostgreSQL integration tests
+        run: npm test -- --runInBand
+
+      - name: Run ESLint
+        run: npm run lint

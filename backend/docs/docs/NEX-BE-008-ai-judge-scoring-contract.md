@@ -1,0 +1,293 @@
+# NEX-BE-008 — AI Judge & Server-Side Scoring Contract
+
+**Project:** NEXIRA  
+**Version:** 0.8  
+**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, negative-score persistence alignment, early round finalization, terminal AI-judge technical-void compensation, durable AI Question Generator recovery, and readiness-gated replacement rounds implemented; regular match settlement and XP/ranking settlement remain pending
+**Target branch:** `feature/backend-foundation`  
+**Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance; NEX-BE-009 AI Question Generation & Technical Recovery
+
+## 1. Purpose and authority
+
+This contract defines how accepted answers are adjudicated, how score is calculated, and what must be true before a round or match can be finalized.
+
+The backend is the sole authority for:
+- answer acceptance time and deadline enforcement;
+- answer adjudication and final decision;
+- base points and speed bonus;
+- no-response records and penalties;
+- round and match results.
+
+The client may display results but must never submit or determine correctness, points, speed bonuses, penalties, winner, XP, or ranking changes.
+
+## 2. Existing implementation baseline
+
+The current V1 answer path:
+- accepts canonical option IDs for multiple-choice questions and text for free-text questions;
+- records database-derived `acceptedAt` and `elapsedMs`;
+- enforces one answer per participant per round and idempotent retries;
+- deterministically adjudicates multiple-choice answers during the submission transaction and applies the approved score once;
+- persists free-text answers as pending AI Judge work and processes them asynchronously through a leased, retryable worker;
+- never reveals correctness or score in the answer receipt.
+
+The current `Answer` model stores judge attempts, availability, lease ID, and lease start time so crashed workers can be recovered without allowing an expired worker to apply a stale result.
+
+The Prisma schema already contains `JudgeDecision` (`CORRECT`, `INCORRECT`, `UNCERTAIN`), `JudgeStatus` (`NOT_REQUIRED`, `PENDING`, `COMPLETED`, `FAILED`), and fields for confidence, reason, and judge version. This contract must be implemented against the actual schema and migrations; do not duplicate existing fields without a demonstrated need.
+
+### 2.1 Implementation status
+
+Implemented in the current branch:
+- deterministic multiple-choice judging against canonical option IDs;
+- locked base/speed scoring, persisted on the Answer row and atomically added to the participant score;
+- provider-independent `FreeTextAnswerJudge` port;
+- first provider adapter using the OpenAI Responses API with strict JSON Schema output;
+- asynchronous free-text worker with database-backed leases, retry attempts, stale-lease recovery, and explicit `UNCERTAIN` handling;
+- no answer correctness or score in the submission receipt;
+- durable `MatchScoreEntry` records for positive MCQ and AI-judged answer scores, written atomically with the participant score aggregate and protected by per-answer uniqueness/idempotency.
+
+Still pending:
+- **implemented:** early round completion when both active participants have accepted answers and every answer has a final judge state;
+- **implemented:** terminal AI Judge technical-void worker, immutable original score entries with idempotent compensating ledger entries, transactional participant-score reversal, and exclusion of voided rounds from answer/deadline/finalization processing;
+- **implemented:** durable replacement-question generation jobs, independent OpenAI Responses adapter, strict structured output validation, bounded retries/leases, safe cancellation, duplicate prevention across a match and an exact-participant rematch, and readiness-gated shared-clock start;
+- regular end-of-match settlement after the configured final round, plus XP/ranking settlement;
+- operational metrics/alerts and manual two-client verification remain pending;
+- provider fallback, operational metrics, and manual two-client verification.
+
+## 3. Adjudication strategy
+
+### 3.1 Multiple-choice answers
+
+Multiple-choice adjudication is deterministic and server-side:
+- compare the submitted canonical option ID with the stored canonical answer key;
+- do not send this decision to an LLM;
+- persist `CORRECT` or `INCORRECT` and the active rules/judge version metadata;
+- never expose the answer key before the round's reveal/finalization stage.
+
+### 3.2 Free-text answers
+
+Free-text answers use a provider-independent AI Judge adapter.
+
+The judge receives only the minimum required trusted context:
+- canonical question and language;
+- expected answer / answer key;
+- grading rubric and accepted equivalent concepts;
+- participant response;
+- judge policy and version.
+
+The judge must evaluate meaning, not exact string equality. It must accept valid equivalent wording, synonyms, spelling variations that do not change meaning, and concise answers that satisfy the rubric. It must reject answers that are materially incorrect or omit essential required concepts.
+
+The judge must return a structured result:
+- decision: `CORRECT`, `INCORRECT`, or `UNCERTAIN`;
+- confidence: numeric value in the documented range;
+- short reason code and concise internal rationale;
+- judge provider/model identifier and policy version.
+
+Provider-specific response formats must be normalized inside the adapter. Match and scoring services must depend only on the internal contract, never on a provider SDK or provider-specific schema.
+
+### 3.3 Confidence and uncertainty
+
+Raw model confidence is not automatically calibrated or trustworthy. Production thresholds must be selected from a representative evaluation set and recorded with the judge policy version.
+
+Until thresholds are validated:
+- do not silently convert `UNCERTAIN` to `INCORRECT`;
+- do not award or deduct final points for an unresolved answer;
+- route uncertain outcomes through a bounded secondary adjudication path;
+- preserve the original decision, attempts, and version metadata for audit.
+
+## 4. AI Judge security and reliability
+
+- Treat participant response text as untrusted data, never as instructions to the judge.
+- Explicitly instruct the judge to ignore commands, prompt-injection attempts, role changes, or requests embedded in the submitted answer.
+- The judge has no tools and no authority to call application services or mutate game state.
+- Do not send private participant identity data unless strictly required; normally it is not required.
+- Do not return answer keys, rubrics, internal rationale, or provider metadata to the opposing participant.
+- Apply strict input/output size limits, schema validation, timeouts, bounded retries, and rate limits.
+- Store judge version and enough audit metadata to reproduce the policy decision without storing unnecessary sensitive data.
+- Use a provider fallback only through the same internal adapter contract.
+
+### Judge failure policy
+
+A provider timeout, malformed response, or exhausted retry budget is a technical adjudication failure, not an incorrect answer.
+
+- Retry only within a bounded policy; avoid unbounded waits and duplicate scoring.
+- Keep the answer unresolved while adjudication is pending.
+- Never settle points or a winner while a submitted answer that affects the result remains unresolved.
+- If all configured adjudication paths fail, mark the round as technically interrupted/void under a server-controlled recovery policy. Do not penalize either player for the technical failure; do not award a win based on an unresolved answer.
+- Record the interruption reason and trigger operational monitoring.
+
+Exact retry counts, timeout budgets, and fallback-provider order are deployment configuration and must be load-tested before release.
+
+**Implemented terminal-failure recovery:** `RoundTechnicalVoidWorker` acts only when at least one submitted answer has terminal `FAILED` judge status and no submitted answer remains `PENDING` or `PROCESSING`. It locks the Round row, marks the round with `voidedAt`, `completedAt`, and a stable `voidReason`, and never converts the failed answer into an incorrect answer or no-response. For every positive `ANSWER_SCORE` ledger entry in that round, it appends a `ROUND_VOID_REVERSAL` entry with a stable idempotency key and decrements the participant score aggregate in the same transaction. Original answer and score ledger rows remain intact for audit. A duplicate worker run cannot apply a second reversal.
+
+Voided rounds are excluded from answer acceptance, AI Judge claims/scoring, deadline/no-response settlement, early finalization, and consecutive no-response history. A voided question is no longer served to clients. `RoundService.startNextRound` rejects a technical-void transition; only the durable generation worker may create its replacement, and only the readiness transaction may start its clock. Normal first-round startup remains unchanged.
+
+## 5. Scoring policy
+
+### 5.1 Correct-answer points
+
+The locked V1 scoring table from NEX-BE-006 Version 1.1 is:
+
+| Server-measured elapsed time | Base points | Speed bonus | Total |
+|---|---:|---:|---:|
+| Less than 3,000 ms | 10 | 15 | 25 |
+| 3,000–4,999 ms | 10 | 10 | 20 |
+| 5,000–6,999 ms | 10 | 5 | 15 |
+| 7,000 ms or more | 10 | 2 | 12 |
+
+Rules:
+- Award points only after a final `CORRECT` decision.
+- An `INCORRECT` answer receives zero points and zero speed bonus.
+- Use the server-persisted `elapsedMs`; never trust a client timer.
+- Boundaries are inclusive as shown and must have explicit unit tests.
+- Calculate and persist the score once, transactionally and idempotently.
+
+### 5.2 No-response and consecutive penalties
+
+A missing answer must be represented by an explicit `NO_RESPONSE` record after the server deadline has passed. It must not be inferred solely from the absence of an answer row.
+
+The V1 consecutive no-response and forfeit rule is aligned with NEX-BE-006 Version 1.1:
+- first consecutive no-response: apply -5 points to the non-responding participant;
+- second consecutive no-response: apply a further -5 points to that participant;
+- third consecutive no-response: apply a further -10 points and trigger surrender/forfeit;
+- the three deductions total exactly -20 points for the forfeiting participant;
+- credit the remaining participant with +20 points once as the forfeit transfer, representing the same accumulated penalty amount.
+
+**No additional -20 deduction is permitted at the moment of forfeiture.** The forfeiting participant's total penalty across the three consecutive no-responses is -20, not -40. The +20 transfer to the remaining participant is not another deduction from the forfeiting participant.
+
+Negative match scores are valid and must not be clamped to zero. The existing game engine's approved scoring behavior and tests explicitly expect a forfeiting participant to reach -20 while the remaining participant receives +20. The additive migration `20261108000400_allow_negative_match_scores` removes the original database nonnegative-score check so the score aggregate remains consistent with the authoritative ledger.
+
+The score ledger must make the accounting explicit and auditable. Record the three penalty entries against the forfeiting participant and one corresponding transfer credit for the remaining participant. Apply the transfer only once, using a stable idempotency key tied to the match/forfeit event. Round retries, match finalization retries, and recovery workers must never duplicate deductions or the transfer. The settlement must be atomic.
+
+A valid submitted answer breaks the consecutive no-response streak. A technical interruption or voided round must not count as a no-response. A disconnect alone is not a no-response; the server deadline and explicit outcome determine it.
+
+### 5.3 Deadline worker implementation
+
+The `RoundDeadlineWorker` runs from the NestJS MatchModule and scans overdue, incomplete rounds using the database clock. It locks one due Round row with `FOR UPDATE SKIP LOCKED`, so answer submission and competing deadline processors cannot settle the same round concurrently.
+
+For each participant without an accepted answer, it writes an explicit `NO_RESPONSE` Answer with `acceptedAt` equal to the shared deadline and zero answer points. A valid `ANSWERED` outcome resets the consecutive no-response streak. The worker derives the prior streak from persisted round outcomes; it does not trust client state. Disconnected participants are still eligible for a no-response outcome after the shared deadline. AI participants do not receive human no-response penalties. In 1vAI mode, the deadline worker waits for an explicit AI participant outcome; an unavailable AI opponent must never cause a human timeout penalty or automatic forfeit.
+
+Each penalty ledger row and participant aggregate update occur in the same database transaction. The third consecutive no-response applies only the final -10 penalty, marks that participant FORFEITED, and does not add another -20 deduction. If exactly one participant forfeits, the remaining participant receives one +20 `FORFEIT_TRANSFER` ledger credit and the match receives an immutable forfeit result. If both participants reach their third consecutive no-response in the same round, the current implementation resolves a mutual-forfeit draw with no transfer because there is no remaining participant.
+
+The worker does not finalize a round while any submitted answer is still pending, processing, or failed in AI adjudication. A terminal `FAILED` AI Judge outcome is handled by `RoundTechnicalVoidWorker`, not converted into a no-response or a penalty. Voided rounds are excluded from the historical no-response streak query.
+
+PostgreSQL integration coverage verifies third-streak penalties, the single +20 transfer, idempotent reprocessing, streak reset after a valid answer, and mutual-forfeit handling.
+
+
+## 6. Round finalization
+
+**Implemented early-finalization path:** `RoundFinalizationWorker` scans active rounds before their deadline and completes a round only when exactly two active/disconnected match participants each have an `ANSWERED` record and every answer is in a final judge state (`COMPLETED` or `NOT_REQUIRED`). It locks the Round row, uses the database clock, and writes `completedAt` once. It does not apply no-response penalties, settle a match, or automatically generate/start the next round. Deadline and no-response processing remains owned by `RoundDeadlineWorker`.
+
+A technical void is a distinct terminal round state, represented by non-null `voidedAt` and `voidReason` alongside `completedAt`. It is not a valid gameplay result: all positive answer-score effects are compensated through ledger reversals, no participant receives a timeout penalty, and no winner is derived from that round. The Match moves from `ACTIVE` to `READY` in the same transaction that voids the source round and records its unique replacement-generation job. It returns to `ACTIVE` only when all required participants are ready and the replacement's shared clock starts.
+
+A round may be finalized only when:
+1. the answer deadline has passed or all required participant outcomes are otherwise closed by a valid server transition;
+2. every submitted answer has a final adjudication decision;
+3. every participant has either an accepted answer outcome or an explicit `NO_RESPONSE` outcome;
+4. all score and penalty ledger entries for the round are calculated.
+
+Finalization must be atomic and idempotent:
+- lock the relevant Match/Round state in PostgreSQL;
+- prevent answer submission/timeout races from producing two outcomes;
+- write decisions and score changes once;
+- mark the round completed only after all required writes succeed;
+- preserve an immutable audit trail.
+
+A participant who disconnects is not automatically a no-show. The server deadline and accepted-answer record determine the outcome; reconnecting must not change the original server timestamps.
+
+## 7. Match finalization and settlement
+
+A match may be completed only after all configured rounds have finalized or a valid terminal condition (such as surrender) has been applied.
+
+In one transaction:
+- calculate final participant scores from the authoritative score ledger;
+- determine winner/draw according to the approved match rules;
+- create the unique `MatchResult`;
+- mark the match and participants completed;
+- create XP and ranking settlement events with unique idempotency keys.
+
+XP and ranking are separate systems. Do not treat speed bonuses or match score as ranking points unless the ranking policy explicitly maps them. Guest-play eligibility and registered-user ranking rules must follow the identity/ranking contracts.
+
+The prior match result must remain immutable. A rematch creates a new Match ID and independent settlement.
+
+## 8. Live question generation dependency
+
+NEXIRA V1 does not rely on a static question bank. Questions are generated on demand by the AI Question Generator.
+
+- Generate and validate the first question through a durable initial-match job immediately after match creation. Persist it before readiness; start the shared round clock only after every required participant is ready.
+- The same canonical question package and canonical option IDs must be used for both 1v1 participants; localization may differ per participant.
+- Do not start a round with an incomplete, invalid, or unvalidated question package.
+- Do not wait indefinitely for generation. Use bounded retries and a configured fallback generation path; if no valid question can be prepared within the operational budget, cancel the pending match safely and report a recoverable technical failure rather than starting a broken round.
+- Later-round generation should be prepared ahead of the next round transition where possible, without exposing the next question or starting its timer early.
+- Rematches must exclude the previous match's question IDs and normalized content fingerprints. Generate genuinely new questions; do not silently reuse an old question because no static bank exists.
+
+### 8.1 Technical-void replacement recovery
+
+The replacement path is implemented as an independent `QuestionGenerator` port and an OpenAI Responses API adapter, separate from the AI Judge adapter and configuration. It uses strict JSON Schema output and validates the answer key/options, required free-text rubric concepts, localized content, requested settings, versions, and normalized content fingerprint before persistence. Refusal, incomplete output, malformed JSON, invalid output, timeout, HTTP error, and network error are distinct bounded failure codes.
+
+The question record persists category, difficulty, canonical language, answer type, canonical prompt/options, answer key, grading rubric, localization, time limit, content version, generator/model/policy versions, and a normalized SHA-256 content fingerprint. Existing questions receive additive defaults for category/difficulty; legacy fingerprints are computed when building an exclusion set.
+
+On terminal AI Judge failure, the same database transaction:
+- reverses positive answer-score ledger effects without mutating original ledger rows;
+- marks the source round technically void;
+- moves the Match to `READY`;
+- inserts one `QuestionGenerationJob` for that source round, protected by unique source-round and idempotency keys, with source settings and excluded IDs/fingerprints.
+
+`QuestionGenerationWorker` claims PostgreSQL jobs with `FOR UPDATE SKIP LOCKED`, a UUID lease, and database lease timestamp. It sends only question settings and excluded fingerprints to the provider—never participant identities—and performs the network request outside a database transaction. Successful results are revalidated against current match/rematch history and the current lease before the Question, an unstarted Round, AI-ready/human-not-ready `RoundReadiness` rows, and completed job are committed atomically. An expired or superseded worker cannot persist its result.
+
+There are at most three attempts with 1-second then 2-second exponential backoff. A terminal generation error or an expired final-attempt lease marks the job failed and cancels the Match using the database clock. It does not create a replacement round, change player scores, add a penalty, or declare a winner. The error code remains queryable.
+
+The authorized status endpoint is `GET /matches/:matchId/question-recovery`. A replacement round stays without `startedAt` and `deadlineAt`; its question endpoint does not reveal the question before start. Humans submit idempotent readiness with `POST /matches/:matchId/rounds/:roundId/ready`; the endpoint derives the caller from the access token and can only update that participant's record. AI participants are ready when the replacement package is stored. The final readiness transaction uses `clock_timestamp()`, sets the shared deadline, advances `Match.currentRound`, and moves the Match to `ACTIVE` exactly once. Repeated Ready requests return the same start/deadline timestamps.
+
+The generation provider uses separate server-only `QUESTION_GENERATOR_OPENAI_API_KEY`, `QUESTION_GENERATOR_OPENAI_MODEL`, `QUESTION_GENERATOR_OPENAI_BASE_URL`, and `QUESTION_GENERATOR_TIMEOUT_MS` settings. Keep the key in deployment secret storage; never place it in source, GitHub, or client configuration.
+
+## 9. Required tests and release gates
+
+### Deterministic scoring
+- all speed-band boundaries: 2,999 / 3,000 / 4,999 / 5,000 / 6,999 / 7,000 ms;
+- correct vs incorrect outcomes;
+- no speed bonus for incorrect answers;
+- duplicate finalization and duplicate ledger-write prevention.
+
+### AI Judge
+- exact and equivalent correct answers;
+- synonyms, alternate phrasing, harmless spelling variations;
+- materially incorrect answers and missing required concepts;
+- ambiguous answers returning `UNCERTAIN`;
+- prompt-injection attempts embedded in participant text;
+- malformed provider output, timeout, rate limit, retry exhaustion, and fallback;
+- versioned policy reproducibility.
+
+### Lifecycle and concurrency
+- answer submission racing with deadline processing;
+- judge completion racing with round finalization;
+- simultaneous finalization attempts;
+- no-response streak reset after a valid answer;
+- terminal AI Judge failure waits until all submitted judge jobs are terminal, then voids the round without penalizing either participant;
+- every positive score from a voided round is reversed exactly once while original ledger rows remain auditable;
+- voided rounds cannot accept answers, receive new AI Judge scores, enter deadline/finalization processing, or contribute to no-response streaks;
+- a replacement round rejects a repeated normalized content fingerprint in the Match and exact-participant rematches;
+- the three no-response penalties total exactly -20 for the forfeiting participant; no additional -20 deduction is applied at forfeit;
+- the remaining participant receives exactly one +20 transfer credit;
+- retries/recovery cannot duplicate any of the three penalties or the transfer credit;
+- surrender/forfeit settlement is atomic and idempotent;
+- match result, XP, and ranking settlement idempotency.
+
+### Release gates
+- PostgreSQL integration tests for row locks and race conditions;
+- no client-controlled correctness or score;
+- no answer key/rubric leakage before reveal;
+- operational metrics and alerts for judge/generator failure;
+- manual two-client 1v1 verification;
+- real AI Question Generator and real AI Judge providers connected before public release.
+
+## 10. Implementation sequence
+
+1. Implement the scoring and cumulative no-response/forfeit accounting exactly as locked in NEX-BE-006 Version 1.1; do not add a second -20 deduction.
+2. Define typed internal AI Judge port, provider adapter, strict schema, and policy versioning.
+3. Implement deterministic multiple-choice adjudication and free-text AI adjudication.
+4. Complete transactional scoring and idempotent score ledger writes for all score-changing events (answer-score ledger writes are implemented).
+5. Implement explicit no-response processing and consecutive-penalty/forfeit ledger entries. **Implemented:** deadline worker, atomic ledger/aggregate writes, single +20 transfer, and forfeit result.
+6. **Implemented:** early round resolution and terminal AI Judge technical-void compensation, including exactly-once ledger reversals and PostgreSQL integration coverage.
+7. **Implemented:** wire the AI Question Generator to the void-recovery transition, validate and persist a fresh replacement question, then wait for all required participants before starting the shared clock. Regular match finalization and XP/ranking settlement remain pending.
+8. Add provider fallback, observability, operational metrics, and end-to-end two-client verification.
+
+No production code should be considered complete until the tests and release gates above pass.
