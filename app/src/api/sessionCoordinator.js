@@ -7,7 +7,7 @@ function createSecureIdempotencyKey() {
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(32));
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
 }
 
 export function createSessionCoordinator({
@@ -20,7 +20,6 @@ export function createSessionCoordinator({
   }
 
   let refreshInFlight = null;
-  let pendingRefreshAttempt = null;
   let currentPrincipal = null;
   let currentSession = null;
 
@@ -38,36 +37,38 @@ export function createSessionCoordinator({
     if (refreshInFlight) return refreshInFlight;
 
     refreshInFlight = (async () => {
-      const refreshToken = await tokenStore.getRefreshToken();
+      const state = typeof tokenStore.getSessionState === 'function'
+        ? await tokenStore.getSessionState()
+        : { refreshToken: await tokenStore.getRefreshToken(), pendingRefreshAttempt: null };
+      const refreshToken = state.refreshToken;
       if (!refreshToken) {
-        pendingRefreshAttempt = null;
         await tokenStore.clear();
         currentPrincipal = null;
         currentSession = null;
         return null;
       }
 
-      // A lost response may mean the server already rotated the token. Reuse
-      // the exact token/key pair on retry so the backend's encrypted replay
-      // response returns the same successor instead of treating it as reuse.
-      if (!pendingRefreshAttempt || pendingRefreshAttempt.refreshToken !== refreshToken) {
-        pendingRefreshAttempt = { refreshToken, idempotencyKey: createIdempotencyKey() };
+      let attempt = state.pendingRefreshAttempt;
+      if (!attempt || attempt.refreshToken !== refreshToken) {
+        attempt = { refreshToken, idempotencyKey: createIdempotencyKey() };
+        if (typeof tokenStore.savePendingRefreshAttempt !== 'function') {
+          throw new Error('Crash-safe secure refresh-attempt storage is required.');
+        }
+        // Must commit before the request can rotate the server-side token.
+        await tokenStore.savePendingRefreshAttempt(attempt);
       }
+
       try {
-        const response = await sessionApi.refresh(
-          pendingRefreshAttempt.refreshToken,
-          pendingRefreshAttempt.idempotencyKey,
-        );
-        const accepted = await acceptSession(response);
-        pendingRefreshAttempt = null;
-        return accepted;
+        const response = await sessionApi.refresh(attempt.refreshToken, attempt.idempotencyKey);
+        return await acceptSession(response);
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
-          pendingRefreshAttempt = null;
           await tokenStore.clear();
           currentPrincipal = null;
           currentSession = null;
         }
+        // On uncertain failures the encrypted attempt remains for exact replay
+        // after either an in-process retry or an application restart.
         throw error;
       }
     })().finally(() => {
@@ -78,31 +79,11 @@ export function createSessionCoordinator({
   }
 
   return {
-    async startGuest() {
-      const response = await sessionApi.startGuest();
-      return acceptSession(response);
-    },
-
-    async login(credentials) {
-      const response = await sessionApi.login(credentials);
-      return acceptSession(response);
-    },
-
-    async register(credentials) {
-      const response = await sessionApi.register(credentials);
-      return acceptSession(response);
-    },
-
-    async convertGuest(credentials) {
-      const response = await sessionApi.convertGuest(credentials);
-      return acceptSession(response);
-    },
-
-    async signInWithGoogle(idToken) {
-      const response = await sessionApi.signInWithGoogle(idToken);
-      return acceptSession(response);
-    },
-
+    async startGuest() { return acceptSession(await sessionApi.startGuest()); },
+    async login(credentials) { return acceptSession(await sessionApi.login(credentials)); },
+    async register(credentials) { return acceptSession(await sessionApi.register(credentials)); },
+    async convertGuest(credentials) { return acceptSession(await sessionApi.convertGuest(credentials)); },
+    async signInWithGoogle(idToken) { return acceptSession(await sessionApi.signInWithGoogle(idToken)); },
     refresh: refreshSession,
 
     async restore() {
@@ -116,7 +97,6 @@ export function createSessionCoordinator({
       try {
         if (tokenStore.getAccessToken()) await sessionApi.logout();
       } finally {
-        pendingRefreshAttempt = null;
         await tokenStore.clear();
         currentPrincipal = null;
         currentSession = null;
