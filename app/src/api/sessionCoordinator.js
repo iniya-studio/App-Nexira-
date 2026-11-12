@@ -20,6 +20,7 @@ export function createSessionCoordinator({
   }
 
   let refreshInFlight = null;
+  let pendingRefreshAttempt = null;
   let currentPrincipal = null;
   let currentSession = null;
 
@@ -39,19 +40,30 @@ export function createSessionCoordinator({
     refreshInFlight = (async () => {
       const refreshToken = await tokenStore.getRefreshToken();
       if (!refreshToken) {
+        pendingRefreshAttempt = null;
         await tokenStore.clear();
         currentPrincipal = null;
         currentSession = null;
         return null;
       }
 
-      // Keep the same token and idempotency key for the complete retry window.
-      const idempotencyKey = createIdempotencyKey();
+      // A lost response may mean the server already rotated the token. Reuse
+      // the exact token/key pair on retry so the backend's encrypted replay
+      // response returns the same successor instead of treating it as reuse.
+      if (!pendingRefreshAttempt || pendingRefreshAttempt.refreshToken !== refreshToken) {
+        pendingRefreshAttempt = { refreshToken, idempotencyKey: createIdempotencyKey() };
+      }
       try {
-        const response = await sessionApi.refresh(refreshToken, idempotencyKey);
-        return await acceptSession(response);
+        const response = await sessionApi.refresh(
+          pendingRefreshAttempt.refreshToken,
+          pendingRefreshAttempt.idempotencyKey,
+        );
+        const accepted = await acceptSession(response);
+        pendingRefreshAttempt = null;
+        return accepted;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
+          pendingRefreshAttempt = null;
           await tokenStore.clear();
           currentPrincipal = null;
           currentSession = null;
@@ -104,6 +116,7 @@ export function createSessionCoordinator({
       try {
         if (tokenStore.getAccessToken()) await sessionApi.logout();
       } finally {
+        pendingRefreshAttempt = null;
         await tokenStore.clear();
         currentPrincipal = null;
         currentSession = null;
