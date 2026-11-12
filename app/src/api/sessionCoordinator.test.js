@@ -109,3 +109,28 @@ test('logout clears local credentials even when backend logout fails', async () 
   assert.equal(store.getAccessToken(), null);
   assert.equal(await store.getRefreshToken(), null);
 });
+
+test('retry after an uncertain network failure reuses the exact refresh idempotency key', async () => {
+  const store = makeStore(token('o'));
+  const seen = [];
+  let attempt = 0;
+  const coordinator = createSessionCoordinator({
+    sessionApi: {
+      refresh: async (refreshToken, idempotencyKey) => {
+        seen.push({ refreshToken, idempotencyKey });
+        attempt += 1;
+        if (attempt === 1) throw new ApiError('Connection lost', { code: 'NETWORK_ERROR' });
+        return sessionResponse('GUEST', token('n'));
+      },
+    },
+    tokenStore: store,
+    createIdempotencyKey: () => token('i'),
+  });
+
+  await assert.rejects(coordinator.refresh(), /Connection lost/);
+  await coordinator.refresh();
+  assert.deepEqual(seen, [
+    { refreshToken: token('o'), idempotencyKey: token('i') },
+    { refreshToken: token('o'), idempotencyKey: token('i') },
+  ]);
+});
