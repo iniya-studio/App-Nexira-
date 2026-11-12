@@ -47,12 +47,16 @@ export function createTokenStore({ secureStorage = null } = {}) {
     if (typeof raw === 'string') {
       try {
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && isRefreshToken(parsed.refreshToken)) {
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            && isRefreshToken(parsed.refreshToken)) {
+          const pending = parsed.pendingRefreshAttempt;
+          if (pending !== null && pending !== undefined
+              && !isPendingAttempt(pending, parsed.refreshToken)) {
+            throw new Error('Pending refresh metadata is invalid; refusing to rotate the session.');
+          }
           return {
             refreshToken: parsed.refreshToken,
-            pendingRefreshAttempt: isPendingAttempt(parsed.pendingRefreshAttempt, parsed.refreshToken)
-              ? parsed.pendingRefreshAttempt
-              : null,
+            pendingRefreshAttempt: pending ?? null,
           };
         }
         if (parsed === null) return { refreshToken: null, pendingRefreshAttempt: null };
