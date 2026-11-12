@@ -2,18 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSessionLifecycle } from './sessionLifecycle.js';
 
-function makeServices({ restored = null, restoreError = null, guest = null, guestError = null } = {}) {
+function makeServices({ restored = null, restoreError = null, guest = null, guestError = null, login = null, register = null, convertGuest = null, google = null } = {}) {
   const calls = [];
-  const principal = restored?.principal ?? guest?.principal ?? null;
-  const session = restored?.session ?? guest?.session ?? null;
+  let current = restored ?? guest ?? null;
   return {
     calls,
     coordinator: {
       async restore() { calls.push('restore'); if (restoreError) throw restoreError; return restored; },
-      async startGuest() { calls.push('startGuest'); if (guestError) throw guestError; return guest; },
-      getCurrentPrincipal() { return principal; },
-      getCurrentSession() { return session; },
-      async logout() { calls.push('logout'); },
+      async startGuest() { calls.push('startGuest'); if (guestError) throw guestError; current = guest; return guest; },
+      async login(credentials) { calls.push(['login', credentials]); current = login; return login; },
+      async register(credentials) { calls.push(['register', credentials]); current = register; return register; },
+      async convertGuest(credentials) { calls.push(['convertGuest', credentials]); current = convertGuest; return convertGuest; },
+      async signInWithGoogle(token) { calls.push(['google', token]); current = google; return google; },
+      getCurrentPrincipal() { return current?.principal ?? null; },
+      getCurrentSession() { return current?.session ?? null; },
+      async logout() { calls.push('logout'); current = null; },
     },
   };
 }
@@ -93,7 +96,6 @@ test('subscribers receive initial and subsequent lifecycle states', async () => 
   assert.deepEqual(seen, ['idle', 'initializing', 'guest']);
 });
 
-
 test('a transient startup failure can be retried without reloading the app', async () => {
   let attempts = 0;
   const services = makeServices({ guest: guestResponse });
@@ -120,4 +122,29 @@ test('retry is a no-op while a valid session is already active', async () => {
   const retried = await lifecycle.retry();
   assert.equal(retried, active);
   assert.deepEqual(services.calls, ['restore', 'startGuest']);
+});
+
+test('login promotes lifecycle to authenticated', async () => {
+  const services = makeServices({ guest: guestResponse, login: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.login({ email: 'player@example.com', password: 'correct-password' });
+  assert.equal(state.status, 'authenticated');
+  assert.equal(state.principal.principalId, 'user-1');
+});
+
+test('guest conversion promotes account while preserving guest on failure', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  await assert.rejects(lifecycle.convertGuest({ email: 'bad@example.com' }), /valid NEXIRA account session/);
+  assert.equal(lifecycle.getState().status, 'guest');
+  assert.equal(lifecycle.getState().principal.principalId, 'guest-1');
+});
+
+test('registered users cannot use the guest conversion operation', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  await assert.rejects(lifecycle.convertGuest({}), /Only an active guest account/);
 });
