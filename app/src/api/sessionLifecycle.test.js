@@ -14,6 +14,7 @@ function makeServices({ restored = null, restoreError = null, guest = null, gues
       async register(credentials) { calls.push(['register', credentials]); current = register; return register; },
       async convertGuest(credentials) { calls.push(['convertGuest', credentials]); current = convertGuest; return convertGuest; },
       async signInWithGoogle(token) { calls.push(['google', token]); current = google; return google; },
+      async resendVerification() { calls.push('resendVerification'); return { accepted: true, delivery: 'SENT' }; },
       getCurrentPrincipal() { return current?.principal ?? null; },
       getCurrentSession() { return current?.session ?? null; },
       async logout() { calls.push('logout'); current = null; },
@@ -147,4 +148,14 @@ test('registered users cannot use the guest conversion operation', async () => {
   const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
   await lifecycle.initialize();
   await assert.rejects(lifecycle.convertGuest({}), /Only an active guest account/);
+});
+
+
+test('email verification resend is exposed through the lifecycle', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const result = await lifecycle.resendVerification();
+  assert.equal(result.emailVerification.delivery, 'SENT');
+  assert.deepEqual(services.calls, ['restore', 'startGuest', 'resendVerification']);
 });
