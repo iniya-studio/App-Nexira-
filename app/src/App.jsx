@@ -16,6 +16,7 @@ import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCopy, getQuestionCopy } from './i18n.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
+import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
 
 const CATEGORY_ICONS = {
   brain: Brain,
@@ -756,6 +757,7 @@ export default function App() {
         {['offline', 'error'].includes(sessionState.status) && <button type="button" className="secondary-action" onClick={() => { void appSessionLifecycle.retry(); }}>
           {language === 'fa' ? 'تلاش دوباره برای اتصال' : 'Retry secure connection'}
         </button>}
+        <AccountSessionPanel lifecycle={appSessionLifecycle} sessionState={sessionState} language={language} />
         <div className="screen-tabs" role="group" aria-label={text.profile}>
           <button type="button" className={profileView === 'progress' ? 'is-selected' : ''} aria-pressed={profileView === 'progress'} onClick={() => setProfileView('progress')}>{text.progress}</button>
           <button type="button" className={profileView === 'honors' ? 'is-selected' : ''} aria-pressed={profileView === 'honors'} onClick={() => setProfileView('honors')}>{text.battleHonors}</button>
