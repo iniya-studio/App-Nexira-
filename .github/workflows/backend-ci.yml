@@ -4,29 +4,19 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/backend-foundation
-      - feature/ai-companion-character-foundation
+      - recovery/nexira-monorepo
+      - main
     paths:
-      - "src/**"
-      - "backend/docs/**"
-      - "prisma/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig*.json"
-      - "jest.config.js"
-      - "eslint.config.mjs"
+      - "backend/**"
+      - "docs/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     branches:
-      - feature/backend-foundation
+      - recovery/nexira-monorepo
+      - main
     paths:
-      - "src/**"
-      - "prisma/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig*.json"
-      - "jest.config.js"
-      - "eslint.config.mjs"
+      - "backend/**"
+      - "docs/**"
       - ".github/workflows/backend-ci.yml"
 
 permissions:
@@ -40,6 +30,9 @@ jobs:
   backend-quality:
     name: Backend Quality Checks
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
 
     services:
       postgres:
@@ -75,7 +68,8 @@ jobs:
       - name: Verify Prisma formatting
         run: |
           npx prisma format
-          git diff --exit-code -- prisma/schema.prisma
+          git diff --exit-code -- backend/prisma/schema.prisma
+        working-directory: .
 
       - name: Validate Prisma schema
         run: npm run prisma:validate
