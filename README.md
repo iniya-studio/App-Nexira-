@@ -1,73 +1,68 @@
-# NEXIRA 2D Prototype
+# NEXIRA
 
-A mobile-first, 2D cognitive battle prototype. The UI and game rules run locally in the browser or a Capacitor Android WebView; there is no online account, matchmaking, or backend.
+NEXIRA is a mobile-first competitive game project. The repository is organized as a monorepo with a React/Vite/Capacitor application and a NestJS modular-monolith backend.
 
-## Requirements
+## Repository layout
 
-- Node.js 20.19+ (Node 24 is verified in this workspace)
-- JDK 17 or 21 for Android builds (JDK 21 is the verified choice for this project)
-- Android SDK Platform 35, Build Tools 35.0.0, and Platform Tools
+- `app/` — React + Vite client and Capacitor Android project.
+- `backend/` — NestJS + TypeScript API, Prisma schema and database migrations.
+- `docs/` — product, architecture, UI/UX and implementation documentation.
+- `.github/workflows/` — independent Android and backend CI workflows.
 
-Install JavaScript dependencies and start the browser prototype:
+## Application
 
-```sh
-npm install
-npm run dev
-```
-
-Run the game-rule tests and production web build:
+Requirements: Node.js 22, JDK 21 for Android builds, Android SDK Platform 35 and Build Tools 35.0.0.
 
 ```sh
+cd app
+npm ci
 npm test
 npm run build
 ```
 
-## Android APK
-
-The Android project is generated with Capacitor. If it has not been generated yet, set the Android SDK and Java paths and add the native platform:
+Build an Android debug APK:
 
 ```sh
-export ANDROID_HOME="$HOME/Android/Sdk"
-export ANDROID_SDK_ROOT="$ANDROID_HOME"
-export JAVA_HOME="/path/to/jdk-21"
-npx cap add android
-```
-
-This project uses Gradle Wrapper 8.11.1 and Android Gradle Plugin 8.7.2. AGP 8.7 requires JDK 17 or newer and Gradle 8.9 or newer. Gradle 8.11.1 officially supports running on Java 21, but not Java 25; select a JDK 17 or 21 before building:
-
-```sh
-export JAVA_HOME="/path/to/jdk-21"
-export PATH="$JAVA_HOME/bin:$PATH"
+cd app
+npm ci
 npm run android:apk
 ```
 
-The Android SDK Platform 35 and Build Tools 35 are used by this project. The Android Gradle and plugin versions do not need to be upgraded for this setup.
+The generated APK is copied to `app/build/NEXIRA-Android.apk`.
 
-Build an unsigned-for-release, debug-signed APK:
+## Backend
 
-```sh
-npm run android:apk
-```
-
-Android Gradle writes the debug APK to `android/app/build/outputs/apk/debug/app-debug.apk`; `npm run android:apk` also copies that exact file to `build/NEXIRA-Android.apk`. Android Gradle creates a local debug key automatically. A release build still needs a private release keystore and signing configuration; neither is included in this prototype.
-
-To install and launch the debug APK on a connected, authorized device:
+Requirements: Node.js 24+ and PostgreSQL 16+.
 
 ```sh
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.nexira.prototype/.MainActivity
+cd backend
+npm install
+cp .env.example .env
 ```
 
-## Structure
+Set `DATABASE_URL` and the other required environment values in `.env`. Then:
 
-- `src/App.jsx` — screens, shared page/panel components, navigation, local interactions, splash transition, and timer lifecycle
-- `src/game/data.js` — the eight categories, sample questions, and local profile persistence
-- `src/game/scoring.js` — answer scoring, speed bonuses, and XP progression
-- `src/game/session.js` — challenge state validation, answer locking, timeout handling, and completion
-- `src/game/*.test.js` — automated game-rule, challenge, and persistence tests
-- `src/styles.css` — shared mobile-first visual system and responsive 2D interface
-- `src/app.css` — screen-specific layout and accessibility styles
-- `src/theme.css` — NEXIRA cyber-neon visual theme and shared responsive HUD/card treatments
-- `capacitor.config.json` — Capacitor app identity and web asset directory
+```sh
+npx prisma validate
+npm run build
+npm test -- --runInBand
+npm run start:dev
+```
 
-All player progress uses browser/Android WebView local storage. Rankings show only saved local category bests; there are no online services or multiplayer. The eight game screens share a mobile-first Orbitron/Inter cyber-neon visual system, reusable glass panels, CSS-generated 2D artwork, and restrained transitions. Android displays a native branded launch splash followed by the app's animated NEXIRA transition. There are no 3D models, WebGL, or 3D-rendering dependencies. Google Fonts load from the network when available and fall back to system sans-serif fonts offline.
+See [backend/README.md](backend/README.md) for backend setup, health endpoints and architecture notes.
+
+## Engineering boundaries
+
+- The backend remains a modular monolith for V1; do not split it into microservices.
+- The backend is authoritative for online match state, timing, judging, scoring, XP and ranking.
+- The app's current local match adapter is a client-side prototype boundary; it is not a substitute for the online API.
+- Keep app and backend dependencies, environment files and CI workflows isolated.
+- Never commit real credentials, production secrets or local environment files.
+- Preserve database migration history; do not edit already-applied migrations to repair schema drift.
+
+## Workflows
+
+- **NEXIRA Android APK** builds and tests the app from `app/`.
+- **Backend CI** validates Prisma, applies migrations to a temporary PostgreSQL service, builds the API, runs tests and lint from `backend/`.
+
+The recovery/monorepo branch is the integration workspace while the existing historical branches remain available as recovery sources. Do not delete historical branches until the consolidated project has passed sustained validation.
