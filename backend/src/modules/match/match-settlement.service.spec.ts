@@ -74,7 +74,7 @@ describe('MatchSettlementService', () => {
       },
       globalUserRanking: { upsert: jest.fn().mockResolvedValue({}) },
       userRanking: { upsert: jest.fn().mockResolvedValue({}) },
-      $queryRawUnsafe: jest.fn().mockResolvedValue([]),
+      $queryRawUnsafe: jest.fn().mockResolvedValue([{ id: 'locked-principal' }]),
     };
     return tx as unknown as Prisma.TransactionClient & typeof tx;
   }
