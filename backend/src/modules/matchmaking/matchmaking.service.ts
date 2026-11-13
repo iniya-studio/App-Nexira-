@@ -158,6 +158,8 @@ export class MatchmakingService {
       queueId: entry.id,
       status: entry.status,
       matchId: entry.matchId,
+      category: entry.category,
+      language: entry.language,
       queuedAt: entry.queuedAt,
       matchedAt: entry.matchedAt,
       cancelledAt: entry.cancelledAt,
