@@ -54,6 +54,7 @@ export class MatchService {
     first: AuthenticatedPrincipal,
     second: AuthenticatedPrincipal,
     transaction?: Prisma.TransactionClient,
+    options: AiMatchOptions = {},
   ) {
     if (
       first.principalType === second.principalType &&
@@ -66,7 +67,11 @@ export class MatchService {
       MatchMode.ONE_V_ONE,
       [this.humanParticipantData(first), this.humanParticipantData(second)],
       first,
-      INITIAL_QUESTION_SETTINGS,
+      {
+        ...INITIAL_QUESTION_SETTINGS,
+        category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
+        language: options.language,
+      },
       transaction,
     );
   }
