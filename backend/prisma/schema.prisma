@@ -407,7 +407,7 @@ model Round {
   scoreEntries  MatchScoreEntry[]
   readiness     RoundReadiness[]
   generationJob QuestionGenerationJob?
-  aiAnswerJob    AiAnswerJob?
+  aiAnswerJobs   AiAnswerJob[]
 
   @@unique([matchId, roundNumber])
   @@unique([id, matchId])
