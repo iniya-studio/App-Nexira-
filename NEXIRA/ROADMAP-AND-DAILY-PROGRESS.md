@@ -315,7 +315,8 @@
 | 1.4 | 2026-11-13 | تکمیل شواهد آزمون: ۸۴ تست Frontend/Match Engine، ساخت و آپلود APK با checksum ثبت‌شده، و ۱۶۸ تست Backend در ۳۲ suite همراه با migration و lint موفق |
 | 1.5 | 2026-11-13 | ثبت ممیزی اتصال Frontend/Backend: شناسایی local adapter فعال و شکاف‌های public matchmaking و result API؛ تعیین گام بعدی برای vertical slice |
 | 1.6 | 2026-11-13 | تکمیل قراردادهای result API و category/language برای 1vAI؛ اتصال production Frontend به server-driven lifecycle؛ ثبت ۸۷ تست Frontend و ۱۷۱ تست Backend موفق، APK build موفق، و موانع deployment/provider و 1v1 |
-| 1.7 | 2026-11-13 | سخت‌سازی result API برای پنهان‌ماندن پاسخ/امتیاز تا finalization؛ gate کردن winner metadata؛ افزودن CORS allowlist برای Android Capacitor؛ ثبت ۱۷۵ تست Backend و CI سبز |
+| 1.7 | 2026-11-13 | سخت‌سازی result API برای پنهان‌ماندن پاسخ/امتیاز تا finalization؛ gate کردن winner metadata؛ افزودن CORS allowlist برای Android Capacitor؛ ثبت ۱۷۳ تست Backend و CI سبز |
+| 1.8 | 2026-11-13 | بازبینی کامل چرخه 1vAI؛ اصلاح برچسب‌های UI production؛ technical void برای شکست AI Opponent و محدودیت دو جایگزینی؛ ثبت آزمون ۱۰ دور و ۱۷۵ تست Backend در ۳۳ suite به‌همراه Android CI سبز |
 
 ---
 
