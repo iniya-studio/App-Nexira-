@@ -270,7 +270,7 @@ export default function App() {
             category: category?.id ?? 'general',
             language: profileRef.current.settings.language,
           });
-          setMatchmakingView({ ...queue, categoryTitle: category?.title ?? category?.id ?? 'General' });
+          setMatchmakingView({ ...queue, categoryTitle: categoryById(queue.category)?.title ?? category?.title ?? category?.id ?? 'General' });
           setMatchError('');
           setScreen('matchmaking');
           return;
@@ -556,7 +556,7 @@ export default function App() {
       try {
         const next = await adapter.refresh();
         if (active && next) {
-          setMatchmakingView((previous) => ({ ...next, categoryTitle: previous?.categoryTitle ?? 'General' }));
+          setMatchmakingView((previous) => ({ ...next, categoryTitle: categoryById(next.category)?.title ?? previous?.categoryTitle ?? 'General' }));
           if (next.status === 'MATCHED' && next.matchId) await openMatchedOnlineMatch(next);
         }
       } catch (error) {
@@ -763,7 +763,7 @@ export default function App() {
         <div className="matchmaking-search-state" role="status" aria-live="polite">
           <span className="live-dot" />
           <strong>{language === 'fa' ? 'جست‌وجو ادامه دارد…' : 'Search is active…'}</strong>
-          <small>{matchmakingView?.categoryTitle ?? (language === 'fa' ? 'موضوع انتخاب‌شده' : 'Selected category')} · {language === 'fa' ? 'زبان' : 'Language'}: {language === 'fa' ? 'فارسی' : 'English'}</small>
+          <small>{matchmakingView?.categoryTitle ?? (language === 'fa' ? 'موضوع انتخاب‌شده' : 'Selected category')} · {language === 'fa' ? 'زبان' : 'Language'}: {(matchmakingView?.language ?? language) === 'fa' ? 'فارسی' : 'English'}</small>
           <p>{language === 'fa' ? 'اگر اتصال قطع شود، وضعیت صف و مسابقه از سرور بازیابی می‌شود.' : 'If your connection drops, queue and match state can be recovered from the server.'}</p>
         </div>
         {matchError && <p className="empty-state" role="alert">{matchError}</p>}
