@@ -49,12 +49,6 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
           'AND r."voidedAt" IS NULL ' +
           'AND r."deadlineAt" <= clock_timestamp() ' +
           'AND m."status" = \'ACTIVE\' ' +
-          'AND NOT (m."mode" = \'ONE_V_AI\' AND EXISTS (' +
-          'SELECT 1 FROM "MatchParticipant" ai WHERE ai."matchId" = m."id" ' +
-          'AND ai."participantType" = \'AI\' ' +
-          'AND ai."status" IN (\'ACTIVE\', \'DISCONNECTED\') ' +
-          'AND NOT EXISTS (SELECT 1 FROM "Answer" ai_answer ' +
-          'WHERE ai_answer."roundId" = r."id" AND ai_answer."participantId" = ai."id"))) ' +
           'AND NOT EXISTS (SELECT 1 FROM "Answer" a WHERE a."roundId" = r."id" ' +
           'AND a."status" = \'ANSWERED\' ' +
           'AND a."judgeStatus" IN (\'PENDING\', \'PROCESSING\', \'FAILED\')) ' +
@@ -90,7 +84,8 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
           (answer) =>
             answer.status === AnswerStatus.ANSWERED &&
             answer.judgeStatus !== JudgeStatus.COMPLETED &&
-            answer.judgeStatus !== JudgeStatus.NOT_REQUIRED,
+            answer.judgeStatus !== JudgeStatus.NOT_REQUIRED &&
+            answer.judgeStatus !== JudgeStatus.FAILED,
         )
       ) {
         return true;
@@ -113,6 +108,22 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
       if (!(finalizedAt instanceof Date)) {
         throw new Error('Database clock did not return a valid timestamp');
       }
+
+      // Close outstanding AI jobs under the round lock. A provider response
+      // arriving after this point is fenced out and cannot alter the result.
+      await tx.aiAnswerJob.updateMany({
+        where: {
+          roundId: round.id,
+          status: { in: ['PENDING', 'PROCESSING'] },
+        },
+        data: {
+          status: 'CANCELLED',
+          leaseId: null,
+          leaseAt: null,
+          completedAt: finalizedAt,
+          lastErrorCode: 'ROUND_DEADLINE',
+        },
+      });
 
       const forfeited: Array<{ id: string }> = [];
 
