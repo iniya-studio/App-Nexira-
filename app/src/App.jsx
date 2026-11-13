@@ -340,27 +340,27 @@ export default function App() {
     onlineMatchAdapterRef.current = null;
     try {
       if (mode === '1v1' && publicOneVsOneEnabled) {
-          const adapter = createOnlineMatchmakingAdapter(
-            createMatchmakingApi(appSessionLifecycle.getHttpClient()),
-          );
-          onlineMatchmakingAdapterRef.current = adapter;
-          matchmakingTransitionRef.current = null;
-          const queue = await adapter.start({
-            category: category?.id ?? 'general',
-            language: profileRef.current.settings.language,
-          });
-          setMatchmakingView({
-            ...queue,
-            categoryTitle: categoryById(queue.category)?.title ?? category?.title ?? category?.id ?? 'General',
-          });
-          setMatchError('');
-          if (queue.status === 'MATCHED' && queue.matchId) {
-            await openMatchedOnlineMatch(queue);
-          } else {
-            setScreen('matchmaking');
-          }
-          return;
+        const adapter = createOnlineMatchmakingAdapter(
+          createMatchmakingApi(appSessionLifecycle.getHttpClient()),
+        );
+        onlineMatchmakingAdapterRef.current = adapter;
+        matchmakingTransitionRef.current = null;
+        const queue = await adapter.start({
+          category: category?.id ?? 'general',
+          language: profileRef.current.settings.language,
+        });
+        setMatchmakingView({
+          ...queue,
+          categoryTitle: categoryById(queue.category)?.title ?? category?.title ?? category?.id ?? 'General',
+        });
+        setMatchError('');
+        if (queue.status === 'MATCHED' && queue.matchId) {
+          await openMatchedOnlineMatch(queue);
+        } else {
+          setScreen('matchmaking');
         }
+        return;
+      }
       if (import.meta.env.PROD) {
         if (mode !== '1vAI') {
           throw new Error('Public 1v1 remains disabled until automated and two-device acceptance gates pass.');
