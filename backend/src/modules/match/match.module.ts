@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AnswerController } from './answer.controller';
+import { AI_OPPONENT_ANSWER } from './ai-opponent-answer.port';
+import { OpenAiResponsesAiOpponentAdapter } from './openai-responses-ai-opponent.adapter';
+import { AiOpponentAnswerWorker } from './ai-opponent-answer.worker';
 import { FREE_TEXT_ANSWER_JUDGE } from './answer-judge.port';
 import { OpenAiResponsesAnswerJudgeAdapter } from './openai-responses-answer-judge.adapter';
 import { AnswerService } from './answer.service';
@@ -33,6 +36,7 @@ import { RoundService } from './round.service';
     RoundService,
     AnswerService,
     AnswerJudgeWorker,
+    AiOpponentAnswerWorker,
     RoundDeadlineWorker,
     RoundFinalizationWorker,
     MatchFinalizationWorker,
@@ -41,6 +45,10 @@ import { RoundService } from './round.service';
     {
       provide: FREE_TEXT_ANSWER_JUDGE,
       useClass: OpenAiResponsesAnswerJudgeAdapter,
+    },
+    {
+      provide: AI_OPPONENT_ANSWER,
+      useClass: OpenAiResponsesAiOpponentAdapter,
     },
     {
       provide: QUESTION_GENERATOR,
