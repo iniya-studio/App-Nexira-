@@ -13,6 +13,7 @@ import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } 
 import { createLocalMatchAdapter } from './game/localMatchAdapter.js';
 import { createOnlineMatchAdapter } from './game/onlineMatchAdapter.js';
 import { createMatchApi } from './api/matchApi.js';
+import { createProgressionApi } from './api/progressionApi.js';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCopy, getQuestionCopy } from './i18n.js';
@@ -43,13 +44,19 @@ function Brand() {
 }
 
 function ProgressBar({ profile, label }) {
-  const threshold = xpForNextLevel(profile.level);
+  const displayLevel = serverProgress?.level ?? profile.level;
+  const displayXp = serverProgress?.currentLevelXp ?? profile.xp;
+  const displayTotalXp = serverProgress?.totalXp ?? String(profile.totalXp);
+  const threshold = serverProgress?.xpRequiredForNextLevel ?? xpForNextLevel(profile.level);
+  const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
+  const activeRanking = rankingView === 'global' ? globalRanking : seasonalRanking;
+  const rankingEntries = activeRanking?.entries ?? [];
   return <div className="rank-progress-block">
     <div className="rank-progress-heading">
       <span><Sparkles size={12} /> {label} <b>{profile.level}</b></span>
       <span>{profile.xp}<i> / {threshold} XP</i></span>
     </div>
-    <span className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></span>
+    <span className="rank-track"><span style={{ width: `${displayProgressPercent}%` }} /></span>
   </div>;
 }
 
@@ -96,6 +103,12 @@ export default function App() {
   const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
   const [storageFailed, setStorageFailed] = useState(false);
   const [sessionState, setSessionState] = useState(() => appSessionLifecycle.getState());
+  const [serverProgress, setServerProgress] = useState(null);
+  const [globalRanking, setGlobalRanking] = useState(null);
+  const [seasonalRanking, setSeasonalRanking] = useState(null);
+  const [rankingView, setRankingView] = useState('global');
+  const [progressionLoading, setProgressionLoading] = useState(false);
+  const [progressionError, setProgressionError] = useState('');
   const [splashExiting, setSplashExiting] = useState(false);
   const profileRef = useRef(profile);
   const runRef = useRef(run);
@@ -193,6 +206,46 @@ export default function App() {
     setProfile(next);
     setStorageFailed(!saveProfile(next));
   }, []);
+
+  const refreshServerProgression = useCallback(async () => {
+    const currentState = appSessionLifecycle.getState();
+    if (!['guest', 'authenticated'].includes(currentState.status)) return null;
+    setProgressionLoading(true);
+    try {
+      const api = createProgressionApi(appSessionLifecycle.getHttpClient());
+      const [progress, global, seasonal] = await Promise.all([
+        api.getMyProgress(),
+        api.getGlobalRanking(),
+        api.getCurrentSeasonRanking(),
+      ]);
+      setServerProgress(progress);
+      setGlobalRanking(global);
+      setSeasonalRanking(seasonal);
+      setProgressionError('');
+      return progress;
+    } catch (error) {
+      setProgressionError(error instanceof Error ? error.message : 'Unable to load progression.');
+      return null;
+    } finally {
+      setProgressionLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (['guest', 'authenticated'].includes(sessionState.status)) {
+      void refreshServerProgression();
+    } else if (['signed-out', 'offline', 'error', 'unsupported'].includes(sessionState.status)) {
+      setServerProgress(null);
+      setGlobalRanking(null);
+      setSeasonalRanking(null);
+    }
+  }, [sessionState.status, refreshServerProgression]);
+
+  useEffect(() => {
+    if (screen === 'rankings' || (screen === 'match-results' && onlineMatchAdapterRef.current)) {
+      void refreshServerProgression();
+    }
+  }, [screen, refreshServerProgression]);
 
   const navigate = useCallback((destination) => setScreen(destination), []);
 
@@ -511,7 +564,7 @@ export default function App() {
       <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
       <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
         <span className="top-profile-avatar"><UserRound size={17} /></span>
-        <span className="top-profile-copy"><span>{text.levelAbbr} {profile.level}</span><i className="mini-xp"><i style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></i></span>
+        <span className="top-profile-copy"><span>{text.levelAbbr} {displayLevel}</span><i className="mini-xp"><i style={{ width: `${displayProgressPercent}%` }} /></i></span>
       </button>
     </header>}
 
@@ -541,10 +594,10 @@ export default function App() {
         <button className="reference-avatar" onClick={() => navigate('profile')} aria-label={text.profile}><UserRound size={34} /></button>
         <div className="reference-player-info">
           <strong>{playerName}</strong>
-          <span className="reference-level">{text.level} {profile.level}</span>
+          <span className="reference-level">{text.level} {displayLevel}</span>
           <div className="reference-xp-row">
-            <span className="reference-xp-track"><i style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></span>
-            <small>{profile.xp.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')} / {threshold.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')} XP</small>
+            <span className="reference-xp-track"><i style={{ width: `${displayProgressPercent}%` }} /></span>
+            <small>{displayXp.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')} / {threshold.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')} XP</small>
           </div>
         </div>
         <button className="reference-settings-button" onClick={() => navigate('settings')} aria-label={text.settings}><Settings size={25} /></button>
@@ -946,7 +999,7 @@ export default function App() {
       </div>
       <ScreenHeading eyebrow={text.operatorDossierEyebrow} title={text.profileTitle} accent={text.profileAccent} />
       <GlassPanel className="profile-panel" data-view={profileView}>
-        <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {profile.level} · {text.totalXp} {profile.totalXp}</small></span></div>
+        <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {displayLevel} · {text.totalXp} {Number(displayTotalXp).toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</small></span></div>
         <div className="panel-note" role="status" data-session-state={sessionState.status}>
           {language === 'fa'
             ? ({ idle: 'وضعیت حساب: در انتظار اتصال', initializing: 'وضعیت حساب: در حال اتصال امن…', guest: 'حساب مهمان: فعال', authenticated: 'حساب ثبت‌شده: متصل', offline: 'اتصال به سرور برقرار نیست؛ اطلاعات محلی اپ در دسترس است.', error: 'اتصال نشست کامل نشد؛ تنظیمات سرور را بررسی کنید.', unsupported: 'نشست پایدار در این پلتفرم هنوز فعال نیست.', 'signed-out': 'از حساب خارج شده‌اید.' }[sessionState.status] ?? 'وضعیت حساب نامشخص است.')
@@ -962,13 +1015,13 @@ export default function App() {
           <button type="button" className={profileView === 'stats' ? 'is-selected' : ''} aria-pressed={profileView === 'stats'} onClick={() => setProfileView('stats')}>{text.stats}</button>
         </div>
         <div className="profile-view" hidden={profileView !== 'progress'}>
-        <span className="profile-rank-chip"><Medal size={14} /> {text.arenaLevel} {String(profile.level).padStart(2, '0')}</span>
+        <span className="profile-rank-chip"><Medal size={14} /> {text.arenaLevel} {String(displayLevel).padStart(2, '0')}</span>
         <label className="field-label" htmlFor="player-name">{text.displayName}</label>
         <input id="player-name" className="text-input" maxLength={20} value={playerName} onChange={(event) => updateProfile((saved) => ({ ...saved, playerName: event.target.value }))} />
         <div className="profile-progress">
-          <div><span>{text.progress}</span><strong>{profile.xp}<i> / {threshold} XP</i></strong></div>
+          <div><span>{text.progress}</span><strong>{displayXp}<i> / {threshold} XP</i></strong></div>
           <span className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></span>
-          <small>{text.level} {profile.level} · {threshold - profile.xp} XP {text.nextLevel.toLowerCase()}</small>
+          <small>{text.level} {displayLevel} · {Math.max(0, threshold - displayXp)} XP {text.nextLevel.toLowerCase()}</small>
         </div>
         <div className="profile-metrics">
           <div><strong>{profile.battles}</strong><span>{text.battles}</span></div>
@@ -1005,43 +1058,69 @@ export default function App() {
 
     {screen === 'rankings' && <ScreenFrame className="info-screen">
       <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
-      <ScreenHeading eyebrow={text.rankingsEyebrow} title={text.rankingsTitle} accent={text.rankingsAccent} description={text.noOnline} />
+      <ScreenHeading
+        eyebrow={text.rankingsEyebrow}
+        title={text.rankingsTitle}
+        accent={text.rankingsAccent}
+        description={language === 'fa' ? 'رتبه‌بندی رسمی بر اساس نتایج قطعی مسابقات ۱v۱.' : 'Official rankings based on finalized 1v1 match results.'}
+      />
       <GlassPanel className="ranking-panel">
-        <div className="ranking-title"><span><Medal size={18} /> {text.localOnly}</span><small>{text.thisDevice}</small></div>
-        <p className="ranking-subtitle">{text.rankingSubtitle}</p>
-        {(() => {
-          const records = CATEGORIES.filter((item) => profile.categoryStats[item.id]?.battles)
-            .sort((a, b) => profile.categoryStats[b.id].bestScore - profile.categoryStats[a.id].bestScore);
-          const podium = records.slice(0, 3);
-          return <>
-            {podium.length > 0 && <div className="podium-grid">
-              {podium.map((item, index) => {
-                const rank = index + 1;
-                const Icon = CATEGORY_ICONS[item.icon] ?? Activity;
-                return <div className={`podium-card podium-card--${rank}`} key={item.id}>
-                  <span className="podium-rank">{rank === 1 ? <Trophy size={18} /> : `0${rank}`}</span>
-                  <span className="podium-avatar"><Icon size={18} /></span>
-                  <strong>{playerName}</strong><small>{text.levelAbbr} {profile.level} · {item.title}</small>
-                  <b>{profile.categoryStats[item.id].bestScore}<i> {text.pointsAbbr}</i></b>
-                </div>;
-              })}
-            </div>}
-            <div className="leader-list">
-              {records.slice(3).map((item, index) => {
-                const Icon = CATEGORY_ICONS[item.icon] ?? Activity;
-                const stats = profile.categoryStats[item.id];
-                return <div className="leader-row leader-row--you" key={item.id}>
-                  <span className="leader-rank">{String(index + 4).padStart(2, '0')}</span>
-                  <span className="leader-avatar"><Icon size={16} /></span>
-                  <span className="leader-player"><strong>{playerName}</strong><small>{text.levelAbbr} {profile.level} · {item.title} · {stats.battles} {text.runs.toUpperCase()}</small></span>
-                  <strong className="leader-score">{stats.bestScore}</strong>
-                </div>;
-              })}
-              {records.length === 0 && <p className="empty-state">{text.noRuns}</p>}
-            </div>
-          </>;
-        })()}
-        <p className="panel-note"><Globe2 size={13} /> {text.noRemoteScores}</p>
+        <div className="screen-tabs" role="group" aria-label={language === 'fa' ? 'بازه رتبه‌بندی' : 'Ranking scope'}>
+          <button type="button" className={rankingView === 'global' ? 'is-selected' : ''} aria-pressed={rankingView === 'global'} onClick={() => setRankingView('global')}>{language === 'fa' ? 'جهانی' : 'Global'}</button>
+          <button type="button" className={rankingView === 'season' ? 'is-selected' : ''} aria-pressed={rankingView === 'season'} onClick={() => setRankingView('season')}>{language === 'fa' ? 'فصلی' : 'Seasonal'}</button>
+        </div>
+        <div className="ranking-title">
+          <span><Medal size={18} /> {rankingView === 'global' ? (language === 'fa' ? 'جدول جهانی' : 'Global leaderboard') : (activeRanking?.season?.name ?? (language === 'fa' ? 'جدول فصلی' : 'Season leaderboard'))}</span>
+          <small>{language === 'fa' ? '۵۰ نفر برتر' : 'Top 50'}</small>
+        </div>
+        {progressionLoading && <p className="panel-note" role="status">{language === 'fa' ? 'در حال دریافت رتبه‌بندی…' : 'Loading verified rankings…'}</p>}
+        {progressionError && <div className="panel-note" role="alert">
+          {language === 'fa' ? 'دریافت اطلاعات رتبه‌بندی ناموفق بود.' : 'Unable to load ranking data.'}
+          <button type="button" className="text-action" onClick={() => { void refreshServerProgression(); }}>{language === 'fa' ? 'تلاش دوباره' : 'Retry'}</button>
+        </div>}
+        {activeRanking?.eligible === false && <p className="panel-note">
+          {language === 'fa'
+            ? 'می‌توانی بدون ثبت‌نام بازی کنی و XP بگیری؛ برای حضور در رتبه‌بندی رقابتی باید حساب کاربری بسازی.'
+            : 'You can play and earn XP as a guest. Create an account when you want to appear in competitive rankings.'}
+        </p>}
+        {rankingView === 'season' && activeRanking?.season === null && !progressionLoading && <p className="empty-state">
+          {language === 'fa' ? 'در حال حاضر فصل فعالی وجود ندارد؛ رتبه‌بندی جهانی همچنان در دسترس است.' : 'There is no active season right now. Global ranking remains available.'}
+        </p>}
+        {activeRanking?.me && <div className="ranking-my-summary">
+          <span>{language === 'fa' ? 'جایگاه شما' : 'Your position'}</span>
+          <strong>{activeRanking.me.position ? `#${activeRanking.me.position}` : '—'}</strong>
+          <small>{activeRanking.me.rankingPoints} {language === 'fa' ? 'امتیاز رتبه‌بندی' : 'ranking points'} · {activeRanking.me.wins} {language === 'fa' ? 'برد' : 'wins'}</small>
+        </div>}
+        {rankingEntries.length > 0 && <>
+          <div className="podium-grid">
+            {rankingEntries.slice(0, 3).map((entry) => (
+              <div className={`podium-card podium-card--${entry.position}`} key={entry.userId}>
+                <span className="podium-rank">{entry.position === 1 ? <Trophy size={18} /> : String(entry.position).padStart(2, '0')}</span>
+                <span className="podium-avatar"><UserRound size={18} /></span>
+                <strong>{entry.displayName || entry.username}</strong>
+                <small>{text.levelAbbr} {entry.level}</small>
+                <b>{entry.rankingPoints}<i> {language === 'fa' ? 'امتیاز' : 'PTS'}</i></b>
+              </div>
+            ))}
+          </div>
+          <div className="leader-list">
+            {rankingEntries.slice(3).map((entry) => (
+              <div className={`leader-row${entry.userId === sessionState.principal?.principalId ? ' leader-row--you' : ''}`} key={entry.userId}>
+                <span className="leader-rank">{String(entry.position).padStart(2, '0')}</span>
+                <span className="leader-avatar"><UserRound size={16} /></span>
+                <span className="leader-player">
+                  <strong>{entry.displayName || entry.username}</strong>
+                  <small>{text.levelAbbr} {entry.level} · {entry.wins} {language === 'fa' ? 'برد' : 'wins'} · {entry.losses} {language === 'fa' ? 'باخت' : 'losses'}</small>
+                </span>
+                <strong className="leader-score">{entry.rankingPoints}</strong>
+              </div>
+            ))}
+          </div>
+        </>}
+        {activeRanking && activeRanking.eligible && rankingEntries.length === 0 && !(rankingView === 'season' && activeRanking.season === null) && !progressionLoading && <p className="empty-state">
+          {language === 'fa' ? 'هنوز نتیجه‌ای برای رتبه‌بندی ثبت نشده است.' : 'No ranked matches have been completed yet.'}
+        </p>}
+        <p className="panel-note"><Globe2 size={13} /> {language === 'fa' ? 'امتیاز رتبه‌بندی مستقل از XP است و فقط از نتایج معتبر ۱v۱ به دست می‌آید.' : 'Ranking points are separate from XP and come only from valid 1v1 results.'}</p>
       </GlassPanel>
     </ScreenFrame>}
 
