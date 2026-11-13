@@ -333,6 +333,9 @@ export default function App() {
   const beginMatch = useCallback(async (category, mode) => {
     setMatchBusy(true);
     setMatchError('');
+    setShowExitConfirm(false);
+    setMatchView(null);
+    setMatchmakingView(null);
     onlineMatchAdapterRef.current?.reset();
     onlineMatchAdapterRef.current = null;
     try {
