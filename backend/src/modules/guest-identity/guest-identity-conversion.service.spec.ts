@@ -29,7 +29,8 @@ describe('GuestIdentityService conversion', () => {
     guestIdentity: { findUnique: jest.Mock; updateMany: jest.Mock };
     user: { create: jest.Mock };
     companionProfile: { updateMany: jest.Mock };
-    matchmakingEntry: { updateMany: jest.Mock };
+    matchmakingEntry: { updateMany: jest.Mock; findMany: jest.Mock };
+    matchParticipant: { updateMany: jest.Mock };
     userSession: { updateMany: jest.Mock };
     refreshToken: { updateMany: jest.Mock };
     identityAuditEvent: { create: jest.Mock };
@@ -53,7 +54,11 @@ describe('GuestIdentityService conversion', () => {
         }),
       },
       companionProfile: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
-      matchmakingEntry: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      matchmakingEntry: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      matchParticipant: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       userSession: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
       refreshToken: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
       identityAuditEvent: { create: jest.fn().mockResolvedValue({}) },
@@ -99,6 +104,9 @@ describe('GuestIdentityService conversion', () => {
       where: { guestIdentityId: 'guest-1', status: 'WAITING' },
       data: { guestIdentityId: null, userId: 'user-1' },
     });
+    expect(tx.matchmakingEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ guestIdentityId: 'guest-1', status: 'MATCHED' }),
+    }));
     expect(tx.guestIdentity.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'guest-1', status: GuestIdentityStatus.ACTIVE, convertedToUserId: null },
       data: expect.objectContaining({
