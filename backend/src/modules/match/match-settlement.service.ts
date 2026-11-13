@@ -38,7 +38,12 @@ export class MatchSettlementService {
       },
     });
 
-    if (!match || match.status !== MatchStatus.COMPLETED || !match.completedAt || !match.result) {
+    if (!match || match.status !== MatchStatus.COMPLETED) {
+      throw new Error('Cannot settle a match without an authoritative completed result');
+    }
+    const completedAt = match.completedAt;
+    const result = match.result;
+    if (!completedAt || !result) {
       throw new Error('Cannot settle a match without an authoritative completed result');
     }
 
@@ -66,12 +71,12 @@ export class MatchSettlementService {
       humanParticipants.length === 2 &&
       duplicateUserIds.size === 0 &&
       resolved.some((owner) => owner.userId !== null)
-        ? await this.findActiveSeason(tx, match.completedAt)
+        ? await this.findActiveSeason(tx, completedAt)
         : null;
 
     for (const owner of resolved) {
       if (owner.userId && duplicateUserIds.has(owner.userId)) continue;
-      const amount = this.calculateXp(owner.participant, match.result.winnerParticipantId);
+      const amount = this.calculateXp(owner.participant, result.winnerParticipantId);
       if (amount <= 0) continue;
       if (owner.userId) {
         await this.awardUserXp(tx, owner.userId, matchId, amount);
