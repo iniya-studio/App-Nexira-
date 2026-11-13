@@ -29,6 +29,14 @@ export class MatchmakingGateway {
     return { subscribed: true };
   }
 
+  @UseGuards(WsAccessTokenGuard)
+  @SubscribeMessage('matchmaking.unsubscribe')
+  async unsubscribe(@ConnectedSocket() client: Socket) {
+    const principal = client.data.principal as AuthenticatedPrincipal | undefined;
+    if (!principal) return { subscribed: false };
+    await client.leave(this.principalRoom(principal));
+    return { subscribed: false };
+  }
   async notifyMatchFound(
     principals: AuthenticatedPrincipal[],
     payload: { matchId: string; match: unknown },
