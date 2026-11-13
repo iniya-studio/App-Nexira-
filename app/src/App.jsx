@@ -56,7 +56,7 @@ function ProgressBar({ profile, label }) {
       <span><Sparkles size={12} /> {label} <b>{profile.level}</b></span>
       <span>{profile.xp}<i> / {threshold} XP</i></span>
     </div>
-    <span className="rank-track"><span style={{ width: `${displayProgressPercent}%` }} /></span>
+    <span className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></span>
   </div>;
 }
 
@@ -999,7 +999,7 @@ export default function App() {
       </div>
       <ScreenHeading eyebrow={text.operatorDossierEyebrow} title={text.profileTitle} accent={text.profileAccent} />
       <GlassPanel className="profile-panel" data-view={profileView}>
-        <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {displayLevel} · {text.totalXp} {Number(displayTotalXp).toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</small></span></div>
+        <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {displayLevel} · {text.totalXp} {BigInt(displayTotalXp).toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</small></span></div>
         <div className="panel-note" role="status" data-session-state={sessionState.status}>
           {language === 'fa'
             ? ({ idle: 'وضعیت حساب: در انتظار اتصال', initializing: 'وضعیت حساب: در حال اتصال امن…', guest: 'حساب مهمان: فعال', authenticated: 'حساب ثبت‌شده: متصل', offline: 'اتصال به سرور برقرار نیست؛ اطلاعات محلی اپ در دسترس است.', error: 'اتصال نشست کامل نشد؛ تنظیمات سرور را بررسی کنید.', unsupported: 'نشست پایدار در این پلتفرم هنوز فعال نیست.', 'signed-out': 'از حساب خارج شده‌اید.' }[sessionState.status] ?? 'وضعیت حساب نامشخص است.')
@@ -1020,7 +1020,7 @@ export default function App() {
         <input id="player-name" className="text-input" maxLength={20} value={playerName} onChange={(event) => updateProfile((saved) => ({ ...saved, playerName: event.target.value }))} />
         <div className="profile-progress">
           <div><span>{text.progress}</span><strong>{displayXp}<i> / {threshold} XP</i></strong></div>
-          <span className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></span>
+          <span className="rank-track"><span style={{ width: `${displayProgressPercent}%` }} /></span>
           <small>{text.level} {displayLevel} · {Math.max(0, threshold - displayXp)} XP {text.nextLevel.toLowerCase()}</small>
         </div>
         <div className="profile-metrics">
