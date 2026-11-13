@@ -33,4 +33,5 @@ CREATE TABLE "AiAnswerJob" (
 CREATE UNIQUE INDEX "AiAnswerJob_idempotencyKey_key" ON "AiAnswerJob"("idempotencyKey");
 CREATE UNIQUE INDEX "AiAnswerJob_roundId_participantId_key" ON "AiAnswerJob"("roundId", "participantId");
 CREATE INDEX "AiAnswerJob_status_availableAt_idx" ON "AiAnswerJob"("status", "availableAt");
+CREATE INDEX "AiAnswerJob_status_leaseAt_idx" ON "AiAnswerJob"("status", "leaseAt");
 CREATE INDEX "AiAnswerJob_matchId_createdAt_idx" ON "AiAnswerJob"("matchId", "createdAt");
