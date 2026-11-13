@@ -16,6 +16,11 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
 
   return {
     async start({ category, language = 'en' } = {}) {
+      const recovered = await api.getMine();
+      if (recovered?.status === 'WAITING' || recovered?.status === 'MATCHED') {
+        view = recovered;
+        return view;
+      }
       if (!idempotencyKey) idempotencyKey = createKey();
       view = await api.enqueue({ category, language, idempotencyKey });
       return view;
