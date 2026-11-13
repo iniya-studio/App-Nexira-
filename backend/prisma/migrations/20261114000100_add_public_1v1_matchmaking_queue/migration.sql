@@ -49,6 +49,12 @@ CREATE UNIQUE INDEX "MatchmakingEntry_waiting_guest_unique"
 CREATE INDEX "MatchmakingEntry_compatibility_fifo_idx"
   ON "MatchmakingEntry" ("status", "category", "language", "queuedAt");
 
+CREATE INDEX "MatchmakingEntry_userId_queuedAt_idx"
+  ON "MatchmakingEntry" ("userId", "queuedAt");
+
+CREATE INDEX "MatchmakingEntry_guestIdentityId_queuedAt_idx"
+  ON "MatchmakingEntry" ("guestIdentityId", "queuedAt");
+
 CREATE INDEX "MatchmakingEntry_matchId_idx"
   ON "MatchmakingEntry" ("matchId");
 
