@@ -53,7 +53,7 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
           'WHERE ai_job."roundId" = r."id" AND ai_job."status" = \'FAILED\') ' +
           'AND NOT EXISTS (SELECT 1 FROM "Answer" a WHERE a."roundId" = r."id" ' +
           'AND a."status" = \'ANSWERED\' ' +
-          'AND a."judgeStatus" IN (\'PENDING\', \'PROCESSING\')) ' +
+          'AND a."judgeStatus" IN (\'PENDING\', \'PROCESSING\', \'FAILED\')) ' +
           'ORDER BY r."deadlineAt" ASC LIMIT 1 FOR UPDATE OF r SKIP LOCKED',
       );
 
@@ -86,8 +86,7 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
           (answer) =>
             answer.status === AnswerStatus.ANSWERED &&
             answer.judgeStatus !== JudgeStatus.COMPLETED &&
-            answer.judgeStatus !== JudgeStatus.NOT_REQUIRED &&
-            answer.judgeStatus !== JudgeStatus.FAILED,
+            answer.judgeStatus !== JudgeStatus.NOT_REQUIRED,
         )
       ) {
         return true;
