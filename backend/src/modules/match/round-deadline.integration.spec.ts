@@ -358,6 +358,13 @@ describe('Round deadline and no-response scoring integration', () => {
       outcome: 'CONSECUTIVE_NO_RESPONSE_FORFEIT',
       transferPoints: 20,
     });
+
+    const guestRewards = await prisma.guestXPTransaction.findMany({
+      where: { matchId: scenario.matchId },
+    });
+    expect(guestRewards).toHaveLength(1);
+    expect(guestRewards[0].guestIdentityId).toBe(scenario.participants[1].guestIdentityId);
+    expect(guestRewards[0].amount).toBeGreaterThan(0);
   });
 
   it('resets a no-response streak after a valid answer', async () => {
