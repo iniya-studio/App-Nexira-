@@ -250,7 +250,7 @@ model GuestIdentity {
   convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: Restrict)
   sessions                UserSession[]
   matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
-  matchmakingEntries       MatchmakingEntry[]
+  matchmakingEntries      MatchmakingEntry[]
   emailVerificationTokens EmailVerificationToken[]
   companionProfile        CompanionProfile?
 
