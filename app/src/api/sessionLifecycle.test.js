@@ -1,0 +1,175 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createSessionLifecycle } from './sessionLifecycle.js';
+
+function makeServices({ restored = null, restoreError = null, guest = null, guestError = null, login = null, register = null, convertGuest = null, google = null } = {}) {
+  const calls = [];
+  let current = restored ?? guest ?? null;
+  return {
+    calls,
+    coordinator: {
+      async restore() { calls.push('restore'); if (restoreError) throw restoreError; return restored; },
+      async startGuest() { calls.push('startGuest'); if (guestError) throw guestError; current = guest; return guest; },
+      async login(credentials) { calls.push(['login', credentials]); current = login; return login; },
+      async register(credentials) { calls.push(['register', credentials]); current = register; return register; },
+      async convertGuest(credentials) { calls.push(['convertGuest', credentials]); current = convertGuest; return convertGuest; },
+      async signInWithGoogle(token) { calls.push(['google', token]); current = google; return google; },
+      async resendVerification() { calls.push('resendVerification'); return { accepted: true, delivery: 'SENT' }; },
+      getCurrentPrincipal() { return current?.principal ?? null; },
+      getCurrentSession() { return current?.session ?? null; },
+      async logout() { calls.push('logout'); current = null; },
+    },
+  };
+}
+
+const guestResponse = {
+  principal: { principalType: 'GUEST', principalId: 'guest-1' },
+  session: { sessionId: 'session-1' },
+};
+const userResponse = {
+  principal: { principalType: 'USER', principalId: 'user-1' },
+  session: { sessionId: 'session-2' },
+};
+
+test('Android startup restores an existing authenticated session without creating a guest', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  const state = await lifecycle.initialize();
+  assert.equal(state.status, 'authenticated');
+  assert.equal(state.principal.principalId, 'user-1');
+  assert.deepEqual(services.calls, ['restore']);
+});
+
+test('Android startup creates one guest session only when no saved session exists', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  const first = lifecycle.initialize();
+  const second = lifecycle.initialize();
+  assert.equal(first, second);
+  const state = await first;
+  assert.equal(state.status, 'guest');
+  assert.deepEqual(services.calls, ['restore', 'startGuest']);
+});
+
+test('network failure during restore does not create a second guest identity', async () => {
+  const services = makeServices({ restoreError: Object.assign(new Error('offline'), { code: 'NETWORK_ERROR' }) });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  const state = await lifecycle.initialize();
+  assert.equal(state.status, 'offline');
+  assert.deepEqual(services.calls, ['restore']);
+});
+
+test('guest creation failure is surfaced as offline without breaking app startup', async () => {
+  const services = makeServices({ guestError: Object.assign(new Error('offline'), { code: 'NETWORK_ERROR' }) });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  const state = await lifecycle.initialize();
+  assert.equal(state.status, 'offline');
+  assert.deepEqual(services.calls, ['restore', 'startGuest']);
+});
+
+test('unsupported platforms do not construct native session services', async () => {
+  let constructions = 0;
+  const lifecycle = createSessionLifecycle({
+    platform: () => 'ios',
+    createServices: () => { constructions++; throw new Error('must not run'); },
+  });
+  const state = await lifecycle.initialize();
+  assert.equal(state.status, 'unsupported');
+  assert.equal(constructions, 0);
+});
+
+test('logout clears the active session through the coordinator', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.logout();
+  assert.equal(state.status, 'signed-out');
+  assert.deepEqual(services.calls, ['restore', 'logout']);
+});
+
+test('subscribers receive initial and subsequent lifecycle states', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  const seen = [];
+  const unsubscribe = lifecycle.subscribe((state) => seen.push(state.status));
+  await lifecycle.initialize();
+  unsubscribe();
+  assert.deepEqual(seen, ['idle', 'initializing', 'guest']);
+});
+
+test('a transient startup failure can be retried without reloading the app', async () => {
+  let attempts = 0;
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({
+    platform: () => 'android',
+    createServices: () => {
+      attempts++;
+      if (attempts === 1) throw Object.assign(new Error('API URL is not configured'), { code: 'CONFIGURATION_ERROR' });
+      return services;
+    },
+  });
+  const failed = await lifecycle.initialize();
+  assert.equal(failed.status, 'error');
+  const recovered = await lifecycle.retry();
+  assert.equal(recovered.status, 'guest');
+  assert.equal(attempts, 2);
+  assert.deepEqual(services.calls, ['restore', 'startGuest']);
+});
+
+test('retry is a no-op while a valid session is already active', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  const active = await lifecycle.initialize();
+  const retried = await lifecycle.retry();
+  assert.equal(retried, active);
+  assert.deepEqual(services.calls, ['restore', 'startGuest']);
+});
+
+test('login promotes lifecycle to authenticated', async () => {
+  const services = makeServices({ guest: guestResponse, login: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.login({ email: 'player@example.com', password: 'correct-password' });
+  assert.equal(state.status, 'authenticated');
+  assert.equal(state.principal.principalId, 'user-1');
+});
+
+test('guest conversion promotes account while preserving guest on failure', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  await assert.rejects(lifecycle.convertGuest({ email: 'bad@example.com' }), /valid NEXIRA account session/);
+  assert.equal(lifecycle.getState().status, 'guest');
+  assert.equal(lifecycle.getState().principal.principalId, 'guest-1');
+});
+
+test('registered users cannot use the guest conversion operation', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  await assert.rejects(lifecycle.convertGuest({}), /Only an active guest account/);
+});
+
+
+test('email verification resend is exposed through the lifecycle', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const result = await lifecycle.resendVerification();
+  assert.equal(result.emailVerification.delivery, 'SENT');
+  assert.deepEqual(services.calls, ['restore', 'startGuest', 'resendVerification']);
+});
+
+test('email login exposes account details and derives verification state', async () => {
+  const loginResponse = {
+    ...userResponse,
+    user: { id: 'user-1', email: 'player@example.com', displayName: 'Player One', emailVerifiedAt: null },
+  };
+  const services = makeServices({ guest: guestResponse, login: loginResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.login({ email: 'player@example.com', password: 'correct-password' });
+  assert.equal(state.status, 'authenticated');
+  assert.equal(state.account.email, 'player@example.com');
+  assert.deepEqual(state.emailVerification, { required: true, verified: false, delivery: null });
+});
