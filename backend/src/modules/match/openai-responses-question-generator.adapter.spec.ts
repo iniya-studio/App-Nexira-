@@ -223,4 +223,157 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('generates a valid free-text question with no options and a grading rubric', async () => {
+    respond({
+      ...structuredQuestion,
+      answerType: 'FREE_TEXT',
+      canonicalPrompt: 'What is the largest planet in our solar system?',
+      canonicalOptions: null,
+      answerKey: 'Jupiter',
+      gradingRubric: {
+        requiredConcepts: ['Jupiter'],
+        acceptEquivalentWording: true,
+        notes: 'Accept the planet name only.',
+      },
+      localizedPrompt: 'What is the largest planet in our solar system?',
+      localizedOptions: [],
+    });
+
+    const result = await adapter.generate({
+      ...input,
+      answerType: 'FREE_TEXT',
+    });
+
+    expect(result).toMatchObject({
+      answerType: 'FREE_TEXT',
+      canonicalOptions: null,
+      answerKey: 'Jupiter',
+      gradingRubric: {
+        requiredConcepts: ['Jupiter'],
+        acceptEquivalentWording: true,
+      },
+      localized: {
+        en: {
+          options: {},
+        },
+      },
+    });
+  });
+
+  it('rejects a generated question whose settings differ from the persisted request', async () => {
+    respond({ ...structuredQuestion, difficulty: 'hard' });
+
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_SETTINGS_MISMATCH',
+    });
+  });
+
+  it('rejects localized options whose IDs do not match canonical options', async () => {
+    respond({
+      ...structuredQuestion,
+      localizedOptions: [
+        { id: 'A', text: 'Mercury' },
+        { id: 'X', text: 'Neptune' },
+        { id: 'C', text: 'Mars' },
+      ],
+    });
+
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_OPTIONS_INVALID',
+    });
+  });
+
+  it('rejects malformed structured output and an invalid provider response envelope', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'completed',
+        output: [
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: '{malformed-json' }],
+          },
+        ],
+      }),
+    });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_PROVIDER_INVALID_JSON',
+    });
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error('invalid response JSON');
+      },
+    });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_PROVIDER_INVALID_RESPONSE',
+    });
+  });
+
+  it('rejects an empty output and an invalid response envelope shape', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'completed', output: [] }),
+    });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_PROVIDER_EMPTY_OUTPUT',
+    });
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => [],
+    });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_PROVIDER_INCOMPLETE',
+    });
+  });
+
+  it('rejects invalid input and timeout configuration before making a provider request', async () => {
+    await expect(
+      adapter.generate({ ...input, timeLimitSeconds: 0 }),
+    ).rejects.toMatchObject({ code: 'GENERATOR_INPUT_INVALID' });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    (config.get as jest.Mock).mockImplementation((key: string, fallback?: string) => {
+      const values: Record<string, string> = {
+        QUESTION_GENERATOR_OPENAI_API_KEY: 'generator-test-secret',
+        QUESTION_GENERATOR_OPENAI_MODEL: 'test-generator-model',
+        QUESTION_GENERATOR_TIMEOUT_MS: '45000',
+      };
+      return values[key] ?? fallback;
+    });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_CONFIGURATION_INVALID',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('requires both a dedicated API key and a model selection', async () => {
+    (config.get as jest.Mock).mockImplementation((key: string) =>
+      key === 'QUESTION_GENERATOR_OPENAI_API_KEY'
+        ? 'generator-test-secret'
+        : undefined,
+    );
+
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_PROVIDER_NOT_CONFIGURED',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('normalizes AbortError as a provider timeout', async () => {
+    fetchMock.mockRejectedValue(
+      Object.assign(new Error('aborted'), { name: 'AbortError' }),
+    );
+
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_PROVIDER_TIMEOUT',
+    });
+  });
 });
