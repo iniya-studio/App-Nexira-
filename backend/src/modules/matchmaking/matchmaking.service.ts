@@ -104,9 +104,11 @@ export class MatchmakingService {
           AND "language" = ${language}
           AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
           AND "id" <> ${entry.id}::uuid
-          AND NOT (
-            (${userId}::uuid IS NOT NULL AND "userId" = ${userId}::uuid)
-            OR (${guestIdentityId}::uuid IS NOT NULL AND "guestIdentityId" = ${guestIdentityId}::uuid)
+          AND (
+            ${userId}::uuid IS NULL OR "userId" IS DISTINCT FROM ${userId}::uuid
+          )
+          AND (
+            ${guestIdentityId}::uuid IS NULL OR "guestIdentityId" IS DISTINCT FROM ${guestIdentityId}::uuid
           )
         ORDER BY "queuedAt" ASC, "id" ASC
         FOR UPDATE SKIP LOCKED
