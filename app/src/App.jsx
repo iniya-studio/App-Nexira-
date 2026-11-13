@@ -11,6 +11,8 @@ import {
 import { awardRun, categoryById, isValidAnswer, remainingTime, xpForNextLevel } from './game/scoring.js';
 import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } from './game/session.js';
 import { createLocalMatchAdapter } from './game/localMatchAdapter.js';
+import { createOnlineMatchAdapter } from './game/onlineMatchAdapter.js';
+import { createMatchApi } from './api/matchApi.js';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCopy, getQuestionCopy } from './i18n.js';
@@ -87,6 +89,8 @@ export default function App() {
   const [matchView, setMatchView] = useState(null);
   const [matchRemaining, setMatchRemaining] = useState(10);
   const [matchError, setMatchError] = useState('');
+  const [matchBusy, setMatchBusy] = useState(false);
+  const [onlineAnswerText, setOnlineAnswerText] = useState('');
   const [remaining, setRemaining] = useState(10);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
@@ -99,6 +103,7 @@ export default function App() {
   const timerRemainingRef = useRef(10);
   const timerQuestionIndexRef = useRef(null);
   const matchAdapterRef = useRef(null);
+  const onlineMatchAdapterRef = useRef(null);
   const matchTimerRemainingRef = useRef(10);
   const matchTimerKeyRef = useRef(null);
   if (!matchAdapterRef.current) matchAdapterRef.current = createLocalMatchAdapter();
@@ -157,6 +162,7 @@ export default function App() {
       }
       if (currentScreen === 'match-results') {
         matchAdapterRef.current.reset();
+        onlineMatchAdapterRef.current?.reset();
         setMatchView(null);
         setScreen('modes');
         return;
@@ -220,8 +226,34 @@ export default function App() {
     setScreen('game');
   }, []);
 
-  const beginMatch = useCallback((category, mode) => {
+  const beginMatch = useCallback(async (category, mode) => {
+    setMatchBusy(true);
+    setMatchError('');
+    onlineMatchAdapterRef.current?.reset();
+    onlineMatchAdapterRef.current = null;
     try {
+      if (import.meta.env.PROD) {
+        if (mode !== '1vAI') {
+          throw new Error(language === 'fa'
+            ? 'مسابقه آنلاین ۱ در برابر ۱ هنوز در حال آماده‌سازی است؛ فعلاً ۱ در برابر AI فعال است.'
+            : 'Online 1v1 matchmaking is still being prepared. 1vAI is available first.');
+        }
+        const adapter = createOnlineMatchAdapter(
+          createMatchApi(appSessionLifecycle.getHttpClient()),
+        );
+        onlineMatchAdapterRef.current = adapter;
+        const next = await adapter.start({
+          category: category?.id ?? 'general',
+          language: profileRef.current.settings.language,
+        });
+        setMatchView(next);
+        setOnlineAnswerText('');
+        setMatchError('');
+        setShowExitConfirm(false);
+        setScreen('match-game');
+        return;
+      }
+
       const next = matchAdapterRef.current.start({
         category,
         mode,
@@ -236,12 +268,23 @@ export default function App() {
       setShowExitConfirm(false);
       setScreen('match-game');
     } catch (error) {
-      setMatchError(error instanceof Error ? error.message : 'Unable to start the local match.');
+      setMatchView(onlineMatchAdapterRef.current?.getView() ?? null);
+      setMatchError(error instanceof Error ? error.message : 'Unable to start the match.');
+      setScreen('match-game');
+    } finally {
+      setMatchBusy(false);
     }
-  }, []);
+  }, [language]);
 
-  const handleMatchOption = useCallback((optionId) => {
+  const handleMatchOption = useCallback(async (optionId) => {
     try {
+      if (onlineMatchAdapterRef.current) {
+        setMatchBusy(true);
+        const next = await onlineMatchAdapterRef.current.submitAnswer(optionId);
+        setMatchView(next);
+        if (next.phase === 'complete') setScreen('match-results');
+        return;
+      }
       const current = matchAdapterRef.current.getView();
       if (!current || current.phase !== 'question') return;
       const elapsedMs = Math.min(
@@ -252,32 +295,69 @@ export default function App() {
       setMatchView(next);
       if (next.status === 'complete') setScreen('match-results');
     } catch (error) {
+      setMatchView(onlineMatchAdapterRef.current?.getView() ?? matchAdapterRef.current.getView());
       setMatchError(error instanceof Error ? error.message : 'Unable to submit the match answer.');
+    } finally {
+      setMatchBusy(false);
     }
   }, []);
 
-  const handleMatchTimeout = useCallback(() => {
+  const handleOnlineAnswer = useCallback(async () => {
+    const adapter = onlineMatchAdapterRef.current;
+    if (!adapter || matchBusy) return;
+    setMatchBusy(true);
+    setMatchError('');
     try {
+      const next = await adapter.submitAnswer(onlineAnswerText);
+      setMatchView(next);
+      setOnlineAnswerText('');
+      if (next.phase === 'complete') setScreen('match-results');
+    } catch (error) {
+      setMatchView(adapter.getView());
+      setMatchError(error instanceof Error ? error.message : 'Unable to submit the answer.');
+    } finally {
+      setMatchBusy(false);
+    }
+  }, [matchBusy, onlineAnswerText]);
+
+  const handleMatchTimeout = useCallback(async () => {
+    try {
+      if (onlineMatchAdapterRef.current) {
+        const next = await onlineMatchAdapterRef.current.refresh();
+        if (next) setMatchView(next);
+        if (next?.phase === 'complete') setScreen('match-results');
+        return;
+      }
       const next = matchAdapterRef.current.submitNoResponse();
       setMatchView(next);
       if (next.status === 'complete') setScreen('match-results');
     } catch (error) {
-      setMatchError(error instanceof Error ? error.message : 'Unable to submit the match timeout.');
+      setMatchView(onlineMatchAdapterRef.current?.getView() ?? matchAdapterRef.current.getView());
+      setMatchError(error instanceof Error ? error.message : 'Unable to synchronize the match timeout.');
     }
   }, []);
 
-  const continueMatch = useCallback(() => {
+  const continueMatch = useCallback(async () => {
     try {
-      setMatchView(matchAdapterRef.current.continue());
+      const next = onlineMatchAdapterRef.current
+        ? await onlineMatchAdapterRef.current.continue()
+        : matchAdapterRef.current.continue();
+      setMatchView(next);
+      setMatchError('');
+      if (next?.phase === 'complete') setScreen('match-results');
     } catch (error) {
-      setMatchError(error instanceof Error ? error.message : 'Unable to continue the local match.');
+      setMatchError(error instanceof Error ? error.message : 'Unable to continue the match.');
     }
   }, []);
 
   const leaveMatch = useCallback((destination = 'modes') => {
     matchAdapterRef.current.reset();
+    onlineMatchAdapterRef.current?.reset();
+    onlineMatchAdapterRef.current = null;
     setMatchView(null);
     setMatchError('');
+    setOnlineAnswerText('');
+    setMatchBusy(false);
     setShowExitConfirm(false);
     setScreen(destination);
   }, []);
@@ -352,7 +432,7 @@ export default function App() {
   useEffect(() => {
     if (screen !== 'match-game' || matchView?.phase !== 'question'
         || showExitConfirm || !isPageVisible) return undefined;
-    const timerKey = `${matchView.matchId}:${matchView.roundIndex}:${matchView.activeParticipantId}`;
+    const timerKey = `${matchView.matchId}:${matchView.roundId ?? matchView.roundIndex}:${matchView.activeParticipantId ?? ''}`;
     if (matchTimerKeyRef.current !== timerKey) {
       matchTimerKeyRef.current = timerKey;
       matchTimerRemainingRef.current = matchView.timeLimit;
@@ -360,16 +440,52 @@ export default function App() {
     const started = Date.now();
     const startingRemaining = matchTimerRemainingRef.current;
     const interval = window.setInterval(() => {
-      const timeLeft = remainingTime(startingRemaining, (Date.now() - started) / 1000);
+      const timeLeft = matchView.deadlineAt
+        ? Math.max(0, (Date.parse(matchView.deadlineAt) - Date.now()) / 1000)
+        : remainingTime(startingRemaining, (Date.now() - started) / 1000);
       matchTimerRemainingRef.current = timeLeft;
       setMatchRemaining(timeLeft);
       if (timeLeft <= 0) {
         window.clearInterval(interval);
-        handleMatchTimeout();
+        void handleMatchTimeout();
       }
     }, 100);
     return () => window.clearInterval(interval);
-  }, [handleMatchTimeout, isPageVisible, matchView?.activeParticipantId, matchView?.matchId, matchView?.phase, matchView?.roundIndex, matchView?.timeLimit, screen, showExitConfirm]);
+  }, [handleMatchTimeout, isPageVisible, matchView?.activeParticipantId, matchView?.deadlineAt, matchView?.matchId, matchView?.phase, matchView?.roundId, matchView?.roundIndex, matchView?.timeLimit, screen, showExitConfirm]);
+
+  useEffect(() => {
+    const adapter = onlineMatchAdapterRef.current;
+    if (screen !== 'match-game' || !adapter || !matchView
+        || !['waiting-question', 'waiting-result', 'submitting', 'submission-error'].includes(matchView.phase)) {
+      return undefined;
+    }
+    let active = true;
+    let inFlight = false;
+    const synchronize = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const next = await adapter.refresh();
+        if (active && next) {
+          setMatchView(next);
+          if (next.phase === 'complete') setScreen('match-results');
+        }
+      } catch (error) {
+        if (active) {
+          setMatchView(adapter.getView());
+          setMatchError(error instanceof Error ? error.message : 'Unable to synchronize the online match.');
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+    void synchronize();
+    const interval = window.setInterval(synchronize, 1000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [screen, matchView?.matchId, matchView?.phase]);
 
   useEffect(() => {
     if (screen !== 'game' || !run?.lastAnswer || run.status !== 'active') return undefined;
@@ -616,13 +732,56 @@ export default function App() {
     {screen === 'match-game' && <ScreenFrame className="challenge-screen">
       {!matchView ? <GlassPanel variant="feature" role="alert">
         <p>{matchError || (language === 'fa' ? 'مسابقه در دسترس نیست.' : 'The match is unavailable.')}</p>
+        <button className="secondary-action" onClick={() => {
+          const selectedCategory = categoryById(run?.categoryId);
+          if (selectedCategory) void beginMatch(selectedCategory, '1vAI');
+          else leaveMatch('categories');
+        }}>{language === 'fa' ? 'تلاش دوباره' : 'Try again'}</button>
         <button className="secondary-action" onClick={leaveMatch}>{text.back}</button>
       </GlassPanel> : <>
         <div className="challenge-head">
           <button className="back-link" onClick={() => setShowExitConfirm(true)}><ArrowLeft size={15} /> {text.backToChallenges}</button>
-          <p>{matchView.mode === '1v1' ? '1vs1' : '1vsAI · LOCAL PREVIEW'} <span>·</span> {text.localOnly}</p>
+          <p>{matchView.isOnline ? '1vsAI · ONLINE' : matchView.mode === '1v1' ? '1vs1 · LOCAL PREVIEW' : '1vsAI · LOCAL PREVIEW'} <span>·</span> {matchView.isOnline ? (language === 'fa' ? 'مسابقه سروری' : 'SERVER MATCH') : text.localOnly}</p>
         </div>
         {matchError && <p className="empty-state" role="alert">{matchError}</p>}
+        {['waiting-question', 'waiting-result', 'submitting'].includes(matchView.phase) && <GlassPanel variant="feature" className="question-panel" role="status">
+          <span className="eyebrow"><span className="live-dot" /> {matchView.phase === 'submitting'
+            ? (language === 'fa' ? 'در حال ارسال پاسخ' : 'SUBMITTING ANSWER')
+            : matchView.phase === 'waiting-result'
+              ? (language === 'fa' ? 'در انتظار داوری سرور' : 'WAITING FOR SERVER JUDGING')
+              : (language === 'fa' ? 'در حال آماده‌سازی سؤال' : 'PREPARING QUESTION')}</span>
+          <h2>{matchView.phase === 'waiting-result'
+            ? (language === 'fa' ? 'پاسخ‌ها در حال بررسی هستند…' : 'Your answers are being judged…')
+            : matchView.phase === 'submitting'
+              ? (language === 'fa' ? 'پاسخت با امنیت در حال ارسال است…' : 'Your answer is being sent securely…')
+              : (language === 'fa' ? 'هوش مصنوعی در حال آماده‌سازی مسابقه است…' : 'AI is preparing your match…')}</h2>
+          <p className="panel-note">{language === 'fa'
+            ? 'وضعیت مسابقه و زمان‌بندی فقط از سرور دریافت می‌شود.'
+            : 'Match state and timing are controlled by the backend.'}</p>
+        </GlassPanel>}
+        {matchView.phase === 'submission-error' && <GlassPanel variant="feature" className="question-panel" role="alert">
+          <h2>{language === 'fa' ? 'ارسال پاسخ تأیید نشد' : 'Answer submission needs a retry'}</h2>
+          <p>{matchError || matchView.error}</p>
+          <button className="primary-button" disabled={matchBusy} onClick={() => {
+            setMatchBusy(true);
+            void onlineMatchAdapterRef.current?.retrySubmission()
+              .then(setMatchView)
+              .catch((error) => setMatchError(error.message))
+              .finally(() => setMatchBusy(false));
+          }}><span className="primary-label">{language === 'fa' ? 'ارسال دوباره همان پاسخ' : 'Retry the same answer'}</span></button>
+          <button className="secondary-action" disabled={matchBusy} onClick={() => { void onlineMatchAdapterRef.current?.refresh().then(setMatchView).catch((error) => setMatchError(error.message)); }}>
+            {language === 'fa' ? 'بررسی وضعیت سرور' : 'Check server status'}
+          </button>
+        </GlassPanel>}
+        {matchView.phase === 'error' && <GlassPanel variant="feature" className="question-panel" role="alert">
+          <h2>{language === 'fa' ? 'ارتباط مسابقه قطع شد' : 'Match synchronization paused'}</h2>
+          <p>{matchError || matchView.error}</p>
+          <button className="primary-button" onClick={() => {
+            void onlineMatchAdapterRef.current?.refresh()
+              .then((next) => { setMatchView(next); if (next?.phase === 'complete') setScreen('match-results'); })
+              .catch((error) => setMatchError(error.message));
+          }}><span className="primary-label">{language === 'fa' ? 'تلاش دوباره برای همگام‌سازی' : 'Retry synchronization'}</span></button>
+        </GlassPanel>}
         {matchView.phase === 'handoff' && <GlassPanel variant="feature" className="question-panel">
           <span className="eyebrow">{language === 'fa' ? 'نوبت بعدی' : 'NEXT TURN'}</span>
           <h2>{language === 'fa' ? 'دستگاه را به بازیکن بعدی بدهید' : 'Pass the device to the next player'}</h2>
@@ -640,7 +799,7 @@ export default function App() {
                 tone={result.decision === 'correct' ? 'green' : 'cyan'} />;
             })}
           </div>
-          <p className="panel-note">{language === 'fa' ? 'حریف این حالت اسکریپت‌شده است؛ داوری و بازی آنلاین در دسترس نیست.' : 'The opponent is scripted; real AI judging and online play are not available.'}</p>
+          <p className="panel-note">{matchView.isOnline ? (language === 'fa' ? 'نتیجه این دور پس از داوری سرور نمایش داده می‌شود.' : 'This round is settled by the backend before results are shown.') : (language === 'fa' ? 'حریف این حالت اسکریپت‌شده است؛ داوری و بازی آنلاین در دسترس نیست.' : 'The opponent is scripted; real AI judging and online play are not available.')}</p>
           <button className="primary-button" onClick={continueMatch}><span className="primary-label">{text.continue}</span><ArrowRight className="primary-arrow" size={18} /></button>
         </GlassPanel>}
         {matchView.phase === 'question' && matchView.question && <>
@@ -661,14 +820,29 @@ export default function App() {
           <GlassPanel variant="feature" className="question-panel">
             <div className="question-panel-top"><span><span className="live-dot" /> {text.round} <i>{String(matchView.roundIndex + 1).padStart(2, '0')} / {String(matchView.totalRounds).padStart(2, '0')}</i></span></div>
             <div className="question-copy"><span className="question-kicker"><Sparkles size={13} /> {text.chooseAnswer}</span><h2>{matchView.question.prompt}</h2></div>
-            <div className="answer-list">
-              {matchView.question.options.map(({ id, text: optionText }, index) => <button className="answer-button" key={id} onClick={() => handleMatchOption(id)}>
+            {matchView.question.answerType === 'FREE_TEXT' ? <div className="answer-list online-answer-form">
+              <input
+                className="text-input"
+                type="text"
+                maxLength={2000}
+                value={onlineAnswerText}
+                disabled={matchBusy || matchRemaining <= 0}
+                placeholder={language === 'fa' ? 'پاسخ خود را بنویسید…' : 'Type your answer…'}
+                onChange={(event) => setOnlineAnswerText(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter' && onlineAnswerText.trim()) void handleOnlineAnswer(); }}
+              />
+              <button className="primary-button" disabled={matchBusy || matchRemaining <= 0 || !onlineAnswerText.trim()} onClick={() => void handleOnlineAnswer()}>
+                <span className="primary-label">{language === 'fa' ? 'ثبت پاسخ' : 'Submit answer'}</span>
+                <ArrowRight className="primary-arrow" size={18} />
+              </button>
+            </div> : <div className="answer-list">
+              {matchView.question.options.map(({ id, text: optionText }, index) => <button className="answer-button" key={id} disabled={matchBusy || matchRemaining <= 0} onClick={() => void handleMatchOption(id)}>
                 <span className="answer-key">{String.fromCharCode(65 + index)}</span><span className="answer-text">{optionText}</span>
               </button>)}
-            </div>
-            <p className="panel-note">{matchView.mode === '1vAI'
-              ? (language === 'fa' ? 'حالت پیش‌نمایش محلی؛ حریف اسکریپت‌شده است و AI واقعی نیست.' : 'Local preview only: the opponent is scripted, not real AI.')
-              : (language === 'fa' ? 'پیش‌نمایش محلی دو نفره روی یک دستگاه است.' : 'Local pass-and-play on one device.')}</p>
+            </div>}
+            <p className="panel-note">{matchView.isOnline
+              ? (language === 'fa' ? 'پاسخ و امتیاز توسط سرور و داور هوش مصنوعی تعیین می‌شود.' : 'The backend and AI Judge determine accepted answers and scores.')
+              : (language === 'fa' ? 'حالت پیش‌نمایش محلی؛ حریف اسکریپت‌شده است و AI واقعی نیست.' : 'Local preview only: the opponent is scripted, not real AI.')}</p>
           </GlassPanel>
         </>}
       </>}
@@ -718,9 +892,15 @@ export default function App() {
     {screen === 'match-results' && matchView && <ScreenFrame className="results-screen">
       <div className="results-heading">
         <span className="results-medal"><Trophy size={25} /></span>
-        <span className="eyebrow">{matchView.mode} · {language === 'fa' ? 'نتیجه مسابقه محلی' : 'LOCAL MATCH RESULT'}</span>
+        <span className="eyebrow">{matchView.mode} · {matchView.isOnline ? (language === 'fa' ? 'نتیجه رسمی سرور' : 'SERVER MATCH RESULT') : (language === 'fa' ? 'نتیجه مسابقه محلی' : 'LOCAL MATCH RESULT')}</span>
         <h1>{matchView.winnerId
-          ? (matchView.winnerId === 'human-1' ? (language === 'fa' ? 'بازیکن ۱ برنده شد' : 'Player 1 wins') : matchView.winnerId === 'human-2' ? (language === 'fa' ? 'بازیکن ۲ برنده شد' : 'Player 2 wins') : (language === 'fa' ? 'حریف اسکریپت‌شده برنده شد' : 'Scripted opponent wins'))
+          ? (matchView.winnerId === 'human-1'
+            ? (language === 'fa' ? 'شما برنده شدید' : 'You win')
+            : matchView.isOnline
+              ? (language === 'fa' ? 'حریف هوش مصنوعی برنده شد' : 'NEXIRA AI wins')
+              : matchView.winnerId === 'human-2'
+                ? (language === 'fa' ? 'بازیکن ۲ برنده شد' : 'Player 2 wins')
+                : (language === 'fa' ? 'حریف اسکریپت‌شده برنده شد' : 'Scripted opponent wins'))
           : (language === 'fa' ? 'مساوی' : 'It’s a draw')}</h1>
       </div>
       <GlassPanel variant="feature" className="results-panel">
@@ -728,9 +908,11 @@ export default function App() {
           {matchView.participants.map((participant) => <StatCard key={participant.id} icon={participant.type === 'ai' ? Activity : UserRound}
             label={participant.displayName} value={participant.score} tone={participant.id === matchView.winnerId ? 'green' : 'cyan'} />)}
         </div>
-        <p className="panel-note">{language === 'fa'
-          ? 'این مسابقه پیش‌نمایش محلی است؛ نتیجه در پروفایل ذخیره نشده و AI یا سرویس آنلاین استفاده نشده است.'
-          : 'Local preview only. This result is not saved to your profile; no real AI or online service was used.'}</p>
+        <p className="panel-note">{matchView.isOnline
+          ? (language === 'fa' ? 'امتیاز نهایی و برنده از نتیجه ثبت‌شده در Backend دریافت شده است.' : 'Final scores and winner were retrieved from the authoritative backend result.')
+          : (language === 'fa'
+            ? 'این مسابقه پیش‌نمایش محلی است؛ نتیجه در پروفایل ذخیره نشده و AI یا سرویس آنلاین استفاده نشده است.'
+            : 'Local preview only. This result is not saved to your profile; no real AI or online service was used.')}</p>
       </GlassPanel>
       <div className="results-actions">
         <button className="primary-button" onClick={() => {

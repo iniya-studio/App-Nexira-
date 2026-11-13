@@ -11,7 +11,7 @@ function createIdempotencyKey() {
   return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
 }
 
-function participantView(participant, index) {
+function participantView(participant) {
   const isAi = participant.type === 'AI';
   return {
     id: isAi ? 'scripted-opponent' : 'human-1',
