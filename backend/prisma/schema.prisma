@@ -244,8 +244,8 @@ model GuestIdentity {
   matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
   emailVerificationTokens EmailVerificationToken[]
   companionProfile        CompanionProfile?
-  progress               GuestProgress?
-  xpTransactions         GuestXPTransaction[]
+  progress                GuestProgress?
+  xpTransactions          GuestXPTransaction[]
 
   @@index([status, updatedAt])
   @@index([convertedToUserId])
