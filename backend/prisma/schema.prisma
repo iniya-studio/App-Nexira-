@@ -375,7 +375,7 @@ model MatchParticipant {
   scoreEntries  MatchScoreEntry[]
   wonResults    MatchResult[]     @relation("MatchWinner")
   readiness     RoundReadiness[]
-  aiAnswerJobs  AiAnswerJob[]
+  aiAnswerJobs AiAnswerJob[]
 
   @@unique([matchId, participantKey])
   // A HUMAN participant belongs to exactly one User or GuestIdentity. AI has neither.
@@ -406,7 +406,7 @@ model Round {
   scoreEntries  MatchScoreEntry[]
   readiness     RoundReadiness[]
   generationJob QuestionGenerationJob?
-  aiAnswerJobs   AiAnswerJob[]
+  aiAnswerJobs  AiAnswerJob[]
 
   @@unique([matchId, roundNumber])
   @@unique([id, matchId])
@@ -468,20 +468,20 @@ model QuestionGenerationJob {
 }
 
 model AiAnswerJob {
-  id             String           @id @default(uuid()) @db.Uuid
-  matchId        String           @db.Uuid
-  roundId        String           @db.Uuid
-  participantId  String           @db.Uuid
+  id             String            @id @default(uuid()) @db.Uuid
+  matchId        String            @db.Uuid
+  roundId        String            @db.Uuid
+  participantId  String            @db.Uuid
   status         AiAnswerJobStatus @default(PENDING)
-  attempts       Int              @default(0)
-  maxAttempts    Int              @default(3)
-  availableAt    DateTime         @default(now()) @db.Timestamptz(3)
-  leaseId        String?          @db.Uuid
-  leaseAt        DateTime?        @db.Timestamptz(3)
-  lastErrorCode  String?          @db.VarChar(64)
-  idempotencyKey String           @unique
-  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
-  completedAt    DateTime?        @db.Timestamptz(3)
+  attempts       Int               @default(0)
+  maxAttempts    Int               @default(3)
+  availableAt    DateTime          @default(now()) @db.Timestamptz(3)
+  leaseId        String?           @db.Uuid
+  leaseAt        DateTime?         @db.Timestamptz(3)
+  lastErrorCode  String?           @db.VarChar(64)
+  idempotencyKey String            @unique
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  completedAt    DateTime?         @db.Timestamptz(3)
 
   round       Round             @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
   participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
