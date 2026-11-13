@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException } from '@nestjs/common';
+import { BadRequestException, HttpException, UnauthorizedException } from '@nestjs/common';
 import { MatchmakingEntryStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchService } from '../match/match.service';
@@ -97,6 +97,22 @@ describe('MatchmakingService', () => {
     await expect(service.enqueue(guest, input)).rejects.toBeInstanceOf(HttpException);
     expect(tx.matchmakingEntry.create).not.toHaveBeenCalled();
   });
+
+  it('rejects an expired or revoked session before creating a queue entry', async () => {
+    const { service, tx } = setup();
+    tx.userSession.findUnique.mockResolvedValue({
+      userId: null,
+      guestIdentityId: 'guest-new',
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: new Date(),
+      user: null,
+      guestIdentity: { status: 'ACTIVE', convertedToUserId: null },
+    });
+
+    await expect(service.enqueue(guest, input)).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(tx.matchmakingEntry.create).not.toHaveBeenCalled();
+  });
+
   it('creates exactly one shared 1v1 match and consumes both entries atomically', async () => {
     const { service, tx, matches, entry, gateway } = setup();
     const opponent = {
