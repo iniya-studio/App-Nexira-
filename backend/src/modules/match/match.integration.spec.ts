@@ -55,6 +55,7 @@ describe('Match and round persistence integration', () => {
       questionIds.length = 0;
     }
     if (guestIds.length) {
+      await prisma.guestXPTransaction.deleteMany({ where: { guestIdentityId: { in: guestIds } } });
       await prisma.guestIdentity.deleteMany({
         where: { id: { in: guestIds } },
       });
