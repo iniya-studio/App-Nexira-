@@ -11,16 +11,23 @@ function createIdempotencyKey() {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function participantView(participant) {
+function participantSnapshot(participant) {
   const isAi = participant.type === 'AI';
+  const isSelf = Boolean(participant.isSelf);
   return {
-    id: isAi ? 'scripted-opponent' : 'human-1',
+    id: isAi ? 'scripted-opponent' : isSelf ? 'human-1' : 'human-2',
     type: isAi ? 'ai' : 'human',
-    displayName: isAi ? 'NEXIRA AI' : 'YOU',
+    displayName: isAi ? 'NEXIRA AI' : isSelf ? 'YOU' : 'OPPONENT',
     score: Number.isSafeInteger(participant.score) ? participant.score : 0,
-    isSelf: Boolean(participant.isSelf),
-    answer: participant.answer ?? null,
+    isSelf,
     status: participant.status,
+  };
+}
+
+function participantView(participant) {
+  return {
+    ...participantSnapshot(participant),
+    answer: participant.answer ?? null,
   };
 }
 
@@ -86,6 +93,9 @@ export function createOnlineMatchAdapter(api, {
         status: match.status,
         currentRound: match.currentRound,
         totalRounds: match.roundsTarget,
+        ...(Array.isArray(match.participants)
+          ? { participants: match.participants.map(participantSnapshot) }
+          : {}),
       });
 
       if (match.status === 'COMPLETED') {
@@ -99,7 +109,9 @@ export function createOnlineMatchAdapter(api, {
           ? 'human-1'
           : result.winnerType === 'AI'
             ? 'scripted-opponent'
-            : null;
+            : result.winnerType === 'HUMAN'
+              ? 'human-2'
+              : null;
         return update({
           phase: 'complete',
           participants,
@@ -276,15 +288,17 @@ export function createOnlineMatchAdapter(api, {
         deadlineAt: null,
         question: null,
         roundSummary: null,
-        participants: isOneVsOne
-          ? [
-              { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
-              { id: 'human-2', type: 'human', displayName: 'OPPONENT', score: 0, isSelf: false },
-            ]
-          : [
-              { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
-              { id: 'scripted-opponent', type: 'ai', displayName: 'NEXIRA AI', score: 0, isSelf: false },
-            ],
+        participants: Array.isArray(match.participants) && match.participants.length > 0
+          ? match.participants.map(participantSnapshot)
+          : isOneVsOne
+            ? [
+                { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
+                { id: 'human-2', type: 'human', displayName: 'OPPONENT', score: 0, isSelf: false },
+              ]
+            : [
+                { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
+                { id: 'scripted-opponent', type: 'ai', displayName: 'NEXIRA AI', score: 0, isSelf: false },
+              ],
         error: null,
       };
       roundId = null;
