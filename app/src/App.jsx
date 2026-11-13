@@ -14,6 +14,8 @@ import { createLocalMatchAdapter } from './game/localMatchAdapter.js';
 import { createOnlineMatchAdapter } from './game/onlineMatchAdapter.js';
 import { createMatchApi } from './api/matchApi.js';
 import { createProgressionApi } from './api/progressionApi.js';
+import { createMatchmakingApi } from './api/matchmakingApi.js';
+import { createOnlineMatchmakingAdapter } from './game/onlineMatchmakingAdapter.js';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCopy, getQuestionCopy } from './i18n.js';
@@ -88,6 +90,7 @@ export default function App() {
   const screenRef = useRef(screen);
   const [run, setRun] = useState(null);
   const [matchView, setMatchView] = useState(null);
+  const [matchmakingView, setMatchmakingView] = useState(null);
   const [matchRemaining, setMatchRemaining] = useState(10);
   const [matchError, setMatchError] = useState('');
   const [matchBusy, setMatchBusy] = useState(false);
@@ -111,6 +114,8 @@ export default function App() {
   const timerQuestionIndexRef = useRef(null);
   const matchAdapterRef = useRef(null);
   const onlineMatchAdapterRef = useRef(null);
+  const onlineMatchmakingAdapterRef = useRef(null);
+  const matchmakingTransitionRef = useRef(null);
   const matchTimerRemainingRef = useRef(10);
   const matchTimerKeyRef = useRef(null);
   if (!matchAdapterRef.current) matchAdapterRef.current = createLocalMatchAdapter();
