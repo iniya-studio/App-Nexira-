@@ -116,6 +116,7 @@ export default function App() {
   const onlineMatchAdapterRef = useRef(null);
   const onlineMatchmakingAdapterRef = useRef(null);
   const matchmakingTransitionRef = useRef(null);
+  const matchmakingRecoveryPrincipalRef = useRef(null);
   const matchTimerRemainingRef = useRef(10);
   const matchTimerKeyRef = useRef(null);
   if (!matchAdapterRef.current) matchAdapterRef.current = createLocalMatchAdapter();
@@ -413,6 +414,43 @@ export default function App() {
       setMatchBusy(false);
     }
   }, [matchBusy, openMatchedOnlineMatch]);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD || !['guest', 'authenticated'].includes(sessionState.status)) return undefined;
+    const principalId = sessionState.principal?.principalId;
+    if (!principalId || matchmakingRecoveryPrincipalRef.current === principalId) return undefined;
+    matchmakingRecoveryPrincipalRef.current = principalId;
+    let active = true;
+    const restoreQueue = async () => {
+      const adapter = createOnlineMatchmakingAdapter(
+        createMatchmakingApi(appSessionLifecycle.getHttpClient()),
+      );
+      onlineMatchmakingAdapterRef.current = adapter;
+      try {
+        const next = await adapter.refresh();
+        if (!active || !next) return;
+        if (next.status === 'MATCHED' && next.matchId) {
+          await openMatchedOnlineMatch(next);
+        } else if (next.status === 'WAITING') {
+          setMatchmakingView({
+            ...next,
+            categoryTitle: categoryById(next.category)?.title ?? next.category ?? 'General',
+          });
+          setScreen('matchmaking');
+        } else {
+          adapter.reset();
+          if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
+        }
+      } catch {
+        adapter.reset();
+        if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
+      }
+    };
+    void restoreQueue();
+    return () => {
+      active = false;
+    };
+  }, [openMatchedOnlineMatch, sessionState.principal?.principalId, sessionState.status]);
 
   const handleMatchOption = useCallback(async (optionId) => {
     try {
