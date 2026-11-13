@@ -48,6 +48,13 @@ enum MatchStatus {
   CANCELLED
 }
 
+enum MatchmakingEntryStatus {
+  WAITING
+  MATCHED
+  CANCELLED
+  EXPIRED
+}
+
 enum QuestionGenerationJobStatus {
   PENDING
   PROCESSING
@@ -176,6 +183,7 @@ model User {
   xpTransactions          XPTransaction[]
   globalRanking           GlobalUserRanking?
   matchParticipants       MatchParticipant[]
+  matchmakingEntries     MatchmakingEntry[]
   hostedRooms             Room[]                   @relation("RoomHost")
   roomMemberships         RoomMember[]
   rankings                UserRanking[]
@@ -242,6 +250,7 @@ model GuestIdentity {
   convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: Restrict)
   sessions                UserSession[]
   matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
+  matchmakingEntries     MatchmakingEntry[]
   emailVerificationTokens EmailVerificationToken[]
   companionProfile        CompanionProfile?
 
@@ -349,9 +358,35 @@ model Match {
   rankingEvents          RankingTransaction[]
   scoreEntries           MatchScoreEntry[]
   questionGenerationJobs QuestionGenerationJob[]
+  matchmakingEntries     MatchmakingEntry[]
 
   @@index([status, createdAt])
   @@index([roomId, createdAt])
+}
+
+// Persistent public 1v1 queue. Partial unique WAITING-principal indexes and state checks
+// are added in SQL because Prisma schema cannot express PostgreSQL partial indexes/checks.
+model MatchmakingEntry {
+  id              String                 @id @default(uuid()) @db.Uuid
+  userId          String?                @db.Uuid
+  guestIdentityId String?                @db.Uuid
+  category        String                 @db.VarChar(64)
+  language        String                 @db.VarChar(16)
+  status          MatchmakingEntryStatus @default(WAITING)
+  idempotencyKey  String                 @unique @db.VarChar(128)
+  queuedAt        DateTime               @default(now()) @db.Timestamptz(3)
+  matchedAt       DateTime?              @db.Timestamptz(3)
+  cancelledAt     DateTime?              @db.Timestamptz(3)
+  expiresAt       DateTime?              @db.Timestamptz(3)
+  matchId         String?                @db.Uuid
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  guestIdentity GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  match         Match?         @relation(fields: [matchId], references: [id], onDelete: Restrict)
+
+  @@index([status, category, language, queuedAt])
+  @@index([matchId])
+  @@index([expiresAt, status])
 }
 
 // Participant count is intentionally not constrained in the schema.
