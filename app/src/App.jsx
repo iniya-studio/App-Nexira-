@@ -416,7 +416,11 @@ export default function App() {
   }, [matchBusy, openMatchedOnlineMatch]);
 
   useEffect(() => {
-    if (!import.meta.env.PROD || !['guest', 'authenticated'].includes(sessionState.status)) return undefined;
+    if (!import.meta.env.PROD) return undefined;
+    if (!['guest', 'authenticated'].includes(sessionState.status)) {
+      matchmakingRecoveryPrincipalRef.current = null;
+      return undefined;
+    }
     const principalId = sessionState.principal?.principalId;
     if (!principalId || matchmakingRecoveryPrincipalRef.current === principalId) return undefined;
     matchmakingRecoveryPrincipalRef.current = principalId;
