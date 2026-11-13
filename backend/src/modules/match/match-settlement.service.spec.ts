@@ -7,7 +7,6 @@ import {
   ParticipantStatus,
   ParticipantType,
   Prisma,
-  RankingSeasonStatus,
 } from '@prisma/client';
 import { MatchSettlementService } from './match-settlement.service';
 
