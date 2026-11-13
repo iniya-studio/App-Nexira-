@@ -18,9 +18,9 @@ describe('ProgressionService', () => {
   const prisma = {
     userProgress: { findUnique: jest.fn() },
     guestProgress: { findUnique: jest.fn() },
-    globalUserRanking: { findMany: jest.fn(), findUnique: jest.fn() },
+    globalUserRanking: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
     rankingSeason: { findMany: jest.fn() },
-    userRanking: { findMany: jest.fn(), findUnique: jest.fn() },
+    userRanking: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
   };
 
   let service: ProgressionService;
@@ -86,6 +86,7 @@ describe('ProgressionService', () => {
         user: { username: 'player_one', displayName: 'Player One' },
       },
     ]);
+    prisma.globalUserRanking.count.mockResolvedValue(0);
     prisma.globalUserRanking.findUnique.mockResolvedValue({
       userId: 'user-1',
       rankingPoints: 20,
@@ -125,6 +126,47 @@ describe('ProgressionService', () => {
       season: null,
       entries: [],
       me: null,
+    });
+  });
+
+
+  it('returns the current seasonal leaderboard and exact account position', async () => {
+    const season = {
+      id: 'season-1',
+      name: 'November League',
+      startsAt: new Date('2026-11-01T00:00:00.000Z'),
+      endsAt: new Date('2026-12-01T00:00:00.000Z'),
+    };
+    prisma.rankingSeason.findMany.mockResolvedValue([season]);
+    prisma.userRanking.findMany.mockResolvedValue([
+      {
+        userId: 'user-1',
+        rankingPoints: 20,
+        wins: 1,
+        losses: 0,
+        draws: 0,
+        matchesPlayed: 1,
+        user: { username: 'player_one', displayName: 'Player One' },
+      },
+    ]);
+    prisma.userRanking.findUnique.mockResolvedValue({
+      userId: 'user-1',
+      seasonId: 'season-1',
+      rankingPoints: 20,
+      wins: 1,
+      losses: 0,
+      draws: 0,
+      matchesPlayed: 1,
+      updatedAt: new Date('2026-11-14T00:00:00.000Z'),
+    });
+    prisma.userRanking.count.mockResolvedValue(0);
+
+    await expect(service.getCurrentSeasonRanking(userPrincipal)).resolves.toMatchObject({
+      scope: 'SEASON',
+      eligible: true,
+      season: { id: 'season-1', name: 'November League' },
+      entries: [{ position: 1, userId: 'user-1', rankingPoints: 20 }],
+      me: { position: 1, rankingPoints: 20, matchesPlayed: 1 },
     });
   });
 
