@@ -218,12 +218,36 @@ export class MatchService {
         createdAt: true,
         startedAt: true,
         completedAt: true,
-        participants: { select: { participantType: true, status: true } },
+        participants: {
+          select: {
+            id: true,
+            participantType: true,
+            status: true,
+            score: true,
+            userId: true,
+            guestIdentityId: true,
+          },
+        },
       },
     });
 
     if (!match) throw new NotFoundException('Match not found');
-    return this.toMatchSummary(match);
+    return {
+      ...this.toMatchSummary(match),
+      participants: match.participants.map((participant) => {
+        const isSelf = principal.principalType === PrincipalType.USER
+          ? participant.userId === principal.principalId
+          : participant.guestIdentityId === principal.principalId;
+        return {
+          id: participant.id,
+          type: participant.participantType,
+          status: participant.status,
+          score: participant.score,
+          isSelf,
+          displayName: isSelf ? 'YOU' : 'OPPONENT',
+        };
+      }),
+    };
   }
 
   private humanParticipantData(principal: AuthenticatedPrincipal) {
