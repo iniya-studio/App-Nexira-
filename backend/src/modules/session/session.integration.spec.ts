@@ -51,6 +51,7 @@ describe('Guest identity and session integration', () => {
     if (guestIds.length) {
       await prisma.userSession.deleteMany({ where: { guestIdentityId: { in: guestIds } } });
       await prisma.identityAuditEvent.deleteMany({ where: { principalId: { in: guestIds } } });
+      await prisma.guestXPTransaction.deleteMany({ where: { guestIdentityId: { in: guestIds } } });
       await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
       guestIds.length = 0;
     }
