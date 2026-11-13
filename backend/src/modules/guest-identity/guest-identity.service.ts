@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GuestIdentityStatus, PrincipalType, Prisma, UserStatus } from '@prisma/client';
+import { GuestIdentityStatus, MatchStatus, PrincipalType, Prisma, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
@@ -136,6 +136,43 @@ export class GuestIdentityService {
           data: { guestIdentityId: null, userId: user.id },
         });
 
+        // Preserve a waiting queue request when a guest upgrades to an account.
+        // Re-read matched entries after this update because pairing may have committed
+        // while conversion waited for the guest identity row lock.
+        const waitingQueueTransfer = await tx.matchmakingEntry.updateMany({
+          where: { guestIdentityId: guest.id, status: 'WAITING' },
+          data: { guestIdentityId: null, userId: user.id },
+        });
+        const activeMatchedEntries = await tx.matchmakingEntry.findMany({
+          where: {
+            guestIdentityId: guest.id,
+            status: 'MATCHED',
+            match: { status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] } },
+          },
+          select: { id: true, matchId: true },
+        });
+        const activeMatchIds = activeMatchedEntries
+          .map((entry) => entry.matchId)
+          .filter((matchId): matchId is string => matchId !== null);
+        let activeParticipantTransfer = 0;
+        let matchedQueueTransfer = 0;
+        if (activeMatchIds.length > 0) {
+          const participantTransfer = await tx.matchParticipant.updateMany({
+            where: { guestIdentityId: guest.id, matchId: { in: activeMatchIds } },
+            data: { guestIdentityId: null, userId: user.id },
+          });
+          activeParticipantTransfer = participantTransfer.count;
+          const queueTransfer = await tx.matchmakingEntry.updateMany({
+            where: {
+              id: { in: activeMatchedEntries.map((entry) => entry.id) },
+              guestIdentityId: guest.id,
+              status: 'MATCHED',
+            },
+            data: { guestIdentityId: null, userId: user.id },
+          });
+          matchedQueueTransfer = queueTransfer.count;
+        }
+
         const now = new Date();
         const guestUpdate = await tx.guestIdentity.updateMany({
           where: { id: guest.id, status: GuestIdentityStatus.ACTIVE, convertedToUserId: null },
@@ -172,6 +209,9 @@ export class GuestIdentityService {
               companionProfileTransferred: profileTransfer.count === 1,
               progressionTransferred: guestProgress !== null,
               xpTransactionsTransferred: guestXpTransactions.length,
+              waitingQueueTransferred: waitingQueueTransfer.count,
+              matchedQueueTransferred: matchedQueueTransfer,
+              activeMatchParticipantsTransferred: activeParticipantTransfer,
             },
           },
         });
