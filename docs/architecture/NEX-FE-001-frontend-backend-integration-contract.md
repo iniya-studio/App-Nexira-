@@ -178,3 +178,14 @@ Still required before a real device match can run against live AI:
 - Both result routes authorize against the participant's authenticated user/guest identity and never serialize internal participant IDs or submitted answer text.
 - Backend CORS is now an explicit origin allowlist. Production Android WebView must be allowed through `https://localhost`; `capacitor://localhost` and local Vite development origins are configurable. Authorization and JSON headers are allowed; credentialed cookies are not used.
 - CORS, participant-safe result visibility, and winner gating are included in the Backend CI verification.
+
+
+### Public 1v1 matchmaking — implementation in progress, 2026-11-14
+
+- Production 1v1 now uses `createOnlineMatchmakingAdapter` and the authenticated queue API; it does not call the local pass-and-play adapter.
+- Enqueue carries a stable idempotency key. Before creating a new entry, the client reads `GET /matchmaking/queue/me` so a waiting or already-matched entry can be recovered after an app restart.
+- The waiting screen polls the authoritative queue snapshot, supports cancellation, and hands the committed match ID to `createOnlineMatchAdapter.resume()`. The existing server-owned question, readiness, deadline, answer submission, judging and result lifecycle is reused.
+- A resumed human-vs-human match maps the two server participants separately and renders the correct human winner. The client does not synthesize a second player or score.
+- Category identifiers are aligned with the shipped app categories (`memory`, `logic`, `mathematics`, `knowledge`, `reaction`, `focus`, `language`, `science`) and the selected language is preserved from the queue snapshot.
+- The server exposes authenticated Socket.IO match-found notifications, but the current Android/web client uses REST status polling for matchmaking; socket client subscription remains a future transport optimization.
+- CI, migration execution, real two-device testing, and cold-process acceptance remain release gates. No 1v1 production release is approved by this implementation note.
