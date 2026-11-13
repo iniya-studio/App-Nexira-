@@ -13,6 +13,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MatchSettlementService } from './match-settlement.service';
 
 const POLL_INTERVAL_MS = 1_000;
 const MAX_ROUNDS_PER_POLL = 5;
@@ -26,7 +27,10 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
   private timer?: ReturnType<typeof setInterval>;
   private polling = false;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settlement: MatchSettlementService,
+  ) {}
 
   onModuleInit(): void {
     void this.poll();
@@ -300,6 +304,7 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
             completedAt: finalizedAt,
           },
         });
+        await this.settlement.settleCompletedMatch(tx, round.matchId);
       }
 
       return true;
