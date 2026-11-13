@@ -260,6 +260,32 @@ describe('RoundService', () => {
     expect(JSON.stringify(result)).not.toContain('guest-1');
   });
 
+  it('hides every participant answer and score until the round is finalized', async () => {
+    prisma.round.findFirst.mockResolvedValue({
+      id: 'round-1',
+      matchId: 'match-1',
+      roundNumber: 1,
+      startedAt,
+      deadlineAt: new Date(startedAt.getTime() + 20_000),
+      completedAt: null,
+      voidedAt: null,
+      match: { participants: [
+        { id: 'human-row', userId: null, guestIdentityId: 'guest-1', participantType: ParticipantType.HUMAN, status: ParticipantStatus.ACTIVE, score: 50 },
+        { id: 'ai-row', userId: null, guestIdentityId: null, participantType: ParticipantType.AI, status: ParticipantStatus.ACTIVE, score: 80 },
+      ] },
+      answers: [
+        { participantId: 'human-row', status: 'ANSWERED', judgeStatus: 'COMPLETED', decision: 'CORRECT', points: 15, elapsedMs: 1200, acceptedAt: startedAt },
+        { participantId: 'ai-row', status: 'ANSWERED', judgeStatus: 'PENDING', decision: null, points: 0, elapsedMs: 2200, acceptedAt: startedAt },
+      ],
+    });
+    const result = await service.getRoundResult('match-1', 'round-1', principal);
+    expect(result.status).toBe('ACTIVE');
+    for (const participant of result.participants) {
+      expect(participant).not.toHaveProperty('score');
+      expect(participant.answer).toBeNull();
+    }
+  });
+
   it('localizes prompt and options while preserving canonical option IDs and order', async () => {
     const deadlineAt = new Date(startedAt.getTime() + 20_000);
     prisma.round.findFirst.mockResolvedValue({

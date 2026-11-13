@@ -242,6 +242,7 @@ export class RoundService {
     );
     if (!self) throw new NotFoundException('Round not found');
 
+    const settled = Boolean(round.completedAt) && !round.voidedAt;
     return {
       matchId: round.matchId,
       roundId: round.id,
@@ -256,9 +257,9 @@ export class RoundService {
         return {
           type: participant.participantType,
           status: participant.status,
-          score: participant.score,
+          ...(settled ? { score: participant.score } : {}),
           isSelf: participant.id === self.id,
-          answer: answer ? {
+          answer: settled && answer ? {
             status: answer.status,
             judgeStatus: answer.judgeStatus,
             decision: judged ? answer.decision : null,

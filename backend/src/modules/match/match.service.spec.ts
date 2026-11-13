@@ -128,6 +128,32 @@ describe('MatchService', () => {
     expect(JSON.stringify(result)).not.toContain('guest-1');
   });
 
+  it('does not expose interim scores through the result endpoint', async () => {
+    const prisma = {
+      match: { findFirst: jest.fn().mockResolvedValue({
+        id: 'match-pending-result',
+        mode: MatchMode.ONE_V_AI,
+        status: MatchStatus.ACTIVE,
+        roundsTarget: 10,
+        currentRound: 1,
+        completedAt: null,
+        participants: [
+          { id: 'human-row', userId: null, guestIdentityId: 'guest-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE', score: 50 },
+          { id: 'ai-row', userId: null, guestIdentityId: null, participantType: ParticipantType.AI, status: 'ACTIVE', score: 80 },
+        ],
+        result: null,
+      }) },
+    } as unknown as PrismaService;
+    const service = new MatchService(prisma);
+    const result = await service.getMatchResult('match-pending-result', {
+      principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'session-1',
+    });
+    expect(result.completed).toBe(false);
+    expect(result.participants[0]).not.toHaveProperty('score');
+    expect(result.participants[1]).not.toHaveProperty('score');
+    expect(result.winnerType).toBeNull();
+  });
+
   it('returns match state only to a participant and never includes interim scores', async () => {
     const prisma = { match: { findFirst: jest.fn().mockResolvedValue({
       id: 'match-2', mode: MatchMode.ONE_V_ONE, status: MatchStatus.ACTIVE,

@@ -177,7 +177,9 @@ export class MatchService {
       participants: match.participants.map((participant) => ({
         type: participant.participantType,
         status: participant.status,
-        score: participant.score,
+        ...(match.status === MatchStatus.COMPLETED && match.result
+          ? { score: participant.score }
+          : {}),
         isSelf: participant.id === self.id,
       })),
     };
