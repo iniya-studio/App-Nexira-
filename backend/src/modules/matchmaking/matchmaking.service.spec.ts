@@ -23,6 +23,7 @@ describe('MatchmakingService', () => {
         return Promise.resolve([]);
       }),
       userSession: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'opponent-session' }),
         findUnique: jest.fn().mockResolvedValue({
           userId: null,
           guestIdentityId: 'guest-new',
