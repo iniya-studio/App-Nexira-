@@ -124,6 +124,21 @@ describe('GuestIdentityService conversion', () => {
     expect(result.emailVerification).toEqual({ required: true, verified: false, delivery: 'SENT' });
   });
 
+
+  it('transfers an already-paired active 1v1 match to the newly created account', async () => {
+    tx.matchmakingEntry.findMany.mockResolvedValue([{ id: 'queue-1', matchId: 'match-1' }]);
+    tx.matchParticipant.updateMany.mockResolvedValue({ count: 1 });
+    tx.matchmakingEntry.updateMany.mockResolvedValue({ count: 1 });
+    await service.convert(principal, input);
+    expect(tx.matchParticipant.updateMany).toHaveBeenCalledWith({
+      where: { guestIdentityId: 'guest-1', matchId: { in: ['match-1'] } },
+      data: { guestIdentityId: null, userId: 'user-1' },
+    });
+    expect(tx.matchmakingEntry.updateMany).toHaveBeenLastCalledWith({
+      where: { id: { in: ['queue-1'] }, guestIdentityId: 'guest-1', status: 'MATCHED' },
+      data: { guestIdentityId: null, userId: 'user-1' },
+    });
+  });
   it('rejects conversion from a registered USER principal', async () => {
     await expect(service.convert({
       principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 's1',
