@@ -113,27 +113,54 @@ export class MatchmakingService {
 
       const userId = principal.principalType === PrincipalType.USER ? principal.principalId : null;
       const guestIdentityId = principal.principalType === PrincipalType.GUEST ? principal.principalId : null;
-      const candidates = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT "id" FROM "MatchmakingEntry"
-        WHERE "status" = 'WAITING'::"MatchmakingEntryStatus"
-          AND "category" = ${category}
-          AND "language" = ${language}
-          AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
-          AND "id" <> ${entry.id}::uuid
-          AND (
-            ${userId}::uuid IS NULL OR "userId" IS DISTINCT FROM ${userId}::uuid
-          )
-          AND (
-            ${guestIdentityId}::uuid IS NULL OR "guestIdentityId" IS DISTINCT FROM ${guestIdentityId}::uuid
-          )
-        ORDER BY "queuedAt" ASC, "id" ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT 1
-      `;
-      if (candidates.length === 0) return { state: this.toQueueState(entry), notificationPrincipals: [] as AuthenticatedPrincipal[] };
+      let opponent: QueueEntry | null = null;
+      while (!opponent) {
+        const candidates = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "MatchmakingEntry"
+          WHERE "status" = 'WAITING'::"MatchmakingEntryStatus"
+            AND "category" = ${category}
+            AND "language" = ${language}
+            AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
+            AND "id" <> ${entry.id}::uuid
+            AND (
+              ${userId}::uuid IS NULL OR "userId" IS DISTINCT FROM ${userId}::uuid
+            )
+            AND (
+              ${guestIdentityId}::uuid IS NULL OR "guestIdentityId" IS DISTINCT FROM ${guestIdentityId}::uuid
+            )
+          ORDER BY "queuedAt" ASC, "id" ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT 1
+        `;
+        if (candidates.length === 0) break;
 
-      const opponent = await tx.matchmakingEntry.findUnique({ where: { id: candidates[0].id } });
-      if (!opponent || opponent.status !== MatchmakingEntryStatus.WAITING) return { state: this.toQueueState(entry), notificationPrincipals: [] as AuthenticatedPrincipal[] };
+        const candidate = await tx.matchmakingEntry.findUnique({ where: { id: candidates[0].id } });
+        if (!candidate || candidate.status !== MatchmakingEntryStatus.WAITING) continue;
+        const candidateOwner = candidate.userId
+          ? { userId: candidate.userId }
+          : candidate.guestIdentityId
+            ? { guestIdentityId: candidate.guestIdentityId }
+            : null;
+        const activeSession = candidateOwner
+          ? await tx.userSession.findFirst({
+              where: {
+                ...candidateOwner,
+                revokedAt: null,
+                expiresAt: { gt: now },
+              },
+              select: { id: true },
+            })
+          : null;
+        if (!activeSession) {
+          await tx.matchmakingEntry.updateMany({
+            where: { id: candidate.id, status: MatchmakingEntryStatus.WAITING },
+            data: { status: MatchmakingEntryStatus.EXPIRED },
+          });
+          continue;
+        }
+        opponent = candidate;
+      }
+      if (!opponent) return { state: this.toQueueState(entry), notificationPrincipals: [] as AuthenticatedPrincipal[] };
 
       const match = await this.matches.createOneVsOne(
         this.toPrincipal(opponent),
