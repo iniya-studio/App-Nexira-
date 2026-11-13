@@ -213,16 +213,24 @@ export default function App() {
     setProgressionLoading(true);
     try {
       const api = createProgressionApi(appSessionLifecycle.getHttpClient());
-      const [progress, global, seasonal] = await Promise.all([
+      const [progressResult, globalResult, seasonalResult] = await Promise.allSettled([
         api.getMyProgress(),
         api.getGlobalRanking(),
         api.getCurrentSeasonRanking(),
       ]);
-      setServerProgress(progress);
-      setGlobalRanking(global);
-      setSeasonalRanking(seasonal);
-      setProgressionError('');
-      return progress;
+      if (progressResult.status === 'rejected') throw progressResult.reason;
+      setServerProgress(progressResult.value);
+      if (globalResult.status === 'fulfilled') setGlobalRanking(globalResult.value);
+      if (seasonalResult.status === 'fulfilled') setSeasonalRanking(seasonalResult.value);
+      const rankingFailure = globalResult.status === 'rejected'
+        ? globalResult.reason
+        : seasonalResult.status === 'rejected'
+          ? seasonalResult.reason
+          : null;
+      setProgressionError(rankingFailure
+        ? (rankingFailure instanceof Error ? rankingFailure.message : 'Unable to load rankings.')
+        : '');
+      return progressResult.value;
     } catch (error) {
       setProgressionError(error instanceof Error ? error.message : 'Unable to load progression.');
       return null;
