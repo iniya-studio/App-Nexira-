@@ -94,6 +94,7 @@ describe('ProgressionService', () => {
       losses: 0,
       draws: 0,
       matchesPlayed: 1,
+      updatedAt: new Date('2026-11-14T00:00:00.000Z'),
     });
 
     await expect(service.getGlobalRanking(userPrincipal)).resolves.toMatchObject({
