@@ -442,6 +442,15 @@ export default function App() {
   }, [matchBusy, openMatchedOnlineMatch]);
 
   useEffect(() => {
+    if (sessionState.status !== 'signed-out' || screen !== 'matchmaking') return;
+    onlineMatchmakingAdapterRef.current?.reset();
+    onlineMatchmakingAdapterRef.current = null;
+    setMatchmakingView(null);
+    setMatchError('');
+    setScreen('home');
+  }, [screen, sessionState.status]);
+
+  useEffect(() => {
     if (!import.meta.env.PROD) return undefined;
     if (!['guest', 'authenticated'].includes(sessionState.status)) {
       matchmakingRecoveryPrincipalRef.current = null;
