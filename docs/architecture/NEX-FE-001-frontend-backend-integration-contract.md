@@ -1,13 +1,13 @@
 # NEXIRA Frontend–Backend Integration Contract
-Version: 1.0
+Version: 1.1
 Status: Approved implementation baseline for the recovery monorepo
 Scope: V1 app integration with the existing NestJS modular monolith
-Non-goal: Backend redesign or changes to existing backend domain contracts
+Boundary: Preserve the NestJS modular monolith and existing identity/session foundations. Narrow, tested Backend contract and lifecycle changes are allowed when required to close a verified V1 gap.
 
 ## 1. Current verified state
 
 - The Android app is a React + Vite + Capacitor client under `app/`.
-- The current gameplay path uses `app/src/game/localMatchAdapter.js`; it is a local simulation, not an online API client.
+- Production 1vAI uses `app/src/game/onlineMatchAdapter.js` and the authenticated REST API. `localMatchAdapter.js` is reserved for Vite development/demo and automated deterministic tests.
 - The backend is under `backend/`, uses the existing NestJS + Prisma modular monolith, and exposes `/api/v1`.
 - Guest identity, email/password authentication, Google sign-in, rotating refresh sessions, authenticated match creation/read, round readiness, localized question delivery, and answer submission already exist.
 - The backend CI and Android build workflows are independent. This document does not alter either backend schema or migration history.
@@ -21,7 +21,7 @@ Non-goal: Backend redesign or changes to existing backend domain contracts
 5. Persist the refresh token using the platform's secure storage capability; never store it in localStorage, sessionStorage, logs, analytics, or crash reports.
 6. Every answer submission has a fresh high-entropy idempotency key. A network retry of the same logical submission must reuse the same key and exact payload.
 7. The client never calculates authoritative elapsed time, deadline acceptance, correctness, score, or opponent outcome.
-8. Keep the local adapter available behind an explicit development/demo adapter selection until online flow passes device-level acceptance tests. Do not silently fall back to local scoring in production after an API failure.
+8. Keep the local adapter for development/demo and automated tests only. Production 1vAI must use the online adapter and must never silently fall back to local scoring after an API failure. Device-level acceptance remains a release gate.
 9. Preserve the current language-selection behavior. Send the chosen language on question reads; do not couple language selection to device locale or geography.
 10. Do not introduce a new state-management library or rewrite the UI merely to add networking.
 
@@ -51,25 +51,23 @@ Base URL: environment-configured API origin + `/api/v1`.
 
 All route names above are verified against the current backend controllers. DTOs and service implementations are the source of truth for payload details. Do not infer a missing route from this list.
 
-## 4. Known backend readiness gaps (must not be hidden by the client)
+## 4. Verified implementation and remaining acceptance gates
 
 The backend already contains substantial server-side match infrastructure: canonical question generation and persistence, a shared database-owned round clock, participant readiness, answer acceptance with idempotency, deterministic multiple-choice judging, an AI Judge worker for free-text answers, round deadline/finalization workers, and technical-void recovery. These are real backend capabilities and must be reused; they must not be reimplemented in the client.
 
-However, the current public API is not yet a complete playable V1 contract:
-
-- Public 1v1 matchmaking/queue and pairing are not exposed; `createOneVsOne` is an internal service method only.
-- `GET /matches/:matchId` returns a match summary but not a complete active-round/result snapshot. `GET /matches/:matchId/question-recovery` exposes generation/readiness recovery details, but the client still needs a documented, complete polling/state-transition contract.
-- `GET /matches/:matchId/rounds/:roundId/result` and `GET /matches/:matchId/result` now expose participant-authorized, sanitized settlement data. The answer submission receipt itself remains non-authoritative for UI scoring; the client must wait for the result routes.
-- The 1vAI path now has a complete REST-driven lifecycle contract: question generation/recovery, AI readiness, server-owned round clock, AI opponent answer worker, AI Judge, round settlement, next-question generation, and final match result retrieval. The client adapter is implemented in `app/src/game/onlineMatchAdapter.js`.
-- Public 1v1 matchmaking/queue and pairing are still not exposed; `createOneVsOne` remains an internal service method.
-- A WebSocket client event contract is not exposed. V1 online 1vAI currently uses bounded REST polling and must reconcile after foreground/resume and network recovery.
-- Live provider execution still requires a deployed API, PostgreSQL, HTTPS API origin in the Android build, and the server-side Question Generator, AI Opponent, and AI Judge credentials. CI uses test providers and does not prove production provider connectivity.
+The production 1vAI lifecycle is implemented through the existing REST contracts and the two sanitized result routes. The answer submission receipt remains non-authoritative; the client waits for server settlement before displaying correctness or score.
+- 1vAI lifecycle: question generation/recovery, AI readiness, database-owned shared round clock, AI opponent answer worker, AI Judge, round settlement, next-question generation, and final match result retrieval are implemented and covered by PostgreSQL integration tests.
+- Public 1v1 matchmaking/queue and pairing are not exposed; `createOneVsOne` remains an internal service method. This is the next separate implementation milestone.
+- A WebSocket client event contract is not exposed. V1 online 1vAI uses REST polling and must reconcile after foreground/resume and network recovery. A cold-process restart/resume flow for an interrupted match remains to be completed and tested.
+- Live provider execution still requires a deployed API, PostgreSQL, HTTPS API origin in the Android build, and server-side OpenAI credentials/model configuration for Question Generator, AI Opponent, and AI Judge. CI uses deterministic test providers and does not prove production provider connectivity.
+- Full device-level 10-round acceptance against a deployed API and live OpenAI is still pending.
+- Match-result-to-XP/Ranking progression policy and integration remain separate open V1 work; match score and XP must remain distinct.
 
 The production Android app now selects the online 1vAI adapter; the local adapter remains a development/demo path only. It must never silently fall back to local scoring after an online failure. 1v1 stays unavailable in production until matchmaking and pairing are implemented. No identity/session or match-engine redesign is required; only narrow gap-closing contracts and tests are permitted.
 
-## 5. Client architecture to add
+## 5. Implemented client architecture
 
-Create a small API boundary inside `app/src/`:
+The implemented API boundary inside `app/src/` includes:
 
 - `api/httpClient.js`: base URL, JSON transport, timeout/abort, normalized API errors, authorization header injection.
 - `api/tokenStore.js`: secure token storage abstraction. Capacitor native builds must use an OS-backed secure-storage plugin selected and validated before production use. Browser development may use an in-memory test adapter only.
@@ -122,15 +120,13 @@ Keep UI components independent of raw HTTP details. Do not duplicate scoring or 
 - Health liveness and readiness are separate: a live API process does not guarantee PostgreSQL is ready.
 - Do not put real credentials, signing keys, provider keys, or production URLs with secrets in the repository.
 
-## 9. Implementation sequence
+## 9. Implementation and release sequence
 
-1. Add API origin configuration, HTTP client, typed/normalized errors, and tests without changing current gameplay.
-2. Add secure token-store interface and select/validate the Capacitor secure-storage implementation. Keep secrets out of browser storage.
-3. Add guest-start and refresh coordinator with unit tests for rotation, concurrency, timeout retry, invalidation, and restart.
-4. Add auth screens/actions behind the existing optional Profile registration flow; do not force registration on launch.
-5. Implemented: production 1vAI uses the online adapter after backend lifecycle/result contracts were added; local simulation remains development/demo only.
-6. Remaining: run end-to-end tests against a deployed PostgreSQL-backed API with real provider credentials, then complete Android device acceptance.
-7. 1v1 remains disabled in production until matchmaking/queue/pairing and its shared-question lifecycle are exposed. Retain local adapter for deterministic automated tests, not as a silent production fallback.
+1. API origin configuration, HTTP transport, normalized errors, guest identity, secure token storage, refresh coordinator, and optional account actions are implemented and covered by the existing frontend/backend test suites.
+2. Production 1vAI uses the online adapter and server-owned lifecycle. The local simulation remains development/demo only.
+3. Remaining 1vAI release gates: deploy PostgreSQL-backed HTTPS API, configure server-only OpenAI credentials/models, test a complete 10-round match on a physical Android device, test network recovery and cold-process match recovery, and verify APK installation/signing on target devices.
+4. Complete the agreed match-result-to-XP/Ranking integration without conflating match score and XP.
+5. Implement public 1v1 matchmaking/queue/pairing and its shared-question lifecycle before enabling 1v1 in production.
 
 ## 10. Acceptance criteria
 
