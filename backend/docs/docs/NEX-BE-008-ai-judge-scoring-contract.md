@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Version:** 0.8  
-**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, negative-score persistence alignment, early round finalization, terminal AI-judge technical-void compensation, durable AI Question Generator recovery, and readiness-gated replacement rounds implemented; regular match settlement and XP/ranking settlement remain pending
+**Status:** Implementation in progress — deterministic MCQ judging/scoring, asynchronous free-text AI Judge worker, exactly-once score ledger, deadline-driven explicit no-response processing, consecutive penalties, atomic forfeit transfer, negative-score persistence alignment, early round finalization, terminal AI-judge technical-void compensation, durable AI Question Generator recovery, and readiness-gated replacement rounds implemented; regular match settlement and XP/ranking settlement implementation are now wired on main but remain CI/acceptance pending
 **Target branch:** `feature/backend-foundation`  
 **Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry, Synchronized Questions & Answer Acceptance; NEX-BE-009 AI Question Generation & Technical Recovery
 
