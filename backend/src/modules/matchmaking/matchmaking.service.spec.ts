@@ -31,8 +31,9 @@ describe('MatchmakingService', () => {
       },
     } as unknown as PrismaService;
     const matches = { createOneVsOne: jest.fn(), getMatch: jest.fn().mockResolvedValue(null) } as unknown as MatchService;
+    const gateway = { notifyMatchFound: jest.fn().mockResolvedValue(undefined) };
     Object.assign(tx, overrides);
-    return { service: new MatchmakingService(prisma, matches), prisma, tx, entry, matches };
+    return { service: new MatchmakingService(prisma, matches, gateway as never), prisma, tx, entry, matches, gateway };
   }
 
   it('persists a waiting entry when no compatible opponent exists', async () => {
@@ -66,7 +67,7 @@ describe('MatchmakingService', () => {
   });
 
   it('creates exactly one shared 1v1 match and consumes both entries atomically', async () => {
-    const { service, tx, matches, entry } = setup();
+    const { service, tx, matches, entry, gateway } = setup();
     const opponent = {
       id: 'entry-old', userId: 'user-old', guestIdentityId: null,
       category: 'general', language: 'fa', status: MatchmakingEntryStatus.WAITING,
@@ -86,6 +87,7 @@ describe('MatchmakingService', () => {
       tx,
       { category: 'general', language: 'fa' },
     );
+    expect(gateway.notifyMatchFound).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ matchId: match.id }));
     expect(tx.matchmakingEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: { in: [entry.id, opponent.id] }, status: MatchmakingEntryStatus.WAITING },
       data: expect.objectContaining({ status: MatchmakingEntryStatus.MATCHED, matchId: match.id }),
