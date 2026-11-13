@@ -207,7 +207,7 @@ describe('MatchSettlementService', () => {
       data: {
         userId: 'user-1',
         matchId: 'match-converted',
-        amount: 11,
+        amount: 16,
         reason: 'MATCH_REWARD',
         idempotencyKey: 'match:match-converted:user:user-1:xp:v1',
       },
