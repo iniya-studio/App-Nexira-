@@ -39,6 +39,12 @@ test('loads a generated question only after server readiness starts the shared c
     getQuestionRecovery: async () => ({
       status: 'COMPLETED', roundId: 'round-1', ready: false, startedAt: null, deadlineAt: null,
     }),
+    markRoundReady: async () => ({ startedAt, deadlineAt }),
+    getRoundQuestion: async () => ({
+      matchId: 'match-1', roundId: 'round-1', roundNumber: 1, questionId: 'question-1',
+      answerType: 'FREE_TEXT', prompt: 'What is the capital of France?', options: [],
+      timeLimitSeconds: 30, startedAt, deadlineAt,
+    }),
   });
   const adapter = createOnlineMatchAdapter(api);
   await adapter.start({ category: 'logic', language: 'en' });
