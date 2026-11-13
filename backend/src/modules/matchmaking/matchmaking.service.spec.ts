@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, HttpException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { MatchmakingEntryStatus, MatchStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchService } from '../match/match.service';
@@ -80,6 +80,24 @@ describe('MatchmakingService', () => {
     });
 
     await expect(service.getMine(guest)).resolves.toMatchObject({ status: 'NOT_QUEUED', lastEntryStatus: MatchmakingEntryStatus.MATCHED });
+  });
+
+
+  it('keeps public 1v1 enqueue disabled in production until the server feature flag is enabled', async () => {
+    const { service, tx } = setup();
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousFlag = process.env.NEXIRA_PUBLIC_1V1_ENABLED;
+    process.env.NODE_ENV = 'production';
+    delete process.env.NEXIRA_PUBLIC_1V1_ENABLED;
+    try {
+      await expect(service.enqueue(guest, input)).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(tx.matchmakingEntry.create).not.toHaveBeenCalled();
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+      if (previousFlag === undefined) delete process.env.NEXIRA_PUBLIC_1V1_ENABLED;
+      else process.env.NEXIRA_PUBLIC_1V1_ENABLED = previousFlag;
+    }
   });
 
   it('rejects categories outside the server-supported list before opening a transaction', async () => {
