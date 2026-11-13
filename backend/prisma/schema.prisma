@@ -48,6 +48,13 @@ enum MatchStatus {
   CANCELLED
 }
 
+enum MatchmakingEntryStatus {
+  WAITING
+  MATCHED
+  CANCELLED
+  EXPIRED
+}
+
 enum QuestionGenerationJobStatus {
   PENDING
   PROCESSING
@@ -183,6 +190,7 @@ model User {
   purchases               Purchase[]
   inventoryItems          UserInventory[]
   companionProfile        CompanionProfile?
+  matchmakingEntries      MatchmakingEntry[]
 
   @@index([status, createdAt])
 }
@@ -246,6 +254,7 @@ model GuestIdentity {
   companionProfile        CompanionProfile?
   progress                GuestProgress?
   xpTransactions          GuestXPTransaction[]
+  matchmakingEntries      MatchmakingEntry[]
 
   @@index([status, updatedAt])
   @@index([convertedToUserId])
@@ -359,6 +368,31 @@ model GuestXPTransaction {
   @@index([matchId])
 }
 
+model MatchmakingEntry {
+  id              String                 @id @default(uuid()) @db.Uuid
+  userId          String?                @db.Uuid
+  guestIdentityId String?                @db.Uuid
+  category        String                 @db.VarChar(64)
+  language        String                 @db.VarChar(16)
+  status          MatchmakingEntryStatus @default(WAITING)
+  idempotencyKey  String                 @unique @db.VarChar(128)
+  queuedAt        DateTime               @default(now()) @db.Timestamptz(3)
+  matchedAt       DateTime?              @db.Timestamptz(3)
+  cancelledAt     DateTime?              @db.Timestamptz(3)
+  expiresAt       DateTime?              @db.Timestamptz(3)
+  matchId         String?                @db.Uuid
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  guestIdentity GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  match         Match?         @relation(fields: [matchId], references: [id], onDelete: Restrict)
+
+  @@index([status, category, language, queuedAt])
+  @@index([userId, queuedAt])
+  @@index([guestIdentityId, queuedAt])
+  @@index([matchId])
+  @@index([expiresAt, status])
+}
+
 model Match {
   id                String             @id @default(uuid()) @db.Uuid
   mode              MatchMode
@@ -377,6 +411,7 @@ model Match {
   result                 MatchResult?
   xpEvents               XPTransaction[]
   guestXpEvents          GuestXPTransaction[]
+  matchmakingEntries     MatchmakingEntry[]
   rankingEvents          RankingTransaction[]
   scoreEntries           MatchScoreEntry[]
   questionGenerationJobs QuestionGenerationJob[]
