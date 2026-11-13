@@ -1,4 +1,4 @@
-import { PrincipalType, RankingSeasonStatus } from '@prisma/client';
+import { PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { ProgressionService } from './progression.service';
