@@ -28,7 +28,7 @@ describe('MatchSettlementService', () => {
     guestIdentityId: string | null,
     status: ParticipantStatus,
     answers: ReturnType<typeof answer>[] = [],
-    participantType = ParticipantType.HUMAN,
+    participantType: ParticipantType = ParticipantType.HUMAN,
   ) {
     return {
       id,
