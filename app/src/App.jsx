@@ -44,13 +44,7 @@ function Brand() {
 }
 
 function ProgressBar({ profile, label }) {
-  const displayLevel = serverProgress?.level ?? profile.level;
-  const displayXp = serverProgress?.currentLevelXp ?? profile.xp;
-  const displayTotalXp = serverProgress?.totalXp ?? String(profile.totalXp);
-  const threshold = serverProgress?.xpRequiredForNextLevel ?? xpForNextLevel(profile.level);
-  const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
-  const activeRanking = rankingView === 'global' ? globalRanking : seasonalRanking;
-  const rankingEntries = activeRanking?.entries ?? [];
+  const threshold = xpForNextLevel(profile.level);
   return <div className="rank-progress-block">
     <div className="rank-progress-heading">
       <span><Sparkles size={12} /> {label} <b>{profile.level}</b></span>
@@ -125,7 +119,13 @@ export default function App() {
   const text = getCopy(language);
   const playerName = profile.playerName === 'OPERATOR' ? text.operatorDefault : profile.playerName;
   const prefersReducedMotion = profile.settings.reducedMotion;
-  const threshold = xpForNextLevel(profile.level);
+  const displayLevel = serverProgress?.level ?? profile.level;
+  const displayXp = serverProgress?.currentLevelXp ?? profile.xp;
+  const displayTotalXp = serverProgress?.totalXp ?? String(profile.totalXp);
+  const threshold = serverProgress?.xpRequiredForNextLevel ?? xpForNextLevel(profile.level);
+  const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
+  const activeRanking = rankingView === 'global' ? globalRanking : seasonalRanking;
+  const rankingEntries = activeRanking?.entries ?? [];
   const accuracy = profile.totalAnswers ? Math.round(profile.correctAnswers / profile.totalAnswers * 100) : 0;
   const playableRun = isPlayableChallenge(run);
   const question = playableRun
