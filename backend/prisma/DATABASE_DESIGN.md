@@ -66,3 +66,15 @@
 - The first migration must be generated against a disposable development database, reviewed as SQL, and tested from an empty database.
 - Add database CHECK constraints that Prisma schema cannot express directly, including ranking scope pairing and numeric/time bounds, in reviewed migration SQL.
 - CI schema validation and client generation are necessary but do not replace PostgreSQL integration tests.
+
+
+## Public 1v1 matchmaking persistence
+
+- `MatchmakingEntry` is the durable source of truth for public queue state; PostgreSQL is authoritative and no Redis/broker is required for V1.
+- A row belongs to exactly one stable principal: either `userId` or `guestIdentityId`, never both.
+- Partial unique indexes enforce at most one WAITING entry per user or guest across all categories and sessions.
+- Idempotency keys are globally unique; queue transitions are WAITING → MATCHED, CANCELLED, or EXPIRED. MATCHED rows retain the created match reference and matched timestamp.
+- Category and language are part of the compatibility bucket. Pairing is FIFO within a compatible bucket and is serialized with PostgreSQL transaction advisory locks and row locking.
+- Match creation, initial question-generation job creation, and both queue-entry transitions commit in one transaction through the existing MatchService.
+- Guest conversion transfers WAITING queue ownership and active matched participant ownership to the new user; historical completed match participant identity references remain unchanged.
+- Queue status and reconnect recovery use REST snapshots. Socket.IO is notification-only and never authoritative for queue or match state.
