@@ -48,9 +48,14 @@ export class MatchService {
     );
   }
 
-  // Internal entry point for the future matchmaking service. It is deliberately
-  // not exposed as a public route until queue and pairing rules are implemented.
-  async createOneVsOne(first: AuthenticatedPrincipal, second: AuthenticatedPrincipal) {
+  // Shared 1v1 creation primitive. Public callers must go through MatchmakingService,
+  // which supplies the transaction that atomically consumes both queue entries.
+  async createOneVsOne(
+    first: AuthenticatedPrincipal,
+    second: AuthenticatedPrincipal,
+    transaction?: Prisma.TransactionClient,
+    options: AiMatchOptions = {},
+  ) {
     if (
       first.principalType === second.principalType &&
       first.principalId === second.principalId
@@ -117,7 +122,8 @@ export class MatchService {
       });
 
       return this.toMatchSummary(match);
-    });
+    };
+    return transaction ? create(transaction) : this.prisma.$transaction(create);
   }
 
   async getMatchResult(matchId: string, principal: AuthenticatedPrincipal) {
