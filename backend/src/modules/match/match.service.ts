@@ -67,6 +67,12 @@ export class MatchService {
       MatchMode.ONE_V_ONE,
       [this.humanParticipantData(first), this.humanParticipantData(second)],
       first,
+      {
+        ...INITIAL_QUESTION_SETTINGS,
+        category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
+        language: options.language,
+      },
+      transaction,
     );
   }
 
@@ -75,8 +81,9 @@ export class MatchService {
     participants: Prisma.MatchParticipantCreateWithoutMatchInput[],
     languagePrincipal: AuthenticatedPrincipal,
     questionSettings: MatchQuestionSettings = INITIAL_QUESTION_SETTINGS,
+    transaction?: Prisma.TransactionClient,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const create = async (tx: Prisma.TransactionClient) => {
       const preferredLanguage =
         languagePrincipal.principalType === PrincipalType.USER
           ? await tx.user.findUnique({
