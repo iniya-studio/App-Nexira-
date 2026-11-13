@@ -66,6 +66,6 @@ Automated verification must prove:
 9. a late AI response cannot overwrite the deadline result;
 10. an end-to-end PostgreSQL integration test completes every configured round of a 1vAI match: initial and subsequent question generation, synchronized readiness/start, AI answer job execution, human answer acceptance, both free-text judge paths, exactly-once score ledger entries, round finalization, next-round scheduling, and final match/result persistence.
 
-The complete lifecycle test uses deterministic test doubles for the question generator, AI opponent provider, and answer judge. It verifies the internal match lifecycle; it does not constitute a live external-provider or client-application test. The CI run for the lifecycle test passed with 32 suites and 160 tests.
+The complete lifecycle test uses deterministic test doubles for the question generator, AI opponent provider, and answer judge. It verifies the internal match lifecycle; it does not constitute a live external-provider or client-application test. The complete CI run passed with 32 suites and 168 tests, including the full multi-round lifecycle integration test.
 
 This contract does not authorize changes to the public human answer API or redesign of the existing Match Engine.
