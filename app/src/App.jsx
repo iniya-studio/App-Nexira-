@@ -856,6 +856,7 @@ export default function App() {
       return <ScreenFrame className="categories-screen">
         <button className="back-link" onClick={() => navigate('categories')}><ArrowLeft size={15} /> {text.back}</button>
         <ScreenHeading eyebrow={`${selectedCategory.title.toUpperCase()} · ${text.modeEyebrow}`} title={text.modeTitle} accent={text.modeAccent} description={text.modeDescription} />
+        {matchError && <p className="panel-note" role="alert">{matchError}</p>}
         <GlassPanel variant="feature" className="mode-selection-panel">
           <div className={`mode-category-card tone-${selectedCategory.tone}`}>
             <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{selectedCategory.title}</strong><small>{text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
