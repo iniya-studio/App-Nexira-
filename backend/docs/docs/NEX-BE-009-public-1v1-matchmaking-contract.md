@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Version:** 1.0  
-**Status:** Implementation contract — design baseline  
+**Status:** V1 contract locked; implementation ported to `main`, automated verification pending  
 **Target:** Existing `main` modular monolith  
 **Depends on:** NEX-BE-006 Synchronized Match Core; NEX-BE-002 Identity & Access; NEX-BE-003 Guest & Session Foundation  
 **Scope:** Public V1 1v1 queue, atomic human pairing, queue lifecycle, and client notification/recovery.
@@ -194,3 +194,22 @@ Quality gates:
 **D — End-to-end acceptance:** two real clients, guest and registered identities, category/language compatibility, concurrent queue load, cancellation race, reconnect, and complete shared-question match.
 
 No production 1v1 enablement until all applicable gates pass. 1vAI remains unchanged and independently testable.
+
+
+## 11. Main implementation status — 2026-11-14
+
+The public 1v1 queue implementation has been ported directly to `main`. No new branch was created during this implementation. The older PR #11 branch remains a historical source only and must not be merged wholesale because it diverged from current main.
+
+Implemented on `main`:
+- Additive Prisma model and PostgreSQL migration: `MatchmakingEntry`, partial unique indexes for one WAITING entry per stable user/guest principal, idempotency key uniqueness, expiry/history indexes, and principal/match foreign keys.
+- Authenticated REST endpoints: `POST /api/v1/matchmaking/queue`, `GET /api/v1/matchmaking/queue/me`, and `DELETE /api/v1/matchmaking/queue/me`.
+- Category/language compatibility, FIFO pairing, PostgreSQL advisory locks, `FOR UPDATE SKIP LOCKED`, idempotency, durable per-principal rate limits, queue TTL, cancellation race handling, and atomic queue-to-match/question-job creation through the existing MatchService transaction.
+- Current principal and session are revalidated under database locks before enqueue. Stale opponent entries without an active session are expired rather than paired.
+- Guest conversion transfers waiting queue ownership and active matched participant/queue ownership. It acquires the same compatibility-bucket lock before the guest identity lock to preserve a consistent lock order.
+- Authenticated Socket.IO namespace `/matchmaking` supports subscribe/unsubscribe and post-commit match-found notification. REST queue status remains the source of truth.
+- Production client entry for 1v1, persistent queue start/status/cancel, waiting screen, one-second REST polling, Android/browser back cancellation, automatic queue/match recovery after app restart, and handoff to the shared online Match adapter.
+- Match GET now returns the authorized participant score snapshot needed to restore a live 1v1 after process death; the client distinguishes both human participants and winner identity.
+
+**Verification status:** the queue and pairing unit/PostgreSQL integration tests have been ported and adapted for persisted active sessions. Backend CI, Prisma formatting/validation, migration deployment, full integration suite, Android build, and two-device acceptance are not yet verified for the current main commit. The client currently uses REST polling; Socket.IO client subscription remains a later transport optimization.
+
+**Release gate:** do not enable production rollout until CI is green, PostgreSQL 16 migration and concurrency tests pass, and two-device tests cover identical question delivery, simultaneous answers/deadlines, cancellation-vs-pairing, network interruption, and cold-process recovery. 1vAI shared lifecycle and scoring remain unchanged.
