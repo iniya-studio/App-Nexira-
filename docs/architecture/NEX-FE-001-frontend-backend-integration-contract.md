@@ -165,3 +165,11 @@ Still required before a real device match can run against live AI:
 - Configure server-only credentials/models for question generation, AI opponent responses, and AI judging.
 - Execute a full Android-device 10-round 1vAI match and verify provider behavior, reconnects, and final settlement.
 - Implement public 1v1 matchmaking and pairing separately; it is not part of this 1vAI milestone.
+
+
+### Security and Android transport hardening — 2026-11-13
+
+- Round settlement responses return no participant answer state, judge decision, or score until the round is finalized. Final match results return no score, winner type, or winner metadata until both `MatchStatus.COMPLETED` and the persisted `MatchResult` exist.
+- Both result routes authorize against the participant's authenticated user/guest identity and never serialize internal participant IDs or submitted answer text.
+- Backend CORS is now an explicit origin allowlist. Production Android WebView must be allowed through `https://localhost`; `capacitor://localhost` and local Vite development origins are configurable. Authorization and JSON headers are allowed; credentialed cookies are not used.
+- CORS, participant-safe result visibility, and winner gating are included in the Backend CI verification.
