@@ -20,7 +20,23 @@ import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
 import { MatchmakingGateway } from './matchmaking.gateway';
 
-const SUPPORTED_CATEGORIES = new Set(['general', 'general-knowledge', 'english', 'math', 'mathematics', 'programming', 'cars', 'chess', 'memory', 'logic', 'knowledge', 'reaction', 'focus', 'language', 'science']);
+const SUPPORTED_CATEGORIES = new Set([
+  'general',
+  'general-knowledge',
+  'english',
+  'math',
+  'mathematics',
+  'programming',
+  'cars',
+  'chess',
+  'memory',
+  'logic',
+  'knowledge',
+  'reaction',
+  'focus',
+  'language',
+  'science',
+]);
 
 function configuredPositiveInteger(name: string, fallback: number) {
   const raw = process.env[name];
@@ -53,7 +69,10 @@ export class MatchmakingService {
     private readonly gateway: MatchmakingGateway,
   ) {}
 
-  async enqueue(principal: AuthenticatedPrincipal, input: { category: string; language: string; idempotencyKey: string }) {
+  async enqueue(
+    principal: AuthenticatedPrincipal,
+    input: { category: string; language: string; idempotencyKey: string },
+  ) {
     const category = input.category.trim().toLowerCase();
     const language = input.language.trim().toLowerCase();
     if (!SUPPORTED_CATEGORIES.has(category)) throw new BadRequestException('Unsupported matchmaking category');
@@ -165,7 +184,12 @@ export class MatchmakingService {
         }
         opponent = candidate;
       }
-      if (!opponent) return { state: this.toQueueState(entry), notificationPrincipals: [] as AuthenticatedPrincipal[] };
+      if (!opponent) {
+        return {
+          state: this.toQueueState(entry),
+          notificationPrincipals: [] as AuthenticatedPrincipal[],
+        };
+      }
 
       const match = await this.matches.createOneVsOne(
         this.toPrincipal(opponent),
@@ -183,14 +207,14 @@ export class MatchmakingService {
       return {
         state: {
           queueId: entry.id,
-        status: MatchmakingEntryStatus.MATCHED,
-        matchId: match.id,
-        match,
-        category,
-        language,
-        queuedAt: entry.queuedAt,
-        matchedAt,
-        expiresAt: entry.expiresAt,
+          status: MatchmakingEntryStatus.MATCHED,
+          matchId: match.id,
+          match,
+          category,
+          language,
+          queuedAt: entry.queuedAt,
+          matchedAt,
+          expiresAt: entry.expiresAt,
         },
         notificationPrincipals: [this.toPrincipal(opponent), this.toPrincipal(entry)],
       };
@@ -216,7 +240,11 @@ export class MatchmakingService {
 
   async getMine(principal: AuthenticatedPrincipal) {
     await this.prisma.matchmakingEntry.updateMany({
-      where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING, expiresAt: { lte: new Date() } },
+      where: {
+        ...this.principalWhere(principal),
+        status: MatchmakingEntryStatus.WAITING,
+        expiresAt: { lte: new Date() },
+      },
       data: { status: MatchmakingEntryStatus.EXPIRED },
     });
     const entry = await this.prisma.matchmakingEntry.findFirst({
