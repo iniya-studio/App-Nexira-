@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
@@ -73,6 +74,12 @@ export class MatchmakingService {
     principal: AuthenticatedPrincipal,
     input: { category: string; language: string; idempotencyKey: string },
   ) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      process.env.NEXIRA_PUBLIC_1V1_ENABLED !== 'true'
+    ) {
+      throw new ServiceUnavailableException('Public 1v1 matchmaking is not enabled');
+    }
     const category = input.category.trim().toLowerCase();
     const language = input.language.trim().toLowerCase();
     if (!SUPPORTED_CATEGORIES.has(category)) throw new BadRequestException('Unsupported matchmaking category');
