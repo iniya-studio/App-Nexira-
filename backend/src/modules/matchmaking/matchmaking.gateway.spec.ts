@@ -22,6 +22,13 @@ describe('MatchmakingGateway', () => {
     return { gateway, prisma };
   }
 
+
+  it('leaves only the authenticated principal room on unsubscribe', async () => {
+    const { gateway } = setup();
+    const client = { data: { principal }, leave: jest.fn().mockResolvedValue(undefined) } as unknown as Socket;
+    await expect(gateway.unsubscribe(client)).resolves.toEqual({ subscribed: false });
+    expect(client.leave).toHaveBeenCalledWith('principal:guest:guest-1');
+  });
   it('emits match-found only to an authenticated active principal room', async () => {
     const { gateway, prisma } = setup();
     const socket = { data: { principal }, emit: jest.fn(), disconnect: jest.fn() };
