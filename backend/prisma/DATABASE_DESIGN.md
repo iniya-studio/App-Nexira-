@@ -31,10 +31,12 @@
 
 ## 4. Progression and ranking
 - XP and competitive Ranking Points are independent ledgers and must never be conflated.
-- UserProgress.currentLevelXp is progress within the current level; totalXp is lifetime accumulated XP; level is the current derived level snapshot.
-- XP transactions are idempotent and applied atomically with the progress snapshot.
-- Global ranking is all-time and is stored in GlobalUserRanking.
-- Seasonal ranking is stored in UserRanking, scoped by RankingSeason.
+- UserProgress and GuestProgress store currentLevelXp within the current level, lifetime totalXp, and the current derived level snapshot. Guest progression is retained in GuestXPTransaction and GuestProgress until account conversion.
+- XP transactions are idempotent and applied atomically with the matching progress snapshot. Guest-to-user conversion transfers the guest snapshot and ledger history into UserProgress/XPTransaction in the same serializable transaction; historical MatchParticipant guest references remain immutable.
+- V1 XP: +2 per judged correct answer, +1 per judged incorrect answer, +10 for completing a match, +5 for a win, +3 for a draw. A forfeiting participant receives only earned answer XP. Voided/unanswered rounds and AI participants earn no XP.
+- Level curve: the XP needed to advance from level L to L+1 is 100 × L; total XP is cumulative and never resets.
+- Global ranking is all-time and is stored in GlobalUserRanking. Eligible registered-user 1v1 outcomes award win +20, draw +10, loss +0.
+- Seasonal ranking is stored in UserRanking, scoped by RankingSeason; the season covering the authoritative match completion timestamp receives a parallel ranking event.
 - RankingTransaction.scope is GLOBAL when seasonId is null, and SEASON when seasonId is non-null. The service must enforce this pairing. A database CHECK constraint should be added in the first reviewed SQL migration.
 - Only eligible, completed matches affect ranking. Guest participants are excluded from ranking.
 - Store purchases never award XP or Ranking Points and must not create competitive advantage.
