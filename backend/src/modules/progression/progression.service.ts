@@ -46,13 +46,14 @@ export class ProgressionService {
         { userId: 'asc' },
       ],
       take: LEADERBOARD_LIMIT,
-      include: { user: { select: { username: true, displayName: true } } },
+      include: { user: { select: { username: true, displayName: true, progress: { select: { level: true } } } } },
     });
     const entries = rows.map((row, index) => ({
       position: index + 1,
       userId: row.userId,
       username: row.user.username,
       displayName: row.user.displayName,
+      level: row.user.progress?.level ?? 1,
       rankingPoints: row.rankingPoints,
       wins: row.wins,
       losses: row.losses,
