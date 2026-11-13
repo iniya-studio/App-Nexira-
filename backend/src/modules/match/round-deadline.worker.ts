@@ -49,6 +49,8 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
           'AND r."voidedAt" IS NULL ' +
           'AND r."deadlineAt" <= clock_timestamp() ' +
           'AND m."status" = \'ACTIVE\' ' +
+          'AND NOT EXISTS (SELECT 1 FROM "AiAnswerJob" ai_job ' +
+          'WHERE ai_job."roundId" = r."id" AND ai_job."status" = \'FAILED\') ' +
           'AND NOT EXISTS (SELECT 1 FROM "Answer" a WHERE a."roundId" = r."id" ' +
           'AND a."status" = \'ANSWERED\' ' +
           'AND a."judgeStatus" IN (\'PENDING\', \'PROCESSING\')) ' +
