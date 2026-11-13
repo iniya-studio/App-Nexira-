@@ -1,0 +1,776 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum PrincipalType {
+  USER
+  GUEST
+}
+
+enum GuestIdentityStatus {
+  ACTIVE
+  CONVERTED
+  REVOKED
+}
+
+enum IdentityProvider {
+  GOOGLE
+  APPLE
+}
+
+enum IdentityAuditResult {
+  SUCCESS
+  FAILURE
+}
+
+enum MatchMode {
+  ONE_V_ONE
+  ONE_V_AI
+  ROOM
+}
+
+enum MatchStatus {
+  WAITING
+  READY
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum QuestionGenerationJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AiAnswerJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ParticipantType {
+  HUMAN
+  AI
+}
+
+enum ParticipantStatus {
+  ACTIVE
+  COMPLETED
+  DISCONNECTED
+  FORFEITED
+}
+
+enum AnswerStatus {
+  ANSWERED
+  NO_RESPONSE
+}
+
+enum JudgeDecision {
+  CORRECT
+  INCORRECT
+  UNCERTAIN
+}
+
+enum JudgeStatus {
+  NOT_REQUIRED
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum MatchScoreEntryType {
+  ANSWER_SCORE
+  NO_RESPONSE_PENALTY
+  FORFEIT_TRANSFER
+  ROUND_VOID_REVERSAL
+}
+
+enum RoomType {
+  PRIVATE
+  PUBLIC
+}
+
+enum RoomMatchStrategy {
+  SYNCHRONIZED
+  HOST_CONTROLLED
+}
+
+enum RoomStatus {
+  OPEN
+  COUNTDOWN
+  IN_MATCH
+  CLOSED
+}
+
+enum RoomMemberStatus {
+  PENDING
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum RankingSeasonStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+}
+
+enum RankingScope {
+  GLOBAL
+  SEASON
+}
+
+enum StoreItemType {
+  AVATAR
+  AVATAR_FRAME
+  PROFILE_THEME
+  NAMEPLATE
+  EMOTE
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+// Account deletion is a controlled soft-delete/anonymization workflow, not routine row deletion.
+// Preserve competitive and purchase history; revoke active sessions and restrict account access.
+// Personal-data retention and anonymization details are handled by an explicit application policy.
+model User {
+  id                String     @id @default(uuid()) @db.Uuid
+  email             String?    @unique
+  username          String     @unique
+  displayName       String
+  preferredLanguage String     @default("en")
+  status            UserStatus @default(ACTIVE)
+  emailVerifiedAt   DateTime?  @db.Timestamptz(3)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
+
+  sessions                UserSession[]
+  credential              AccountCredential?
+  externalIdentities      ExternalIdentity[]
+  guestConversions        GuestIdentity[]          @relation("GuestConvertedUser")
+  emailVerificationTokens EmailVerificationToken[]
+  progress                UserProgress?
+  xpTransactions          XPTransaction[]
+  globalRanking           GlobalUserRanking?
+  matchParticipants       MatchParticipant[]
+  hostedRooms             Room[]                   @relation("RoomHost")
+  roomMemberships         RoomMember[]
+  rankings                UserRanking[]
+  rankingEvents           RankingTransaction[]
+  purchases               Purchase[]
+  inventoryItems          UserInventory[]
+  companionProfile        CompanionProfile?
+
+  @@index([status, createdAt])
+}
+
+model UserSession {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String?   @db.Uuid
+  guestIdentityId String?   @db.Uuid
+  expiresAt       DateTime  @db.Timestamptz(3)
+  revokedAt       DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestIdentity GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  refreshTokens RefreshToken[]
+
+  @@index([userId, expiresAt])
+  @@index([guestIdentityId, expiresAt])
+  @@index([revokedAt])
+}
+
+model AccountCredential {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @unique @db.Uuid
+  passwordHash      String    @db.VarChar(255)
+  passwordChangedAt DateTime? @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ExternalIdentity {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @db.Uuid
+  provider        IdentityProvider
+  providerSubject String           @db.VarChar(255)
+  providerEmail   String?
+  emailVerified   Boolean          @default(false)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId, provider])
+}
+
+model GuestIdentity {
+  id                String              @id @default(uuid()) @db.Uuid
+  status            GuestIdentityStatus @default(ACTIVE)
+  convertedToUserId String?             @db.Uuid
+  convertedAt       DateTime?           @db.Timestamptz(3)
+  createdAt         DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @db.Timestamptz(3)
+
+  convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: Restrict)
+  sessions                UserSession[]
+  matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
+  emailVerificationTokens EmailVerificationToken[]
+  companionProfile        CompanionProfile?
+
+  @@index([status, updatedAt])
+  @@index([convertedToUserId])
+}
+
+model RefreshToken {
+  id                      String    @id @default(uuid()) @db.Uuid
+  sessionId               String    @db.Uuid
+  tokenHash               String    @unique @db.VarChar(255)
+  expiresAt               DateTime  @db.Timestamptz(3)
+  consumedAt              DateTime? @db.Timestamptz(3)
+  revokedAt               DateTime? @db.Timestamptz(3)
+  replacedByTokenId       String?   @unique @db.Uuid
+  idempotencyKeyHash      String    @db.VarChar(255)
+  retryResponseCiphertext String?   @db.Text
+  retryResponseExpiresAt  DateTime? @db.Timestamptz(3)
+  createdAt               DateTime  @default(now()) @db.Timestamptz(3)
+
+  session    UserSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  replacedBy RefreshToken? @relation("RefreshTokenReplacement", fields: [replacedByTokenId], references: [id], onDelete: Restrict)
+  replaces   RefreshToken? @relation("RefreshTokenReplacement")
+
+  @@unique([sessionId, idempotencyKeyHash])
+  @@index([sessionId, createdAt])
+  @@index([expiresAt, revokedAt])
+  @@index([retryResponseExpiresAt])
+}
+
+model EmailVerificationToken {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @db.Uuid
+  guestIdentityId String?   @db.Uuid
+  tokenHash       String    @unique @db.VarChar(255)
+  expiresAt       DateTime  @db.Timestamptz(3)
+  consumedAt      DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestIdentity GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
+
+  @@index([userId, expiresAt])
+  @@index([guestIdentityId, expiresAt])
+  @@index([expiresAt, consumedAt])
+}
+
+model IdentityAuditEvent {
+  id            String              @id @default(uuid()) @db.Uuid
+  eventType     String              @db.VarChar(64)
+  principalType PrincipalType?
+  principalId   String?             @db.Uuid
+  sessionId     String?             @db.Uuid
+  result        IdentityAuditResult
+  metadata      Json?
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+
+  @@index([principalType, principalId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([sessionId, createdAt])
+}
+
+model UserProgress {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @db.Uuid
+  level          Int      @default(1)
+  currentLevelXp Int      @default(0)
+  totalXp        BigInt   @default(0)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model XPTransaction {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  matchId        String?  @db.Uuid
+  amount         Int
+  reason         String
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  match          Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([matchId])
+}
+
+model Match {
+  id                String             @id @default(uuid()) @db.Uuid
+  mode              MatchMode
+  status            MatchStatus        @default(WAITING)
+  roomId            String?            @db.Uuid
+  roomMatchStrategy RoomMatchStrategy?
+  currentRound      Int                @default(0)
+  roundsTarget      Int                @default(10)
+  startedAt         DateTime?          @db.Timestamptz(3)
+  completedAt       DateTime?          @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+
+  room                   Room?                   @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  participants           MatchParticipant[]
+  rounds                 Round[]
+  result                 MatchResult?
+  xpEvents               XPTransaction[]
+  rankingEvents          RankingTransaction[]
+  scoreEntries           MatchScoreEntry[]
+  questionGenerationJobs QuestionGenerationJob[]
+
+  @@index([status, createdAt])
+  @@index([roomId, createdAt])
+}
+
+// Participant count is intentionally not constrained in the schema.
+// Match-mode rules (1v1, 1vAI, or variable-capacity ROOM) belong to the Match Engine.
+model MatchParticipant {
+  id              String            @id @default(uuid()) @db.Uuid
+  matchId         String            @db.Uuid
+  userId          String?           @db.Uuid
+  guestIdentityId String?           @db.Uuid
+  participantKey  String
+  participantType ParticipantType
+  status          ParticipantStatus @default(ACTIVE)
+  score           Int               @default(0)
+  joinedAt        DateTime          @default(now()) @db.Timestamptz(3)
+  finishedAt      DateTime?         @db.Timestamptz(3)
+
+  match         Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user          User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestIdentity GuestIdentity?    @relation("CurrentGuestParticipant", fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  answers       Answer[]
+  scoreEntries  MatchScoreEntry[]
+  wonResults    MatchResult[]     @relation("MatchWinner")
+  readiness     RoundReadiness[]
+  aiAnswerJobs  AiAnswerJob[]
+
+  @@unique([matchId, participantKey])
+  // A HUMAN participant belongs to exactly one User or GuestIdentity. AI has neither.
+  // participantKey remains the immutable per-match participant identifier.
+  @@unique([matchId, userId])
+  @@unique([matchId, guestIdentityId])
+  @@unique([id, matchId])
+  @@index([userId, joinedAt])
+  @@index([guestIdentityId, joinedAt])
+  @@index([matchId, status])
+}
+
+model Round {
+  id                 String    @id @default(uuid()) @db.Uuid
+  matchId            String    @db.Uuid
+  roundNumber        Int
+  questionId         String?   @unique @db.Uuid
+  startedAt          DateTime? @db.Timestamptz(3)
+  deadlineAt         DateTime? @db.Timestamptz(3)
+  readinessExpiresAt DateTime? @db.Timestamptz(3)
+  completedAt        DateTime? @db.Timestamptz(3)
+  voidedAt           DateTime? @db.Timestamptz(3)
+  voidReason         String?   @db.VarChar(64)
+
+  match         Match                  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  question      Question?              @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  answers       Answer[]
+  scoreEntries  MatchScoreEntry[]
+  readiness     RoundReadiness[]
+  generationJob QuestionGenerationJob?
+  aiAnswerJobs  AiAnswerJob[]
+
+  @@unique([matchId, roundNumber])
+  @@unique([id, matchId])
+  @@index([matchId, startedAt])
+  @@index([voidedAt, completedAt])
+}
+
+model Question {
+  id                      String   @id @default(uuid()) @db.Uuid
+  category                String   @default("general") @db.VarChar(64)
+  difficulty              String   @default("medium") @db.VarChar(32)
+  canonicalLanguage       String
+  answerType              String
+  canonicalPrompt         String
+  canonicalOptions        Json?
+  answerKey               String
+  gradingRubric           Json
+  localized               Json
+  timeLimitSeconds        Int
+  contentVersion          String
+  judgeVersion            String?
+  generatorVersion        String?
+  modelVersion            String?
+  generationPolicyVersion String?
+  contentFingerprint      String?  @db.VarChar(64)
+  createdAt               DateTime @default(now()) @db.Timestamptz(3)
+
+  round          Round?
+  generatedByJob QuestionGenerationJob?
+
+  @@index([contentFingerprint])
+}
+
+model QuestionGenerationJob {
+  id                  String                      @id @default(uuid()) @db.Uuid
+  matchId             String                      @db.Uuid
+  sourceRoundId       String?                     @unique @db.Uuid
+  generatedQuestionId String?                     @unique @db.Uuid
+  status              QuestionGenerationJobStatus @default(PENDING)
+  triggerReason       String                      @db.VarChar(64)
+  requestContext      Json
+  attempts            Int                         @default(0)
+  maxAttempts         Int                         @default(3)
+  availableAt         DateTime                    @default(now()) @db.Timestamptz(3)
+  leaseId             String?                     @db.Uuid
+  leaseAt             DateTime?                   @db.Timestamptz(3)
+  lastErrorCode       String?                     @db.VarChar(64)
+  idempotencyKey      String                      @unique
+  createdAt           DateTime                    @default(now()) @db.Timestamptz(3)
+  completedAt         DateTime?                   @db.Timestamptz(3)
+
+  match             Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sourceRound       Round?    @relation(fields: [sourceRoundId, matchId], references: [id, matchId], onDelete: Cascade)
+  generatedQuestion Question? @relation(fields: [generatedQuestionId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceRoundId, matchId])
+  @@index([status, availableAt])
+  @@index([status, leaseAt])
+  @@index([matchId, createdAt])
+}
+
+model AiAnswerJob {
+  id             String            @id @default(uuid()) @db.Uuid
+  matchId        String            @db.Uuid
+  roundId        String            @db.Uuid
+  participantId  String            @db.Uuid
+  status         AiAnswerJobStatus @default(PENDING)
+  attempts       Int               @default(0)
+  maxAttempts    Int               @default(3)
+  availableAt    DateTime          @default(now()) @db.Timestamptz(3)
+  leaseId        String?           @db.Uuid
+  leaseAt        DateTime?         @db.Timestamptz(3)
+  lastErrorCode  String?           @db.VarChar(64)
+  idempotencyKey String            @unique
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  completedAt    DateTime?         @db.Timestamptz(3)
+
+  round       Round            @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
+
+  @@unique([roundId, participantId])
+  @@index([status, availableAt])
+  @@index([matchId, createdAt])
+}
+
+model RoundReadiness {
+  id            String    @id @default(uuid()) @db.Uuid
+  matchId       String    @db.Uuid
+  roundId       String    @db.Uuid
+  participantId String    @db.Uuid
+  isReady       Boolean   @default(false)
+  readyAt       DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  round       Round            @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
+
+  @@unique([roundId, participantId])
+  @@index([matchId, isReady])
+}
+
+// One answer per participant per round. NO_RESPONSE is persisted as a result, not inferred
+// from a missing row; judge failures must remain distinguishable from INCORRECT decisions.
+model Answer {
+  id               String         @id @default(uuid()) @db.Uuid
+  matchId          String         @db.Uuid
+  roundId          String         @db.Uuid
+  participantId    String         @db.Uuid
+  responseText     String?        @db.Text
+  status           AnswerStatus
+  judgeStatus      JudgeStatus    @default(NOT_REQUIRED)
+  judgeAttempts    Int            @default(0)
+  judgeStartedAt   DateTime?      @db.Timestamptz(3)
+  judgeAvailableAt DateTime       @default(now()) @db.Timestamptz(3)
+  judgeLeaseId     String?        @db.Uuid
+  decision         JudgeDecision?
+  confidence       Float?
+  elapsedMs        Int
+  points           Int
+  speedBonus       Int            @default(0)
+  judgeReason      String?
+  judgeVersion     String?
+  idempotencyKey   String?        @unique
+  acceptedAt       DateTime       @default(now()) @db.Timestamptz(3)
+
+  round       Round            @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
+  scoreEntry  MatchScoreEntry?
+
+  @@unique([roundId, participantId])
+  @@index([matchId, roundId])
+  @@index([participantId, acceptedAt])
+  @@index([judgeStatus, judgeAvailableAt])
+}
+
+model MatchScoreEntry {
+  id             String              @id @default(uuid()) @db.Uuid
+  matchId        String              @db.Uuid
+  participantId  String              @db.Uuid
+  roundId        String?             @db.Uuid
+  answerId       String?             @unique @db.Uuid
+  entryType      MatchScoreEntryType
+  pointsChange   Int
+  idempotencyKey String              @unique
+  createdAt      DateTime            @default(now()) @db.Timestamptz(3)
+
+  match       Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
+  round       Round?           @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  answer      Answer?          @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, createdAt])
+  @@index([participantId, createdAt])
+  @@index([roundId])
+}
+
+model MatchResult {
+  id                  String   @id @default(uuid()) @db.Uuid
+  matchId             String   @unique @db.Uuid
+  winnerParticipantId String?  @db.Uuid
+  resultSummary       Json
+  completedAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  match  Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  // Composite relation guarantees that the winner belongs to this match.
+  winner MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId, matchId], references: [id, matchId], onDelete: Restrict)
+}
+
+// Room is a V2 runtime feature; V1 keeps this room-ready data foundation only.
+// ROOM matches must snapshot roomMatchStrategy; non-room matches must keep roomId/strategy null.
+model Room {
+  id                 String            @id @default(uuid()) @db.Uuid
+  hostUserId         String            @db.Uuid
+  name               String
+  roomType           RoomType          @default(PRIVATE)
+  inviteCodeHash     String?           @unique
+  matchStrategy      RoomMatchStrategy @default(SYNCHRONIZED)
+  status             RoomStatus        @default(OPEN)
+  maxPlayers         Int
+  minPlayersToStart  Int
+  countdownStartedAt DateTime?         @db.Timestamptz(3)
+  countdownEndsAt    DateTime?         @db.Timestamptz(3)
+  settings           Json?
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
+
+  host    User         @relation("RoomHost", fields: [hostUserId], references: [id], onDelete: Restrict)
+  members RoomMember[]
+  matches Match[]
+
+  // Host membership, capacity bounds, and private/public invite-token rules are enforced by the Room service.
+  @@index([hostUserId, createdAt])
+  @@index([status, roomType, createdAt])
+}
+
+// Private-room requests start as PENDING; approval activates membership.
+// Rejoining users reactivate their existing (roomId, userId) row and reset readiness.
+model RoomMember {
+  id          String           @id @default(uuid()) @db.Uuid
+  roomId      String           @db.Uuid
+  userId      String           @db.Uuid
+  status      RoomMemberStatus @default(ACTIVE)
+  isReady     Boolean          @default(false)
+  readyAt     DateTime?        @db.Timestamptz(3)
+  requestedAt DateTime         @default(now()) @db.Timestamptz(3)
+  joinedAt    DateTime?        @db.Timestamptz(3)
+  leftAt      DateTime?        @db.Timestamptz(3)
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([userId, status])
+  @@index([roomId, status, isReady])
+}
+
+// startsAt must be earlier than endsAt; overlapping ACTIVE seasons are controlled by the season service.
+model RankingSeason {
+  id        String              @id @default(uuid()) @db.Uuid
+  name      String
+  status    RankingSeasonStatus @default(UPCOMING)
+  startsAt  DateTime            @db.Timestamptz(3)
+  endsAt    DateTime            @db.Timestamptz(3)
+  createdAt DateTime            @default(now()) @db.Timestamptz(3)
+
+  rankings UserRanking[]
+  events   RankingTransaction[]
+
+  @@index([status, startsAt, endsAt])
+}
+
+// Seasonal aggregate. GlobalUserRanking remains the canonical global aggregate.
+model UserRanking {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  seasonId      String   @db.Uuid
+  rankingPoints Int      @default(0)
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  draws         Int      @default(0)
+  matchesPlayed Int      @default(0)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  season RankingSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seasonId])
+  @@index([seasonId, rankingPoints, updatedAt])
+}
+
+// Independent lifetime aggregate; it is not derived from or reset by seasonal ranking.
+model GlobalUserRanking {
+  userId        String   @id @db.Uuid
+  rankingPoints Int      @default(0)
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  draws         Int      @default(0)
+  matchesPlayed Int      @default(0)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([rankingPoints, updatedAt])
+}
+
+// GLOBAL transactions must have no seasonId; SEASON transactions must reference one.
+// The GLOBAL/SEASON to seasonId consistency rule is enforced by service logic and
+// should also become a PostgreSQL CHECK constraint in the first migration.
+model RankingTransaction {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  scope          RankingScope
+  seasonId       String?      @db.Uuid
+  matchId        String?      @db.Uuid
+  pointsChange   Int
+  reason         String
+  idempotencyKey String       @unique
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  season RankingSeason? @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  match  Match?         @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@index([userId, scope, seasonId, createdAt])
+  @@index([matchId])
+}
+
+// Monetary amounts use the currency's smallest unit (for example, cents).
+model StoreItem {
+  id            String        @id @default(uuid()) @db.Uuid
+  code          String        @unique
+  name          String
+  description   String?       @db.Text
+  itemType      StoreItemType
+  priceAmount   Int
+  priceCurrency String        @db.VarChar(3)
+  isActive      Boolean       @default(true)
+  metadata      Json?
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
+
+  purchases          Purchase[]
+  owners             UserInventory[]
+  equippedCompanions CompanionProfile[]
+
+  @@index([isActive, itemType])
+}
+
+// amount/currency are immutable purchase-time snapshots, also in the smallest currency unit.
+model Purchase {
+  id                    String         @id @default(uuid()) @db.Uuid
+  userId                String         @db.Uuid
+  storeItemId           String         @db.Uuid
+  status                PurchaseStatus @default(PENDING)
+  amount                Int
+  currency              String         @db.VarChar(3)
+  paymentProvider       String?
+  providerTransactionId String?        @unique
+  idempotencyKey        String         @unique
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  completedAt           DateTime?      @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  storeItem      StoreItem      @relation(fields: [storeItemId], references: [id], onDelete: Restrict)
+  inventoryGrant UserInventory?
+
+  @@index([userId, status, createdAt])
+  @@index([storeItemId, createdAt])
+}
+
+// Current ownership record for non-consumable cosmetic store items.
+// sourcePurchaseId points to the latest purchase backing this grant; refund handlers must
+// revoke only when the refunded purchase is still the sourcePurchaseId.
+model UserInventory {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  storeItemId      String    @db.Uuid
+  sourcePurchaseId String?   @unique @db.Uuid
+  acquiredAt       DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt        DateTime? @db.Timestamptz(3)
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeItem      StoreItem @relation(fields: [storeItemId], references: [id], onDelete: Restrict)
+  sourcePurchase Purchase? @relation(fields: [sourcePurchaseId], references: [id], onDelete: Restrict)
+
+  // A refunded purchase revokes the active grant; the service must restore or revoke it transactionally.
+  @@unique([userId, storeItemId])
+  @@index([userId, revokedAt, acquiredAt])
+}
+
+// One stable AI Companion profile per authenticated principal.
+// Cosmetic appearance never owns AI behavior or conversation state.
+model CompanionProfile {
+  id                         String   @id @default(uuid()) @db.Uuid
+  userId                     String?  @unique @db.Uuid
+  guestIdentityId            String?  @unique @db.Uuid
+  activeCharacterStoreItemId String?  @db.Uuid
+  createdAt                  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime @updatedAt @db.Timestamptz(3)
+
+  user            User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestIdentity   GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Cascade)
+  activeCharacter StoreItem?     @relation(fields: [activeCharacterStoreItemId], references: [id], onDelete: SetNull)
+
+  @@index([activeCharacterStoreItemId])
+}
