@@ -79,3 +79,61 @@ test('submits free-text answers with one stable idempotency key and waits for se
   ]);
   assert.equal(view.participants[0].score, 0);
 });
+
+
+test('keeps a waiting match recoverable after a transient synchronization failure', async () => {
+  let shouldFail = true;
+  const { api } = makeApi({
+    getMatch: async () => {
+      if (shouldFail) {
+        shouldFail = false;
+        throw new Error('temporary network failure');
+      }
+      return { id: 'match-1', status: 'WAITING', currentRound: 0, roundsTarget: 10 };
+    },
+  });
+  const adapter = createOnlineMatchAdapter(api);
+  await assert.rejects(adapter.start({ category: 'science', language: 'en' }), /temporary network failure/);
+  assert.equal(adapter.getView().phase, 'waiting-question');
+  const recovered = await adapter.refresh();
+  assert.equal(recovered.phase, 'waiting-question');
+});
+
+test('keeps an accepted answer in waiting-result when the result read temporarily fails', async () => {
+  let failFirstRead = false;
+  let submitCalls = 0;
+  const startedAt = new Date(Date.now() - 1000).toISOString();
+  const deadlineAt = new Date(Date.now() + 29_000).toISOString();
+  const { api, calls } = makeApi({
+    getMatch: async () => {
+      if (failFirstRead) {
+        failFirstRead = false;
+        throw new Error('result endpoint temporarily unavailable');
+      }
+      return { id: 'match-1', status: 'ACTIVE', currentRound: 1, roundsTarget: 10 };
+    },
+    getQuestionRecovery: async () => ({
+      status: 'COMPLETED', roundId: 'round-1', ready: true, startedAt, deadlineAt,
+    }),
+    getRoundQuestion: async () => ({
+      matchId: 'match-1', roundId: 'round-1', roundNumber: 1, questionId: 'question-1',
+      answerType: 'FREE_TEXT', prompt: 'What is the capital of France?', options: [],
+      timeLimitSeconds: 30, startedAt, deadlineAt,
+    }),
+    submitAnswer: async (...args) => {
+      submitCalls += 1;
+      calls.push(['submitAnswer', ...args]);
+      return { status: 'ACCEPTED' };
+    },
+  });
+  const adapter = createOnlineMatchAdapter(api, { createKey: () => 'stable-answer-key-456' });
+  await adapter.start({ category: 'knowledge', language: 'en' });
+  await adapter.refresh();
+  failFirstRead = true;
+  await assert.rejects(adapter.submitAnswer('Paris'), /result endpoint temporarily unavailable/);
+  assert.equal(adapter.getView().phase, 'waiting-result');
+  assert.equal(submitCalls, 1);
+  await adapter.refresh();
+  assert.equal(adapter.getView().phase, 'waiting-result');
+  assert.equal(submitCalls, 1);
+});
