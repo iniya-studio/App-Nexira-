@@ -14,7 +14,7 @@ export class MatchFinalizationWorker implements OnModuleInit, OnModuleDestroy {
   private polling = false;
   constructor(
     private readonly prisma: PrismaService,
-    private readonly settlement: MatchSettlementService,
+    private readonly settlement: MatchSettlementService = new MatchSettlementService(),
   ) {}
   onModuleInit(): void { void this.poll(); this.timer = setInterval(() => void this.poll(), POLL_INTERVAL_MS); }
   onModuleDestroy(): void { if (this.timer) clearInterval(this.timer); }
