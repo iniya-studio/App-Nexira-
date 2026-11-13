@@ -173,6 +173,86 @@ describe('AI opponent answer worker integration', () => {
     ).toBe(1);
   });
 
+  it('recovers an expired lease and fences out the stale worker response', async () => {
+    const { roundId, aiParticipantId } = await createAiRound(
+      multipleChoiceQuestion,
+    );
+    let signalFirstStarted!: () => void;
+    let resolveFirst!: (value: string) => void;
+    const firstStarted = new Promise<void>((resolve) => {
+      signalFirstStarted = resolve;
+    });
+    const firstResponse = new Promise<string>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const opponent: AiOpponentAnswer = {
+      generateAnswer: jest
+        .fn()
+        .mockImplementationOnce(async () => {
+          signalFirstStarted();
+          return firstResponse;
+        })
+        .mockResolvedValueOnce('mars'),
+    };
+    const staleWorker = new AiOpponentAnswerWorker(prisma, opponent);
+    const recoveryWorker = new AiOpponentAnswerWorker(prisma, opponent);
+
+    const staleRun = staleWorker.runOnce();
+    await firstStarted;
+    await prisma.aiAnswerJob.update({
+      where: { roundId_participantId: { roundId, participantId: aiParticipantId } },
+      data: { leaseAt: new Date(Date.now() - 60_000) },
+    });
+
+    await expect(recoveryWorker.runOnce()).resolves.toBe(true);
+    resolveFirst('venus');
+    await expect(staleRun).resolves.toBe(true);
+
+    const answer = await prisma.answer.findUniqueOrThrow({
+      where: {
+        roundId_participantId: { roundId, participantId: aiParticipantId },
+      },
+    });
+    expect(answer.responseText).toBe('mars');
+    expect(answer.decision).toBe('CORRECT');
+    expect(opponent.generateAnswer).toHaveBeenCalledTimes(2);
+    expect(
+      await prisma.matchScoreEntry.count({ where: { answerId: answer.id } }),
+    ).toBe(1);
+  });
+
+  it('retries provider failures with a bounded attempt count', async () => {
+    const { roundId, aiParticipantId } = await createAiRound(
+      multipleChoiceQuestion,
+    );
+    const opponent: AiOpponentAnswer = {
+      generateAnswer: jest.fn().mockRejectedValue(new Error('provider unavailable')),
+    };
+    const worker = new AiOpponentAnswerWorker(prisma, opponent);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await expect(worker.runOnce()).resolves.toBe(true);
+      if (attempt < 2) {
+        await prisma.aiAnswerJob.update({
+          where: { roundId_participantId: { roundId, participantId: aiParticipantId } },
+          data: { availableAt: new Date(Date.now() - 1_000) },
+        });
+      }
+    }
+
+    const job = await prisma.aiAnswerJob.findUniqueOrThrow({
+      where: { roundId_participantId: { roundId, participantId: aiParticipantId } },
+    });
+    expect(job.status).toBe('FAILED');
+    expect(job.attempts).toBe(3);
+    expect(opponent.generateAnswer).toHaveBeenCalledTimes(3);
+    expect(
+      await prisma.answer.count({
+        where: { roundId, participantId: aiParticipantId },
+      }),
+    ).toBe(0);
+  });
+
   it('sends free-text AI answers through the existing Judge pipeline', async () => {
     const { roundId, aiParticipantId } = await createAiRound(freeTextQuestion);
     const opponent: AiOpponentAnswer = {
