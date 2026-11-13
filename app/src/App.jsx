@@ -358,7 +358,10 @@ export default function App() {
           }
           return;
         }
-        if (mode !== '1vAI') throw new Error('Unsupported online match mode.');
+      if (import.meta.env.PROD) {
+        if (mode !== '1vAI') {
+          throw new Error('Public 1v1 remains disabled until automated and two-device acceptance gates pass.');
+        }
         const adapter = createOnlineMatchAdapter(
           createMatchApi(appSessionLifecycle.getHttpClient()),
         );
