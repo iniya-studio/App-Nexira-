@@ -19,6 +19,7 @@ describe('MatchmakingService', () => {
       $queryRaw: jest.fn().mockResolvedValue([]),
       matchmakingEntry: {
         findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(entry),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
@@ -68,6 +69,13 @@ describe('MatchmakingService', () => {
   });
 
 
+
+  it('prevents a principal from entering a second queue while a prior 1v1 is active', async () => {
+    const { service, tx } = setup();
+    tx.matchmakingEntry.findFirst.mockResolvedValue({ id: 'active-queue-entry' });
+    await expect(service.enqueue(guest, input)).rejects.toThrow('A 1v1 match is already active for this principal');
+    expect(tx.matchmakingEntry.create).not.toHaveBeenCalled();
+  });
   it('enforces a durable per-principal enqueue rate limit', async () => {
     const { service, tx } = setup();
     tx.matchmakingEntry.count.mockResolvedValue(10);
