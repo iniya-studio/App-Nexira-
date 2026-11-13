@@ -3,6 +3,7 @@ import { MatchmakingEntryStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
+import { MatchmakingGateway } from './matchmaking.gateway';
 
 const SUPPORTED_CATEGORIES = new Set(['general', 'english', 'math', 'programming', 'cars', 'chess']);
 
@@ -21,7 +22,11 @@ type QueueEntry = {
 
 @Injectable()
 export class MatchmakingService {
-  constructor(private readonly prisma: PrismaService, private readonly matches: MatchService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly matches: MatchService,
+    private readonly gateway: MatchmakingGateway,
+  ) {}
 
   async enqueue(principal: AuthenticatedPrincipal, input: { category: string; language: string; idempotencyKey: string }) {
     const category = input.category.trim().toLowerCase();
@@ -29,7 +34,7 @@ export class MatchmakingService {
     if (!SUPPORTED_CATEGORIES.has(category)) throw new BadRequestException('Unsupported matchmaking category');
     if (language !== 'en' && language !== 'fa') throw new BadRequestException('Unsupported matchmaking language');
 
-    return this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
       // Serialize only one compatibility bucket; advisory hash collisions only reduce concurrency.
       const bucket = `nexira:1v1:${category}:${language}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
@@ -37,7 +42,7 @@ export class MatchmakingService {
       const prior = await tx.matchmakingEntry.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
       if (prior) {
         if (!this.ownsEntry(prior, principal)) throw new ConflictException('Idempotency key is already in use');
-        return this.toQueueState(prior);
+        return { state: this.toQueueState(prior), notificationPrincipals: [] as AuthenticatedPrincipal[] };
       }
 
       const principalData = principal.principalType === PrincipalType.USER
@@ -63,10 +68,10 @@ export class MatchmakingService {
         FOR UPDATE SKIP LOCKED
         LIMIT 1
       `;
-      if (candidates.length === 0) return this.toQueueState(entry);
+      if (candidates.length === 0) return { state: this.toQueueState(entry), notificationPrincipals: [] as AuthenticatedPrincipal[] };
 
       const opponent = await tx.matchmakingEntry.findUnique({ where: { id: candidates[0].id } });
-      if (!opponent || opponent.status !== MatchmakingEntryStatus.WAITING) return this.toQueueState(entry);
+      if (!opponent || opponent.status !== MatchmakingEntryStatus.WAITING) return { state: this.toQueueState(entry), notificationPrincipals: [] as AuthenticatedPrincipal[] };
 
       const match = await this.matches.createOneVsOne(
         this.toPrincipal(opponent),
@@ -82,14 +87,25 @@ export class MatchmakingService {
       if (consumed.count !== 2) throw new ConflictException('Queue entries were concurrently consumed');
 
       return {
-        queueId: entry.id,
+        state: {
+          queueId: entry.id,
         status: MatchmakingEntryStatus.MATCHED,
         matchId: match.id,
         match,
         queuedAt: entry.queuedAt,
-        matchedAt,
+          matchedAt,
+        },
+        notificationPrincipals: [this.toPrincipal(opponent), this.toPrincipal(entry)],
       };
     }, { maxWait: 5000, timeout: 15000 });
+
+    if (outcome.notificationPrincipals.length > 0 && outcome.state.matchId) {
+      await this.gateway.notifyMatchFound(outcome.notificationPrincipals, {
+        matchId: outcome.state.matchId,
+        match: 'match' in outcome.state ? outcome.state.match : null,
+      });
+    }
+    return outcome.state;
   }
 
   async getMine(principal: AuthenticatedPrincipal) {
