@@ -29,7 +29,7 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly settlement: MatchSettlementService,
+    private readonly settlement: MatchSettlementService = new MatchSettlementService(),
   ) {}
 
   onModuleInit(): void {
