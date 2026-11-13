@@ -244,8 +244,8 @@ model GuestIdentity {
   matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
   emailVerificationTokens EmailVerificationToken[]
   companionProfile        CompanionProfile?
-  progress                GuestProgress?
-  xpTransactions          GuestXPTransaction[]
+  progress               GuestProgress?
+  xpTransactions         GuestXPTransaction[]
 
   @@index([status, updatedAt])
   @@index([convertedToUserId])
@@ -331,15 +331,14 @@ model XPTransaction {
   @@index([matchId])
 }
 
-
 model GuestProgress {
-  id             String    @id @default(uuid()) @db.Uuid
-  guestIdentityId String   @unique @db.Uuid
-  level          Int       @default(1)
-  currentLevelXp Int       @default(0)
-  totalXp        BigInt    @default(0)
-  transferredAt  DateTime? @db.Timestamptz(3)
-  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+  id              String    @id @default(uuid()) @db.Uuid
+  guestIdentityId String    @unique @db.Uuid
+  level           Int       @default(1)
+  currentLevelXp  Int       @default(0)
+  totalXp         BigInt    @default(0)
+  transferredAt   DateTime? @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
 
   guestIdentity GuestIdentity @relation(fields: [guestIdentityId], references: [id], onDelete: Cascade)
 }
@@ -377,7 +376,7 @@ model Match {
   rounds                 Round[]
   result                 MatchResult?
   xpEvents               XPTransaction[]
-  guestXpEvents           GuestXPTransaction[]
+  guestXpEvents          GuestXPTransaction[]
   rankingEvents          RankingTransaction[]
   scoreEntries           MatchScoreEntry[]
   questionGenerationJobs QuestionGenerationJob[]
