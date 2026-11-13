@@ -200,5 +200,6 @@ Implemented on `main`:
 - Android/browser back cancels the queue instead of leaving a hidden active search.
 - Guest play is supported. Guest conversion transfers queue ownership and active match participation to the new registered account.
 - The client currently uses REST polling for queue discovery; the authenticated Socket.IO gateway is implemented server-side but its client subscription is not yet wired.
+- Public 1v1 is disabled by default. Controlled online acceptance requires `VITE_ENABLE_PUBLIC_1V1=true` in the client build and `NEXIRA_PUBLIC_1V1_ENABLED=true` on the server; both remain off for general production users until NEX-BE-011 passes.
 
 Automated verification and two-device acceptance are still pending for the current main implementation. Production rollout remains disabled until those gates pass.
