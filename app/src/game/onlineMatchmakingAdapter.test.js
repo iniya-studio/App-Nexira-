@@ -18,3 +18,15 @@ test('keeps the enqueue idempotency key stable across retries', async () => {
   assert.deepEqual(await adapter.refresh(), { status: 'MATCHED', matchId: 'match-1' });
   assert.deepEqual(await adapter.cancel(), { status: 'CANCELLED' });
 });
+test('starts a fresh queue after the previous matched game is terminal', async () => {
+  let enqueueCalls = 0;
+  const api = {
+    getMine: async () => ({ status: 'MATCHED', matchId: 'old-match', match: { status: 'COMPLETED' } }),
+    enqueue: async () => { enqueueCalls += 1; return { status: 'WAITING', queueId: 'new-queue' }; },
+    cancel: async () => ({ status: 'CANCELLED' }),
+  };
+  const adapter = createOnlineMatchmakingAdapter(api, { createKey: () => 'new-queue-key-000001' });
+  const result = await adapter.start({ category: 'science', language: 'en' });
+  assert.equal(enqueueCalls, 1);
+  assert.equal(result.queueId, 'new-queue');
+});
