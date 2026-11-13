@@ -216,6 +216,37 @@ describe('MatchSettlementService', () => {
     expect(tx.guestProgress.create).not.toHaveBeenCalled();
   });
 
+
+  it('blocks progression and competitive ranking for a self-match created by guest conversion', async () => {
+    const match = {
+      id: 'self-match',
+      mode: MatchMode.ONE_V_ONE,
+      status: MatchStatus.COMPLETED,
+      completedAt,
+      result: { winnerParticipantId: 'registered-side' },
+      participants: [
+        participant('registered-side', 'user-1', null, ParticipantStatus.COMPLETED, [
+          answer(JudgeDecision.CORRECT),
+        ]),
+        participant('converted-guest-side', null, 'guest-1', ParticipantStatus.COMPLETED, [
+          answer(JudgeDecision.CORRECT),
+        ]),
+      ],
+    };
+    const tx = transaction(match);
+    tx.guestIdentity.findUnique.mockResolvedValue({
+      id: 'guest-1',
+      convertedToUserId: 'user-1',
+    });
+    const service = new MatchSettlementService();
+
+    await service.settleCompletedMatch(tx, 'self-match');
+
+    expect(tx.xPTransaction.create).not.toHaveBeenCalled();
+    expect(tx.guestXPTransaction.create).not.toHaveBeenCalled();
+    expect(tx.rankingTransaction.create).not.toHaveBeenCalled();
+  });
+
   it('rejects settlement without an authoritative completed result', async () => {
     const tx = transaction({
       id: 'unfinished',
