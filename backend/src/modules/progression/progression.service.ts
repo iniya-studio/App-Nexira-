@@ -63,13 +63,26 @@ export class ProgressionService {
     const mine = eligible
       ? await this.prisma.globalUserRanking.findUnique({ where: { userId: principal.principalId } })
       : null;
+    const myPosition = mine
+      ? (await this.prisma.globalUserRanking.count({
+          where: {
+            user: { is: { status: UserStatus.ACTIVE } },
+            OR: [
+              { rankingPoints: { gt: mine.rankingPoints } },
+              { rankingPoints: mine.rankingPoints, wins: { gt: mine.wins } },
+              { rankingPoints: mine.rankingPoints, wins: mine.wins, updatedAt: { lt: mine.updatedAt } },
+              { rankingPoints: mine.rankingPoints, wins: mine.wins, updatedAt: mine.updatedAt, userId: { lt: mine.userId } },
+            ],
+          },
+        })) + 1
+      : null;
     return {
       scope: 'GLOBAL',
       eligible,
       entries,
       me: mine
         ? {
-            position: entries.find((entry) => entry.userId === principal.principalId)?.position ?? null,
+            position: myPosition,
             rankingPoints: mine.rankingPoints,
             wins: mine.wins,
             losses: mine.losses,
@@ -139,6 +152,20 @@ export class ProgressionService {
           where: { userId_seasonId: { userId: principal.principalId, seasonId: season.id } },
         })
       : null;
+    const myPosition = mine
+      ? (await this.prisma.userRanking.count({
+          where: {
+            seasonId: season.id,
+            user: { is: { status: UserStatus.ACTIVE } },
+            OR: [
+              { rankingPoints: { gt: mine.rankingPoints } },
+              { rankingPoints: mine.rankingPoints, wins: { gt: mine.wins } },
+              { rankingPoints: mine.rankingPoints, wins: mine.wins, updatedAt: { lt: mine.updatedAt } },
+              { rankingPoints: mine.rankingPoints, wins: mine.wins, updatedAt: mine.updatedAt, userId: { lt: mine.userId } },
+            ],
+          },
+        })) + 1
+      : null;
 
     return {
       scope: 'SEASON',
@@ -152,7 +179,7 @@ export class ProgressionService {
       entries,
       me: mine
         ? {
-            position: entries.find((entry) => entry.userId === principal.principalId)?.position ?? null,
+            position: myPosition,
             rankingPoints: mine.rankingPoints,
             wins: mine.wins,
             losses: mine.losses,
