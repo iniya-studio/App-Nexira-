@@ -305,7 +305,7 @@ export default function App() {
     } catch (error) {
       setMatchView(onlineMatchAdapterRef.current?.getView() ?? null);
       setMatchError(error instanceof Error ? error.message : 'Unable to start the match.');
-      setScreen('match-game');
+      setScreen(mode === '1v1' && import.meta.env.PROD ? 'categories' : 'match-game');
     } finally {
       setMatchBusy(false);
     }
@@ -649,7 +649,9 @@ export default function App() {
 
       <button className="reference-quick-battle" onClick={() => { setEntryMatchMode('1v1'); navigate('categories'); }}>
         <Zap size={34} fill="currentColor" />
-        <span><strong>Quick Battle</strong><small>{language === 'fa' ? 'برای شروع، موضوع مسابقه را انتخاب کن' : 'Choose a category to start a local preview'}</small></span>
+        <span><strong>Quick Battle</strong><small>{import.meta.env.PROD
+            ? (language === 'fa' ? 'موضوع را انتخاب کن و وارد صف رقابت جهانی شو' : 'Choose a category and enter the global matchmaking queue')
+            : (language === 'fa' ? 'برای شروع، موضوع مسابقه را انتخاب کن' : 'Choose a category to start a local preview')}</small></span>
         <Clock3 size={30} />
       </button>
 
@@ -723,16 +725,16 @@ export default function App() {
             <p className="eyebrow">{import.meta.env.PROD
               ? (language === 'fa' ? 'مسابقه رقابتی آنلاین' : 'ONLINE COMPETITIVE MATCH')
               : (language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW')}</p>
-            <button className="mode-option" disabled={import.meta.env.PROD} onClick={() => beginMatch(selectedCategory, '1v1')}>
+            <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1v1')}>
               <span className="mode-number">P1</span>
               <span className="mode-label">{import.meta.env.PROD
-                ? (language === 'fa' ? '۱ در برابر ۱ · به‌زودی' : '1vs1 · Coming soon')
+                ? (language === 'fa' ? '۱ در برابر ۱ · رقابت آنلاین' : '1vs1 · Online matchmaking')
                 : (language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1vs1 · Two local players')}
                 <small>{import.meta.env.PROD
-                  ? (language === 'fa' ? 'در انتظار تکمیل matchmaking آنلاین' : 'Online matchmaking is being completed')
+                  ? (language === 'fa' ? 'جست‌وجوی حریف با موضوع و زبان یکسان' : 'Find a compatible player worldwide')
                   : (language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device')}</small></span>
               <span className="difficulty-badge">{import.meta.env.PROD
-                ? (language === 'fa' ? 'به‌زودی' : 'COMING SOON')
+                ? (language === 'fa' ? 'آنلاین' : 'ONLINE')
                 : (language === 'fa' ? 'محلی' : 'LOCAL')}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
@@ -1009,8 +1011,10 @@ export default function App() {
         <h1>{matchView.winnerId
           ? (matchView.winnerId === 'human-1'
             ? (language === 'fa' ? 'شما برنده شدید' : 'You win')
-            : matchView.isOnline
-              ? (language === 'fa' ? 'حریف هوش مصنوعی برنده شد' : 'NEXIRA AI wins')
+            : matchView.mode === '1v1'
+              ? (language === 'fa' ? 'حریف برنده شد' : 'Your opponent wins')
+              : matchView.isOnline
+                ? (language === 'fa' ? 'حریف هوش مصنوعی برنده شد' : 'NEXIRA AI wins')
               : matchView.winnerId === 'human-2'
                 ? (language === 'fa' ? 'بازیکن ۲ برنده شد' : 'Player 2 wins')
                 : (language === 'fa' ? 'حریف اسکریپت‌شده برنده شد' : 'Scripted opponent wins'))
@@ -1177,7 +1181,7 @@ export default function App() {
       </GlassPanel>
     </ScreenFrame>}
 
-    {screen !== 'game' && screen !== 'match-game' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
+    {screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
       {[
         ['home', text.navHome, Home],
         ['rankings', text.navRanks, Trophy],
