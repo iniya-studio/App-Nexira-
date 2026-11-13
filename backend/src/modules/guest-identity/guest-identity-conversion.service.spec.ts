@@ -31,6 +31,7 @@ describe('GuestIdentityService conversion', () => {
     guestXPTransaction: { findMany: jest.Mock };
     userProgress: { create: jest.Mock };
     xPTransaction: { create: jest.Mock };
+    $queryRaw: jest.Mock;
     $queryRawUnsafe: jest.Mock;
     user: { create: jest.Mock };
     companionProfile: { updateMany: jest.Mock };
@@ -59,6 +60,7 @@ describe('GuestIdentityService conversion', () => {
       guestXPTransaction: { findMany: jest.fn().mockResolvedValue([]) },
       userProgress: { create: jest.fn().mockResolvedValue({}) },
       xPTransaction: { create: jest.fn().mockResolvedValue({}) },
+      $queryRaw: jest.fn().mockResolvedValue([]),
       $queryRawUnsafe: jest.fn().mockResolvedValue([{ id: 'guest-1' }]),
       user: {
         create: jest.fn().mockResolvedValue({
@@ -192,7 +194,9 @@ describe('GuestIdentityService conversion', () => {
 
 
   it('transfers an already-paired active 1v1 match to the newly created account', async () => {
-    tx.matchmakingEntry.findMany.mockResolvedValue([{ id: 'queue-1', matchId: 'match-1' }]);
+    tx.matchmakingEntry.findMany
+      .mockResolvedValueOnce([{ category: 'general', language: 'en' }])
+      .mockResolvedValueOnce([{ id: 'queue-1', matchId: 'match-1' }]);
     tx.matchParticipant.updateMany.mockResolvedValue({ count: 1 });
     tx.matchmakingEntry.updateMany.mockResolvedValue({ count: 1 });
 
