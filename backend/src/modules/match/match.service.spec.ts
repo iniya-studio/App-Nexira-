@@ -71,6 +71,34 @@ describe('MatchService', () => {
   });
 
 
+
+  it('returns only the authorized participant snapshot needed for reconnect recovery', async () => {
+    const { service, prisma } = setup(MatchMode.ONE_V_ONE, []);
+    (prisma.match.findFirst as jest.Mock).mockResolvedValue({
+      id: 'match-1',
+      mode: MatchMode.ONE_V_ONE,
+      status: MatchStatus.ACTIVE,
+      currentRound: 4,
+      roundsTarget: 10,
+      createdAt,
+      participants: [
+        { id: 'participant-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE', score: 42, userId: 'user-1', guestIdentityId: null },
+        { id: 'participant-2', participantType: ParticipantType.HUMAN, status: 'ACTIVE', score: 57, userId: null, guestIdentityId: 'guest-2' },
+      ],
+    });
+
+    await expect(service.getMatch('match-1', {
+      principalType: PrincipalType.USER,
+      principalId: 'user-1',
+      sessionId: 'session-1',
+    })).resolves.toMatchObject({
+      participants: [
+        { id: 'participant-1', type: ParticipantType.HUMAN, score: 42, isSelf: true, displayName: 'YOU' },
+        { id: 'participant-2', type: ParticipantType.HUMAN, score: 57, isSelf: false, displayName: 'OPPONENT' },
+      ],
+    });
+  });
+
   it('creates 1v1 match and initial question inside the caller transaction', async () => {
     const { service, prisma, tx } = setup(MatchMode.ONE_V_ONE, [
       { participantKey: 'human:user:user-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
