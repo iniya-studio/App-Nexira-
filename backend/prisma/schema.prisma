@@ -375,7 +375,7 @@ model MatchParticipant {
   scoreEntries  MatchScoreEntry[]
   wonResults    MatchResult[]     @relation("MatchWinner")
   readiness     RoundReadiness[]
-  aiAnswerJobs AiAnswerJob[]
+  aiAnswerJobs  AiAnswerJob[]
 
   @@unique([matchId, participantKey])
   // A HUMAN participant belongs to exactly one User or GuestIdentity. AI has neither.
