@@ -46,11 +46,11 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
       const round = await this.prisma.round.findFirst({
         where: { id: claim.roundId, matchId: claim.matchId },
         select: {
-          startedAt: true, deadlineAt: true, completedAt: true, voidedAt: true,
+          roundNumber: true, startedAt: true, deadlineAt: true, completedAt: true, voidedAt: true,
           question: { select: {
             answerType: true, canonicalPrompt: true, canonicalOptions: true,
           } },
-          match: { select: { mode: true, status: true } },
+          match: { select: { mode: true, status: true, currentRound: true } },
         },
       });
 
@@ -58,7 +58,8 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
         !round?.question || !round.startedAt || !round.deadlineAt ||
         round.completedAt || round.voidedAt ||
         round.match.mode !== MatchMode.ONE_V_AI ||
-        round.match.status !== MatchStatus.ACTIVE
+        round.match.status !== MatchStatus.ACTIVE ||
+        round.match.currentRound !== round.roundNumber
       ) {
         await this.cancelClaim(claim, 'AI_ANSWER_SOURCE_INVALID');
         return true;
@@ -139,6 +140,7 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
                 clock_timestamp() - (${STALE_LEASE_SECONDS} * INTERVAL '1 second'))
             )
             AND round."startedAt" IS NOT NULL
+            AND round."roundNumber" = match."currentRound"
             AND round."deadlineAt" > clock_timestamp()
             AND round."completedAt" IS NULL AND round."voidedAt" IS NULL
             AND match."mode" = 'ONE_V_AI' AND match."status" = 'ACTIVE'
@@ -200,16 +202,16 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
       const round = await tx.round.findFirst({
         where: { id: claim.roundId, matchId: claim.matchId },
         select: {
-          startedAt: true, deadlineAt: true, completedAt: true, voidedAt: true,
+          roundNumber: true, startedAt: true, deadlineAt: true, completedAt: true, voidedAt: true,
           question: { select: { answerKey: true } },
-          match: { select: { mode: true, status: true } },
+          match: { select: { mode: true, status: true, currentRound: true } },
           answers: { where: { participantId: claim.participantId }, select: { id: true } },
         },
       });
       if (
         !round?.startedAt || !round.deadlineAt || round.completedAt || round.voidedAt ||
         round.match.mode !== MatchMode.ONE_V_AI || round.match.status !== MatchStatus.ACTIVE ||
-        now.getTime() >= round.deadlineAt.getTime()
+        round.match.currentRound !== round.roundNumber
       ) {
         await tx.$executeRaw`
           UPDATE "AiAnswerJob" SET "status" = 'CANCELLED', "leaseId" = NULL,
@@ -245,7 +247,24 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      const elapsedMs = Math.max(0, now.getTime() - round.startedAt.getTime());
+      const acceptanceClock = await tx.$queryRawUnsafe<Array<{ now: Date }>>(
+        'SELECT clock_timestamp() AS "now"',
+      );
+      const acceptedAt = acceptanceClock[0]?.now;
+      if (!(acceptedAt instanceof Date) || Number.isNaN(acceptedAt.getTime())) {
+        throw new Error('Database clock returned an invalid AI answer timestamp');
+      }
+      if (acceptedAt.getTime() >= round.deadlineAt.getTime()) {
+        await tx.aiAnswerJob.updateMany({
+          where: { id: claim.id, leaseId: claim.leaseId, status: "PROCESSING" },
+          data: {
+            status: "CANCELLED", leaseId: null, leaseAt: null,
+            completedAt: acceptedAt, lastErrorCode: "ROUND_DEADLINE",
+          },
+        });
+        return;
+      }
+      const elapsedMs = Math.max(0, acceptedAt.getTime() - round.startedAt.getTime());
       const mcq = answerType === 'MULTIPLE_CHOICE'
         ? judgeMultipleChoiceAnswer(responseText, round.question.answerKey, elapsedMs)
         : null;
@@ -260,7 +279,7 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
           judgeReason: mcq?.judgeReason ?? null, judgeVersion: mcq?.judgeVersion ?? null,
           elapsedMs,
           idempotencyKey: `ai-answer:${claim.roundId}:${claim.participantId}:v1`,
-          acceptedAt: now,
+          acceptedAt,
         },
       });
 
