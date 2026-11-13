@@ -59,6 +59,7 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     expect(stored.participants).toHaveLength(2);
     expect(stored.participants.every((participant) => participant.participantType === 'HUMAN')).toBe(true);
     expect(stored.questionGenerationJobs).toHaveLength(1);
+    await expect(matchmaking.enqueue(first, request())).rejects.toThrow('A 1v1 match is already active for this principal');
     await expect(matchmaking.getMine(first)).resolves.toMatchObject({
       status: 'MATCHED', matchId: secondQueue.matchId, match: { id: secondQueue.matchId },
     });
