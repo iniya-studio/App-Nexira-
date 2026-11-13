@@ -454,7 +454,7 @@ export default function App() {
   }, [screen, sessionState.status]);
 
   useEffect(() => {
-    if (!publicOneVsOneEnabled) return undefined;
+    if (!import.meta.env.PROD && !publicOneVsOneEnabled) return undefined;
     if (!['guest', 'authenticated'].includes(sessionState.status)) {
       matchmakingRecoveryPrincipalRef.current = null;
       return undefined;
@@ -478,12 +478,16 @@ export default function App() {
         }
         if (next.status === 'MATCHED' && next.matchId) {
           await openMatchedOnlineMatch(next);
-        } else if (next.status === 'WAITING') {
+        } else if (next.status === 'WAITING' && publicOneVsOneEnabled) {
           setMatchmakingView({
             ...next,
             categoryTitle: categoryById(next.category)?.title ?? next.category ?? 'General',
           });
           setScreen('matchmaking');
+        } else if (next.status === 'WAITING') {
+          await adapter.cancel();
+          adapter.reset();
+          if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
         } else {
           adapter.reset();
           if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
