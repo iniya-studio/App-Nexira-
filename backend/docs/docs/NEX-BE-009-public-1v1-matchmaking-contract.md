@@ -210,6 +210,8 @@ Implemented on `main`:
 - Production client entry for 1v1, persistent queue start/status/cancel, waiting screen, one-second REST polling, Android/browser back cancellation, automatic queue/match recovery after app restart, and handoff to the shared online Match adapter.
 - Match GET now returns the authorized participant score snapshot needed to restore a live 1v1 after process death; the client distinguishes both human participants and winner identity.
 
+**Rollout protection:** production enqueue is server-disabled unless `NEXIRA_PUBLIC_1V1_ENABLED=true`; the Android/web production entry point is client-disabled unless `VITE_ENABLE_PUBLIC_1V1=true`. Both flags must remain off until all acceptance gates pass.
+
 **Verification status:** the queue and pairing unit/PostgreSQL integration tests have been ported and adapted for persisted active sessions. Backend CI, Prisma formatting/validation, migration deployment, full integration suite, Android build, and two-device acceptance are not yet verified for the current main commit. The client currently uses REST polling; Socket.IO client subscription remains a later transport optimization.
 
 **Release gate:** do not enable production rollout until CI is green, PostgreSQL 16 migration and concurrency tests pass, and two-device tests cover identical question delivery, simultaneous answers/deadlines, cancellation-vs-pairing, network interruption, and cold-process recovery. 1vAI shared lifecycle and scoring remain unchanged.
