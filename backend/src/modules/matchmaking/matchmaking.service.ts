@@ -60,6 +60,10 @@ export class MatchmakingService {
     if (language !== 'en' && language !== 'fa') throw new BadRequestException('Unsupported matchmaking language');
 
     const outcome = await this.prisma.$transaction(async (tx) => {
+      // Stable principal lock comes first so guest conversion and enqueue share one lock order.
+      const principalLock = `nexira:1v1:principal:${principal.principalType}:${principal.principalId}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
+
       // Serialize only one compatibility bucket; advisory hash collisions only reduce concurrency.
       const bucket = `nexira:1v1:${category}:${language}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
@@ -73,8 +77,6 @@ export class MatchmakingService {
       const principalData = principal.principalType === PrincipalType.USER
         ? { userId: principal.principalId, guestIdentityId: null }
         : { userId: null, guestIdentityId: principal.principalId };
-      const principalLock = `nexira:1v1:principal:${principal.principalType}:${principal.principalId}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
       const now = new Date();
       await this.assertActivePrincipal(tx, principal, now);
       const activeMatch = await tx.matchmakingEntry.findFirst({
