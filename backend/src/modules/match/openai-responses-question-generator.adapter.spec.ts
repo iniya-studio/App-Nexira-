@@ -330,7 +330,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
       json: async () => [],
     });
     await expect(adapter.generate(input)).rejects.toMatchObject({
-      code: 'GENERATOR_PROVIDER_INCOMPLETE',
+      code: 'GENERATOR_PROVIDER_INVALID_RESPONSE',
     });
   });
 
