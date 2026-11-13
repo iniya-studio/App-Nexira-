@@ -34,6 +34,7 @@ describe('MatchmakingService', () => {
         }),
       },
       matchmakingEntry: {
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn().mockResolvedValue(null),
         findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(entry),
@@ -113,6 +114,27 @@ describe('MatchmakingService', () => {
     tx.matchmakingEntry.count.mockResolvedValue(10);
     await expect(service.enqueue(guest, input)).rejects.toBeInstanceOf(HttpException);
     expect(tx.matchmakingEntry.create).not.toHaveBeenCalled();
+  });
+
+
+  it('serializes cancellation through the same principal and compatibility locks as pairing', async () => {
+    const { service, tx, prisma } = setup();
+    tx.matchmakingEntry.findMany.mockResolvedValue([{ category: 'general', language: 'fa' }]);
+
+    await service.cancel(guest);
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.matchmakingEntry.updateMany).toHaveBeenCalledWith({
+      where: {
+        guestIdentityId: guest.principalId,
+        status: MatchmakingEntryStatus.WAITING,
+      },
+      data: {
+        status: MatchmakingEntryStatus.CANCELLED,
+        cancelledAt: expect.any(Date),
+      },
+    });
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
   });
 
   it('rejects an expired or revoked session before creating a queue entry', async () => {
