@@ -10,7 +10,10 @@ import { questionGenerationInputForMatch } from './question-generation.context';
 
 const POLL_INTERVAL_MS = 1_000;
 const MAX_ROUNDS_PER_POLL = 5;
-const TECHNICAL_VOID_REASON = 'AI_JUDGE_RETRY_EXHAUSTED';
+const MAX_TECHNICAL_VOID_REPLACEMENTS_PER_MATCH = 2;
+const AI_JUDGE_VOID_REASON = 'AI_JUDGE_RETRY_EXHAUSTED';
+const AI_OPPONENT_VOID_REASON = 'AI_OPPONENT_RETRY_EXHAUSTED';
+const TECHNICAL_VOID_LIMIT_REASON = 'TECHNICAL_VOID_LIMIT';
 
 type FailedRound = { id: string };
 
@@ -47,10 +50,13 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
           'AND r."voidedAt" IS NULL ' +
           'AND m."status" = \'ACTIVE\' ' +
           'AND m."currentRound" = r."roundNumber" ' +
-          'AND EXISTS (SELECT 1 FROM "Answer" failed ' +
+          'AND (' +
+          'EXISTS (SELECT 1 FROM "Answer" failed ' +
           'WHERE failed."roundId" = r."id" ' +
           'AND failed."status" = \'ANSWERED\' ' +
           'AND failed."judgeStatus" = \'FAILED\') ' +
+          'OR EXISTS (SELECT 1 FROM "AiAnswerJob" ai_job ' +
+          'WHERE ai_job."roundId" = r."id" AND ai_job."status" = \'FAILED\')) ' +
           'AND NOT EXISTS (SELECT 1 FROM "Answer" pending ' +
           'WHERE pending."roundId" = r."id" ' +
           'AND pending."status" = \'ANSWERED\' ' +
@@ -76,6 +82,14 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
               participantId: true,
               pointsChange: true,
             },
+          },
+          answers: {
+            where: { status: 'ANSWERED', judgeStatus: 'FAILED' },
+            select: { id: true },
+          },
+          aiAnswerJobs: {
+            where: { status: 'FAILED' },
+            select: { id: true },
           },
         },
       });
@@ -125,28 +139,21 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
         }
       }
 
+      const voidReason = round.answers.length > 0
+        ? AI_JUDGE_VOID_REASON
+        : AI_OPPONENT_VOID_REASON;
+      const previousVoidCount = await tx.round.count({
+        where: { matchId: round.matchId, voidedAt: { not: null } },
+      });
+
       await tx.round.update({
         where: { id: round.id },
         data: {
           voidedAt,
           completedAt: voidedAt,
-          voidReason: TECHNICAL_VOID_REASON,
+          voidReason,
         },
       });
-
-      const matchReady = await tx.match.updateMany({
-        where: {
-          id: round.matchId,
-          status: MatchStatus.ACTIVE,
-          currentRound: round.roundNumber,
-        },
-        data: { status: MatchStatus.READY },
-      });
-      if (matchReady.count !== 1) {
-        throw new Error(
-          'Match state changed while voiding the technical round',
-        );
-      }
 
       const answerType = round.question.answerType;
       if (answerType !== 'MULTIPLE_CHOICE' && answerType !== 'FREE_TEXT') {
@@ -163,12 +170,59 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
           timeLimitSeconds: round.question.timeLimitSeconds,
         },
       );
+
+      if (previousVoidCount >= MAX_TECHNICAL_VOID_REPLACEMENTS_PER_MATCH) {
+        const cancelled = await tx.match.updateMany({
+          where: {
+            id: round.matchId,
+            status: MatchStatus.ACTIVE,
+            currentRound: round.roundNumber,
+          },
+          data: { status: MatchStatus.CANCELLED, completedAt: voidedAt },
+        });
+        if (cancelled.count !== 1) {
+          throw new Error('Match state changed while cancelling after repeated technical failures');
+        }
+        await tx.questionGenerationJob.create({
+          data: {
+            matchId: round.matchId,
+            sourceRoundId: round.id,
+            status: 'FAILED',
+            triggerReason: TECHNICAL_VOID_LIMIT_REASON,
+            requestContext,
+            attempts: 0,
+            maxAttempts: 1,
+            lastErrorCode: TECHNICAL_VOID_LIMIT_REASON,
+            completedAt: voidedAt,
+            idempotencyKey: `round:${round.id}:technical-void-limit:v1`,
+          },
+        });
+        this.logger.error(
+          `Match ${round.matchId} cancelled after ${MAX_TECHNICAL_VOID_REPLACEMENTS_PER_MATCH} technical replacement(s); last void reason: ${voidReason}`,
+        );
+        return true;
+      }
+
+      const matchReady = await tx.match.updateMany({
+        where: {
+          id: round.matchId,
+          status: MatchStatus.ACTIVE,
+          currentRound: round.roundNumber,
+        },
+        data: { status: MatchStatus.READY },
+      });
+      if (matchReady.count !== 1) {
+        throw new Error(
+          'Match state changed while voiding the technical round',
+        );
+      }
+
       await tx.questionGenerationJob.create({
         data: {
           matchId: round.matchId,
           sourceRoundId: round.id,
           status: 'PENDING',
-          triggerReason: TECHNICAL_VOID_REASON,
+          triggerReason: voidReason,
           requestContext,
           maxAttempts: 3,
           idempotencyKey: `round:${round.id}:question-generation:v1`,
@@ -176,7 +230,7 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
       });
 
       this.logger.warn(
-        `Round ${round.id} voided: ${TECHNICAL_VOID_REASON}; ${round.scoreEntries.length} score entries checked for reversal; replacement generation queued`,
+        `Round ${round.id} voided: ${voidReason}; ${round.scoreEntries.length} score entries checked for reversal; replacement generation queued`,
       );
       return true;
     });
