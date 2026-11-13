@@ -64,6 +64,20 @@ export class GuestIdentityService {
     };
     try {
       converted = await this.prisma.$transaction(async (tx) => {
+        // Matchmaking acquires its compatibility-bucket advisory lock before
+        // locking a principal or queue entry. Use the same order here to avoid
+        // deadlocks with an enqueue/pairing transaction during guest conversion.
+        const waitingBuckets = await tx.matchmakingEntry.findMany({
+          where: { guestIdentityId: principal.principalId, status: 'WAITING' },
+          select: { category: true, language: true },
+        });
+        const bucketLocks = [...new Set(
+          waitingBuckets.map((entry) => `nexira:1v1:${entry.category}:${entry.language}`),
+        )].sort();
+        for (const bucket of bucketLocks) {
+          await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
+        }
+
         // Serialize conversion with match settlement so XP is transferred exactly once.
         await tx.$queryRawUnsafe(
           'SELECT "id" FROM "GuestIdentity" WHERE "id" = $1::uuid FOR UPDATE',
