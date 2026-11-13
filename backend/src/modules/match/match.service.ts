@@ -50,7 +50,11 @@ export class MatchService {
 
   // Internal entry point for the future matchmaking service. It is deliberately
   // not exposed as a public route until queue and pairing rules are implemented.
-  async createOneVsOne(first: AuthenticatedPrincipal, second: AuthenticatedPrincipal) {
+  async createOneVsOne(
+    first: AuthenticatedPrincipal,
+    second: AuthenticatedPrincipal,
+    transaction?: Prisma.TransactionClient,
+  ) {
     if (
       first.principalType === second.principalType &&
       first.principalId === second.principalId
@@ -62,6 +66,8 @@ export class MatchService {
       MatchMode.ONE_V_ONE,
       [this.humanParticipantData(first), this.humanParticipantData(second)],
       first,
+      INITIAL_QUESTION_SETTINGS,
+      transaction,
     );
   }
 
@@ -70,8 +76,9 @@ export class MatchService {
     participants: Prisma.MatchParticipantCreateWithoutMatchInput[],
     languagePrincipal: AuthenticatedPrincipal,
     questionSettings: MatchQuestionSettings = INITIAL_QUESTION_SETTINGS,
+    transaction?: Prisma.TransactionClient,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const create = async (tx: Prisma.TransactionClient) => {
       const preferredLanguage =
         languagePrincipal.principalType === PrincipalType.USER
           ? await tx.user.findUnique({
@@ -117,7 +124,8 @@ export class MatchService {
       });
 
       return this.toMatchSummary(match);
-    });
+    };
+    return transaction ? create(transaction) : this.prisma.$transaction(create);
   }
 
   async getMatchResult(matchId: string, principal: AuthenticatedPrincipal) {
