@@ -14,6 +14,7 @@ import { QuestionGenerationWorker } from './question-generation.worker';
 import { GeneratedQuestion } from './question.types';
 import { RoundService } from './round.service';
 import { RoundTechnicalVoidWorker } from './round-technical-void.worker';
+import { RoundDeadlineWorker } from './round-deadline.worker';
 
 describe('Technical round void and recovery integration', () => {
   const prisma = new PrismaService();
@@ -370,4 +371,84 @@ describe('Technical round void and recovery integration', () => {
     });
     expect(round.voidedAt).toBeNull();
   });
+
+  it('leaves an expired round with a terminal AI-judge failure for technical-void recovery', async () => {
+    const guest = await prisma.guestIdentity.create({ data: {} });
+    guestIds.push(guest.id);
+    const principal = {
+      principalType: PrincipalType.GUEST,
+      principalId: guest.id,
+      sessionId: randomUUID(),
+    } as const;
+
+    const match = await matches.createAiMatch(principal);
+    matchIds.push(match.id);
+    const started = await rounds.startNextRound(match.id, question);
+    questionIds.push(started.questionId);
+
+    const receipt = await answers.submitAnswer(
+      match.id,
+      started.roundId,
+      principal,
+      'Mars',
+      randomUUID(),
+    );
+    const failingJudge: FreeTextAnswerJudge = {
+      judge: jest.fn().mockRejectedValue(
+        new FreeTextJudgeError('PROVIDER_TIMEOUT', 'Test provider timeout'),
+      ),
+    };
+    const judgeWorker = new AnswerJudgeWorker(prisma, failingJudge);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await expect(judgeWorker.runOnce()).resolves.toBe(true);
+      if (attempt < 2) {
+        await prisma.answer.update({
+          where: { id: receipt.answerId },
+          data: { judgeAvailableAt: new Date(Date.now() - 1_000) },
+        });
+      }
+    }
+
+    await expect(
+      prisma.answer.findUniqueOrThrow({ where: { id: receipt.answerId } }),
+    ).resolves.toMatchObject({ judgeStatus: 'FAILED', judgeAttempts: 3 });
+
+    await prisma.round.update({
+      where: { id: started.roundId },
+      data: { deadlineAt: new Date(Date.now() - 1_000) },
+    });
+
+    const deadlineWorker = new RoundDeadlineWorker(prisma);
+    await expect(deadlineWorker.runOnce()).resolves.toBe(false);
+    await expect(
+      prisma.round.findUniqueOrThrow({ where: { id: started.roundId } }),
+    ).resolves.toMatchObject({ completedAt: null, voidedAt: null });
+
+    await expect(technicalVoid.runOnce()).resolves.toBe(true);
+    await expect(
+      prisma.round.findUniqueOrThrow({ where: { id: started.roundId } }),
+    ).resolves.toMatchObject({
+      voidReason: 'AI_JUDGE_RETRY_EXHAUSTED',
+      completedAt: expect.any(Date),
+      voidedAt: expect.any(Date),
+    });
+    await expect(
+      prisma.match.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: 'READY' });
+    await expect(
+      prisma.answer.count({
+        where: { roundId: started.roundId, status: 'NO_RESPONSE' },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.matchScoreEntry.count({
+        where: { roundId: started.roundId },
+      }),
+    ).resolves.toBe(0);
+  });
+
 });
