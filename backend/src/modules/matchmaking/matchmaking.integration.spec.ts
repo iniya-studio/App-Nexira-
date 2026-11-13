@@ -59,6 +59,9 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     expect(stored.participants).toHaveLength(2);
     expect(stored.participants.every((participant) => participant.participantType === 'HUMAN')).toBe(true);
     expect(stored.questionGenerationJobs).toHaveLength(1);
+    await expect(matchmaking.getMine(first)).resolves.toMatchObject({
+      status: 'MATCHED', matchId: secondQueue.matchId, match: { id: secondQueue.matchId },
+    });
   });
 
   it('never pairs entries with different category or language', async () => {
