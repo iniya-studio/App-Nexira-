@@ -256,6 +256,43 @@ export function createOnlineMatchAdapter(api, {
       return refresh();
     },
 
+    async resume(matchId, { mode = '1v1', language = 'en' } = {}) {
+      if (typeof matchId !== 'string' || !matchId) {
+        throw new TypeError('A valid server match ID is required.');
+      }
+      const match = await api.getMatch(matchId);
+      const isOneVsOne = mode === '1v1';
+      view = {
+        isOnline: true,
+        matchId,
+        mode,
+        status: match.status,
+        phase: 'waiting-question',
+        language,
+        currentRound: match.currentRound ?? 0,
+        roundIndex: Math.max(0, (match.currentRound ?? 0) - 1),
+        totalRounds: match.roundsTarget ?? 10,
+        timeLimit: 30,
+        deadlineAt: null,
+        question: null,
+        roundSummary: null,
+        participants: isOneVsOne
+          ? [
+              { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
+              { id: 'human-2', type: 'human', displayName: 'OPPONENT', score: 0, isSelf: false },
+            ]
+          : [
+              { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
+              { id: 'scripted-opponent', type: 'ai', displayName: 'NEXIRA AI', score: 0, isSelf: false },
+            ],
+        error: null,
+      };
+      roundId = null;
+      lastPresentedRoundId = null;
+      pendingSubmission = null;
+      return refresh();
+    },
+
     getView: () => view,
 
     refresh,
