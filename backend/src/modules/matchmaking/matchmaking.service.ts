@@ -1,5 +1,5 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { MatchmakingEntryStatus, MatchStatus, PrincipalType } from '@prisma/client';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { MatchmakingEntryStatus, MatchStatus, PrincipalType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
@@ -60,6 +60,8 @@ export class MatchmakingService {
         : { userId: null, guestIdentityId: principal.principalId };
       const principalLock = `nexira:1v1:principal:${principal.principalType}:${principal.principalId}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
+      const now = new Date();
+      await this.assertActivePrincipal(tx, principal, now);
       const activeMatch = await tx.matchmakingEntry.findFirst({
         where: {
           ...principalData,
@@ -69,7 +71,6 @@ export class MatchmakingService {
         select: { id: true },
       });
       if (activeMatch) throw new ConflictException('A 1v1 match is already active for this principal');
-      const now = new Date();
       const recentEnqueues = await tx.matchmakingEntry.count({
         where: { ...principalData, queuedAt: { gte: new Date(now.getTime() - 60_000) } },
       });
@@ -186,6 +187,54 @@ export class MatchmakingService {
       data: { status: MatchmakingEntryStatus.CANCELLED, cancelledAt: new Date() },
     });
     return this.getMine(principal);
+  }
+
+  private async assertActivePrincipal(
+    tx: Prisma.TransactionClient,
+    principal: AuthenticatedPrincipal,
+    now: Date,
+  ) {
+    const identityRows = principal.principalType === PrincipalType.USER
+      ? await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "User"
+          WHERE "id" = ${principal.principalId}::uuid
+            AND "status" = 'ACTIVE'::"UserStatus"
+          FOR UPDATE
+        `
+      : await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "GuestIdentity"
+          WHERE "id" = ${principal.principalId}::uuid
+            AND "status" = 'ACTIVE'::"GuestIdentityStatus"
+            AND "convertedToUserId" IS NULL
+          FOR UPDATE
+        `;
+    if (identityRows.length !== 1) {
+      throw new UnauthorizedException('Matchmaking principal is no longer active');
+    }
+
+    const session = await tx.userSession.findUnique({
+      where: { id: principal.sessionId },
+      select: {
+        userId: true,
+        guestIdentityId: true,
+        expiresAt: true,
+        revokedAt: true,
+        user: { select: { status: true } },
+        guestIdentity: { select: { status: true, convertedToUserId: true } },
+      },
+    });
+    if (!session || session.revokedAt || session.expiresAt <= now) {
+      throw new UnauthorizedException('Matchmaking session is no longer active');
+    }
+    const active = principal.principalType === PrincipalType.USER
+      ? session.userId === principal.principalId &&
+        session.guestIdentityId === null &&
+        session.user?.status === 'ACTIVE'
+      : session.guestIdentityId === principal.principalId &&
+        session.userId === null &&
+        session.guestIdentity?.status === 'ACTIVE' &&
+        session.guestIdentity.convertedToUserId === null;
+    if (!active) throw new UnauthorizedException('Matchmaking session does not own this principal');
   }
 
   private isUniqueConstraintError(error: unknown) {
