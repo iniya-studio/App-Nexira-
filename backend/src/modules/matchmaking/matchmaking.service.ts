@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { MatchmakingEntryStatus, MatchStatus, PrincipalType, Prisma } from '@prisma/client';
+import { GuestIdentityStatus, MatchmakingEntryStatus, MatchStatus, PrincipalType, Prisma, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
@@ -229,10 +229,10 @@ export class MatchmakingService {
     const active = principal.principalType === PrincipalType.USER
       ? session.userId === principal.principalId &&
         session.guestIdentityId === null &&
-        session.user?.status === 'ACTIVE'
+        session.user?.status === UserStatus.ACTIVE
       : session.guestIdentityId === principal.principalId &&
         session.userId === null &&
-        session.guestIdentity?.status === 'ACTIVE' &&
+        session.guestIdentity?.status === GuestIdentityStatus.ACTIVE &&
         session.guestIdentity.convertedToUserId === null;
     if (!active) throw new UnauthorizedException('Matchmaking session does not own this principal');
   }
