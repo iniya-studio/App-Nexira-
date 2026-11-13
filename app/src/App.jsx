@@ -488,9 +488,13 @@ export default function App() {
           });
           setScreen('matchmaking');
         } else if (next.status === 'WAITING') {
-          await adapter.cancel();
-          adapter.reset();
-          if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
+          const cancelled = await adapter.cancel();
+          if (cancelled?.status === 'MATCHED' && cancelled.matchId) {
+            await openMatchedOnlineMatch(cancelled);
+          } else {
+            adapter.reset();
+            if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
+          }
         } else {
           adapter.reset();
           if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
