@@ -294,6 +294,34 @@ export default function App() {
     setScreen('game');
   }, []);
 
+  const openMatchedOnlineMatch = useCallback(async (queueState) => {
+    const matchId = queueState?.matchId;
+    if (!matchId || matchmakingTransitionRef.current === matchId) return;
+    matchmakingTransitionRef.current = matchId;
+    setMatchBusy(true);
+    try {
+      const adapter = createOnlineMatchAdapter(createMatchApi(appSessionLifecycle.getHttpClient()));
+      onlineMatchAdapterRef.current = adapter;
+      const next = await adapter.resume(matchId, {
+        mode: '1v1',
+        language: queueState.language ?? profileRef.current.settings.language,
+      });
+      onlineMatchmakingAdapterRef.current?.reset();
+      onlineMatchmakingAdapterRef.current = null;
+      setMatchmakingView(null);
+      setMatchView(next);
+      setOnlineAnswerText('');
+      setMatchError('');
+      setShowExitConfirm(false);
+      setScreen(next.phase === 'complete' ? 'match-results' : 'match-game');
+    } catch (error) {
+      matchmakingTransitionRef.current = null;
+      setMatchError(error instanceof Error ? error.message : 'Unable to restore the matched game.');
+    } finally {
+      setMatchBusy(false);
+    }
+  }, []);
+
   const beginMatch = useCallback(async (category, mode) => {
     setMatchBusy(true);
     setMatchError('');
@@ -301,11 +329,29 @@ export default function App() {
     onlineMatchAdapterRef.current = null;
     try {
       if (import.meta.env.PROD) {
-        if (mode !== '1vAI') {
-          throw new Error(language === 'fa'
-            ? 'مسابقه آنلاین ۱ در برابر ۱ هنوز در حال آماده‌سازی است؛ فعلاً ۱ در برابر AI فعال است.'
-            : 'Online 1v1 matchmaking is still being prepared. 1vAI is available first.');
+        if (mode === '1v1') {
+          const adapter = createOnlineMatchmakingAdapter(
+            createMatchmakingApi(appSessionLifecycle.getHttpClient()),
+          );
+          onlineMatchmakingAdapterRef.current = adapter;
+          matchmakingTransitionRef.current = null;
+          const queue = await adapter.start({
+            category: category?.id ?? 'general',
+            language: profileRef.current.settings.language,
+          });
+          setMatchmakingView({
+            ...queue,
+            categoryTitle: categoryById(queue.category)?.title ?? category?.title ?? category?.id ?? 'General',
+          });
+          setMatchError('');
+          if (queue.status === 'MATCHED' && queue.matchId) {
+            await openMatchedOnlineMatch(queue);
+          } else {
+            setScreen('matchmaking');
+          }
+          return;
         }
+        if (mode !== '1vAI') throw new Error('Unsupported online match mode.');
         const adapter = createOnlineMatchAdapter(
           createMatchApi(appSessionLifecycle.getHttpClient()),
         );
@@ -338,11 +384,35 @@ export default function App() {
     } catch (error) {
       setMatchView(onlineMatchAdapterRef.current?.getView() ?? null);
       setMatchError(error instanceof Error ? error.message : 'Unable to start the match.');
-      setScreen('match-game');
+      setScreen(mode === '1v1' && import.meta.env.PROD ? 'categories' : 'match-game');
     } finally {
       setMatchBusy(false);
     }
-  }, [language]);
+  }, [openMatchedOnlineMatch]);
+
+  const cancelMatchmaking = useCallback(async () => {
+    const adapter = onlineMatchmakingAdapterRef.current;
+    if (!adapter || matchBusy) return;
+    setMatchBusy(true);
+    setMatchError('');
+    try {
+      const next = await adapter.cancel();
+      setMatchmakingView(next);
+      if (next.status === 'MATCHED' && next.matchId) {
+        await openMatchedOnlineMatch(next);
+      } else {
+        adapter.reset();
+        onlineMatchmakingAdapterRef.current = null;
+        matchmakingTransitionRef.current = null;
+        setMatchmakingView(null);
+        setScreen('categories');
+      }
+    } catch (error) {
+      setMatchError(error instanceof Error ? error.message : 'Unable to cancel matchmaking.');
+    } finally {
+      setMatchBusy(false);
+    }
+  }, [matchBusy, openMatchedOnlineMatch]);
 
   const handleMatchOption = useCallback(async (optionId) => {
     try {
