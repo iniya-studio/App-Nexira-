@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Logger, TooManyRequestsException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { MatchmakingEntryStatus, MatchStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
@@ -74,7 +74,7 @@ export class MatchmakingService {
         where: { ...principalData, queuedAt: { gte: new Date(now.getTime() - 60_000) } },
       });
       if (recentEnqueues >= configuredPositiveInteger('NEXIRA_MATCHMAKING_MAX_ENQUEUES_PER_MINUTE', 10)) {
-        throw new TooManyRequestsException('Matchmaking enqueue rate limit exceeded');
+        throw new HttpException('Matchmaking enqueue rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
       }
       const queueTtlSeconds = configuredPositiveInteger('NEXIRA_MATCHMAKING_QUEUE_TTL_SECONDS', 300);
       await tx.matchmakingEntry.updateMany({
