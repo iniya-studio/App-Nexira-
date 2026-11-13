@@ -192,6 +192,96 @@ describe('Question generation recovery integration', () => {
     };
   }
 
+  it('creates exactly one durable AI answer job with the initial generated 1vAI round', async () => {
+    const guest = await prisma.guestIdentity.create({ data: {} });
+    guestIds.push(guest.id);
+    const human: AuthenticatedPrincipal = {
+      principalType: PrincipalType.GUEST,
+      principalId: guest.id,
+      sessionId: randomUUID(),
+    };
+    const match = await matches.createAiMatch(human);
+    matchIds.push(match.id);
+
+    const initialGenerationJob =
+      await prisma.questionGenerationJob.findUniqueOrThrow({
+        where: { idempotencyKey: `match:${match.id}:initial-question:v1` },
+      });
+    expect(initialGenerationJob).toMatchObject({
+      status: 'PENDING',
+      triggerReason: 'INITIAL_MATCH',
+      attempts: 0,
+    });
+
+    const generator: QuestionGenerator = {
+      generate: jest.fn(async (input) =>
+        replacementQuestion(input, 'Initial 1vAI generated question'),
+      ),
+    };
+    const worker = new QuestionGenerationWorker(prisma, generator);
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+    expect(generator.generate).toHaveBeenCalledTimes(1);
+
+    const completedGenerationJob =
+      await prisma.questionGenerationJob.findUniqueOrThrow({
+        where: { id: initialGenerationJob.id },
+      });
+    expect(completedGenerationJob).toMatchObject({
+      status: 'COMPLETED',
+      attempts: 1,
+      lastErrorCode: null,
+    });
+    expect(completedGenerationJob.generatedQuestionId).toBeTruthy();
+
+    const round = await prisma.round.findFirstOrThrow({
+      where: { matchId: match.id, roundNumber: 1 },
+      include: {
+        question: true,
+        readiness: { include: { participant: true } },
+      },
+    });
+    questionIds.push(round.questionId!);
+    expect(round).toMatchObject({
+      startedAt: null,
+      deadlineAt: null,
+      question: {
+        canonicalPrompt: 'Initial 1vAI generated question',
+        answerType: 'FREE_TEXT',
+      },
+    });
+
+    const aiParticipant = round.readiness.find(
+      (item) => item.participant.participantType === 'AI',
+    )!.participant;
+    const humanReadiness = round.readiness.find(
+      (item) => item.participant.participantType === 'HUMAN',
+    );
+    expect(round.readiness).toHaveLength(2);
+    expect(round.readiness.find(
+      (item) => item.participant.participantType === 'AI',
+    )).toMatchObject({ isReady: true, readyAt: expect.any(Date) });
+    expect(humanReadiness).toMatchObject({ isReady: false, readyAt: null });
+
+    const jobs = await prisma.aiAnswerJob.findMany({
+      where: { matchId: match.id, roundId: round.id },
+    });
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({
+      participantId: aiParticipant.id,
+      status: 'PENDING',
+      attempts: 0,
+      idempotencyKey: `ai-answer:${round.id}:${aiParticipant.id}:v1`,
+    });
+
+    expect(
+      await prisma.match.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { status: true, currentRound: true },
+      }),
+    ).toEqual({ status: MatchStatus.READY, currentRound: 0 });
+  });
+
   it('queues once, stores a valid unstarted replacement, waits for all humans, then starts one shared clock', async () => {
     const recovery = await createRecovery();
     await expect(technicalVoid.runOnce()).resolves.toBe(false);
