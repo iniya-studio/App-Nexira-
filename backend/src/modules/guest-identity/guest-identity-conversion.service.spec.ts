@@ -196,6 +196,7 @@ describe('GuestIdentityService conversion', () => {
   it('transfers an already-paired active 1v1 match to the newly created account', async () => {
     tx.matchmakingEntry.findMany
       .mockResolvedValueOnce([{ category: 'general', language: 'en' }])
+      .mockResolvedValueOnce([{ matchId: 'match-1' }])
       .mockResolvedValueOnce([{ id: 'queue-1', matchId: 'match-1' }]);
     tx.matchParticipant.updateMany.mockResolvedValue({ count: 1 });
     tx.matchmakingEntry.updateMany.mockResolvedValue({ count: 1 });
