@@ -17,7 +17,9 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
   return {
     async start({ category, language = 'en' } = {}) {
       const recovered = await api.getMine();
-      if (recovered?.status === 'WAITING' || recovered?.status === 'MATCHED') {
+      const activeMatchedGame = recovered?.status === 'MATCHED' &&
+        !['COMPLETED', 'CANCELLED'].includes(recovered.match?.status);
+      if (recovered?.status === 'WAITING' || activeMatchedGame) {
         view = recovered;
         return view;
       }
