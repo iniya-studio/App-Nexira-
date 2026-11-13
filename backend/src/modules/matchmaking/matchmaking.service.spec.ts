@@ -130,6 +130,46 @@ describe('MatchmakingService', () => {
     expect(tx.matchmakingEntry.create).not.toHaveBeenCalled();
   });
 
+
+  it('expires an opponent queue entry whose principal has no active session', async () => {
+    const { service, tx, matches } = setup();
+    const opponent = {
+      id: 'entry-stale',
+      userId: 'user-old',
+      guestIdentityId: null,
+      category: 'general',
+      language: 'fa',
+      status: MatchmakingEntryStatus.WAITING,
+      matchId: null,
+      queuedAt: new Date(queuedAt.getTime() - 1000),
+      matchedAt: null,
+      cancelledAt: null,
+      expiresAt: new Date(queuedAt.getTime() + 300_000),
+    };
+    let candidateReads = 0;
+    tx.$queryRaw.mockImplementation((strings: TemplateStringsArray) => {
+      const query = strings.join('');
+      if (query.includes('FROM "GuestIdentity"')) return Promise.resolve([{ id: 'guest-new' }]);
+      if (query.includes('FROM "MatchmakingEntry"')) {
+        candidateReads += 1;
+        return Promise.resolve(candidateReads === 1 ? [{ id: opponent.id }] : []);
+      }
+      return Promise.resolve([]);
+    });
+    tx.matchmakingEntry.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(opponent);
+    tx.userSession.findFirst.mockResolvedValue(null);
+
+    await expect(service.enqueue(guest, input)).resolves.toMatchObject({
+      status: MatchmakingEntryStatus.WAITING,
+      matchId: null,
+    });
+    expect(tx.matchmakingEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: opponent.id, status: MatchmakingEntryStatus.WAITING },
+      data: { status: MatchmakingEntryStatus.EXPIRED },
+    });
+    expect(matches.createOneVsOne).not.toHaveBeenCalled();
+  });
+
   it('creates exactly one shared 1v1 match and consumes both entries atomically', async () => {
     const { service, tx, matches, entry, gateway } = setup();
     const opponent = {
