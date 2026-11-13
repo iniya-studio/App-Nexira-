@@ -154,10 +154,13 @@ export class MatchService {
         : participant.guestIdentityId === principal.principalId,
     );
     if (!self) throw new NotFoundException('Match not found');
-    const winner = match.participants.find(
-      (participant) => participant.id === match.result?.winnerParticipantId,
-    );
-    const summary = match.result?.resultSummary;
+    const completed = match.status === MatchStatus.COMPLETED && Boolean(match.result);
+    const winner = completed
+      ? match.participants.find(
+          (participant) => participant.id === match.result?.winnerParticipantId,
+        )
+      : undefined;
+    const summary = completed ? match.result?.resultSummary : null;
     const outcome = typeof summary === 'object' && summary !== null && !Array.isArray(summary)
       && typeof (summary as Record<string, unknown>).outcome === 'string'
       ? (summary as Record<string, unknown>).outcome as string
@@ -167,13 +170,13 @@ export class MatchService {
       matchId: match.id,
       mode: match.mode,
       status: match.status,
-      completed: match.status === MatchStatus.COMPLETED && Boolean(match.result),
+      completed,
       currentRound: match.currentRound,
       roundsTarget: match.roundsTarget,
       completedAt: match.completedAt,
       outcome,
-      winnerType: winner?.participantType ?? null,
-      youWon: winner ? winner.id === self.id : null,
+      winnerType: completed ? winner?.participantType ?? null : null,
+      youWon: completed ? (winner ? winner.id === self.id : null) : null,
       participants: match.participants.map((participant) => ({
         type: participant.participantType,
         status: participant.status,
