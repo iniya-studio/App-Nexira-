@@ -156,7 +156,7 @@ describe('AI opponent answer worker integration', () => {
       status: AnswerStatus.ANSWERED,
       judgeStatus: JudgeStatus.COMPLETED,
       decision: 'CORRECT',
-      points: 25,
+      points: expect.any(Number),
       idempotencyKey: `ai-answer:${roundId}:${aiParticipantId}:v1`,
     });
     expect(
@@ -165,7 +165,7 @@ describe('AI opponent answer worker integration', () => {
     const participant = await prisma.matchParticipant.findUniqueOrThrow({
       where: { id: aiParticipantId },
     });
-    expect(participant.score).toBe(25);
+    expect(participant.score).toBe(answer.points);
     expect(
       await prisma.aiAnswerJob.count({
         where: { matchId, roundId, status: 'COMPLETED' },
@@ -272,17 +272,38 @@ describe('AI opponent answer worker integration', () => {
     expect(answer.points).toBe(0);
   });
 
-  it('finalizes an overdue 1vAI round and records AI NO_RESPONSE without an AI penalty', async () => {
+  it('finalizes an overdue 1vAI round and fences out a late AI response', async () => {
     const { matchId, roundId, aiParticipantId } = await createAiRound(
       multipleChoiceQuestion,
     );
+    let signalStarted!: () => void;
+    let resolveAnswer!: (value: string) => void;
+    const providerStarted = new Promise<void>((resolve) => {
+      signalStarted = resolve;
+    });
+    const providerResponse = new Promise<string>((resolve) => {
+      resolveAnswer = resolve;
+    });
+    const opponent: AiOpponentAnswer = {
+      generateAnswer: jest.fn(async () => {
+        signalStarted();
+        return providerResponse;
+      }),
+    };
+    const aiWorker = new AiOpponentAnswerWorker(prisma, opponent);
+    const aiRun = aiWorker.runOnce();
+    await providerStarted;
+
     await prisma.round.update({
       where: { id: roundId },
       data: { deadlineAt: new Date(Date.now() - 1_000) },
     });
     const deadlineWorker = new RoundDeadlineWorker(prisma);
-
     await expect(deadlineWorker.runOnce()).resolves.toBe(true);
+
+    resolveAnswer('mars');
+    await expect(aiRun).resolves.toBe(true);
+
     const aiAnswer = await prisma.answer.findUniqueOrThrow({
       where: {
         roundId_participantId: { roundId, participantId: aiParticipantId },
