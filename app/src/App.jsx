@@ -414,7 +414,7 @@ export default function App() {
       }
       setMatchView(onlineMatchAdapterRef.current?.getView() ?? null);
       setMatchError(error instanceof Error ? error.message : 'Unable to start the match.');
-      setScreen(mode === '1v1' && publicOneVsOneEnabled ? 'modes' : 'match-game');
+      setScreen(mode === '1v1' ? 'modes' : 'match-game');
     } finally {
       setMatchBusy(false);
     }
