@@ -5,6 +5,7 @@ import { AnswerService } from './answer.service';
 import { AnswerJudgeWorker } from './answer-judge.worker';
 import { FreeTextAnswerJudge, FreeTextJudgeResult } from './answer-judge.port';
 import { MatchFinalizationWorker } from './match-finalization.worker';
+import { MatchSettlementService } from './match-settlement.service';
 import { MatchService } from './match.service';
 import { QuestionGenerator } from './question-generator.port';
 import { QuestionGenerationWorker } from './question-generation.worker';
@@ -19,6 +20,7 @@ describe('Multi-round match lifecycle integration', () => {
   const answers = new AnswerService(prisma);
   const roundFinalizer = new RoundFinalizationWorker(prisma);
   const matchFinalizer = new MatchFinalizationWorker(prisma);
+  const settlement = new MatchSettlementService();
   const matchIds: string[] = [];
   const guestIds: string[] = [];
   const userIds: string[] = [];
@@ -235,6 +237,7 @@ describe('Multi-round match lifecycle integration', () => {
 
     await expect(matchFinalizer.runOnce()).resolves.toBe(true);
     await expect(matchFinalizer.runOnce()).resolves.toBe(false);
+    await prisma.$transaction((tx) => settlement.settleCompletedMatch(tx, match.id));
 
     const completed = await prisma.match.findUniqueOrThrow({
       where: { id: match.id },
