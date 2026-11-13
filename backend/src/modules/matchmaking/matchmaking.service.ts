@@ -236,9 +236,25 @@ export class MatchmakingService {
   }
 
   async cancel(principal: AuthenticatedPrincipal) {
-    await this.prisma.matchmakingEntry.updateMany({
-      where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING },
-      data: { status: MatchmakingEntryStatus.CANCELLED, cancelledAt: new Date() },
+    await this.prisma.$transaction(async (tx) => {
+      const principalLock = `nexira:1v1:principal:${principal.principalType}:${principal.principalId}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
+
+      const waitingBuckets = await tx.matchmakingEntry.findMany({
+        where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING },
+        select: { category: true, language: true },
+      });
+      const bucketLocks = [...new Set(
+        waitingBuckets.map((entry) => `nexira:1v1:${entry.category}:${entry.language}`),
+      )].sort();
+      for (const bucket of bucketLocks) {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
+      }
+
+      await tx.matchmakingEntry.updateMany({
+        where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING },
+        data: { status: MatchmakingEntryStatus.CANCELLED, cancelledAt: new Date() },
+      });
     });
     return this.getMine(principal);
   }
