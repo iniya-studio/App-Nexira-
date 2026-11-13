@@ -311,6 +311,7 @@ export default function App() {
       const next = await adapter.resume(matchId, {
         mode: '1v1',
         language: queueState.language ?? profileRef.current.settings.language,
+        category: queueState.category,
       });
       onlineMatchmakingAdapterRef.current?.reset();
       onlineMatchmakingAdapterRef.current = null;
@@ -366,7 +367,7 @@ export default function App() {
           category: category?.id ?? 'general',
           language: profileRef.current.settings.language,
         });
-        setMatchView(next);
+        setMatchView({ ...next, categoryId: category?.id ?? 'general', categoryTitle: category?.title ?? 'General' });
         setOnlineAnswerText('');
         setMatchError('');
         setShowExitConfirm(false);
@@ -380,7 +381,7 @@ export default function App() {
         matchId: makeRunId(),
         language: profileRef.current.settings.language,
       });
-      setMatchView(next);
+      setMatchView({ ...next, categoryId: category?.id ?? 'general', categoryTitle: category?.title ?? 'General' });
       setMatchError('');
       matchTimerKeyRef.current = `${next.matchId}:${next.roundIndex}:${next.activeParticipantId}`;
       matchTimerRemainingRef.current = next.timeLimit;
@@ -1171,16 +1172,18 @@ export default function App() {
     {screen === 'match-results' && matchView && <ScreenFrame className="results-screen">
       <div className="results-heading">
         <span className="results-medal"><Trophy size={25} /></span>
-        <span className="eyebrow">{matchView.mode} · {matchView.isOnline ? (language === 'fa' ? 'نتیجه رسمی سرور' : 'SERVER MATCH RESULT') : (language === 'fa' ? 'نتیجه مسابقه محلی' : 'LOCAL MATCH RESULT')}</span>
-        <h1>{matchView.winnerId
-          ? (matchView.winnerId === 'human-1'
-            ? (language === 'fa' ? 'شما برنده شدید' : 'You win')
-            : matchView.isOnline
-              ? (language === 'fa' ? 'حریف هوش مصنوعی برنده شد' : 'NEXIRA AI wins')
-              : matchView.winnerId === 'human-2'
-                ? (language === 'fa' ? 'بازیکن ۲ برنده شد' : 'Player 2 wins')
+        <span className="eyebrow">{matchView.mode} · {matchView.categoryTitle ?? categoryById(matchView.categoryId)?.title ?? ''} · {matchView.isOnline ? (language === 'fa' ? 'نتیجه رسمی سرور' : 'SERVER MATCH RESULT') : (language === 'fa' ? 'نتیجه مسابقه محلی' : 'LOCAL MATCH RESULT')}</span>
+        <h1>{matchView.winnerId === 'human-1'
+          ? (language === 'fa' ? 'شما برنده شدید' : 'You win')
+          : matchView.winnerId === 'human-2'
+            ? (matchView.isOnline
+              ? (language === 'fa' ? 'حریف برنده شد' : 'Opponent wins')
+              : (language === 'fa' ? 'بازیکن ۲ برنده شد' : 'Player 2 wins'))
+            : matchView.winnerId === 'scripted-opponent'
+              ? (matchView.isOnline
+                ? (language === 'fa' ? 'هوش مصنوعی نکسیرا برنده شد' : 'NEXIRA AI wins')
                 : (language === 'fa' ? 'حریف اسکریپت‌شده برنده شد' : 'Scripted opponent wins'))
-          : (language === 'fa' ? 'مساوی' : 'It’s a draw')}</h1>
+              : (language === 'fa' ? 'مساوی' : 'It’s a draw')}</h1>
       </div>
       <GlassPanel variant="feature" className="results-panel">
         <div className="results-stats">
@@ -1195,8 +1198,8 @@ export default function App() {
       </GlassPanel>
       <div className="results-actions">
         <button className="primary-button" onClick={() => {
-          const selectedCategory = categoryById(run?.categoryId);
-          if (selectedCategory) beginMatch(selectedCategory, matchView.mode);
+          const selectedCategory = categoryById(matchView.categoryId ?? run?.categoryId);
+          if (selectedCategory) void beginMatch(selectedCategory, matchView.mode);
         }}><span className="play-mark"><RotateCcw size={16} /></span><span className="primary-label">{text.replay}</span><ArrowRight className="primary-arrow" size={18} /></button>
         <button className="secondary-action" onClick={() => leaveMatch('home')}>{text.home}</button>
       </div>
