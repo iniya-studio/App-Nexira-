@@ -47,20 +47,7 @@ export class MatchSettlementService {
     );
     if (humanParticipants.length === 0) return;
 
-    const ordered = [...humanParticipants].sort((a, b) =>
-      this.principalSortKey(a).localeCompare(this.principalSortKey(b)),
-    );
-
-    const resolved: Array<{
-      participant: (typeof ordered)[number];
-      userId: string | null;
-      guestIdentityId: string | null;
-    }> = [];
-
-    for (const participant of ordered) {
-      const owner = await this.resolveOwner(tx, participant.userId, participant.guestIdentityId);
-      resolved.push({ participant, ...owner });
-    }
+    const resolved = await this.resolveOwners(tx, humanParticipants);
 
     const userParticipantCounts = new Map<string, number>();
     for (const owner of resolved) {
@@ -159,46 +146,58 @@ export class MatchSettlementService {
     return seasons[0] ?? null;
   }
 
-  private principalSortKey(participant: {
-    userId: string | null;
-    guestIdentityId: string | null;
-  }): string {
-    if (participant.userId) return `user:${participant.userId}`;
-    if (participant.guestIdentityId) return `guest:${participant.guestIdentityId}`;
-    return 'invalid:human-without-owner';
-  }
-
-  private async resolveOwner(
+  private async resolveOwners<
+    T extends { id: string; userId: string | null; guestIdentityId: string | null },
+  >(
     tx: Transaction,
-    userId: string | null,
-    guestIdentityId: string | null,
-  ): Promise<{ userId: string | null; guestIdentityId: string | null }> {
-    if (userId) {
-      await tx.$queryRawUnsafe(
+    participants: T[],
+  ): Promise<Array<{ participant: T; userId: string | null; guestIdentityId: string | null }>> {
+    // Lock all guest identities first, then all resolved users in sorted order.
+    // This gives conversion and concurrent settlements one deterministic lock order.
+    const guestIds = [...new Set(
+      participants
+        .filter((participant) => !participant.userId && participant.guestIdentityId)
+        .map((participant) => participant.guestIdentityId as string),
+    )].sort();
+    const convertedUsers = new Map<string, string | null>();
+
+    for (const guestIdentityId of guestIds) {
+      const locked = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+        'SELECT "id" FROM "GuestIdentity" WHERE "id" = $1::uuid FOR UPDATE',
+        guestIdentityId,
+      );
+      if (locked.length !== 1) throw new Error('Guest identity for completed match participant was not found');
+      const guest = await tx.guestIdentity.findUnique({
+        where: { id: guestIdentityId },
+        select: { id: true, convertedToUserId: true },
+      });
+      if (!guest) throw new Error('Guest identity for completed match participant was not found');
+      convertedUsers.set(guestIdentityId, guest.convertedToUserId);
+    }
+
+    const resolved = participants.map((participant) => {
+      if (participant.userId) {
+        return { participant, userId: participant.userId, guestIdentityId: null };
+      }
+      const guestIdentityId = participant.guestIdentityId;
+      if (!guestIdentityId) throw new Error('Human match participant has no identity owner');
+      const convertedToUserId = convertedUsers.get(guestIdentityId);
+      return convertedToUserId
+        ? { participant, userId: convertedToUserId, guestIdentityId: null }
+        : { participant, userId: null, guestIdentityId };
+    });
+
+    const userIds = [...new Set(
+      resolved.map((owner) => owner.userId).filter((id): id is string => id !== null),
+    )].sort();
+    for (const userId of userIds) {
+      const locked = await tx.$queryRawUnsafe<Array<{ id: string }>>(
         'SELECT "id" FROM "User" WHERE "id" = $1::uuid FOR UPDATE',
         userId,
       );
-      return { userId, guestIdentityId: null };
+      if (locked.length !== 1) throw new Error('Registered user for completed match participant was not found');
     }
-    if (!guestIdentityId) throw new Error('Human match participant has no identity owner');
-
-    await tx.$queryRawUnsafe(
-      'SELECT "id" FROM "GuestIdentity" WHERE "id" = $1::uuid FOR UPDATE',
-      guestIdentityId,
-    );
-    const guest = await tx.guestIdentity.findUnique({
-      where: { id: guestIdentityId },
-      select: { id: true, convertedToUserId: true },
-    });
-    if (!guest) throw new Error('Guest identity for completed match participant was not found');
-    if (guest.convertedToUserId) {
-      await tx.$queryRawUnsafe(
-        'SELECT "id" FROM "User" WHERE "id" = $1::uuid FOR UPDATE',
-        guest.convertedToUserId,
-      );
-      return { userId: guest.convertedToUserId, guestIdentityId: null };
-    }
-    return { userId: null, guestIdentityId };
+    return resolved;
   }
 
   private deriveProgress(totalXp: bigint): { level: number; currentLevelXp: number } {
