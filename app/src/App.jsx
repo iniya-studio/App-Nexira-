@@ -578,7 +578,7 @@ export default function App() {
     void synchronize();
     const interval = window.setInterval(synchronize, 1000);
     return () => { active = false; window.clearInterval(interval); };
-  }, [openMatchedOnlineMatch, screen]);
+  }, [language, openMatchedOnlineMatch, screen]);
   useEffect(() => {
     if (screen !== 'game' || !run?.lastAnswer || run.status !== 'active') return undefined;
     const advanceTimer = window.setTimeout(() => {
