@@ -87,17 +87,17 @@ export class MatchmakingService {
       const bucket = `nexira:1v1:${category}:${language}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
 
-      const prior = await tx.matchmakingEntry.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
-      if (prior) {
-        if (!this.ownsEntry(prior, principal)) throw new ConflictException('Idempotency key is already in use');
-        return { state: this.toQueueState(prior), notificationPrincipals: [] as AuthenticatedPrincipal[] };
-      }
-
       const principalData = principal.principalType === PrincipalType.USER
         ? { userId: principal.principalId, guestIdentityId: null }
         : { userId: null, guestIdentityId: principal.principalId };
       const now = new Date();
       await this.assertActivePrincipal(tx, principal, now);
+
+      const prior = await tx.matchmakingEntry.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (prior) {
+        if (!this.ownsEntry(prior, principal)) throw new ConflictException('Idempotency key is already in use');
+        return { state: this.toQueueState(prior), notificationPrincipals: [] as AuthenticatedPrincipal[] };
+      }
       const activeMatch = await tx.matchmakingEntry.findFirst({
         where: {
           ...principalData,
