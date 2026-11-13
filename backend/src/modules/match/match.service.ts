@@ -48,8 +48,8 @@ export class MatchService {
     );
   }
 
-  // Internal entry point for the future matchmaking service. It is deliberately
-  // not exposed as a public route until queue and pairing rules are implemented.
+  // Shared 1v1 creation primitive. Public callers must go through MatchmakingService,
+  // which supplies the transaction that atomically consumes both queue entries.
   async createOneVsOne(
     first: AuthenticatedPrincipal,
     second: AuthenticatedPrincipal,
