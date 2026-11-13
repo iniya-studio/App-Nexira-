@@ -27,6 +27,11 @@ describe('GuestIdentityService conversion', () => {
   let service: GuestIdentityService;
   let tx: {
     guestIdentity: { findUnique: jest.Mock; updateMany: jest.Mock };
+    guestProgress: { findUnique: jest.Mock; update: jest.Mock };
+    guestXPTransaction: { findMany: jest.Mock };
+    userProgress: { create: jest.Mock };
+    xPTransaction: { create: jest.Mock };
+    $queryRawUnsafe: jest.Mock;
     user: { create: jest.Mock };
     companionProfile: { updateMany: jest.Mock };
     userSession: { updateMany: jest.Mock };
@@ -45,6 +50,14 @@ describe('GuestIdentityService conversion', () => {
         }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      guestProgress: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      guestXPTransaction: { findMany: jest.fn().mockResolvedValue([]) },
+      userProgress: { create: jest.fn().mockResolvedValue({}) },
+      xPTransaction: { create: jest.fn().mockResolvedValue({}) },
+      $queryRawUnsafe: jest.fn().mockResolvedValue([{ id: 'guest-1' }]),
       user: {
         create: jest.fn().mockResolvedValue({
           id: 'user-1', email: 'player@example.com', username: 'player_one',
@@ -89,6 +102,10 @@ describe('GuestIdentityService conversion', () => {
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: 'Serializable',
     });
+    expect(tx.$queryRawUnsafe).toHaveBeenCalledWith(
+      'SELECT "id" FROM "GuestIdentity" WHERE "id" = $1::uuid FOR UPDATE',
+      'guest-1',
+    );
     expect(tx.companionProfile.updateMany).toHaveBeenCalledWith({
       where: { guestIdentityId: 'guest-1', userId: null },
       data: { guestIdentityId: null, userId: 'user-1' },
@@ -108,6 +125,55 @@ describe('GuestIdentityService conversion', () => {
     });
     expect(emailVerification.issueAndSend).toHaveBeenCalledWith('user-1');
     expect(result.emailVerification).toEqual({ required: true, verified: false, delivery: 'SENT' });
+  });
+
+
+  it('transfers guest XP snapshot and immutable ledger entries into the new user atomically', async () => {
+    const createdAt = new Date('2026-11-13T10:00:00.000Z');
+    tx.guestProgress.findUnique.mockResolvedValue({
+      guestIdentityId: 'guest-1',
+      level: 3,
+      currentLevelXp: 25,
+      totalXp: BigInt(325),
+      transferredAt: null,
+    });
+    tx.guestXPTransaction.findMany.mockResolvedValue([
+      { id: 'guest-xp-1', matchId: 'match-1', amount: 12, reason: 'MATCH_REWARD', createdAt },
+      { id: 'guest-xp-2', matchId: 'match-2', amount: 8, reason: 'MATCH_REWARD', createdAt },
+    ]);
+
+    await service.convert(principal, input);
+
+    expect(tx.userProgress.create).toHaveBeenCalledWith({
+      data: {
+        userId: 'user-1',
+        level: 3,
+        currentLevelXp: 25,
+        totalXp: BigInt(325),
+      },
+    });
+    expect(tx.xPTransaction.create).toHaveBeenNthCalledWith(1, {
+      data: {
+        userId: 'user-1',
+        matchId: 'match-1',
+        amount: 12,
+        reason: 'GUEST_CONVERSION_TRANSFER',
+        idempotencyKey: 'guest-conversion:guest-1:xp:guest-xp-1:v1',
+      },
+    });
+    expect(tx.xPTransaction.create).toHaveBeenNthCalledWith(2, {
+      data: {
+        userId: 'user-1',
+        matchId: 'match-2',
+        amount: 8,
+        reason: 'GUEST_CONVERSION_TRANSFER',
+        idempotencyKey: 'guest-conversion:guest-1:xp:guest-xp-2:v1',
+      },
+    });
+    expect(tx.guestProgress.update).toHaveBeenCalledWith({
+      where: { guestIdentityId: 'guest-1' },
+      data: { transferredAt: expect.any(Date) },
+    });
   });
 
   it('rejects conversion from a registered USER principal', async () => {
