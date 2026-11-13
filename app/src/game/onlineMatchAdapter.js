@@ -61,9 +61,6 @@ export function createOnlineMatchAdapter(api, {
         pendingSubmission.responseText,
         pendingSubmission.idempotencyKey,
       );
-      pendingSubmission = null;
-      update({ phase: 'waiting-result', error: null });
-      return await refresh();
     } catch (error) {
       update({
         phase: 'submission-error',
@@ -71,6 +68,12 @@ export function createOnlineMatchAdapter(api, {
       });
       throw error;
     }
+
+    // The server accepted the idempotent submission. A later result-read
+    // failure is a synchronization problem, not a failed answer submission.
+    pendingSubmission = null;
+    update({ phase: 'waiting-result', error: null });
+    return await refresh();
   }
 
   async function refresh() {
@@ -111,7 +114,16 @@ export function createOnlineMatchAdapter(api, {
 
       const recovery = await api.getQuestionRecovery(view.matchId);
       if (recovery.status === 'FAILED') {
-        throw new Error(recovery.lastErrorCode || 'Question generation failed.');
+        return update({
+          phase: 'error',
+          error: recovery.lastErrorCode || 'Question generation failed.',
+        });
+      }
+      if (match.status === 'CANCELLED') {
+        return update({
+          phase: 'error',
+          error: 'The backend cancelled this match. No competitive result was recorded.',
+        });
       }
 
       if (recovery.status === 'COMPLETED' && recovery.roundId && recovery.roundId !== roundId) {
@@ -192,10 +204,20 @@ export function createOnlineMatchAdapter(api, {
       }
       return view;
     })().catch((error) => {
-      update({
-        phase: 'error',
-        error: error instanceof Error ? error.message : 'Unable to synchronize the online match.',
-      });
+      const message = error instanceof Error
+        ? error.message
+        : 'Unable to synchronize the online match.';
+      const recoverablePhases = new Set([
+        'waiting-question', 'waiting-result', 'submitting', 'submission-error',
+      ]);
+      const deadlineExpired = view?.deadlineAt &&
+        Date.parse(view.deadlineAt) <= Date.now();
+      const phase = recoverablePhases.has(view?.phase)
+        ? view.phase
+        : view?.phase === 'question' && deadlineExpired
+          ? 'waiting-result'
+          : 'error';
+      update({ phase, error: message });
       throw error;
     }).finally(() => {
       syncInFlight = null;
