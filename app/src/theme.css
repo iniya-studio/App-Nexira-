@@ -1283,6 +1283,46 @@ button {
   color: #85abc2;
 }
 
+.ranking-my-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 197, 255, 0.22);
+  border-radius: 9px;
+  background: rgba(0, 197, 255, 0.055);
+}
+
+.ranking-my-summary > span {
+  color: #9bb4c8;
+  font-size: 11px;
+}
+
+.ranking-my-summary > strong {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+.ranking-my-summary > small {
+  color: #b6c9d9;
+  font-size: 10px;
+  text-align: end;
+}
+
+.ranking-panel .text-action {
+  margin-inline-start: 8px;
+  padding: 3px 7px;
+  border: 1px solid rgba(0, 197, 255, 0.22);
+  border-radius: 5px;
+  color: var(--cyan);
+  background: rgba(0, 197, 255, 0.06);
+  font: inherit;
+  cursor: pointer;
+}
+
 .ranking-subtitle {
   margin-bottom: 19px;
   color: #93a9bd;
