@@ -723,7 +723,7 @@ export default function App() {
   >
     <div className="ambient ambient--one" />
     <div className="ambient ambient--two" />
-    {screen !== 'game' && screen !== 'match-game' && screen !== 'home' && <header className="topbar">
+    {screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking' && screen !== 'home' && <header className="topbar">
       <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
       <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
         <span className="top-profile-avatar"><UserRound size={17} /></span>
@@ -888,6 +888,35 @@ export default function App() {
         </GlassPanel>
       </ScreenFrame>;
     })()}
+
+    {screen === 'matchmaking' && <ScreenFrame className="categories-screen matchmaking-screen">
+      <ScreenHeading
+        eyebrow={language === 'fa' ? 'مسابقه آنلاین' : 'ONLINE COMPETITIVE MATCH'}
+        title={language === 'fa' ? 'در حال یافتن حریف' : 'Finding your opponent'}
+        accent="1vs1"
+        description={language === 'fa'
+          ? 'در حال جست‌وجوی بازیکنی با موضوع و زبان یکسان هستیم.'
+          : 'Searching for a player with the same category and language.'}
+      />
+      <GlassPanel variant="feature" className="matchmaking-panel">
+        <div className="matchmaking-search-state" role="status" aria-live="polite">
+          <span className="live-dot" />
+          <strong>{language === 'fa' ? 'جست‌وجو ادامه دارد…' : 'Search is active…'}</strong>
+          <small>
+            {matchmakingView?.categoryTitle ?? (language === 'fa' ? 'موضوع انتخاب‌شده' : 'Selected category')}
+            {' · '}
+            {language === 'fa' ? 'زبان' : 'Language'}: {(matchmakingView?.language ?? language) === 'fa' ? 'فارسی' : 'English'}
+          </small>
+          <p>{language === 'fa'
+            ? 'اگر اتصال قطع شود، وضعیت صف و مسابقه از سرور بازیابی می‌شود.'
+            : 'If your connection drops, queue and match state can be recovered from the server.'}</p>
+        </div>
+        {matchError && <p className="empty-state" role="alert">{matchError}</p>}
+        <button className="secondary-action" disabled={matchBusy} onClick={() => { void cancelMatchmaking(); }}>
+          {language === 'fa' ? 'لغو جست‌وجو' : 'Cancel search'}
+        </button>
+      </GlassPanel>
+    </ScreenFrame>}
 
     {screen === 'game' && <ScreenFrame className="challenge-screen">
       {!playableRun || !question ? <GlassPanel variant="feature" className="game-error-panel" role="alert">
@@ -1325,7 +1354,7 @@ export default function App() {
       </GlassPanel>
     </ScreenFrame>}
 
-    {screen !== 'game' && screen !== 'match-game' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
+    {screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
       {[
         ['home', text.navHome, Home],
         ['rankings', text.navRanks, Trophy],
