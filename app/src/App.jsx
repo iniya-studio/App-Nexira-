@@ -240,6 +240,9 @@ export default function App() {
       const adapter = createOnlineMatchAdapter(createMatchApi(appSessionLifecycle.getHttpClient()));
       onlineMatchAdapterRef.current = adapter;
       const next = await adapter.resume(matchId, { mode: '1v1', language: profileRef.current.settings.language });
+      onlineMatchmakingAdapterRef.current?.reset();
+      onlineMatchmakingAdapterRef.current = null;
+      setMatchmakingView(null);
       setMatchView(next);
       setOnlineAnswerText('');
       setMatchError('');
@@ -698,6 +701,7 @@ export default function App() {
           </button>;
         })}
         </div>
+        {matchError && <p className="empty-state" role="alert">{matchError}</p>}
         <p className="category-foot"><Sparkles size={13} /> {text.categoryFoot} <span>·</span> {text.localArena}</p>
       </GlassPanel>
     </ScreenFrame>}
