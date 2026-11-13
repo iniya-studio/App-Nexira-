@@ -1,4 +1,4 @@
-import { MatchMode, MatchStatus, ParticipantType, PrincipalType } from '@prisma/client';
+import { MatchMode, MatchStatus, ParticipantType, PrincipalType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from './match.service';
@@ -66,6 +66,28 @@ describe('MatchService', () => {
       data: expect.objectContaining({
         sourceRoundId: null, triggerReason: 'INITIAL_MATCH',
         requestContext: expect.objectContaining({ language: 'fa' }),
+      }),
+    });
+  });
+
+
+  it('creates 1v1 match and initial question inside the caller transaction', async () => {
+    const { service, prisma, tx } = setup(MatchMode.ONE_V_ONE, [
+      { participantKey: 'human:user:user-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+      { participantKey: 'human:guest:guest-2', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+    ]);
+    await service.createOneVsOne(
+      { principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1' },
+      { principalType: PrincipalType.GUEST, principalId: 'guest-2', sessionId: 'session-2' },
+      tx as unknown as Prisma.TransactionClient,
+      { category: 'math', language: 'fa' },
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.match.create).toHaveBeenCalledTimes(1);
+    expect(tx.questionGenerationJob.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        matchId: 'match-1',
+        requestContext: expect.objectContaining({ category: 'math', language: 'fa' }),
       }),
     });
   });
