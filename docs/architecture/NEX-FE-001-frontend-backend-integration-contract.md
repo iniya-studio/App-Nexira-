@@ -40,8 +40,10 @@ Base URL: environment-configured API origin + `/api/v1`.
 | Resend verification | POST `/auth/email/resend` | Access token |
 | Rotate session | POST `/sessions/refresh` | Refresh token in body |
 | Logout | POST `/sessions/logout` | Access token |
-| Create 1vAI match | POST `/matches/ai` | Access token |
+| Create 1vAI match | POST `/matches/ai` with `{ category, language }` | Access token |
 | Read match summary | GET `/matches/:matchId` | Access token |
+| Read participant-authorized round settlement | GET `/matches/:matchId/rounds/:roundId/result` | Access token |
+| Read participant-authorized final match result | GET `/matches/:matchId/result` | Access token |
 | Mark round ready | POST `/matches/:matchId/rounds/:roundId/ready` | Access token |
 | Read localized question | GET `/matches/:matchId/rounds/:roundId/question?language=en` | Access token |
 | Submit answer | POST `/matches/:matchId/rounds/:roundId/answers` | Access token |
@@ -57,11 +59,13 @@ However, the current public API is not yet a complete playable V1 contract:
 
 - Public 1v1 matchmaking/queue and pairing are not exposed; `createOneVsOne` is an internal service method only.
 - `GET /matches/:matchId` returns a match summary but not a complete active-round/result snapshot. `GET /matches/:matchId/question-recovery` exposes generation/readiness recovery details, but the client still needs a documented, complete polling/state-transition contract.
-- Answer submission returns an acceptance receipt, not the final judge decision or round/match result. Internal judge/finalization workers exist, but there is no participant-authorized result/history/XP/ranking settlement read API in this controller surface.
-- The 1vAI creation path currently inserts an AI participant persistence row and queues a question; a complete AI opponent answer/turn implementation and end-to-end match lifecycle are not yet exposed.
-- A real-time WebSocket client event contract and reconnect lifecycle are not exposed.
+- `GET /matches/:matchId/rounds/:roundId/result` and `GET /matches/:matchId/result` now expose participant-authorized, sanitized settlement data. The answer submission receipt itself remains non-authoritative for UI scoring; the client must wait for the result routes.
+- The 1vAI path now has a complete REST-driven lifecycle contract: question generation/recovery, AI readiness, server-owned round clock, AI opponent answer worker, AI Judge, round settlement, next-question generation, and final match result retrieval. The client adapter is implemented in `app/src/game/onlineMatchAdapter.js`.
+- Public 1v1 matchmaking/queue and pairing are still not exposed; `createOneVsOne` remains an internal service method.
+- A WebSocket client event contract is not exposed. V1 online 1vAI currently uses bounded REST polling and must reconcile after foreground/resume and network recovery.
+- Live provider execution still requires a deployed API, PostgreSQL, HTTPS API origin in the Android build, and the server-side Question Generator, AI Opponent, and AI Judge credentials. CI uses test providers and does not prove production provider connectivity.
 
-Therefore, do not wire the existing local simulation to pretend it is online 1v1 or real 1vAI. The first online vertical slice must wait for a small, explicit backend contract for AI turns and participant-authorized authoritative result retrieval/polling, while reusing the existing question, readiness, answer, judge, deadline, and finalization services. Any backend additions must be narrow and covered by tests; no identity/session or match-engine redesign is authorized.
+The production Android app now selects the online 1vAI adapter; the local adapter remains a development/demo path only. It must never silently fall back to local scoring after an online failure. 1v1 stays unavailable in production until matchmaking and pairing are implemented. No identity/session or match-engine redesign is required; only narrow gap-closing contracts and tests are permitted.
 
 ## 5. Client architecture to add
 
@@ -72,8 +76,8 @@ Create a small API boundary inside `app/src/`:
 - `api/sessionApi.js`: guest start, register, login, Google, refresh, logout, guest conversion.
 - `api/matchApi.js`: create match, read summary, mark ready, read question, submit answer, question recovery.
 - `api/sessionCoordinator.js`: single-flight refresh, refresh-token rotation, replay protection, logout on unrecoverable session invalidation.
-- `game/onlineMatchAdapter.js`: implement the same narrow interface consumed by the match UI, but call backend APIs and expose server lifecycle states.
-- `game/matchAdapterFactory.js`: select local adapter only for explicit demo/test mode; select online adapter only when API configuration and server readiness are present.
+- `game/onlineMatchAdapter.js`: implemented for production 1vAI; calls backend APIs and exposes server lifecycle states, stable answer idempotency, readiness, round settlement, and final result.
+- The current app selects the online adapter in production builds and keeps the local adapter for Vite development/demo. It does not silently fall back to local scoring.
 
 Keep UI components independent of raw HTTP details. Do not duplicate scoring or judging logic in the client.
 
@@ -124,9 +128,9 @@ Keep UI components independent of raw HTTP details. Do not duplicate scoring or 
 2. Add secure token-store interface and select/validate the Capacitor secure-storage implementation. Keep secrets out of browser storage.
 3. Add guest-start and refresh coordinator with unit tests for rotation, concurrency, timeout retry, invalidation, and restart.
 4. Add auth screens/actions behind the existing optional Profile registration flow; do not force registration on launch.
-5. Add online 1vAI adapter behind a feature flag after backend lifecycle/result gaps are closed.
-6. Add end-to-end tests against a disposable PostgreSQL-backed backend and Android device acceptance.
-7. Only then enable online play as the production default. Retain local adapter for deterministic automated tests, not as a silent production fallback.
+5. Implemented: production 1vAI uses the online adapter after backend lifecycle/result contracts were added; local simulation remains development/demo only.
+6. Remaining: run end-to-end tests against a deployed PostgreSQL-backed API with real provider credentials, then complete Android device acceptance.
+7. 1v1 remains disabled in production until matchmaking/queue/pairing and its shared-question lifecycle are exposed. Retain local adapter for deterministic automated tests, not as a silent production fallback.
 
 ## 10. Acceptance criteria
 
@@ -145,3 +149,19 @@ Keep UI components independent of raw HTTP details. Do not duplicate scoring or 
 ## 11. Change-control boundary
 
 This document defines the client integration plan against the existing backend. Any proposed backend change must be a narrowly scoped gap-closing contract with tests and a forward migration only when necessary. Do not replace the modular monolith, rewrite identity/session foundations, or edit already-applied migrations.
+
+
+## 12. Online 1vAI integration milestone — 2026-11-13
+
+Implemented on `main`:
+- `POST /matches/ai` accepts the selected category and app language while keeping `FREE_TEXT` answers and the server-configured match length.
+- `GET /matches/:matchId/rounds/:roundId/result` returns participant-safe round settlement, hiding internal participant IDs and withholding judge decisions until adjudication is complete.
+- `GET /matches/:matchId/result` returns participant-authorized final scores and winner metadata without exposing participant IDs.
+- The Android production UI starts a real server-owned 1vAI match, reads localized generated questions, marks readiness, displays the database-owned deadline, submits free-text answers with a stable idempotency key, waits for AI judging and round finalization, and reads the final backend result.
+- The client does not calculate correctness, elapsed time, score, AI outcome, XP, or ranking. The local simulation is not used as a production fallback.
+
+Still required before a real device match can run against live AI:
+- Deploy the NestJS API and PostgreSQL to a reachable HTTPS environment and set `VITE_API_BASE_URL` for the Android build.
+- Configure server-only credentials/models for question generation, AI opponent responses, and AI judging.
+- Execute a full Android-device 10-round 1vAI match and verify provider behavior, reconnects, and final settlement.
+- Implement public 1v1 matchmaking and pairing separately; it is not part of this 1vAI milestone.
