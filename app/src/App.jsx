@@ -857,16 +857,16 @@ export default function App() {
             <p className="eyebrow">{import.meta.env.PROD
               ? (language === 'fa' ? 'مسابقه رقابتی آنلاین' : 'ONLINE COMPETITIVE MATCH')
               : (language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW')}</p>
-            <button className="mode-option" disabled={import.meta.env.PROD} onClick={() => beginMatch(selectedCategory, '1v1')}>
+            <button className="mode-option" disabled={matchBusy} onClick={() => beginMatch(selectedCategory, '1v1')}>
               <span className="mode-number">P1</span>
               <span className="mode-label">{import.meta.env.PROD
-                ? (language === 'fa' ? '۱ در برابر ۱ · به‌زودی' : '1vs1 · Coming soon')
+                ? (language === 'fa' ? '۱ در برابر ۱ · رقابت آنلاین' : '1vs1 · Online matchmaking')
                 : (language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1vs1 · Two local players')}
                 <small>{import.meta.env.PROD
-                  ? (language === 'fa' ? 'در انتظار تکمیل matchmaking آنلاین' : 'Online matchmaking is being completed')
+                  ? (language === 'fa' ? 'جست‌وجوی حریف با موضوع و زبان یکسان' : 'Find an opponent with matching category and language')
                   : (language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device')}</small></span>
               <span className="difficulty-badge">{import.meta.env.PROD
-                ? (language === 'fa' ? 'به‌زودی' : 'COMING SOON')
+                ? (language === 'fa' ? 'آنلاین' : 'ONLINE')
                 : (language === 'fa' ? 'محلی' : 'LOCAL')}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
