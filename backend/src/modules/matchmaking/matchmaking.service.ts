@@ -75,7 +75,7 @@ export class MatchmakingService {
     input: { category: string; language: string; idempotencyKey: string },
   ) {
     if (
-      process.env.NODE_ENV === 'production' &&
+      process.env.NODE_ENV !== 'test' &&
       process.env.NEXIRA_PUBLIC_1V1_ENABLED !== 'true'
     ) {
       throw new ServiceUnavailableException('Public 1v1 matchmaking is not enabled');
