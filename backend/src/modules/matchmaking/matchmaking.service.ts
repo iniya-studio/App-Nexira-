@@ -147,6 +147,9 @@ export class MatchmakingService {
                 ...candidateOwner,
                 revokedAt: null,
                 expiresAt: { gt: now },
+                ...(candidate.userId
+                  ? { user: { is: { status: UserStatus.ACTIVE } } }
+                  : { guestIdentity: { is: { status: GuestIdentityStatus.ACTIVE, convertedToUserId: null } } }),
               },
               select: { id: true },
             })
