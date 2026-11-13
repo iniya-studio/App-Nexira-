@@ -14,11 +14,13 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
   const matchIds: string[] = [];
   const guestIds: string[] = [];
   const userIds: string[] = [];
+  const sessionIds: string[] = [];
 
   beforeAll(async () => { await prisma.$connect(); });
   afterEach(async () => {
     if (queueIds.length) { await prisma.matchmakingEntry.deleteMany({ where: { id: { in: queueIds } } }); queueIds.length = 0; }
     if (matchIds.length) { await prisma.match.deleteMany({ where: { id: { in: matchIds } } }); matchIds.length = 0; }
+    if (sessionIds.length) { await prisma.userSession.deleteMany({ where: { id: { in: sessionIds } } }); sessionIds.length = 0; }
     if (guestIds.length) { await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } }); guestIds.length = 0; }
     if (userIds.length) { await prisma.user.deleteMany({ where: { id: { in: userIds } } }); userIds.length = 0; }
   });
@@ -27,12 +29,20 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
   async function createGuest(): Promise<AuthenticatedPrincipal> {
     const guest = await prisma.guestIdentity.create({ data: {} });
     guestIds.push(guest.id);
-    return { principalType: PrincipalType.GUEST, principalId: guest.id, sessionId: randomUUID() };
+    const session = await prisma.userSession.create({
+      data: { guestIdentityId: guest.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+    });
+    sessionIds.push(session.id);
+    return { principalType: PrincipalType.GUEST, principalId: guest.id, sessionId: session.id };
   }
   async function createUser(): Promise<AuthenticatedPrincipal> {
     const user = await prisma.user.create({ data: { username: `queue-${randomUUID()}`, displayName: 'Queue Integration' } });
     userIds.push(user.id);
-    return { principalType: PrincipalType.USER, principalId: user.id, sessionId: randomUUID() };
+    const session = await prisma.userSession.create({
+      data: { userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+    });
+    sessionIds.push(session.id);
+    return { principalType: PrincipalType.USER, principalId: user.id, sessionId: session.id };
   }
   const request = (category = 'general', language = 'fa') => ({
     category, language, idempotencyKey: `queue-${randomUUID()}`,
