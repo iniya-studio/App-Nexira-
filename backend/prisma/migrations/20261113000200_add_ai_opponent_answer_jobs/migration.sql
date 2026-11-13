@@ -27,9 +27,7 @@ CREATE TABLE "AiAnswerJob" (
     REFERENCES "Round"("id", "matchId") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "AiAnswerJob_participantId_matchId_fkey"
     FOREIGN KEY ("participantId", "matchId")
-    REFERENCES "MatchParticipant"("id", "matchId") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "AiAnswerJob_matchId_fkey"
-    FOREIGN KEY ("matchId") REFERENCES "Match"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    REFERENCES "MatchParticipant"("id", "matchId") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE UNIQUE INDEX "AiAnswerJob_idempotencyKey_key" ON "AiAnswerJob"("idempotencyKey");
