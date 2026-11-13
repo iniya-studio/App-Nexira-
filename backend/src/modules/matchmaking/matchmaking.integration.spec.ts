@@ -84,7 +84,7 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     queueIds.push(first.queueId);
     const retry = await matchmaking.enqueue(principal, key);
     expect(retry.queueId).toBe(first.queueId);
-    await expect(matchmaking.enqueue(principal, request())).rejects.toThrow('An active queue entry or idempotency key already exists');
+    await expect(matchmaking.enqueue({ ...principal, sessionId: randomUUID() }, request())).rejects.toThrow('An active queue entry or idempotency key already exists');
     expect(await prisma.matchmakingEntry.count({ where: { guestIdentityId: principal.principalId, status: 'WAITING' } })).toBe(1);
   });
 
