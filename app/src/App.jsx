@@ -238,6 +238,7 @@ export default function App() {
       setServerProgress(null);
       setGlobalRanking(null);
       setSeasonalRanking(null);
+      setProgressionError('');
     }
   }, [sessionState.status, refreshServerProgression]);
 
@@ -1036,7 +1037,7 @@ export default function App() {
             { title: text.achievementFirst, detail: text.achievementFirstDetail, earned: profile.battles >= 1, icon: Zap },
             { title: text.achievementVeteran, detail: text.achievementVeteranDetail, earned: profile.battles >= 5, icon: Medal },
             { title: text.achievementSharp, detail: text.achievementSharpDetail, earned: profile.totalAnswers > 0 && accuracy >= 80, icon: Target },
-            { title: text.achievementAscendant, detail: text.achievementAscendantDetail, earned: profile.level >= 5, icon: Sparkles },
+            { title: text.achievementAscendant, detail: text.achievementAscendantDetail, earned: displayLevel >= 5, icon: Sparkles },
           ].map(({ title, detail, earned, icon: Icon }) => <div className={`achievement-card${earned ? ' achievement-card--earned' : ''}`} key={title}>
             <span><Icon size={16} /></span><strong>{title}</strong><small>{detail}</small><i>{earned ? text.unlocked : text.locked}</i>
           </div>)}
