@@ -385,6 +385,8 @@ model MatchmakingEntry {
   match         Match?         @relation(fields: [matchId], references: [id], onDelete: Restrict)
 
   @@index([status, category, language, queuedAt])
+  @@index([userId, queuedAt])
+  @@index([guestIdentityId, queuedAt])
   @@index([matchId])
   @@index([expiresAt, status])
 }
