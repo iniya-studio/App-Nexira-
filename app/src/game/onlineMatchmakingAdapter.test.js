@@ -25,7 +25,7 @@ test('starts a fresh queue after the previous matched game is terminal', async (
     enqueue: async () => { enqueueCalls += 1; return { status: 'WAITING', queueId: 'new-queue' }; },
     cancel: async () => ({ status: 'CANCELLED' }),
   };
-  const adapter = createOnlineMatchmakingAdapter(api, { createKey: () => 'new-queue-key-000001' });
+  const adapter = createOnlineMatchmakingAdapter(api);
   const result = await adapter.start({ category: 'science', language: 'en' });
   assert.equal(enqueueCalls, 1);
   assert.equal(result.queueId, 'new-queue');
@@ -38,7 +38,7 @@ test('replaces a waiting queue when the player selects a different category or l
     cancel: async () => { cancelCalls += 1; return { status: 'CANCELLED' }; },
     enqueue: async (input) => { enqueued.push(input); return { status: 'WAITING', ...input, queueId: 'new-queue' }; },
   };
-  const adapter = createOnlineMatchmakingAdapter(api, { createKey: () => 'new-queue-key-000001' });
+  const adapter = createOnlineMatchmakingAdapter(api);
   const result = await adapter.start({ category: 'science', language: 'fa' });
 
   assert.equal(cancelCalls, 1);
