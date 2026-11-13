@@ -638,17 +638,33 @@ export default function App() {
             </button>)}
           </div>
           <div className="mode-list">
-            <p className="eyebrow">{language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW'}</p>
-            <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1v1')}>
+            <p className="eyebrow">{import.meta.env.PROD
+              ? (language === 'fa' ? 'مسابقه رقابتی آنلاین' : 'ONLINE COMPETITIVE MATCH')
+              : (language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW')}</p>
+            <button className="mode-option" disabled={import.meta.env.PROD} onClick={() => beginMatch(selectedCategory, '1v1')}>
               <span className="mode-number">P1</span>
-              <span className="mode-label">{language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1vs1 · Two local players'}<small>{language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device'}</small></span>
-              <span className="difficulty-badge">{language === 'fa' ? 'محلی' : 'LOCAL'}</span>
+              <span className="mode-label">{import.meta.env.PROD
+                ? (language === 'fa' ? '۱ در برابر ۱ · به‌زودی' : '1vs1 · Coming soon')
+                : (language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1vs1 · Two local players')}
+                <small>{import.meta.env.PROD
+                  ? (language === 'fa' ? 'در انتظار تکمیل matchmaking آنلاین' : 'Online matchmaking is being completed')
+                  : (language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device')}</small></span>
+              <span className="difficulty-badge">{import.meta.env.PROD
+                ? (language === 'fa' ? 'به‌زودی' : 'COMING SOON')
+                : (language === 'fa' ? 'محلی' : 'LOCAL')}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
             <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1vAI')}>
               <span className="mode-number">AI</span>
-              <span className="mode-label">{language === 'fa' ? '۱ در برابر AI · پیش‌نمایش' : '1vsAI · Scripted preview'}<small>{language === 'fa' ? 'حریف اسکریپت‌شده؛ نه AI واقعی' : 'Scripted opponent; not real AI'}</small></span>
-              <span className="difficulty-badge">{language === 'fa' ? 'آفلاین' : 'OFFLINE'}</span>
+              <span className="mode-label">{import.meta.env.PROD
+                ? (language === 'fa' ? '۱ در برابر AI · آنلاین' : '1vsAI · Online AI match')
+                : (language === 'fa' ? '۱ در برابر AI · پیش‌نمایش' : '1vsAI · Scripted preview')}
+                <small>{import.meta.env.PROD
+                  ? (language === 'fa' ? 'حریف و داوری از طریق سرور' : 'Server-based AI opponent and judging')
+                  : (language === 'fa' ? 'حریف اسکریپت‌شده؛ نه AI واقعی' : 'Scripted opponent; not real AI')}</small></span>
+              <span className="difficulty-badge">{import.meta.env.PROD
+                ? (language === 'fa' ? 'آنلاین' : 'ONLINE')
+                : (language === 'fa' ? 'آفلاین' : 'OFFLINE')}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
             {matchError && <p className="empty-state" role="alert">{matchError}</p>}
