@@ -1,7 +1,7 @@
 # NEXIRA — نقشه راه اجرایی و دفتر روزانه پیشرفت
 
 - شناسه سند: NEX-ROADMAP-001
-- نسخه: 1.4
+- نسخه: 1.5
 - وضعیت: سند مرجع اجرایی — ایجادشده؛ گزارش ممیزی شاخه‌ها قبلاً تهیه و بررسی شده است؛ تطبیق اجرایی قابلیت‌ها و آزمون‌های main مرحله‌ای انجام می‌شود
 - شاخه مرجع توسعه: `main`
 - دامنه: از آماده‌سازی مخزن تا انتشار V1، سپس توسعه V2 و عملیات زنده
@@ -278,18 +278,19 @@
 | 2026-11-13 | 00 / پاک‌سازی شاخه‌ها | هر ۱۳ شاخه remote اضافی از GitHub حذف شدند؛ بررسی مستقیم GitHub تأیید کرد فقط `main` باقی مانده است. یک شاخه محلی `feature/1vai-opponent-response-worker` به‌دلیل فعال بودن در worktree جداگانه `/workspaces/nexira-opponent-response-worker` باقی مانده و عمداً فعلاً دست‌نخورده نگه داشته شده است. | گزارش نهایی Codespace: `NEXIRA-FINAL-BRANCH-CLEANUP-REPORT.md`؛ جست‌وجوی مستقیم شاخه‌های GitHub: فقط `main` | بدون commit کد؛ ثبت این یادداشت در دفتر روزانه | DONE برای پاک‌سازی remote؛ FOLLOW-UP برای شاخه محلی | در مرحله مناسب، پیش از حذف worktree/شاخه محلی، وضعیت تغییرات، فایل‌های untracked/ignored، commitهای منحصربه‌فرد و حفظ کامل دارایی‌های AI Opponent Worker بررسی شود؛ سپس درباره نگهداری/انتقال/حذف تصمیم بگیریم. تا آن زمان روی `main` توسعه می‌دهیم. |
 | 2026-11-13 | R-001 / Frontend و Android | ساختار یگانه اپلیکیشن در `app/` از Snapshot تغییرناپذیر `e1426e8e97c57a93b230e1134904279f0188c71a` بازسازی شد؛ ۱۰۰ فایل دقیقاً با Blob SHA منبع تطبیق داشتند؛ پروژه قدیمی ریشه و Android تکراری از ساختار فعال خارج شدند؛ Android CI برای `main` تنظیم شد. | تطبیق ۱۰۰/۱۰۰ Blob SHA؛ GitHub Actions run `43478696196`: هر ۸۴ تست Frontend/Match Engine موفق، Vite build موفق، Android build موفق در ۱m 34s، بررسی APK موفق؛ Artifact: 6,282,171 bytes، ID `14064451608`، SHA-256 بسته Artifact: `9d1bc528f94555c2b8f1dc0523581fbb7f3f40f1de2f0c9d5262bdafa1e3b1d0` | `3aaa6bc29fc66756f570a1987747d4c337d88a31` | DONE | بررسی اتصال آنلاین و جریان واقعی بازی در مرحله بعد؛ فعلاً local adapter صرفاً حالت demo/test است. |
 | 2026-11-13 | R-006 / Backend و قراردادهای مهندسی | ۱۱۹ فایل Backend و ۱۱ سند مهندسی/معماری از همان Snapshot تغییرناپذیر بازیابی شدند؛ Backend معماری قبلی را حفظ کرد؛ CI مستقل با Node 24 و PostgreSQL 16 فقط برای `main` فعال شد. | تطبیق ۱۱۹/۱۱۹ فایل Backend و ۱۱/۱۱ سند با Blob SHA منبع؛ GitHub Actions run `43479045376`: Prisma format/validate/generate، اعمال تمام migrationها روی PostgreSQL 16، Nest build، ۳۲ suite و ۱۶۸ تست unit/integration، و ESLint همگی PASS | `29883facc589a46a8f70eea346b4e4b961b24806` | DONE | گام بعد: بررسی دقیق مرز اتصال Frontend/Backend و تعیین حداقل شکاف‌های API برای vertical slice آنلاین؛ بدون بازطراحی هسته. |
+| 2026-11-13 | R-004/R-005/R-007/R-010 / ممیزی اتصال آنلاین | لایه API و نشست Frontend، کنترلرهای Backend و AI Opponent Worker بررسی شدند. Guest/session foundation و API client موجود و تست‌شده‌اند؛ اما بازی هنوز از `localMatchAdapter` استفاده می‌کند و به API مسابقه متصل نیست. Backend مسیر ساخت 1vAI دارد، ولی 1v1 matchmaking عمومی، خواندن نتیجه/امتیاز نهایی و قرارداد کامل polling/result در API فعلی وجود ندارد؛ پاسخ submit فقط receipt است. | بررسی کدهای `app/src/api/*`، `app/src/App.jsx`، `app/src/game/localMatchAdapter.js`، کنترلرها و `MatchService`/`RoundService`؛ تست‌های قبلی سبز؛ live AI provider calls هنوز تأیید نشده‌اند. | بدون تغییر کد؛ ثبت نتیجه ممیزی | REVIEW | طراحی قرارداد حداقلی vertical slice آنلاین. به‌دلیل تصمیم قبلی مالک، فعلاً هیچ تغییر Backend انجام نشود؛ ابتدا مرز دقیق نیازهای API و سازگاری آن با هسته موجود مستند شود. |
 
 ### داشبورد وضعیت
 
 | شاخص | وضعیت فعلی |
 |---|---|
 | شاخه مرجع | `main` |
-| ممیزی شاخه‌ها و ثبت گزارش | انجام‌شده؛ گزارش قبلی مرجع حفظ دارایی‌هاست |\n| وضعیت تطبیق قابلیت‌ها و آزمون‌های main | ساختار یکپارچه Frontend/Backend بازیابی شد؛ دو CI مستقل سبز؛ تطبیق مسیر آنلاین و پذیرش دستگاه واقعی ادامه دارد |
+| ممیزی شاخه‌ها و ثبت گزارش | انجام‌شده؛ گزارش قبلی مرجع حفظ دارایی‌هاست |\n| وضعیت تطبیق قابلیت‌ها و آزمون‌های main | ساختار یکپارچه Frontend/Backend بازیابی و هر دو CI سبز شدند؛ ممیزی اتصال آنلاین انجام شد؛ gameplay هنوز local است و vertical slice آنلاین نیازمند تکمیل قرارداد API است |
 | فازهای V1 تکمیل‌شده | پس از تطبیق کد و آزمون‌های main تعیین می‌شود |
 | پیشرفت V1 | تا ثبت baseline: نامشخص |
 | آمادگی زیرساخت V2 | پس از تطبیق معماری و قراردادهای موجود در main تعیین می‌شود |
 | تست‌های معتبر main | Frontend/Match Engine و Android APK CI: PASS؛ Backend CI، Prisma migrations روی PostgreSQL 16، unit/integration و lint: PASS؛ پذیرش آنلاین روی دستگاه واقعی هنوز انجام نشده است |
-| موانع/پیگیری فعال | یک شاخه محلی قدیمی در worktree جداگانه Codespace باقی مانده؛ فعلاً مانع توسعه روی `main` نیست و پیش از حذف باید دارایی‌های AI Opponent Worker بررسی شوند. اتصال آنلاین و آزمون end-to-end هنوز در صف اجراست. |
+| موانع/پیگیری فعال | یک شاخه محلی قدیمی در worktree جداگانه Codespace باقی مانده؛ فعلاً مانع توسعه روی `main` نیست. اتصال آنلاین نیازمند قرارداد خواندن نتیجه/وضعیت مسابقه و مسیر 1v1 است؛ طبق تصمیم مالک فعلاً Backend تغییر نمی‌کند. |
 
 ## 9. قالب گزارش پایان هر نوبت کاری
 
@@ -309,6 +310,7 @@
 | 1.2 | 2026-11-13 | ثبت پاک‌سازی ۱۳ شاخه remote، تأیید باقی‌ماندن فقط `main` در GitHub، و ثبت پیگیری شاخه محلی AI Opponent Worker برای بررسی ایمن در آینده |
 | 1.3 | 2026-11-13 | ثبت بازسازی ۱۰۰ فایل Frontend، ۱۱۹ فایل Backend و ۱۱ سند از Snapshot تغییرناپذیر، حذف ساختار تکراری ریشه، و موفقیت کامل Android و Backend CI مستقل روی `main` |
 | 1.4 | 2026-11-13 | تکمیل شواهد آزمون: ۸۴ تست Frontend/Match Engine، ساخت و آپلود APK با checksum ثبت‌شده، و ۱۶۸ تست Backend در ۳۲ suite همراه با migration و lint موفق |
+| 1.5 | 2026-11-13 | ثبت ممیزی اتصال Frontend/Backend: شناسایی local adapter فعال و شکاف‌های public matchmaking و result API؛ تعیین گام بعدی بدون تغییر Backend |
 
 ---
 
