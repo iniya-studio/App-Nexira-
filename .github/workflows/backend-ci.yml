@@ -80,6 +80,7 @@ jobs:
       - name: Build NestJS for production
         run: npm run build
 
+      # Includes transactional queue, pairing race, cancellation and recovery coverage.
       - name: Run unit and PostgreSQL integration tests
         run: npm test -- --runInBand
 
