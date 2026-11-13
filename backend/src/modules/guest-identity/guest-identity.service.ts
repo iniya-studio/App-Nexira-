@@ -64,6 +64,11 @@ export class GuestIdentityService {
     };
     try {
       converted = await this.prisma.$transaction(async (tx) => {
+        // Serialize conversion with match settlement so XP is transferred exactly once.
+        await tx.$queryRawUnsafe(
+          'SELECT "id" FROM "GuestIdentity" WHERE "id" = $1::uuid FOR UPDATE',
+          principal.principalId,
+        );
         const guest = await tx.guestIdentity.findUnique({
           where: { id: principal.principalId },
           select: { id: true, status: true, convertedToUserId: true },
@@ -85,6 +90,44 @@ export class GuestIdentityService {
             preferredLanguage: true, emailVerifiedAt: true,
           },
         });
+
+        const guestProgress = await tx.guestProgress.findUnique({
+          where: { guestIdentityId: guest.id },
+        });
+        const guestXpTransactions = await tx.guestXPTransaction.findMany({
+          where: { guestIdentityId: guest.id },
+          orderBy: { createdAt: 'asc' },
+        });
+        if (guestProgress) {
+          if (guestProgress.transferredAt) {
+            throw new ConflictException('Guest progression was already transferred');
+          }
+          await tx.userProgress.create({
+            data: {
+              userId: user.id,
+              level: guestProgress.level,
+              currentLevelXp: guestProgress.currentLevelXp,
+              totalXp: guestProgress.totalXp,
+            },
+          });
+          for (const event of guestXpTransactions) {
+            await tx.xPTransaction.create({
+              data: {
+                userId: user.id,
+                matchId: event.matchId,
+                amount: event.amount,
+                reason: 'GUEST_CONVERSION_TRANSFER',
+                idempotencyKey: `guest-conversion:${guest.id}:xp:${event.id}:v1`,
+              },
+            });
+          }
+          await tx.guestProgress.update({
+            where: { guestIdentityId: guest.id },
+            data: { transferredAt: new Date() },
+          });
+        } else if (guestXpTransactions.length > 0) {
+          throw new Error('Guest XP ledger exists without its progress snapshot');
+        }
 
         // Move the existing profile row, preserving its stable ID and appearance.
         // If the guest never created a Companion profile, keep the user's profile lazy.
@@ -124,7 +167,12 @@ export class GuestIdentityService {
             principalId: guest.id,
             sessionId: session.session.sessionId,
             result: 'SUCCESS',
-            metadata: { convertedToUserId: user.id, companionProfileTransferred: profileTransfer.count === 1 },
+            metadata: {
+              convertedToUserId: user.id,
+              companionProfileTransferred: profileTransfer.count === 1,
+              progressionTransferred: guestProgress !== null,
+              xpTransactionsTransferred: guestXpTransactions.length,
+            },
           },
         });
         return { user, session };
