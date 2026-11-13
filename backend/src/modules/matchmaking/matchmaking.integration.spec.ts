@@ -87,6 +87,18 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     expect(await prisma.matchmakingEntry.count({ where: { guestIdentityId: principal.principalId, status: 'WAITING' } })).toBe(1);
   });
 
+  it('expires stale waiting entries and never pairs against an expired queue row', async () => {
+    const first = await createGuest();
+    const second = await createGuest();
+    const queued = await matchmaking.enqueue(first, request());
+    queueIds.push(queued.queueId);
+    await prisma.matchmakingEntry.update({ where: { id: queued.queueId }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    await expect(matchmaking.getMine(first)).resolves.toMatchObject({ status: 'EXPIRED', matchId: null });
+    const secondQueue = await matchmaking.enqueue(second, request());
+    queueIds.push(secondQueue.queueId);
+    expect(secondQueue.status).toBe('WAITING');
+    expect(secondQueue.matchId).toBeNull();
+  });
   it('pairs four concurrent compatible enqueues into two distinct matches without double consumption', async () => {
     const principals = await Promise.all([createGuest(), createGuest(), createGuest(), createGuest()]);
     const results = await Promise.all(principals.map((principal) => matchmaking.enqueue(principal, request('general', 'en'))));
