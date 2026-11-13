@@ -22,7 +22,6 @@ describe('Multi-round match lifecycle integration', () => {
   const matchFinalizer = new MatchFinalizationWorker(prisma);
   const settlement = new MatchSettlementService();
   const matchIds: string[] = [];
-  const guestIds: string[] = [];
   const userIds: string[] = [];
   const questionIds: string[] = [];
 
@@ -46,11 +45,6 @@ describe('Multi-round match lifecycle integration', () => {
     if (questionIds.length) {
       await prisma.question.deleteMany({ where: { id: { in: questionIds } } });
       questionIds.length = 0;
-    }
-    if (guestIds.length) {
-      await prisma.guestXPTransaction.deleteMany({ where: { guestIdentityId: { in: guestIds } } });
-      await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
-      guestIds.length = 0;
     }
     if (userIds.length) {
       await prisma.xPTransaction.deleteMany({ where: { userId: { in: userIds } } });
