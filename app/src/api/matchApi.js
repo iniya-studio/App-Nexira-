@@ -4,8 +4,12 @@ export function createMatchApi(http) {
   }
 
   return {
-    createAiMatch: () => http.post('/matches/ai'),
+    createAiMatch: (options = {}) => http.post('/matches/ai', options),
     getMatch: (matchId) => http.get(`/matches/${encodeURIComponent(matchId)}`),
+    getMatchResult: (matchId) => http.get(`/matches/${encodeURIComponent(matchId)}/result`),
+    getRoundResult: (matchId, roundId) => http.get(
+      `/matches/${encodeURIComponent(matchId)}/rounds/${encodeURIComponent(roundId)}/result`,
+    ),
     markRoundReady: (matchId, roundId) => http.post(
       `/matches/${encodeURIComponent(matchId)}/rounds/${encodeURIComponent(roundId)}/ready`,
     ),

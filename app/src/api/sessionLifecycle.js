@@ -68,6 +68,10 @@ export function createSessionLifecycle({
   return Object.freeze({
     getState: () => state,
 
+    getHttpClient() {
+      return ensureServices().http;
+    },
+
     subscribe(listener) {
       if (typeof listener !== 'function') throw new TypeError('A session state listener is required.');
       listeners.add(listener);
