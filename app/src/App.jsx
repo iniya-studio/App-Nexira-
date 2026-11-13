@@ -468,6 +468,11 @@ export default function App() {
       try {
         const next = await adapter.refresh();
         if (!active || !next) return;
+        if (!['splash', 'home'].includes(screenRef.current)) {
+          adapter.reset();
+          if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
+          return;
+        }
         if (next.status === 'MATCHED' && next.matchId) {
           await openMatchedOnlineMatch(next);
         } else if (next.status === 'WAITING') {
