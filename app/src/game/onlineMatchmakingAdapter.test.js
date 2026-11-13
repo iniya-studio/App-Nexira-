@@ -4,9 +4,10 @@ import { createOnlineMatchmakingAdapter } from './onlineMatchmakingAdapter.js';
 
 test('keeps the enqueue idempotency key stable across retries', async () => {
   const calls = [];
+  let statusReads = 0;
   const api = {
     enqueue: async (input) => { calls.push(input); return { status: 'WAITING', queueId: 'queue-1' }; },
-    getMine: async () => ({ status: 'MATCHED', matchId: 'match-1' }),
+    getMine: async () => { statusReads += 1; return statusReads <= 2 ? { status: 'NOT_QUEUED' } : { status: 'MATCHED', matchId: 'match-1' }; },
     cancel: async () => ({ status: 'CANCELLED' }),
   };
   const adapter = createOnlineMatchmakingAdapter(api, { createKey: () => 'stable-key-00000001' });
