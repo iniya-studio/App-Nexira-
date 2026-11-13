@@ -16,7 +16,22 @@ describe('MatchmakingService', () => {
       matchId: null, queuedAt, matchedAt: null, cancelledAt: null, expiresAt: new Date(queuedAt.getTime() + 300_000),
     };
     const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([]),
+      $queryRaw: jest.fn((strings: TemplateStringsArray) => {
+        const query = strings.join('');
+        if (query.includes('FROM "GuestIdentity"')) return Promise.resolve([{ id: 'guest-new' }]);
+        if (query.includes('FROM "User"')) return Promise.resolve([{ id: 'user-old' }]);
+        return Promise.resolve([]);
+      }),
+      userSession: {
+        findUnique: jest.fn().mockResolvedValue({
+          userId: null,
+          guestIdentityId: 'guest-new',
+          expiresAt: new Date(Date.now() + 60_000),
+          revokedAt: null,
+          user: null,
+          guestIdentity: { status: 'ACTIVE', convertedToUserId: null },
+        }),
+      },
       matchmakingEntry: {
         findUnique: jest.fn().mockResolvedValue(null),
         findFirst: jest.fn().mockResolvedValue(null),
@@ -89,7 +104,12 @@ describe('MatchmakingService', () => {
       category: 'general', language: 'fa', status: MatchmakingEntryStatus.WAITING,
       matchId: null, queuedAt: new Date(queuedAt.getTime() - 1000), matchedAt: null, cancelledAt: null, expiresAt: new Date(queuedAt.getTime() + 300_000),
     };
-    tx.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: opponent.id }]);
+    tx.$queryRaw.mockImplementation((strings: TemplateStringsArray) => {
+      const query = strings.join('');
+      if (query.includes('FROM "GuestIdentity"')) return Promise.resolve([{ id: 'guest-new' }]);
+      if (query.includes('FROM "MatchmakingEntry"')) return Promise.resolve([{ id: opponent.id }]);
+      return Promise.resolve([]);
+    });
     tx.matchmakingEntry.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(opponent);
     const match = { id: 'match-created', mode: 'ONE_V_ONE', status: 'WAITING' };
     (matches.createOneVsOne as jest.Mock).mockResolvedValue(match);
