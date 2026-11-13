@@ -201,8 +201,8 @@ No production 1v1 enablement until all applicable gates pass. 1vAI remains uncha
 Implementation is in progress on `feature/public-1v1-matchmaking`; this section records code that has been added, not a release approval.
 
 - Additive migration: `20261114000100_add_public_1v1_matchmaking_queue`.
-- Persistent `MatchmakingEntry` rows include principal ownership, category/language, idempotency key, timestamps, expiry and optional match reference. PostgreSQL partial unique indexes enforce one WAITING entry per user or guest across all categories.
-- Enqueue uses a compatibility-bucket advisory transaction lock, then a principal-scoped lock, and selects the oldest compatible opponent with `FOR UPDATE SKIP LOCKED`. Match creation, initial question job creation and both queue transitions share one Prisma transaction.
+- Persistent `MatchmakingEntry` rows include principal ownership, category/language, idempotency key, timestamps, expiry and optional match reference. PostgreSQL partial unique indexes enforce one WAITING entry per user or guest across all categories; principal-history indexes support status recovery.
+- Enqueue uses a compatibility-bucket advisory transaction lock, then a principal-scoped lock, rejects a second queue while a prior match is active, and selects the oldest compatible opponent with `FOR UPDATE SKIP LOCKED`. Match creation, initial question job creation and both queue transitions share one Prisma transaction.
 - Queue REST routes are `POST /api/v1/matchmaking/queue`, `GET /api/v1/matchmaking/queue/me`, and `DELETE /api/v1/matchmaking/queue/me`.
 - Queue expiry is configurable with `NEXIRA_MATCHMAKING_QUEUE_TTL_SECONDS` (default 300 seconds). Expired rows are marked during compatible enqueue and principal status recovery; there is no background cleanup worker.
 - Enqueue rate limiting is database-backed and principal-scoped with `NEXIRA_MATCHMAKING_MAX_ENQUEUES_PER_MINUTE` (default 10 per 60 seconds). Both settings must be reviewed before production rollout.
