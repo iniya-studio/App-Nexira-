@@ -2,8 +2,8 @@
 
 **Project:** NEXIRA
 **Version:** 1.0
-**Status:** Implemented; PostgreSQL integration and deployment verification are release gates
-**Target branch:** `feature/backend-foundation`
+**Status:** Implemented; independent provider-adapter coverage expanded; CI verification in progress
+**Target branch:** `feature/1vai-opponent-response-worker`
 **Related contract:** [NEX-BE-008 AI Judge & Server-Side Scoring Contract](./NEX-BE-008-ai-judge-scoring-contract.md)
 
 ## 1. Scope
@@ -77,6 +77,6 @@ The provider receives only category, difficulty, language, answer type, time lim
 
 ## 7. Verification and release gates
 
-Unit coverage includes valid and invalid structured output, provider refusal/incomplete responses, timeout, HTTP/network errors, strict schema use, and identity-data exclusion. PostgreSQL integration coverage exercises job idempotency, exact-match/rematch duplicate prevention, retry/backoff/exhaustion, safe cancellation, stale lease recovery/fencing, concurrent claims, score preservation, participant ownership, and readiness-gated shared clocks.
+Independent provider-adapter coverage includes strict Responses API schema and metadata, multiple-choice and free-text output, settings consistency, localized-option alignment, malformed/invalid/empty provider envelopes, refusal/incomplete responses, timeout and abort handling, HTTP/network failures, missing credentials/model, invalid timeout/input configuration, duplicate fingerprints, and exclusion of participant identifiers. PostgreSQL integration coverage exercises job idempotency, exact-match/rematch duplicate prevention, retry/backoff/exhaustion, safe cancellation, stale lease recovery/fencing, concurrent claims, score preservation, participant ownership, and readiness-gated shared clocks.
 
 Before production release, run all migrations and integration tests against PostgreSQL, verify provider credentials and model availability in the deployment environment, and complete operational logging/metrics and two-client verification. No static-question fallback or winner adjudication is permitted when recovery fails.
