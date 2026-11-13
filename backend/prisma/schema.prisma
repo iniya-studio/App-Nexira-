@@ -483,7 +483,6 @@ model AiAnswerJob {
   createdAt      DateTime         @default(now()) @db.Timestamptz(3)
   completedAt    DateTime?        @db.Timestamptz(3)
 
-  match       Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
   round       Round             @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
   participant MatchParticipant @relation(fields: [participantId, matchId], references: [id, matchId], onDelete: Cascade)
 
