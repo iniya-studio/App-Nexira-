@@ -72,6 +72,7 @@ Guest play must not silently discard earned progression.
 - An unconverted guest receives XP in the guest ledger and can see the same level progression.
 - During guest-to-user conversion, transfer the guest's lifetime XP and level snapshot into the newly created `UserProgress` in the same serializable identity-conversion transaction. Create corresponding immutable `XPTransaction` transfer records with deterministic conversion idempotency keys. Retain guest ledger history for audit; do not award it again.
 - After conversion, a match participant still referencing the guest identity resolves to `GuestIdentity.convertedToUserId` and receives future rewards in the registered user's ledger, never both ledgers.
+- If both sides of a historical 1v1 resolve to the same registered user after guest conversion, that user receives no XP for the self-match and the match produces no competitive ranking events. A distinct opponent still receives their earned XP. This prevents identity conversion from creating a progression/ranking farming path.
 - Match settlement and guest conversion must serialize on the guest identity row. If settlement wins first, conversion transfers the committed guest XP; if conversion wins first, settlement credits the user. There must be no lost or duplicated reward.
 - If a match finishes after conversion, the converted account receives the reward even if the historical participant row still references the guest identity.
 
