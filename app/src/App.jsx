@@ -126,6 +126,7 @@ export default function App() {
   const text = getCopy(language);
   const playerName = profile.playerName === 'OPERATOR' ? text.operatorDefault : profile.playerName;
   const prefersReducedMotion = profile.settings.reducedMotion;
+  const publicOneVsOneEnabled = import.meta.env.VITE_ENABLE_PUBLIC_1V1 === 'true';
   const displayLevel = serverProgress?.level ?? profile.level;
   const displayXp = serverProgress?.currentLevelXp ?? profile.xp;
   const displayTotalXp = serverProgress?.totalXp ?? String(profile.totalXp);
@@ -337,6 +338,9 @@ export default function App() {
     try {
       if (import.meta.env.PROD) {
         if (mode === '1v1') {
+          if (!publicOneVsOneEnabled) {
+            throw new Error('Public 1v1 remains disabled until automated and two-device acceptance gates pass.');
+          }
           const adapter = createOnlineMatchmakingAdapter(
             createMatchmakingApi(appSessionLifecycle.getHttpClient()),
           );
@@ -415,7 +419,7 @@ export default function App() {
     } finally {
       setMatchBusy(false);
     }
-  }, [openMatchedOnlineMatch]);
+  }, [openMatchedOnlineMatch, publicOneVsOneEnabled]);
 
   const cancelMatchmaking = useCallback(async () => {
     const adapter = onlineMatchmakingAdapterRef.current;
@@ -494,7 +498,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [openMatchedOnlineMatch, sessionState.principal?.principalId, sessionState.status]);
+  }, [openMatchedOnlineMatch, publicOneVsOneEnabled, sessionState.principal?.principalId, sessionState.status]);
 
   const handleMatchOption = useCallback(async (optionId) => {
     try {
@@ -907,16 +911,22 @@ export default function App() {
             <p className="eyebrow">{import.meta.env.PROD
               ? (language === 'fa' ? 'مسابقه رقابتی آنلاین' : 'ONLINE COMPETITIVE MATCH')
               : (language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW')}</p>
-            <button className="mode-option" disabled={matchBusy} onClick={() => beginMatch(selectedCategory, '1v1')}>
+            <button className="mode-option" disabled={matchBusy || (import.meta.env.PROD && !publicOneVsOneEnabled)} onClick={() => beginMatch(selectedCategory, '1v1')}>
               <span className="mode-number">P1</span>
               <span className="mode-label">{import.meta.env.PROD
-                ? (language === 'fa' ? '۱ در برابر ۱ · رقابت آنلاین' : '1vs1 · Online matchmaking')
+                ? publicOneVsOneEnabled
+                  ? (language === 'fa' ? '۱ در برابر ۱ · رقابت آنلاین' : '1vs1 · Online matchmaking')
+                  : (language === 'fa' ? '۱ در برابر ۱ · در حال آزمون' : '1vs1 · Acceptance testing')
                 : (language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1vs1 · Two local players')}
                 <small>{import.meta.env.PROD
-                  ? (language === 'fa' ? 'جست‌وجوی حریف با موضوع و زبان یکسان' : 'Find an opponent with matching category and language')
+                  ? publicOneVsOneEnabled
+                    ? (language === 'fa' ? 'جست‌وجوی حریف با موضوع و زبان یکسان' : 'Find an opponent with matching category and language')
+                    : (language === 'fa' ? 'پس از تأیید آزمون‌های نهایی فعال می‌شود' : 'Enables after final acceptance gates pass')
                   : (language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device')}</small></span>
               <span className="difficulty-badge">{import.meta.env.PROD
-                ? (language === 'fa' ? 'آنلاین' : 'ONLINE')
+                ? publicOneVsOneEnabled
+                  ? (language === 'fa' ? 'آنلاین' : 'ONLINE')
+                  : (language === 'fa' ? 'آزمون' : 'TESTING')
                 : (language === 'fa' ? 'محلی' : 'LOCAL')}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
