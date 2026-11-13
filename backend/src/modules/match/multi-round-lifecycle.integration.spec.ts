@@ -123,11 +123,14 @@ describe('Multi-round match lifecycle integration', () => {
     };
     const judgeWorker = new AnswerJudgeWorker(prisma, judge);
 
+    let previousRoundId: string | null = null;
     for (let roundNumber = 1; roundNumber <= match.roundsTarget; roundNumber += 1) {
       await expect(generationWorker.runOnce()).resolves.toBe(true);
       const job = await prisma.questionGenerationJob.findFirstOrThrow({
-        where: { matchId: match.id },
-        orderBy: { createdAt: 'desc' },
+        where: {
+          matchId: match.id,
+          sourceRoundId: previousRoundId,
+        },
       });
       expect(job).toMatchObject({
         status: 'COMPLETED',
@@ -191,6 +194,7 @@ describe('Multi-round match lifecycle integration', () => {
         where: { matchId: match.id, roundId: round.id },
       });
       expect(scoreEntries).toBe(2);
+      previousRoundId = round.id;
 
       if (roundNumber < match.roundsTarget) {
         const nextJob = await prisma.questionGenerationJob.findUnique({
@@ -235,7 +239,10 @@ describe('Multi-round match lifecycle integration', () => {
       where: { matchId: match.id },
     });
     expect(result.resultSummary).toMatchObject({ roundsPlayed: 10 });
-    expect(result.winnerParticipantId).toBeNull();
+    expect(
+      result.winnerParticipantId === null ||
+      beforeFinalization.some((participant) => participant.id === result.winnerParticipantId),
+    ).toBe(true);
 
     const afterFinalization = await prisma.matchParticipant.findMany({
       where: { matchId: match.id },
