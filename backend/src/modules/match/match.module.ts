@@ -20,6 +20,7 @@ import {
   MatchQuestionRecoveryController,
   RoundController,
   RoundReadinessController,
+  RoundResultController,
 } from './round.controller';
 import { RoundService } from './round.service';
 
@@ -29,6 +30,7 @@ import { RoundService } from './round.service';
     RoundController,
     RoundReadinessController,
     MatchQuestionRecoveryController,
+    RoundResultController,
     AnswerController,
   ],
   providers: [

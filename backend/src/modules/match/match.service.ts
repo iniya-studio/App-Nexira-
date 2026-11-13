@@ -22,11 +22,17 @@ const INITIAL_QUESTION_SETTINGS = {
   timeLimitSeconds: 30,
 };
 
+type AiMatchOptions = { category?: string; language?: string };
+type MatchQuestionSettings = typeof INITIAL_QUESTION_SETTINGS & { language?: string };
+
 @Injectable()
 export class MatchService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createAiMatch(principal: AuthenticatedPrincipal) {
+  async createAiMatch(
+    principal: AuthenticatedPrincipal,
+    options: AiMatchOptions = {},
+  ) {
     return this.createMatchWithInitialQuestion(
       MatchMode.ONE_V_AI,
       [
@@ -34,6 +40,11 @@ export class MatchService {
         { participantKey: 'ai:default-v1', participantType: ParticipantType.AI },
       ],
       principal,
+      {
+        ...INITIAL_QUESTION_SETTINGS,
+        category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
+        language: options.language,
+      },
     );
   }
 
@@ -58,6 +69,7 @@ export class MatchService {
     mode: MatchMode,
     participants: Prisma.MatchParticipantCreateWithoutMatchInput[],
     languagePrincipal: AuthenticatedPrincipal,
+    questionSettings: MatchQuestionSettings = INITIAL_QUESTION_SETTINGS,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const preferredLanguage =
@@ -67,7 +79,7 @@ export class MatchService {
               select: { preferredLanguage: true },
             })
           : null;
-      const language = preferredLanguage?.preferredLanguage?.trim() || 'en';
+      const language = questionSettings.language?.trim() || preferredLanguage?.preferredLanguage?.trim() || 'en';
       const match = await tx.match.create({
         data: {
           mode,
@@ -91,7 +103,7 @@ export class MatchService {
       const requestContext = await questionGenerationInputForMatch(
         tx,
         match.id,
-        { ...INITIAL_QUESTION_SETTINGS, language },
+        { ...questionSettings, language },
       );
       await tx.questionGenerationJob.create({
         data: {
@@ -106,6 +118,69 @@ export class MatchService {
 
       return this.toMatchSummary(match);
     });
+  }
+
+  async getMatchResult(matchId: string, principal: AuthenticatedPrincipal) {
+    const ownership = principal.principalType === PrincipalType.USER
+      ? { userId: principal.principalId }
+      : { guestIdentityId: principal.principalId };
+    const match = await this.prisma.match.findFirst({
+      where: { id: matchId, participants: { some: ownership } },
+      select: {
+        id: true,
+        mode: true,
+        status: true,
+        roundsTarget: true,
+        currentRound: true,
+        completedAt: true,
+        participants: {
+          select: {
+            id: true,
+            userId: true,
+            guestIdentityId: true,
+            participantType: true,
+            status: true,
+            score: true,
+          },
+        },
+        result: { select: { winnerParticipantId: true, resultSummary: true } },
+      },
+    });
+    if (!match) throw new NotFoundException('Match not found');
+
+    const self = match.participants.find((participant) =>
+      principal.principalType === PrincipalType.USER
+        ? participant.userId === principal.principalId
+        : participant.guestIdentityId === principal.principalId,
+    );
+    if (!self) throw new NotFoundException('Match not found');
+    const winner = match.participants.find(
+      (participant) => participant.id === match.result?.winnerParticipantId,
+    );
+    const summary = match.result?.resultSummary;
+    const outcome = typeof summary === 'object' && summary !== null && !Array.isArray(summary)
+      && typeof (summary as Record<string, unknown>).outcome === 'string'
+      ? (summary as Record<string, unknown>).outcome as string
+      : null;
+
+    return {
+      matchId: match.id,
+      mode: match.mode,
+      status: match.status,
+      completed: match.status === MatchStatus.COMPLETED && Boolean(match.result),
+      currentRound: match.currentRound,
+      roundsTarget: match.roundsTarget,
+      completedAt: match.completedAt,
+      outcome,
+      winnerType: winner?.participantType ?? null,
+      youWon: winner ? winner.id === self.id : null,
+      participants: match.participants.map((participant) => ({
+        type: participant.participantType,
+        status: participant.status,
+        score: participant.score,
+        isSelf: participant.id === self.id,
+      })),
+    };
   }
 
   async getMatch(matchId: string, principal: AuthenticatedPrincipal) {

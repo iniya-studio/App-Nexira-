@@ -15,6 +15,21 @@ import { RoundService } from './round.service';
 
 type PrincipalRequest = { principal: AuthenticatedPrincipal };
 
+@Controller('matches/:matchId/rounds/:roundId/result')
+@UseGuards(AccessTokenGuard)
+export class RoundResultController {
+  constructor(private readonly rounds: RoundService) {}
+
+  @Get()
+  getResult(
+    @Param('matchId', new ParseUUIDPipe()) matchId: string,
+    @Param('roundId', new ParseUUIDPipe()) roundId: string,
+    @Req() request: PrincipalRequest,
+  ) {
+    return this.rounds.getRoundResult(matchId, roundId, request.principal);
+  }
+}
+
 @Controller('matches/:matchId/rounds/:roundId/question')
 @UseGuards(AccessTokenGuard)
 export class RoundController {

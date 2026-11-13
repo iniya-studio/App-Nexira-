@@ -185,6 +185,92 @@ export class RoundService {
    * Returns a participant-specific localized view of the shared question.
    * The query deliberately does not select answerKey or gradingRubric.
    */
+  async getRoundResult(
+    matchId: string,
+    roundId: string,
+    principal: AuthenticatedPrincipal,
+  ) {
+    const ownership = principal.principalType === PrincipalType.USER
+      ? { userId: principal.principalId }
+      : { guestIdentityId: principal.principalId };
+    const round = await this.prisma.round.findFirst({
+      where: {
+        id: roundId,
+        matchId,
+        match: { participants: { some: ownership } },
+      },
+      select: {
+        id: true,
+        matchId: true,
+        roundNumber: true,
+        startedAt: true,
+        deadlineAt: true,
+        completedAt: true,
+        voidedAt: true,
+        match: {
+          select: {
+            participants: {
+              select: {
+                id: true,
+                userId: true,
+                guestIdentityId: true,
+                participantType: true,
+                status: true,
+                score: true,
+              },
+            },
+          },
+        },
+        answers: {
+          select: {
+            participantId: true,
+            status: true,
+            judgeStatus: true,
+            decision: true,
+            points: true,
+            elapsedMs: true,
+            acceptedAt: true,
+          },
+        },
+      },
+    });
+    if (!round) throw new NotFoundException('Round not found');
+    const self = round.match.participants.find((participant) =>
+      principal.principalType === PrincipalType.USER
+        ? participant.userId === principal.principalId
+        : participant.guestIdentityId === principal.principalId,
+    );
+    if (!self) throw new NotFoundException('Round not found');
+
+    return {
+      matchId: round.matchId,
+      roundId: round.id,
+      roundNumber: round.roundNumber,
+      status: round.voidedAt ? 'VOIDED' : round.completedAt ? 'COMPLETED' : 'ACTIVE',
+      startedAt: round.startedAt,
+      deadlineAt: round.deadlineAt,
+      completedAt: round.completedAt,
+      participants: round.match.participants.map((participant) => {
+        const answer = round.answers.find((item) => item.participantId === participant.id);
+        const judged = answer?.judgeStatus === 'COMPLETED' || answer?.judgeStatus === 'NOT_REQUIRED';
+        return {
+          type: participant.participantType,
+          status: participant.status,
+          score: participant.score,
+          isSelf: participant.id === self.id,
+          answer: answer ? {
+            status: answer.status,
+            judgeStatus: answer.judgeStatus,
+            decision: judged ? answer.decision : null,
+            points: judged ? answer.points : null,
+            elapsedMs: answer.elapsedMs,
+            acceptedAt: answer.acceptedAt,
+          } : null,
+        };
+      }),
+    };
+  }
+
   async getRoundQuestion(
     matchId: string,
     roundId: string,

@@ -79,6 +79,55 @@ describe('MatchService', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it('accepts the selected category and language for a real 1vAI match', async () => {
+    const { service, tx } = setup(MatchMode.ONE_V_AI, [
+      { participantKey: 'human:guest:guest-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+      { participantKey: 'ai:default-v1', participantType: ParticipantType.AI, status: 'ACTIVE' },
+    ]);
+    await service.createAiMatch(
+      { principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'session-1' },
+      { category: 'science', language: 'fa' },
+    );
+    expect(tx.questionGenerationJob.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        requestContext: expect.objectContaining({
+          category: 'science', language: 'fa', answerType: 'FREE_TEXT',
+        }),
+      }),
+    });
+  });
+
+  it('returns a participant-authorized final result without exposing participant IDs', async () => {
+    const prisma = {
+      match: { findFirst: jest.fn().mockResolvedValue({
+        id: 'match-result-1',
+        mode: MatchMode.ONE_V_AI,
+        status: MatchStatus.COMPLETED,
+        roundsTarget: 10,
+        currentRound: 10,
+        completedAt: createdAt,
+        participants: [
+          { id: 'human-row', userId: null, guestIdentityId: 'guest-1', participantType: ParticipantType.HUMAN, status: 'COMPLETED', score: 120 },
+          { id: 'ai-row', userId: null, guestIdentityId: null, participantType: ParticipantType.AI, status: 'COMPLETED', score: 90 },
+        ],
+        result: { winnerParticipantId: 'human-row', resultSummary: { outcome: 'SCORE_WIN' } },
+      }) },
+    } as unknown as PrismaService;
+    const service = new MatchService(prisma);
+    const result = await service.getMatchResult('match-result-1', {
+      principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'session-1',
+    });
+    expect(result).toMatchObject({
+      completed: true, outcome: 'SCORE_WIN', winnerType: ParticipantType.HUMAN, youWon: true,
+      participants: [
+        { type: ParticipantType.HUMAN, score: 120, isSelf: true },
+        { type: ParticipantType.AI, score: 90, isSelf: false },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain('human-row');
+    expect(JSON.stringify(result)).not.toContain('guest-1');
+  });
+
   it('returns match state only to a participant and never includes interim scores', async () => {
     const prisma = { match: { findFirst: jest.fn().mockResolvedValue({
       id: 'match-2', mode: MatchMode.ONE_V_ONE, status: MatchStatus.ACTIVE,
