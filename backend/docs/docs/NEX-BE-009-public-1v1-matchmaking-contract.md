@@ -205,7 +205,7 @@ Implemented on `main`:
 - Authenticated REST endpoints: `POST /api/v1/matchmaking/queue`, `GET /api/v1/matchmaking/queue/me`, and `DELETE /api/v1/matchmaking/queue/me`.
 - Category/language compatibility, FIFO pairing, PostgreSQL advisory locks, `FOR UPDATE SKIP LOCKED`, idempotency, durable per-principal rate limits, queue TTL, cancellation race handling, and atomic queue-to-match/question-job creation through the existing MatchService transaction.
 - Current principal and session are revalidated under database locks before enqueue. Stale opponent entries without an active session are expired rather than paired.
-- Guest conversion transfers waiting queue ownership and active matched participant/queue ownership. It acquires the same compatibility-bucket lock before the guest identity lock to preserve a consistent lock order.
+- Guest conversion transfers waiting queue ownership and active matched participant/queue ownership. It acquires the guest principal lock, then the same compatibility-bucket lock(s), then active Match row locks, and only then the GuestIdentity row lock; this preserves lock order with enqueue and match finalization.
 - Authenticated Socket.IO namespace `/matchmaking` supports subscribe/unsubscribe and post-commit match-found notification. REST queue status remains the source of truth.
 - Production client entry for 1v1, persistent queue start/status/cancel, waiting screen, one-second REST polling, Android/browser back cancellation, automatic queue/match recovery after app restart, and handoff to the shared online Match adapter.
 - Match GET now returns the authorized participant score snapshot needed to restore a live 1v1 after process death; the client distinguishes both human participants and winner identity.
