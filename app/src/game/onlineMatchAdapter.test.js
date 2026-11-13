@@ -137,3 +137,25 @@ test('keeps an accepted answer in waiting-result when the result read temporaril
   assert.equal(adapter.getView().phase, 'waiting-result');
   assert.equal(submitCalls, 1);
 });
+
+test('resumes a persisted 1v1 match and distinguishes the two human participants', async () => {
+  const { api } = makeApi({
+    getMatch: async () => ({ id: 'human-match', status: 'COMPLETED', currentRound: 10, roundsTarget: 10 }),
+    getMatchResult: async () => ({
+      completed: true,
+      youWon: false,
+      winnerType: 'HUMAN',
+      participants: [
+        { type: 'HUMAN', status: 'COMPLETED', score: 90, isSelf: true },
+        { type: 'HUMAN', status: 'COMPLETED', score: 110, isSelf: false },
+      ],
+    }),
+  });
+  const adapter = createOnlineMatchAdapter(api);
+  const view = await adapter.resume('human-match', { mode: '1v1', language: 'fa' });
+  assert.equal(view.mode, '1v1');
+  assert.equal(view.phase, 'complete');
+  assert.equal(view.winnerId, 'human-2');
+  assert.deepEqual(view.participants.map((participant) => participant.id), ['human-1', 'human-2']);
+  assert.equal(view.participants[1].displayName, 'OPPONENT');
+});
