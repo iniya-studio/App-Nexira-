@@ -51,7 +51,7 @@ export class RoundDeadlineWorker implements OnModuleInit, OnModuleDestroy {
           'AND m."status" = \'ACTIVE\' ' +
           'AND NOT EXISTS (SELECT 1 FROM "Answer" a WHERE a."roundId" = r."id" ' +
           'AND a."status" = \'ANSWERED\' ' +
-          'AND a."judgeStatus" IN (\'PENDING\', \'PROCESSING\', \'FAILED\')) ' +
+          'AND a."judgeStatus" IN (\'PENDING\', \'PROCESSING\')) ' +
           'ORDER BY r."deadlineAt" ASC LIMIT 1 FOR UPDATE OF r SKIP LOCKED',
       );
 
