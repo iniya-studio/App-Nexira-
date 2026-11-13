@@ -1,5 +1,5 @@
 import { BadRequestException, HttpException, UnauthorizedException } from '@nestjs/common';
-import { MatchmakingEntryStatus, PrincipalType } from '@prisma/client';
+import { MatchmakingEntryStatus, MatchStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchService } from '../match/match.service';
 import { MatchmakingService } from './matchmaking.service';
@@ -62,6 +62,22 @@ describe('MatchmakingService', () => {
     expect(tx.matchmakingEntry.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: null, guestIdentityId: 'guest-new', category: 'general', language: 'fa', idempotencyKey: input.idempotencyKey, expiresAt: expect.any(Date) }),
     });
+  });
+
+
+  it('allows a new queue after the latest paired match has completed', async () => {
+    const { service, matches, prisma, entry } = setup();
+    prisma.matchmakingEntry.findFirst.mockResolvedValue({
+      ...entry,
+      status: MatchmakingEntryStatus.MATCHED,
+      matchId: 'completed-match',
+    });
+    (matches.getMatch as jest.Mock).mockResolvedValue({
+      id: 'completed-match',
+      status: MatchStatus.COMPLETED,
+    });
+
+    await expect(service.getMine(guest)).resolves.toEqual({ status: 'NOT_QUEUED' });
   });
 
   it('rejects categories outside the server-supported list before opening a transaction', async () => {
