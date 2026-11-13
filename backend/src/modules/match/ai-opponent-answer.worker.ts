@@ -112,7 +112,7 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
 
   private async claimNextJob(): Promise<AiAnswerClaim | null> {
     return this.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<AiAnswerClaim[]>\`
+      const rows = await tx.$queryRaw<AiAnswerClaim[]>`
         WITH candidate AS (
           SELECT job."id"
           FROM "AiAnswerJob" job
@@ -150,7 +150,7 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
         WHERE job."id" = candidate."id"
         RETURNING job."id", job."matchId", job."roundId",
           job."participantId", job."attempts", job."leaseId"
-      \`;
+      `;
       return rows[0] ?? null;
     });
   }
@@ -161,24 +161,24 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
     answerType: 'MULTIPLE_CHOICE' | 'FREE_TEXT',
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw<Array<{ id: string }>>\`
+      await tx.$queryRaw<Array<{ id: string }>>`
         SELECT "id" FROM "Round"
         WHERE "id" = ${claim.roundId}::uuid AND "matchId" = ${claim.matchId}::uuid
         FOR UPDATE
-      \`;
-      await tx.$queryRaw<Array<{ id: string }>>\`
+      `;
+      await tx.$queryRaw<Array<{ id: string }>>`
         SELECT "id" FROM "AiAnswerJob" WHERE "id" = ${claim.id}::uuid FOR UPDATE
-      \`;
+      `;
 
       const current = await tx.$queryRaw<Array<{
         status: string; leaseId: string | null; leaseAt: Date | null;
-      }>>\`
+      }>>`
         SELECT "status", "leaseId", "leaseAt"
         FROM "AiAnswerJob" WHERE "id" = ${claim.id}::uuid
-      \`;
-      const clock = await tx.$queryRaw<Array<{ now: Date }>>\`
+      `;
+      const clock = await tx.$queryRaw<Array<{ now: Date }>>`
         SELECT clock_timestamp() AS "now"
-      \`;
+      `;
       const now = clock[0]?.now;
       const lease = current[0];
       if (
@@ -202,19 +202,19 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
         round.match.mode !== MatchMode.ONE_V_AI || round.match.status !== MatchStatus.ACTIVE ||
         now.getTime() >= round.deadlineAt.getTime()
       ) {
-        await tx.$executeRaw\`
+        await tx.$executeRaw`
           UPDATE "AiAnswerJob" SET "status" = 'CANCELLED', "leaseId" = NULL,
             "leaseAt" = NULL, "completedAt" = clock_timestamp(), "lastErrorCode" = 'ROUND_CLOSED'
           WHERE "id" = ${claim.id}::uuid AND "leaseId" = ${claim.leaseId}::uuid
-        \`;
+        `;
         return;
       }
       if (round.answers.length > 0) {
-        await tx.$executeRaw\`
+        await tx.$executeRaw`
           UPDATE "AiAnswerJob" SET "status" = 'COMPLETED', "leaseId" = NULL,
             "leaseAt" = NULL, "completedAt" = clock_timestamp(), "lastErrorCode" = NULL
           WHERE "id" = ${claim.id}::uuid AND "leaseId" = ${claim.leaseId}::uuid
-        \`;
+        `;
         return;
       }
 
@@ -227,12 +227,12 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
         select: { id: true },
       });
       if (!participant || !round.question) {
-        await tx.$executeRaw\`
+        await tx.$executeRaw`
           UPDATE "AiAnswerJob" SET "status" = 'CANCELLED', "leaseId" = NULL,
             "leaseAt" = NULL, "completedAt" = clock_timestamp(),
             "lastErrorCode" = 'AI_PARTICIPANT_UNAVAILABLE'
           WHERE "id" = ${claim.id}::uuid AND "leaseId" = ${claim.leaseId}::uuid
-        \`;
+        `;
         return;
       }
 
@@ -270,24 +270,24 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
         });
       }
 
-      await tx.$executeRaw\`
+      await tx.$executeRaw`
         UPDATE "AiAnswerJob" SET "status" = 'COMPLETED', "leaseId" = NULL,
           "leaseAt" = NULL, "completedAt" = clock_timestamp(), "lastErrorCode" = NULL
         WHERE "id" = ${claim.id}::uuid AND "leaseId" = ${claim.leaseId}::uuid
-      \`;
+      `;
     });
   }
 
   private async cancelClaim(claim: AiAnswerClaim, reason: string): Promise<void> {
-    await this.prisma.$executeRaw\`
+    await this.prisma.$executeRaw`
       UPDATE "AiAnswerJob" SET "status" = 'CANCELLED', "leaseId" = NULL,
         "leaseAt" = NULL, "completedAt" = clock_timestamp(), "lastErrorCode" = ${reason}
       WHERE "id" = ${claim.id}::uuid AND "leaseId" = ${claim.leaseId}::uuid
-    \`;
+    `;
   }
 
   private async releaseClaim(claim: AiAnswerClaim, errorCode: string): Promise<void> {
-    await this.prisma.$executeRaw\`
+    await this.prisma.$executeRaw`
       UPDATE "AiAnswerJob"
       SET
         "status" = CASE WHEN "attempts" >= "maxAttempts"
@@ -297,7 +297,7 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
         "leaseId" = NULL, "leaseAt" = NULL, "lastErrorCode" = ${errorCode}
       WHERE "id" = ${claim.id}::uuid AND "status" = 'PROCESSING'
         AND "leaseId" = ${claim.leaseId}::uuid
-    \`;
+    `;
   }
 
   private async poll(): Promise<void> {
