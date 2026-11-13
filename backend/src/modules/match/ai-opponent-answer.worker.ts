@@ -112,6 +112,15 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
 
   private async claimNextJob(): Promise<AiAnswerClaim | null> {
     return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        UPDATE "AiAnswerJob"
+        SET "status" = 'FAILED', "leaseId" = NULL, "leaseAt" = NULL,
+            "completedAt" = clock_timestamp(), "lastErrorCode" = 'AI_ANSWER_LEASE_EXHAUSTED'
+        WHERE "status" = 'PROCESSING'
+          AND "attempts" >= "maxAttempts"
+          AND "leaseAt" <= clock_timestamp() -
+            (${STALE_LEASE_SECONDS} * INTERVAL '1 second')
+      `;
       const rows = await tx.$queryRaw<AiAnswerClaim[]>`
         WITH candidate AS (
           SELECT job."id"
