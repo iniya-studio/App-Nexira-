@@ -1,5 +1,5 @@
 # NEXIRA Frontend–Backend Integration Contract
-Version: 1.1
+Version: 1.2
 Status: Approved implementation baseline for the recovery monorepo
 Scope: V1 app integration with the existing NestJS modular monolith
 Boundary: Preserve the NestJS modular monolith and existing identity/session foundations. Narrow, tested Backend contract and lifecycle changes are allowed when required to close a verified V1 gap.
@@ -59,6 +59,7 @@ The production 1vAI lifecycle is implemented through the existing REST contracts
 - 1vAI lifecycle: question generation/recovery, AI readiness, database-owned shared round clock, AI opponent answer worker, AI Judge, round settlement, next-question generation, and final match result retrieval are implemented and covered by PostgreSQL integration tests.
 - Public 1v1 matchmaking/queue and pairing are not exposed; `createOneVsOne` remains an internal service method. This is the next separate implementation milestone.
 - A WebSocket client event contract is not exposed. V1 online 1vAI uses REST polling and must reconcile after foreground/resume and network recovery. A cold-process restart/resume flow for an interrupted match remains to be completed and tested.
+- Transient API failures during waiting-question/waiting-result do not discard the recoverable lifecycle phase; polling can continue. If answer submission is accepted but the subsequent result read fails, the client preserves `waiting-result` and does not misclassify the accepted answer as a failed submission or send it again.
 - Live provider execution still requires a deployed API, PostgreSQL, HTTPS API origin in the Android build, and server-side OpenAI credentials/model configuration for Question Generator, AI Opponent, and AI Judge. CI uses deterministic test providers and does not prove production provider connectivity.
 - Full device-level 10-round acceptance against a deployed API and live OpenAI is still pending.
 - Match-result-to-XP/Ranking progression policy and integration remain separate open V1 work; match score and XP must remain distinct.
@@ -162,6 +163,14 @@ Still required before a real device match can run against live AI:
 - Execute a full Android-device 10-round 1vAI match and verify provider behavior, reconnects, and final settlement.
 - Implement public 1v1 matchmaking and pairing separately; it is not part of this 1vAI milestone.
 
+
+### Reliability audit hardening — 2026-11-13
+
+- Deadline settlement now defers rounds with terminally failed AI Judge answers to the technical-void worker. This prevents a deadline race from finalizing a technically invalid round or applying ordinary no-response settlement before recovery.
+- PostgreSQL integration coverage verifies that an expired round with an exhausted AI Judge is voided and replaced rather than finalized.
+- Frontend integration tests verify that transient synchronization failures preserve retryable phases and that a result-read failure after an accepted answer does not cause a duplicate submission.
+- Latest verified CI: Backend 33 suites / 176 tests; Frontend 89 tests; Android debug APK build and verification successful.
+- These automated tests use deterministic providers. They do not replace live OpenAI, deployed HTTPS/PostgreSQL, physical-device, or cold-process recovery acceptance.
 
 ### Security and Android transport hardening — 2026-11-13
 
