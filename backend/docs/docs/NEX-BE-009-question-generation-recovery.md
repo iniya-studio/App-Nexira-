@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA
 **Version:** 1.0
-**Status:** Implemented; independent provider-adapter coverage expanded; CI verification in progress
+**Status:** Implemented; independent provider-adapter coverage expanded; CI verified (32 suites, 168 tests passed)
 **Target branch:** `feature/1vai-opponent-response-worker`
 **Related contract:** [NEX-BE-008 AI Judge & Server-Side Scoring Contract](./NEX-BE-008-ai-judge-scoring-contract.md)
 
