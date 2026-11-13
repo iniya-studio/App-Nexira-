@@ -365,5 +365,17 @@ describe('Complete 1vAI match lifecycle integration', () => {
       .toBe(match.roundsTarget);
     expect(await prisma.matchScoreEntry.count({ where: { matchId: match.id } }))
       .toBe(match.roundsTarget * 2);
+
+    const guestXpEvents = await prisma.guestXPTransaction.findMany({
+      where: { guestIdentityId: guest.id, matchId: match.id },
+    });
+    expect(guestXpEvents).toHaveLength(1);
+    expect(guestXpEvents[0].amount).toBeGreaterThan(0);
+    const guestProgress = await prisma.guestProgress.findUniqueOrThrow({
+      where: { guestIdentityId: guest.id },
+    });
+    expect(guestProgress.totalXp).toBe(BigInt(guestXpEvents[0].amount));
+    expect(await prisma.rankingTransaction.count({ where: { matchId: match.id } }))
+      .toBe(0);
   });
 });
