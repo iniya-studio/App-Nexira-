@@ -1016,7 +1016,7 @@ export default function App() {
       </GlassPanel> : <>
         <div className="challenge-head">
           <button className="back-link" onClick={() => setShowExitConfirm(true)}><ArrowLeft size={15} /> {text.backToChallenges}</button>
-          <p>{matchView.isOnline ? '1vsAI · ONLINE' : matchView.mode === '1v1' ? '1vs1 · LOCAL PREVIEW' : '1vsAI · LOCAL PREVIEW'} <span>·</span> {matchView.isOnline ? (language === 'fa' ? 'مسابقه سروری' : 'SERVER MATCH') : text.localOnly}</p>
+          <p>{matchView.isOnline ? `${matchView.mode === '1v1' ? '1vs1' : '1vsAI'} · ONLINE` : matchView.mode === '1v1' ? '1vs1 · LOCAL PREVIEW' : '1vsAI · LOCAL PREVIEW'} <span>·</span> {matchView.isOnline ? (language === 'fa' ? 'مسابقه سروری' : 'SERVER MATCH') : text.localOnly}</p>
         </div>
         {matchError && <p className="empty-state" role="alert">{matchError}</p>}
         {['waiting-question', 'waiting-result', 'submitting'].includes(matchView.phase) && <GlassPanel variant="feature" className="question-panel" role="status">
@@ -1087,7 +1087,11 @@ export default function App() {
             <div className="combatant-pair">
               {matchView.participants.map((participant) => <GlassPanel key={participant.id} variant="feature" className="combatant-card">
                 <span className="combatant-avatar">{participant.type === 'ai' ? <Activity size={18} /> : <UserRound size={18} />}</span>
-                <span className="combatant-copy"><small>{participant.id === matchView.activeParticipantId ? (language === 'fa' ? 'نوبت شما' : 'ACTIVE TURN') : text.localSession}</small><strong>{participant.displayName}</strong></span>
+                <span className="combatant-copy"><small>{matchView.isOnline
+                  ? (participant.isSelf ? (language === 'fa' ? 'شما' : 'YOU') : (language === 'fa' ? 'حریف' : 'OPPONENT'))
+                  : participant.id === matchView.activeParticipantId
+                    ? (language === 'fa' ? 'نوبت شما' : 'ACTIVE TURN')
+                    : text.localSession}</small><strong>{participant.displayName}</strong></span>
                 <span className="combatant-score"><small>{text.score}</small><strong>{participant.score}</strong></span>
               </GlassPanel>)}
             </div>
