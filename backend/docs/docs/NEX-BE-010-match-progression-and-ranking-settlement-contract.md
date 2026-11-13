@@ -191,6 +191,7 @@ Implemented on `main` (not yet CI-accepted):
 - `MatchSettlementService` derives XP and ranking from persisted match/result/answer records, uses immutable idempotency-keyed ledgers, locks guest identities and registered users in deterministic order, and updates aggregate snapshots atomically.
 - Normal match completion and early forfeit completion both invoke settlement inside the existing result transaction.
 - Guest conversion locks the guest identity and transfers its XP snapshot/ledger into the new registered user in the same serializable transaction; historical MatchParticipant guest references remain unchanged.
+- Authenticated read endpoints are registered: `GET /api/v1/progression/me`, `GET /api/v1/ranking/global`, and `GET /api/v1/ranking/seasonal/current`. BigInt lifetime XP is serialized as a decimal string; leaderboard payloads expose display name/username only, and guests receive no competitive ranking data.
 - Unit coverage includes 1v1 XP/global/season ranking, guest 1vAI XP without ranking, converted guest routing, invalid-result rejection, and converted-identity self-match protection.
 - PostgreSQL integration coverage has been extended for a complete registered-user ten-round 1v1 settlement/idempotent retry, guest 1vAI XP, and guest XP conversion.
 
