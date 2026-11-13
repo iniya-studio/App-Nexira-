@@ -47,10 +47,6 @@ export class MatchSettlementService {
     );
     if (humanParticipants.length === 0) return;
 
-    const activeSeason = match.mode === MatchMode.ONE_V_ONE
-      ? await this.findActiveSeason(tx, match.completedAt)
-      : null;
-
     const ordered = [...humanParticipants].sort((a, b) =>
       this.principalSortKey(a).localeCompare(this.principalSortKey(b)),
     );
@@ -77,6 +73,14 @@ export class MatchSettlementService {
         .filter(([, count]) => count > 1)
         .map(([duplicateUserId]) => duplicateUserId),
     );
+
+    const activeSeason =
+      match.mode === MatchMode.ONE_V_ONE &&
+      humanParticipants.length === 2 &&
+      duplicateUserIds.size === 0 &&
+      resolved.some((owner) => owner.userId !== null)
+        ? await this.findActiveSeason(tx, match.completedAt)
+        : null;
 
     for (const owner of resolved) {
       if (owner.userId && duplicateUserIds.has(owner.userId)) continue;
