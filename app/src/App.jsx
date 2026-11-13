@@ -389,9 +389,29 @@ export default function App() {
       setShowExitConfirm(false);
       setScreen('match-game');
     } catch (error) {
+      if (mode === '1v1' && import.meta.env.PROD && onlineMatchmakingAdapterRef.current) {
+        try {
+          const recovered = await onlineMatchmakingAdapterRef.current.refresh();
+          if (recovered?.status === 'WAITING') {
+            setMatchmakingView({
+              ...recovered,
+              categoryTitle: categoryById(recovered.category)?.title ?? category?.title ?? 'General',
+            });
+            setMatchError('');
+            setScreen('matchmaking');
+            return;
+          }
+          if (recovered?.status === 'MATCHED' && recovered.matchId) {
+            await openMatchedOnlineMatch(recovered);
+            return;
+          }
+        } catch {
+          // Preserve the original start error and allow a safe retry.
+        }
+      }
       setMatchView(onlineMatchAdapterRef.current?.getView() ?? null);
       setMatchError(error instanceof Error ? error.message : 'Unable to start the match.');
-      setScreen(mode === '1v1' && import.meta.env.PROD ? 'categories' : 'match-game');
+      setScreen(mode === '1v1' && import.meta.env.PROD ? 'modes' : 'match-game');
     } finally {
       setMatchBusy(false);
     }
