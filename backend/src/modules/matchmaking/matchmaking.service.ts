@@ -148,7 +148,7 @@ export class MatchmakingService {
           match: 'match' in outcome.state ? outcome.state.match : null,
         });
       } catch (error) {
-        this.logger.warn(`Match-found notification failed; clients can recover from queue status: ${error instanceof Error ? error.message : 'unknown error'}`);
+        this.logger.warn('Match-found notification failed; clients can recover from queue status.');
       }
     }
     return outcome.state;
