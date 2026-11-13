@@ -245,6 +245,7 @@ export function createOnlineMatchAdapter(api, {
       view = {
         isOnline: true,
         matchId: created.id,
+        categoryId: category,
         mode: '1vAI',
         status: created.status,
         phase: 'waiting-question',
@@ -268,7 +269,7 @@ export function createOnlineMatchAdapter(api, {
       return refresh();
     },
 
-    async resume(matchId, { mode = '1v1', language = 'en' } = {}) {
+    async resume(matchId, { mode = '1v1', language = 'en', category = null } = {}) {
       if (typeof matchId !== 'string' || !matchId) {
         throw new TypeError('A valid server match ID is required.');
       }
@@ -277,6 +278,7 @@ export function createOnlineMatchAdapter(api, {
       view = {
         isOnline: true,
         matchId,
+        categoryId: category,
         mode,
         status: match.status,
         phase: 'waiting-question',
