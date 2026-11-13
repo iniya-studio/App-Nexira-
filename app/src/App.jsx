@@ -626,6 +626,46 @@ export default function App() {
   }, [screen, matchView?.matchId, matchView?.phase]);
 
   useEffect(() => {
+    const adapter = onlineMatchmakingAdapterRef.current;
+    if (screen !== 'matchmaking' || !adapter) return undefined;
+    let active = true;
+    let inFlight = false;
+    const synchronize = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const next = await adapter.refresh();
+        if (active && next) {
+          setMatchmakingView((previous) => ({
+            ...next,
+            categoryTitle: categoryById(next.category)?.title ?? previous?.categoryTitle ?? 'General',
+          }));
+          if (next.status === 'MATCHED' && next.matchId) {
+            await openMatchedOnlineMatch(next);
+          } else if (['CANCELLED', 'EXPIRED', 'NOT_QUEUED'].includes(next.status)) {
+            adapter.reset();
+            onlineMatchmakingAdapterRef.current = null;
+            setMatchError(language === 'fa'
+              ? 'جست‌وجوی مسابقه پایان یافته است؛ دوباره تلاش کن.'
+              : 'The matchmaking search has ended. Start a new search.');
+            setScreen('categories');
+          }
+        }
+      } catch (error) {
+        if (active) setMatchError(error instanceof Error ? error.message : 'Unable to synchronize matchmaking.');
+      } finally {
+        inFlight = false;
+      }
+    };
+    void synchronize();
+    const interval = window.setInterval(synchronize, 1000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [language, openMatchedOnlineMatch, screen]);
+
+  useEffect(() => {
     if (screen !== 'game' || !run?.lastAnswer || run.status !== 'active') return undefined;
     const advanceTimer = window.setTimeout(() => {
       finishOrAdvance();
