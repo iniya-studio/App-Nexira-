@@ -66,6 +66,10 @@ export class MatchmakingService {
       }
       const queueTtlSeconds = configuredPositiveInteger('NEXIRA_MATCHMAKING_QUEUE_TTL_SECONDS', 300);
       await tx.matchmakingEntry.updateMany({
+        where: { ...principalData, status: MatchmakingEntryStatus.WAITING, expiresAt: { lte: now } },
+        data: { status: MatchmakingEntryStatus.EXPIRED },
+      });
+      await tx.matchmakingEntry.updateMany({
         where: { status: MatchmakingEntryStatus.WAITING, category, language, expiresAt: { lte: now } },
         data: { status: MatchmakingEntryStatus.EXPIRED },
       });
@@ -120,8 +124,11 @@ export class MatchmakingService {
         status: MatchmakingEntryStatus.MATCHED,
         matchId: match.id,
         match,
+        category,
+        language,
         queuedAt: entry.queuedAt,
-          matchedAt,
+        matchedAt,
+        expiresAt: entry.expiresAt,
         },
         notificationPrincipals: [this.toPrincipal(opponent), this.toPrincipal(entry)],
       };
