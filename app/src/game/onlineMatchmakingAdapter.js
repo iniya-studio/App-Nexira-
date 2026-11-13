@@ -16,13 +16,12 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
 
   return {
     async start({ category, language = 'en' } = {}) {
-      const previousStatus = view?.status;
       const recovered = await api.getMine();
       const activeMatchedGame = recovered?.status === 'MATCHED' &&
         !['COMPLETED', 'CANCELLED'].includes(recovered.match?.status);
       if (
-        previousStatus &&
-        ['NOT_QUEUED', 'CANCELLED', 'EXPIRED'].includes(recovered?.status)
+        ['CANCELLED', 'EXPIRED'].includes(recovered?.status) ||
+        (recovered?.status === 'NOT_QUEUED' && recovered.lastEntryStatus)
       ) {
         idempotencyKey = null;
       }
@@ -51,11 +50,10 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
       return view;
     },
     async refresh() {
-      const previousStatus = view?.status;
       view = await api.getMine();
       if (
-        previousStatus &&
-        ['NOT_QUEUED', 'CANCELLED', 'EXPIRED'].includes(view?.status)
+        ['CANCELLED', 'EXPIRED'].includes(view?.status) ||
+        (view?.status === 'NOT_QUEUED' && view.lastEntryStatus)
       ) {
         idempotencyKey = null;
       }
