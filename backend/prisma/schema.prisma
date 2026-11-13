@@ -183,7 +183,7 @@ model User {
   xpTransactions          XPTransaction[]
   globalRanking           GlobalUserRanking?
   matchParticipants       MatchParticipant[]
-  matchmakingEntries       MatchmakingEntry[]
+  matchmakingEntries      MatchmakingEntry[]
   hostedRooms             Room[]                   @relation("RoomHost")
   roomMemberships         RoomMember[]
   rankings                UserRanking[]
