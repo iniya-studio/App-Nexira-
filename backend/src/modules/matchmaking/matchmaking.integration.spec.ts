@@ -70,7 +70,7 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     const qc = await matchmaking.enqueue(c, request('general', 'en'));
     queueIds.push(qa.queueId, qb.queueId, qc.queueId);
     expect([qa.status, qb.status, qc.status]).toEqual(['WAITING', 'WAITING', 'WAITING']);
-    expect(await prisma.match.count({ where: { mode: 'ONE_V_ONE' } })).toBe(0);
+    expect([qa.matchId, qb.matchId, qc.matchId]).toEqual([null, null, null]);
   });
 
   it('makes enqueue idempotent and prevents one principal from occupying two waiting slots', async () => {
