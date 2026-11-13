@@ -194,3 +194,21 @@ Quality gates:
 **D — End-to-end acceptance:** two real clients, guest and registered identities, category/language compatibility, concurrent queue load, cancellation race, reconnect, and complete shared-question match.
 
 No production 1v1 enablement until all applicable gates pass. 1vAI remains unchanged and independently testable.
+
+
+## 11. Implementation notes — 2026-11-14
+
+Implementation is in progress on `feature/public-1v1-matchmaking`; this section records code that has been added, not a release approval.
+
+- Additive migration: `20261114000100_add_public_1v1_matchmaking_queue`.
+- Persistent `MatchmakingEntry` rows include principal ownership, category/language, idempotency key, timestamps, expiry and optional match reference. PostgreSQL partial unique indexes enforce one WAITING entry per user or guest across all categories.
+- Enqueue uses a compatibility-bucket advisory transaction lock, then a principal-scoped lock, and selects the oldest compatible opponent with `FOR UPDATE SKIP LOCKED`. Match creation, initial question job creation and both queue transitions share one Prisma transaction.
+- Queue REST routes are `POST /api/v1/matchmaking/queue`, `GET /api/v1/matchmaking/queue/me`, and `DELETE /api/v1/matchmaking/queue/me`.
+- Queue expiry is configurable with `NEXIRA_MATCHMAKING_QUEUE_TTL_SECONDS` (default 300 seconds). Expired rows are marked during compatible enqueue and principal status recovery; there is no background cleanup worker.
+- Enqueue rate limiting is database-backed and principal-scoped with `NEXIRA_MATCHMAKING_MAX_ENQUEUES_PER_MINUTE` (default 10 per 60 seconds). Both settings must be reviewed before production rollout.
+- Socket.IO namespace `/matchmaking` exposes authenticated `matchmaking.subscribe` / `matchmaking.unsubscribe` and emits `matchmaking.match.found` only after transaction commit. The gateway rechecks each receiving socket's active session before emitting.
+- Guest conversion transfers WAITING queue ownership and any already-paired, still-active 1v1 participant/queue ownership to the newly created user in the same conversion transaction. Completed historical matches remain attached to the guest identity.
+- The production client has a matchmaking REST adapter, stable enqueue idempotency, queue waiting/cancel UI, status polling, match handoff and cold-reconnect recovery through `GET /queue/me`. The browser/Android client currently uses REST polling; a Socket.IO client subscription is not yet wired.
+- Unit and PostgreSQL integration tests have been added for compatibility, idempotency, rate limiting, expiry, concurrent pairing, cancellation race, rollback, reconnect and guest conversion. CI execution and manual two-device acceptance are still pending.
+
+**Current gate:** do not merge or enable production 1v1 until Backend/Frontend CI is green, migration is verified on PostgreSQL 16, and the two-device end-to-end acceptance checklist in section 9 passes.
