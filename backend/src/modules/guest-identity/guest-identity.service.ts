@@ -93,6 +93,13 @@ export class GuestIdentityService {
           data: { guestIdentityId: null, userId: user.id },
         });
 
+        // Preserve an active public matchmaking request when a guest upgrades to an account.
+        // Matched/history entries remain attached to the original guest identity.
+        const queueTransfer = await tx.matchmakingEntry.updateMany({
+          where: { guestIdentityId: guest.id, status: 'WAITING' },
+          data: { guestIdentityId: null, userId: user.id },
+        });
+
         const now = new Date();
         const guestUpdate = await tx.guestIdentity.updateMany({
           where: { id: guest.id, status: GuestIdentityStatus.ACTIVE, convertedToUserId: null },
@@ -124,7 +131,11 @@ export class GuestIdentityService {
             principalId: guest.id,
             sessionId: session.session.sessionId,
             result: 'SUCCESS',
-            metadata: { convertedToUserId: user.id, companionProfileTransferred: profileTransfer.count === 1 },
+            metadata: {
+              convertedToUserId: user.id,
+              companionProfileTransferred: profileTransfer.count === 1,
+              matchmakingQueueTransferred: queueTransfer.count,
+            },
           },
         });
         return { user, session };
