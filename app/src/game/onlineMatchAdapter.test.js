@@ -33,6 +33,8 @@ test('starts a server-owned 1vAI match with the selected category and language',
 });
 
 test('loads a generated question only after server readiness starts the shared clock', async () => {
+  const startedAt = new Date(Date.now() - 1000).toISOString();
+  const deadlineAt = new Date(Date.now() + 29_000).toISOString();
   const { api } = makeApi({
     getQuestionRecovery: async () => ({
       status: 'COMPLETED', roundId: 'round-1', ready: false, startedAt: null, deadlineAt: null,
@@ -44,14 +46,21 @@ test('loads a generated question only after server readiness starts the shared c
   assert.equal(view.phase, 'question');
   assert.equal(view.question.answerType, 'FREE_TEXT');
   assert.equal(view.question.roundId, 'round-1');
-  assert.equal(view.deadlineAt, '2026-11-13T10:00:30.000Z');
+  assert.equal(view.deadlineAt, deadlineAt);
 });
 
 test('submits free-text answers with one stable idempotency key and waits for server adjudication', async () => {
+  const startedAt = new Date(Date.now() - 1000).toISOString();
+  const deadlineAt = new Date(Date.now() + 29_000).toISOString();
   const { api, calls } = makeApi({
     getQuestionRecovery: async () => ({
       status: 'COMPLETED', roundId: 'round-1', ready: true,
-      startedAt: '2026-11-13T10:00:00.000Z', deadlineAt: '2026-11-13T10:00:30.000Z',
+      startedAt, deadlineAt,
+    }),
+    getRoundQuestion: async () => ({
+      matchId: 'match-1', roundId: 'round-1', roundNumber: 1, questionId: 'question-1',
+      answerType: 'FREE_TEXT', prompt: 'What is the capital of France?', options: [],
+      timeLimitSeconds: 30, startedAt, deadlineAt,
     }),
   });
   const adapter = createOnlineMatchAdapter(api, { createKey: () => 'stable-answer-key-123' });
