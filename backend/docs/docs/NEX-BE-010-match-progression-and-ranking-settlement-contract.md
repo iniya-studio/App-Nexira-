@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Version:** 1.0  
-**Status:** Approved engineering baseline for V1 implementation  
+**Status:** V1 policy locked; implementation on `main` in progress, CI and PostgreSQL acceptance pending  
 **Target branch:** `main` only  
 **Depends on:** NEX-BE-006 Synchronized Match Core; NEX-BE-008 AI Judge & Server-Side Scoring; NEX-BE-009 Public 1v1 Matchmaking; existing Identity/Guest Identity contracts  
 **Scope:** Exactly-once XP progression and competitive ranking settlement after authoritative match completion.
@@ -182,3 +182,16 @@ Quality gates:
 The settlement layer is accepted only when a full real 1v1 match can be completed on two clients and the server produces exactly one MatchResult, one XP event per eligible participant, one global ranking event per registered participant, and one seasonal event per participant only when a season is active. Reconnect, worker restart, repeated finalization, and guest conversion must not change the final ledger totals.
 
 Automated CI alone does not constitute two-device or production acceptance.
+
+## 9. Implementation status — 2026-11-14
+
+Implemented on `main` (not yet CI-accepted):
+- Additive migration `20261114000100_add_guest_progression` creates `GuestProgress` and `GuestXPTransaction`, and adds the GLOBAL/SEASON scope CHECK constraint.
+- Prisma models and relations added without rewriting the initial migration.
+- `MatchSettlementService` derives XP and ranking from persisted match/result/answer records, uses immutable idempotency-keyed ledgers, locks guest identities and registered users in deterministic order, and updates aggregate snapshots atomically.
+- Normal match completion and early forfeit completion both invoke settlement inside the existing result transaction.
+- Guest conversion locks the guest identity and transfers its XP snapshot/ledger into the new registered user in the same serializable transaction; historical MatchParticipant guest references remain unchanged.
+- Unit coverage includes 1v1 XP/global/season ranking, guest 1vAI XP without ranking, converted guest routing, invalid-result rejection, and converted-identity self-match protection.
+- PostgreSQL integration coverage has been extended for a complete registered-user ten-round 1v1 settlement/idempotent retry, guest 1vAI XP, and guest XP conversion.
+
+**Current verification gate:** Prisma formatting/validation, migration deploy on PostgreSQL 16, production build, full unit/integration tests and ESLint must pass. Real two-device 1v1 acceptance remains a separate release gate. No CI pass is claimed in this status note.
