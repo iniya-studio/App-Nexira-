@@ -239,7 +239,7 @@ export default function App() {
     try {
       const adapter = createOnlineMatchAdapter(createMatchApi(appSessionLifecycle.getHttpClient()));
       onlineMatchAdapterRef.current = adapter;
-      const next = await adapter.resume(matchId, { mode: '1v1', language: profileRef.current.settings.language });
+      const next = await adapter.resume(matchId, { mode: '1v1', language: queueState.language ?? profileRef.current.settings.language });
       onlineMatchmakingAdapterRef.current?.reset();
       onlineMatchmakingAdapterRef.current = null;
       setMatchmakingView(null);
