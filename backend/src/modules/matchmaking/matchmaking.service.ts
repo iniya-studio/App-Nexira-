@@ -32,7 +32,7 @@ export class MatchmakingService {
     return this.prisma.$transaction(async (tx) => {
       // Serialize only one compatibility bucket; advisory hash collisions only reduce concurrency.
       const bucket = `nexira:1v1:${category}:${language}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket}))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
 
       const prior = await tx.matchmakingEntry.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
       if (prior) {
