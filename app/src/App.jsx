@@ -455,7 +455,7 @@ export default function App() {
   }, [screen, sessionState.status]);
 
   useEffect(() => {
-    if (!import.meta.env.PROD) return undefined;
+    if (!import.meta.env.PROD || !publicOneVsOneEnabled) return undefined;
     if (!['guest', 'authenticated'].includes(sessionState.status)) {
       matchmakingRecoveryPrincipalRef.current = null;
       return undefined;
