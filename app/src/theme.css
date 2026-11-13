@@ -3372,3 +3372,53 @@ body,
 .account-signed-in { display: grid; gap: 10px; }
 .account-feedback { margin: 0; color: #79e6bd; font-size: .9rem; line-height: 1.6; }
 .account-feedback--error { color: #ff8f9b; overflow-wrap: anywhere; }
+
+
+.matchmaking-panel {
+  display: grid;
+  gap: 22px;
+  max-width: 620px;
+  margin-inline: auto;
+  padding: clamp(22px, 5vw, 34px);
+  text-align: center;
+}
+
+.matchmaking-search-state {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 18px 8px;
+}
+
+.matchmaking-search-state .live-dot {
+  width: 11px;
+  height: 11px;
+  margin: 2px 0 5px;
+  border-radius: 50%;
+  background: var(--mint, #00ffb8);
+  box-shadow: 0 0 0 7px rgba(0, 255, 184, 0.08), 0 0 22px rgba(0, 255, 184, 0.75);
+  animation: matchmaking-pulse 1.6s ease-in-out infinite;
+}
+
+.matchmaking-search-state strong {
+  color: #e8f5ff;
+  font-size: clamp(18px, 4vw, 23px);
+}
+
+.matchmaking-search-state small {
+  color: #7fd8ee;
+  font-size: 12px;
+}
+
+.matchmaking-search-state p {
+  max-width: 390px;
+  margin: 0;
+  color: #9bb4c8;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+@keyframes matchmaking-pulse {
+  0%, 100% { opacity: 0.65; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
