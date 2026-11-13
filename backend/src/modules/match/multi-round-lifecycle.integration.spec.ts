@@ -21,6 +21,7 @@ describe('Multi-round match lifecycle integration', () => {
   const matchFinalizer = new MatchFinalizationWorker(prisma);
   const matchIds: string[] = [];
   const guestIds: string[] = [];
+  const userIds: string[] = [];
   const questionIds: string[] = [];
 
   beforeAll(async () => {
@@ -48,6 +49,12 @@ describe('Multi-round match lifecycle integration', () => {
       await prisma.guestXPTransaction.deleteMany({ where: { guestIdentityId: { in: guestIds } } });
       await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } });
       guestIds.length = 0;
+    }
+    if (userIds.length) {
+      await prisma.xPTransaction.deleteMany({ where: { userId: { in: userIds } } });
+      await prisma.rankingTransaction.deleteMany({ where: { userId: { in: userIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+      userIds.length = 0;
     }
   });
 
@@ -92,20 +99,24 @@ describe('Multi-round match lifecycle integration', () => {
   });
 
   it('plays all ten rounds, advances exactly once per round, preserves scores, and finalizes once', async () => {
-    const [firstGuest, secondGuest] = await Promise.all([
-      prisma.guestIdentity.create({ data: {} }),
-      prisma.guestIdentity.create({ data: {} }),
+    const [firstUser, secondUser] = await Promise.all([
+      prisma.user.create({
+        data: { username: `match-player-${randomUUID()}`, displayName: 'Match Player One' },
+      }),
+      prisma.user.create({
+        data: { username: `match-player-${randomUUID()}`, displayName: 'Match Player Two' },
+      }),
     ]);
-    guestIds.push(firstGuest.id, secondGuest.id);
+    userIds.push(firstUser.id, secondUser.id);
 
     const first = {
-      principalType: PrincipalType.GUEST,
-      principalId: firstGuest.id,
+      principalType: PrincipalType.USER,
+      principalId: firstUser.id,
       sessionId: randomUUID(),
     };
     const second = {
-      principalType: PrincipalType.GUEST,
-      principalId: secondGuest.id,
+      principalType: PrincipalType.USER,
+      principalId: secondUser.id,
       sessionId: randomUUID(),
     };
     const match = await matches.createOneVsOne(first, second);
@@ -258,5 +269,24 @@ describe('Multi-round match lifecycle integration', () => {
     );
     expect(await prisma.round.count({ where: { matchId: match.id } })).toBe(10);
     expect(await prisma.matchScoreEntry.count({ where: { matchId: match.id } })).toBe(20);
+
+    const xpEvents = await prisma.xPTransaction.findMany({
+      where: { matchId: match.id },
+    });
+    expect(xpEvents).toHaveLength(2);
+    expect(xpEvents.every((event) => event.amount > 0)).toBe(true);
+    const progress = await prisma.userProgress.findMany({
+      where: { userId: { in: userIds } },
+    });
+    expect(progress).toHaveLength(2);
+    const globalRankings = await prisma.globalUserRanking.findMany({
+      where: { userId: { in: userIds } },
+    });
+    expect(globalRankings).toHaveLength(2);
+    expect(globalRankings.every((ranking) => ranking.matchesPlayed === 1)).toBe(true);
+    expect(globalRankings.reduce((sum, ranking) => sum + ranking.rankingPoints, 0))
+      .toBe(20);
+    expect(await prisma.rankingTransaction.count({ where: { matchId: match.id } }))
+      .toBe(2);
   });
 });
