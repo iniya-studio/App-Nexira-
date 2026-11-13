@@ -1,4 +1,4 @@
-import { BadRequestException, TooManyRequestsException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { MatchmakingEntryStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchService } from '../match/match.service';
@@ -79,7 +79,7 @@ describe('MatchmakingService', () => {
   it('enforces a durable per-principal enqueue rate limit', async () => {
     const { service, tx } = setup();
     tx.matchmakingEntry.count.mockResolvedValue(10);
-    await expect(service.enqueue(guest, input)).rejects.toBeInstanceOf(TooManyRequestsException);
+    await expect(service.enqueue(guest, input)).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
     expect(tx.matchmakingEntry.create).not.toHaveBeenCalled();
   });
   it('creates exactly one shared 1v1 match and consumes both entries atomically', async () => {
