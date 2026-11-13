@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger, TooManyRequestsException } from '@nestjs/common';
-import { MatchmakingEntryStatus, PrincipalType } from '@prisma/client';
+import { MatchmakingEntryStatus, MatchStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
@@ -60,6 +60,15 @@ export class MatchmakingService {
         : { userId: null, guestIdentityId: principal.principalId };
       const principalLock = `nexira:1v1:principal:${principal.principalType}:${principal.principalId}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
+      const activeMatch = await tx.matchmakingEntry.findFirst({
+        where: {
+          ...principalData,
+          status: MatchmakingEntryStatus.MATCHED,
+          match: { status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] } },
+        },
+        select: { id: true },
+      });
+      if (activeMatch) throw new ConflictException('A 1v1 match is already active for this principal');
       const now = new Date();
       const recentEnqueues = await tx.matchmakingEntry.count({
         where: { ...principalData, queuedAt: { gte: new Date(now.getTime() - 60_000) } },
