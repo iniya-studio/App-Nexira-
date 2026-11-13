@@ -147,7 +147,7 @@ export class MatchmakingService {
           matchId: outcome.state.matchId,
           match: 'match' in outcome.state ? outcome.state.match : null,
         });
-      } catch (error) {
+      } catch {
         this.logger.warn('Match-found notification failed; clients can recover from queue status.');
       }
     }
