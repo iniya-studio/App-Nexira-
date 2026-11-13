@@ -197,7 +197,7 @@ describe('Round deadline and no-response scoring integration', () => {
     };
   }
 
-  it('does not penalize a human while the 1vAI opponent has no answer outcome', async () => {
+  it('finalizes 1vAI with explicit AI NO_RESPONSE and applies only the human penalty', async () => {
     const guest = await prisma.guestIdentity.create({ data: {} });
     guestIds.push(guest.id);
     const match = await matches.createAiMatch({
@@ -237,16 +237,74 @@ describe('Round deadline and no-response scoring integration', () => {
     });
     await prisma.match.update({
       where: { id: match.id },
+      data: { status: MatchStatus.ACTIVE, currentRound: 1, startedAt },
+    });
+
+    const participants = await prisma.matchParticipant.findMany({
+      where: { matchId: match.id },
+    });
+    const human = participants.find(
+      (participant) => participant.participantType === ParticipantType.HUMAN,
+    );
+    const ai = participants.find(
+      (participant) => participant.participantType === ParticipantType.AI,
+    );
+    if (!human || !ai) throw new Error('1vAI test participants are incomplete');
+
+    await prisma.aiAnswerJob.create({
       data: {
-        status: MatchStatus.ACTIVE,
-        currentRound: 1,
-        startedAt,
+        matchId: match.id,
+        roundId: round.id,
+        participantId: ai.id,
+        idempotencyKey: `ai-answer:${round.id}:${ai.id}:v1`,
       },
     });
 
-    expect(await worker.runOnce()).toBe(false);
-    expect(await prisma.answer.count({ where: { roundId: round.id } })).toBe(0);
-    expect(await prisma.matchScoreEntry.count({ where: { matchId: match.id } })).toBe(0);
+    expect(await worker.runOnce()).toBe(true);
+
+    const humanAnswer = await prisma.answer.findUniqueOrThrow({
+      where: {
+        roundId_participantId: { roundId: round.id, participantId: human.id },
+      },
+    });
+    const aiAnswer = await prisma.answer.findUniqueOrThrow({
+      where: {
+        roundId_participantId: { roundId: round.id, participantId: ai.id },
+      },
+    });
+    expect(humanAnswer.status).toBe(AnswerStatus.NO_RESPONSE);
+    expect(aiAnswer.status).toBe(AnswerStatus.NO_RESPONSE);
+
+    const humanScore = await prisma.matchParticipant.findUniqueOrThrow({
+      where: { id: human.id },
+    });
+    const aiScore = await prisma.matchParticipant.findUniqueOrThrow({
+      where: { id: ai.id },
+    });
+    expect(humanScore.score).toBe(-5);
+    expect(aiScore.score).toBe(0);
+
+    const ledger = await prisma.matchScoreEntry.findMany({
+      where: { matchId: match.id },
+    });
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({
+      participantId: human.id,
+      entryType: 'NO_RESPONSE_PENALTY',
+      pointsChange: -5,
+    });
+
+    const persistedRound = await prisma.round.findUniqueOrThrow({
+      where: { id: round.id },
+    });
+    expect(persistedRound.completedAt).not.toBeNull();
+    const job = await prisma.aiAnswerJob.findUniqueOrThrow({
+      where: { roundId_participantId: { roundId: round.id, participantId: ai.id } },
+    });
+    expect(job).toMatchObject({
+      status: 'CANCELLED',
+      lastErrorCode: 'ROUND_DEADLINE',
+    });
   });
 
   it('applies the third consecutive penalty and one +20 transfer exactly once', async () => {
