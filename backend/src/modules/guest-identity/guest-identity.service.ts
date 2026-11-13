@@ -64,9 +64,12 @@ export class GuestIdentityService {
     };
     try {
       converted = await this.prisma.$transaction(async (tx) => {
-        // Matchmaking acquires its compatibility-bucket advisory lock before
-        // locking a principal or queue entry. Use the same order here to avoid
-        // deadlocks with an enqueue/pairing transaction during guest conversion.
+        // Matchmaking and conversion share the same principal -> bucket lock order.
+        // This prevents a guest enqueue from creating a queue row while conversion
+        // is transferring ownership.
+        const principalLock = `nexira:1v1:principal:GUEST:${principal.principalId}`;
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
+
         const waitingBuckets = await tx.matchmakingEntry.findMany({
           where: { guestIdentityId: principal.principalId, status: 'WAITING' },
           select: { category: true, language: true },
@@ -77,6 +80,34 @@ export class GuestIdentityService {
         for (const bucket of bucketLocks) {
           await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
         }
+
+        // Match finalization locks Match -> GuestIdentity. Lock any active Match rows
+        // first, in stable order, so conversion cannot deadlock with finalization.
+        const activeCandidates = await tx.matchmakingEntry.findMany({
+          where: {
+            guestIdentityId: principal.principalId,
+            status: 'MATCHED',
+            match: { status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] } },
+          },
+          select: { matchId: true },
+        });
+        const candidateMatchIds = [...new Set(
+          activeCandidates.map((entry) => entry.matchId).filter((id): id is string => id !== null),
+        )].sort();
+        for (const matchId of candidateMatchIds) {
+          await tx.$queryRaw`SELECT "id" FROM "Match" WHERE "id" = ${matchId}::uuid FOR UPDATE`;
+        }
+        const activeMatchedEntries = await tx.matchmakingEntry.findMany({
+          where: {
+            guestIdentityId: principal.principalId,
+            status: 'MATCHED',
+            match: { status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] } },
+          },
+          select: { id: true, matchId: true },
+        });
+        const activeMatchIds = [...new Set(
+          activeMatchedEntries.map((entry) => entry.matchId).filter((id): id is string => id !== null),
+        )];
 
         // Serialize conversion with match settlement so XP is transferred exactly once.
         await tx.$queryRawUnsafe(
@@ -157,17 +188,6 @@ export class GuestIdentityService {
           where: { guestIdentityId: guest.id, status: 'WAITING' },
           data: { guestIdentityId: null, userId: user.id },
         });
-        const activeMatchedEntries = await tx.matchmakingEntry.findMany({
-          where: {
-            guestIdentityId: guest.id,
-            status: 'MATCHED',
-            match: { status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] } },
-          },
-          select: { id: true, matchId: true },
-        });
-        const activeMatchIds = activeMatchedEntries
-          .map((entry) => entry.matchId)
-          .filter((matchId): matchId is string => matchId !== null);
         let activeParticipantTransfer = 0;
         let matchedQueueTransfer = 0;
         if (activeMatchIds.length > 0) {
