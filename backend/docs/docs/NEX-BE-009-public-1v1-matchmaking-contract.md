@@ -214,4 +214,4 @@ Implemented on `main`:
 
 **Verification status:** the queue and pairing unit/PostgreSQL integration tests have been ported and adapted for persisted active sessions. Backend CI, Prisma formatting/validation, migration deployment, full integration suite, Android build, and two-device acceptance are not yet verified for the current main commit. The client currently uses REST polling; Socket.IO client subscription remains a later transport optimization.
 
-**Release gate:** do not enable production rollout until CI is green, PostgreSQL 16 migration and concurrency tests pass, and two-device tests cover identical question delivery, simultaneous answers/deadlines, cancellation-vs-pairing, network interruption, and cold-process recovery. 1vAI shared lifecycle and scoring remain unchanged.
+**Release gate:** do not enable production rollout until CI is green, PostgreSQL 16 migration and concurrency tests pass, and all required two-device tests in [NEX-BE-011 — Public 1v1 Acceptance Checklist](./NEX-BE-011-public-1v1-acceptance-checklist.md) pass. 1vAI shared lifecycle and scoring remain unchanged.
