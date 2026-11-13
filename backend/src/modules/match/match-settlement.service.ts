@@ -91,6 +91,7 @@ export class MatchSettlementService {
 
   private calculateXp(
     participant: {
+      id: string;
       status: ParticipantStatus;
       answers: Array<{
         status: AnswerStatus;
