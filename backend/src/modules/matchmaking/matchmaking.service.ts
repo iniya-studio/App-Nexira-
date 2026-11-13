@@ -193,6 +193,13 @@ export class MatchmakingService {
     });
     if (!entry) return { status: 'NOT_QUEUED' as const };
     const match = entry.matchId ? await this.matches.getMatch(entry.matchId, principal) : null;
+    if (
+      entry.status === MatchmakingEntryStatus.MATCHED &&
+      match &&
+      [MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)
+    ) {
+      return { status: 'NOT_QUEUED' as const };
+    }
     return { ...this.toQueueState(entry), match };
   }
 
