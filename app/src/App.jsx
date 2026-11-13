@@ -117,6 +117,7 @@ export default function App() {
   const onlineMatchmakingAdapterRef = useRef(null);
   const matchmakingTransitionRef = useRef(null);
   const matchmakingRecoveryPrincipalRef = useRef(null);
+  const cancelMatchmakingRef = useRef(null);
   const matchTimerRemainingRef = useRef(10);
   const matchTimerKeyRef = useRef(null);
   if (!matchAdapterRef.current) matchAdapterRef.current = createLocalMatchAdapter();
@@ -176,6 +177,10 @@ export default function App() {
     CapacitorApp.addListener('backButton', () => {
       const currentScreen = screenRef.current;
       if (currentScreen === 'language' && !hasCompletedLanguageSelection()) return;
+      if (currentScreen === 'matchmaking') {
+        void cancelMatchmakingRef.current?.();
+        return;
+      }
       if (currentScreen === 'match-game') {
         setShowExitConfirm(true);
         return;
@@ -599,9 +604,14 @@ export default function App() {
   }, [handleAnswer, isPageVisible, run?.lastAnswer, run?.questionIndex, run?.runId, run?.status, run?.timeLimit, screen, showExitConfirm]);
 
   useEffect(() => {
-    if (screen !== 'game' && screen !== 'match-game') return undefined;
+    if (screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking') return undefined;
     window.history.pushState({ nexiraGame: true }, '', window.location.href);
     const handleHardwareBack = () => {
+      if (screenRef.current === 'matchmaking') {
+        void cancelMatchmakingRef.current?.();
+        window.history.pushState({ nexiraGame: true }, '', window.location.href);
+        return;
+      }
       setShowExitConfirm(true);
       window.history.pushState({ nexiraGame: true }, '', window.location.href);
     };
