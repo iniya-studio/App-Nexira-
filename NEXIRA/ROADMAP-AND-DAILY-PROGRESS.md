@@ -288,17 +288,19 @@
 
 | 2026-11-13 | R-013 / قرارداد Matchmaking عمومی 1v1 | ممیزی Match Core و Prisma تأیید کرد زیرساخت مسابقه دونفره، MatchParticipant انعطاف‌پذیر، متد داخلی `createOneVsOne` و وابستگی Socket.IO موجود است؛ صف عمومی و pairing هنوز وجود ندارند. قرارداد `NEX-BE-009` برای صف پایدار، سازگاری دقیق category/language، FIFO، جفت‌سازی اتمیک، idempotency، cancellation race، REST، اعلان WebSocket و بازیابی reconnect تهیه و در main ثبت شد. | بازخوانی Match Core contract، Prisma schema، MatchService/Controller/Module، Frontend-Backend contract و package dependencies؛ سند جدید در GitHub ثبت و قابل‌بازیابی است. | `42164ed356755a8a29653a151794c5fb6ea1d541` | CONTRACT BASELINE DONE | گام بعد: پیاده‌سازی persistence و queue service طبق NEX-BE-009؛ migration فقط additive و با تست PostgreSQL 16. هسته 1vAI و Match Engine بدون بازطراحی/تغییر غیرضروری حفظ شوند. |
 
+| 2026-11-14 | R-014 / پیاده‌سازی Public 1v1 | شاخه مستقل `feature/public-1v1-matchmaking` ساخته شد؛ مدل پایدار صف و migration افزایشی PostgreSQL، قیود partial unique، APIهای enqueue/status/cancel، pairing سازگار FIFO با advisory lock و `FOR UPDATE SKIP LOCKED`، ساخت Match و question job در همان تراکنش، TTL و rate limit قابل تنظیم، اعلان Socket.IO با اعتبارسنجی نشست، انتقال صف/مسابقه فعال هنگام تبدیل Guest به User، و اتصال اولیه Frontend به queue/recovery/cancel پیاده شد. تست‌های unit، PostgreSQL integration و Frontend اضافه شدند. | هنوز CI اجرا/تأیید نشده و تست دو دستگاه انجام نشده است؛ هیچ تغییری روی `main` ادغام نشده. قراردادهای `NEX-BE-009` و `NEX-FE-001` به‌روزرسانی شدند. | شاخه feature؛ آخرین commit هنگام ثبت گزارش: `4301f1b517baadc464e01591358da12b7f63a954` (سند Frontend؛ commitهای بعدی ممکن است اضافه شده باشند) | IMPLEMENTATION IN PROGRESS / NOT RELEASED | گام بعد: بازبینی compile/type/Prisma migration، اجرای Backend و Frontend CI، رفع خطاها، سپس آزمون واقعی دو دستگاه و بازیابی cold-process؛ تا آن زمان public 1v1 برای انتشار تأیید نیست. |
+
 ### داشبورد وضعیت
 
 | شاخص | وضعیت فعلی |
 |---|---|
 | شاخه مرجع | `main` |
-| ممیزی شاخه‌ها و ثبت گزارش | انجام‌شده؛ گزارش قبلی مرجع حفظ دارایی‌هاست |\n| وضعیت تطبیق قابلیت‌ها و آزمون‌های main | ساختار یکپارچه Frontend/Backend بازیابی شد؛ 1vAI production به REST backend متصل و هسته آن از نظر تست خودکار تأیید شده است؛ قرارداد public 1v1 در NEX-BE-009 ثبت شد؛ پیاده‌سازی queue/pairing و پذیرش زنده 1vAI همچنان باز است |
+| ممیزی شاخه‌ها و ثبت گزارش | انجام‌شده؛ گزارش قبلی مرجع حفظ دارایی‌هاست |\n| وضعیت تطبیق قابلیت‌ها و آزمون‌های main | ساختار یکپارچه Frontend/Backend بازیابی شد؛ 1vAI production به REST backend متصل و هسته آن از نظر تست خودکار تأیید شده است؛ public 1v1 در شاخه مستقل `feature/public-1v1-matchmaking` در حال پیاده‌سازی است و هنوز وارد main نشده؛ پذیرش زنده هر دو حالت باز است |
 | فازهای V1 تکمیل‌شده | پس از تطبیق کد و آزمون‌های main تعیین می‌شود |
 | پیشرفت V1 | تا ثبت baseline: نامشخص |
 | آمادگی زیرساخت V2 | پس از تطبیق معماری و قراردادهای موجود در main تعیین می‌شود |
 | تست‌های معتبر main | Frontend: ۸۹/۸۹ PASS؛ Backend: ۳۳ suite و ۱۷۶ تست PASS؛ Prisma migrations روی PostgreSQL 16، Nest build و ESLint: PASS؛ Android APK build/verification/upload: PASS؛ پذیرش زنده روی دستگاه با API مستقر هنوز انجام نشده است |
-| موانع/پیگیری فعال | یک شاخه محلی قدیمی در worktree جداگانه Codespace باقی مانده؛ فعلاً مانع توسعه روی `main` نیست. مانع اجرای واقعی 1vAI: API deployment/HTTPS URL و provider credentials. برای 1v1، قرارداد آماده است اما queue/pairing هنوز باید پیاده‌سازی و تست شود. سیاست XP مهمان/کاربر ثبت‌نام‌شده هنوز باز است. |
+| موانع/پیگیری فعال | یک شاخه محلی قدیمی در worktree جداگانه Codespace باقی مانده؛ فعلاً مانع توسعه نیست. مانع اجرای واقعی 1vAI: API deployment/HTTPS URL و provider credentials. برای 1v1: CI شاخه feature، آزمون دو دستگاه و پذیرش cold-process باقی است. سیاست XP مهمان/کاربر ثبت‌نام‌شده هنوز باز است. |
 
 ## 9. قالب گزارش پایان هر نوبت کاری
 
@@ -324,6 +326,7 @@
 | 1.8 | 2026-11-13 | بازبینی کامل چرخه 1vAI؛ اصلاح برچسب‌های UI production؛ technical void برای شکست AI Opponent و محدودیت دو جایگزینی؛ ثبت آزمون ۱۰ دور و ۱۷۵ تست Backend در ۳۳ suite به‌همراه Android CI سبز |
 | 1.9 | 2026-11-13 | رفع race بین Deadline Worker و AI Judge technical void؛ حفظ polling پس از خطای موقت API و تفکیک خطای ارسال پاسخ از خطای دریافت نتیجه؛ ثبت ۱۷۶ تست Backend و ۸۹ تست Frontend موفق به‌همراه APK تأییدشده |
 | 2.0 | 2026-11-13 | ثبت پذیرش فنی هسته 1vAI در R-012.2 و افزودن قرارداد NEX-BE-009 برای public 1v1 matchmaking، صف پایدار و pairing اتمیک؛ شروع فاز implementation |
+| 2.1 | 2026-11-14 | ثبت پیاده‌سازی اولیه public 1v1 در شاخه مستقل، تست‌های اضافه‌شده و موانع CI/دو دستگاه؛ بدون ادعای ادغام یا انتشار |
 
 ---
 
