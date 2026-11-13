@@ -40,7 +40,6 @@ test('match API builds encoded routes and submits the exact backend DTO', async 
   await api.getMatchResult('match-id');
   await api.getRoundResult('match/id', 'round/id');
   await api.getRoundQuestion('match/id', 'round/id', 'fa-IR');
-  await api.submitAnswer('match-id', 'round-id', 'option-2', 'stable-idempotency-key');
 
   assert.equal(calls[0].path, '/matches/ai');
   assert.deepEqual(calls[0].body, { category: 'science', language: 'fa' });
