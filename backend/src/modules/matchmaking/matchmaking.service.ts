@@ -8,7 +8,8 @@ import { MatchmakingGateway } from './matchmaking.gateway';
 const SUPPORTED_CATEGORIES = new Set(['general', 'general-knowledge', 'english', 'math', 'mathematics', 'programming', 'cars', 'chess', 'memory', 'logic', 'knowledge', 'reaction', 'focus', 'language', 'science']);
 
 function configuredPositiveInteger(name: string, fallback: number) {
-  const value = Number(process.env[name] ?? fallback);
+  const raw = process.env[name];
+  const value = raw === undefined || raw === '' ? fallback : Number(raw);
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
   return value;
 }
