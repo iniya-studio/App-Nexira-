@@ -464,6 +464,7 @@ model QuestionGenerationJob {
 
   @@unique([sourceRoundId, matchId])
   @@index([status, availableAt])
+  @@index([status, leaseAt])
   @@index([matchId, createdAt])
 }
 
