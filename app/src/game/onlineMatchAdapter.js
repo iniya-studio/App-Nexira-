@@ -13,10 +13,11 @@ function createIdempotencyKey() {
 
 function participantView(participant) {
   const isAi = participant.type === 'AI';
+  const isSelf = Boolean(participant.isSelf);
   return {
-    id: isAi ? 'scripted-opponent' : 'human-1',
+    id: isAi ? 'scripted-opponent' : isSelf ? 'human-1' : 'human-2',
     type: isAi ? 'ai' : 'human',
-    displayName: isAi ? 'NEXIRA AI' : 'YOU',
+    displayName: isAi ? 'NEXIRA AI' : isSelf ? 'YOU' : 'OPPONENT',
     score: Number.isSafeInteger(participant.score) ? participant.score : 0,
     isSelf: Boolean(participant.isSelf),
     answer: participant.answer ?? null,
@@ -99,7 +100,9 @@ export function createOnlineMatchAdapter(api, {
           ? 'human-1'
           : result.winnerType === 'AI'
             ? 'scripted-opponent'
-            : null;
+            : result.youWon === false && result.winnerType === 'HUMAN'
+              ? 'human-2'
+              : null;
         return update({
           phase: 'complete',
           participants,
@@ -256,10 +259,34 @@ export function createOnlineMatchAdapter(api, {
       return refresh();
     },
 
+    async resume(matchId, { mode = '1v1', language = 'en' } = {}) {
+      if (typeof matchId !== 'string' || !matchId) throw new TypeError('A valid server match ID is required.');
+      const match = await api.getMatch(matchId);
+      const isOneVsOne = mode === '1v1';
+      view = {
+        isOnline: true, matchId, mode, status: match.status, phase: 'waiting-question', language,
+        currentRound: match.currentRound ?? 0, roundIndex: Math.max(0, (match.currentRound ?? 0) - 1),
+        totalRounds: match.roundsTarget ?? 10, timeLimit: 30, deadlineAt: null, question: null, roundSummary: null,
+        participants: isOneVsOne
+          ? [
+              { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
+              { id: 'human-2', type: 'human', displayName: 'OPPONENT', score: 0, isSelf: false },
+            ]
+          : [
+              { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
+              { id: 'scripted-opponent', type: 'ai', displayName: 'NEXIRA AI', score: 0, isSelf: false },
+            ],
+        error: null,
+      };
+      roundId = null;
+      lastPresentedRoundId = null;
+      pendingSubmission = null;
+      return refresh();
+    },
+
     getView: () => view,
 
     refresh,
-
     async submitAnswer(responseText) {
       const normalized = typeof responseText === 'string' ? responseText.trim() : '';
       if (!normalized || normalized.length > 2000) {
