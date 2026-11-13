@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Version:** 1.0  
-**Status:** Implemented on `feature/1vai-opponent-response-worker`; pending PostgreSQL CI verification  
+**Status:** Implemented and PostgreSQL CI verified on `feature/1vai-opponent-response-worker`; awaiting live provider verification  
 **Related contracts:** NEX-BE-006 Match Core & Synchronized Round Contracts; NEX-BE-007 Match Entry & Answer Acceptance; NEX-BE-008 AI Judge & Server-Side Scoring; NEX-BE-009 AI Question Generation & Technical Recovery
 
 ## 1. Purpose
@@ -54,13 +54,15 @@ A free-text answer whose judge reaches terminal `FAILED` state does not hold the
 
 ## 6. Verification requirements
 
-PostgreSQL integration tests must prove:
-1. provider input excludes answer key and grading rubric;
-2. concurrent workers claim one job and persist one answer/score;
-3. stale lease recovery works and stale worker output is fenced;
-4. provider failures stop after the configured attempt limit;
-5. free-text answers enter the existing judge pipeline;
-6. deadline finalization persists AI `NO_RESPONSE`;
-7. a late AI response cannot overwrite the deadline result.
+Automated verification must prove:
+1. the Responses API adapter uses strict structured output, sends only visible question data, and handles refusal, incomplete output, malformed results, HTTP errors, timeout, network failure, invalid configuration, and invalid input;
+2. initial 1vAI question generation creates exactly one durable AI answer job in the same database transaction as the generated round, with AI readiness set automatically and human readiness left pending;
+3. provider input excludes answer key and grading rubric;
+4. concurrent workers claim one job and persist one answer/score;
+5. stale lease recovery works and stale worker output is fenced;
+6. provider failures stop after the configured attempt limit;
+7. free-text answers enter the existing judge pipeline;
+8. deadline finalization persists AI `NO_RESPONSE`;
+9. a late AI response cannot overwrite the deadline result.
 
 This contract does not authorize changes to the public human answer API or redesign of the existing Match Engine.
