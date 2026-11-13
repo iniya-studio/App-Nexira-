@@ -188,3 +188,17 @@ The authenticated client reads server-authoritative progression and leaderboard 
 - `GET /api/v1/ranking/seasonal/current`: top 50 entries for the single season active at server time and the caller's seasonal summary/position. Returns an empty season state when no season is active.
 
 Guest principals may progress and see their level, but are not exposed in competitive ranking until conversion to a registered account. Leaderboard responses expose username/display name only; email and identity credentials are never returned.
+
+
+## Public 1v1 matchmaking client — 2026-11-14
+
+Implemented on `main`:
+- Production 1v1 mode uses the authenticated matchmaking REST adapter; local 1v1 remains a development preview only.
+- The client submits selected category and language, displays queue state, supports cancellation, and polls the server queue snapshot.
+- On app restart or session restoration, the client checks the durable queue and resumes a waiting queue or active matched game.
+- When matched, the client resumes the existing shared online match lifecycle; participant scores and human identity labels are restored from the authorized match snapshot.
+- Android/browser back cancels the queue instead of leaving a hidden active search.
+- Guest play is supported. Guest conversion transfers queue ownership and active match participation to the new registered account.
+- The client currently uses REST polling for queue discovery; the authenticated Socket.IO gateway is implemented server-side but its client subscription is not yet wired.
+
+Automated verification and two-device acceptance are still pending for the current main implementation. Production rollout remains disabled until those gates pass.
