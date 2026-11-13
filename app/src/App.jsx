@@ -1079,6 +1079,9 @@ export default function App() {
           {language === 'fa' ? 'دریافت اطلاعات رتبه‌بندی ناموفق بود.' : 'Unable to load ranking data.'}
           <button type="button" className="text-action" onClick={() => { void refreshServerProgression(); }}>{language === 'fa' ? 'تلاش دوباره' : 'Retry'}</button>
         </div>}
+        {!activeRanking && !progressionLoading && !progressionError && <p className="empty-state">
+          {language === 'fa' ? 'برای دریافت رتبه‌بندی، ابتدا اتصال امن حساب را برقرار کن.' : 'Connect your secure account session to load verified rankings.'}
+        </p>}
         {activeRanking?.eligible === false && <p className="panel-note">
           {language === 'fa'
             ? 'می‌توانی بدون ثبت‌نام بازی کنی و XP بگیری؛ برای حضور در رتبه‌بندی رقابتی باید حساب کاربری بسازی.'
