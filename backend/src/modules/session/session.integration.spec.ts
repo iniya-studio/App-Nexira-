@@ -57,6 +57,8 @@ describe('Guest identity and session integration', () => {
     }
     if (convertedUserIds.length) {
       await prisma.identityAuditEvent.deleteMany({ where: { principalId: { in: convertedUserIds } } });
+      await prisma.xPTransaction.deleteMany({ where: { userId: { in: convertedUserIds } } });
+      await prisma.rankingTransaction.deleteMany({ where: { userId: { in: convertedUserIds } } });
       await prisma.user.deleteMany({ where: { id: { in: convertedUserIds } } });
       convertedUserIds.length = 0;
     }
@@ -127,6 +129,30 @@ describe('Guest identity and session integration', () => {
     const companion = await prisma.companionProfile.create({
       data: { guestIdentityId: guestId },
     });
+    await prisma.guestProgress.create({
+      data: {
+        guestIdentityId: guestId,
+        level: 3,
+        currentLevelXp: 25,
+        totalXp: BigInt(325),
+      },
+    });
+    await prisma.guestXPTransaction.createMany({
+      data: [
+        {
+          guestIdentityId: guestId,
+          amount: 100,
+          reason: 'MATCH_REWARD',
+          idempotencyKey: `guest-conversion-test:${guestId}:xp:1`,
+        },
+        {
+          guestIdentityId: guestId,
+          amount: 225,
+          reason: 'MATCH_REWARD',
+          idempotencyKey: `guest-conversion-test:${guestId}:xp:2`,
+        },
+      ],
+    });
 
     const result = await guests.convert({
       principalType: PrincipalType.GUEST,
@@ -149,7 +175,7 @@ describe('Guest identity and session integration', () => {
       sessionId: result.session.sessionId,
     });
 
-    const [guest, transferredProfile, oldSession, newSession, oldRefreshTokens, audit] = await Promise.all([
+    const [guest, transferredProfile, oldSession, newSession, oldRefreshTokens, audit, userProgress, transferredXp, guestProgress] = await Promise.all([
       prisma.guestIdentity.findUnique({ where: { id: guestId } }),
       prisma.companionProfile.findUnique({ where: { id: companion.id } }),
       prisma.userSession.findUnique({ where: { id: guestSessionId } }),
@@ -158,6 +184,9 @@ describe('Guest identity and session integration', () => {
       prisma.identityAuditEvent.findFirst({
         where: { principalType: PrincipalType.GUEST, principalId: guestId, eventType: 'GUEST_IDENTITY_CONVERTED' },
       }),
+      prisma.userProgress.findUnique({ where: { userId } }),
+      prisma.xPTransaction.findMany({ where: { userId } }),
+      prisma.guestProgress.findUnique({ where: { guestIdentityId: guestId } }),
     ]);
 
     expect(guest?.status).toBe(GuestIdentityStatus.CONVERTED);
@@ -173,6 +202,18 @@ describe('Guest identity and session integration', () => {
     expect(oldRefreshTokens.length).toBeGreaterThan(0);
     expect(oldRefreshTokens.every((token) => token.revokedAt instanceof Date)).toBe(true);
     expect(audit).toBeTruthy();
+    expect(userProgress).toMatchObject({
+      userId,
+      level: 3,
+      currentLevelXp: 25,
+      totalXp: BigInt(325),
+    });
+    expect(transferredXp).toHaveLength(2);
+    expect(transferredXp.every((event) =>
+      event.reason === 'GUEST_CONVERSION_TRANSFER' &&
+      event.idempotencyKey.startsWith(`guest-conversion:${guestId}:xp:`),
+    )).toBe(true);
+    expect(guestProgress?.transferredAt).toBeInstanceOf(Date);
 
     await expect(accessGuard.authenticate(started.tokens.accessToken)).rejects.toThrow();
     await expect(
