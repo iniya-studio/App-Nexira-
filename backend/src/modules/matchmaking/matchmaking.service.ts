@@ -97,7 +97,12 @@ export class MatchmakingService {
         },
         notificationPrincipals: [this.toPrincipal(opponent), this.toPrincipal(entry)],
       };
-    }, { maxWait: 5000, timeout: 15000 });
+    }, { maxWait: 5000, timeout: 15000 }).catch((error: unknown) => {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException('An active queue entry or idempotency key already exists');
+      }
+      throw error;
+    });
 
     if (outcome.notificationPrincipals.length > 0 && outcome.state.matchId) {
       await this.gateway.notifyMatchFound(outcome.notificationPrincipals, {
@@ -124,6 +129,10 @@ export class MatchmakingService {
       data: { status: MatchmakingEntryStatus.CANCELLED, cancelledAt: new Date() },
     });
     return this.getMine(principal);
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
   }
 
   private principalWhere(principal: AuthenticatedPrincipal) {
