@@ -66,7 +66,20 @@ export class MatchSettlementService {
       resolved.push({ participant, ...owner });
     }
 
+    const userParticipantCounts = new Map<string, number>();
     for (const owner of resolved) {
+      if (owner.userId) {
+        userParticipantCounts.set(owner.userId, (userParticipantCounts.get(owner.userId) ?? 0) + 1);
+      }
+    }
+    const duplicateUserIds = new Set(
+      [...userParticipantCounts.entries()]
+        .filter(([, count]) => count > 1)
+        .map(([duplicateUserId]) => duplicateUserId),
+    );
+
+    for (const owner of resolved) {
+      if (owner.userId && duplicateUserIds.has(owner.userId)) continue;
       const amount = this.calculateXp(owner.participant, match.result.winnerParticipantId);
       if (amount <= 0) continue;
       if (owner.userId) {
@@ -76,7 +89,11 @@ export class MatchSettlementService {
       }
     }
 
-    if (match.mode !== MatchMode.ONE_V_ONE || humanParticipants.length !== 2) return;
+    if (
+      match.mode !== MatchMode.ONE_V_ONE ||
+      humanParticipants.length !== 2 ||
+      duplicateUserIds.size > 0
+    ) return;
 
     for (const owner of resolved) {
       if (!owner.userId) continue;
