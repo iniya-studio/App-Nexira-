@@ -6,6 +6,7 @@ on:
     branches:
       - recovery/nexira-monorepo
       - main
+      - feature/1vai-opponent-response-worker
     paths:
       - "backend/**"
       - "docs/**"
