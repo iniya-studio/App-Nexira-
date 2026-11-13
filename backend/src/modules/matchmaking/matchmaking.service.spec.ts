@@ -13,7 +13,7 @@ describe('MatchmakingService', () => {
     const entry = {
       id: 'entry-new', userId: null, guestIdentityId: 'guest-new',
       category: 'general', language: 'fa', status: MatchmakingEntryStatus.WAITING,
-      matchId: null, queuedAt, matchedAt: null, cancelledAt: null,
+      matchId: null, queuedAt, matchedAt: null, cancelledAt: null, expiresAt: new Date(queuedAt.getTime() + 300_000),
     };
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([]),
@@ -21,6 +21,7 @@ describe('MatchmakingService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(entry),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
     const prisma = {
@@ -43,7 +44,7 @@ describe('MatchmakingService', () => {
     });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.matchmakingEntry.create).toHaveBeenCalledWith({
-      data: { userId: null, guestIdentityId: 'guest-new', category: 'general', language: 'fa', idempotencyKey: input.idempotencyKey },
+      data: expect.objectContaining({ userId: null, guestIdentityId: 'guest-new', category: 'general', language: 'fa', idempotencyKey: input.idempotencyKey, expiresAt: expect.any(Date) }),
     });
   });
 
@@ -58,7 +59,7 @@ describe('MatchmakingService', () => {
     tx.matchmakingEntry.findUnique.mockResolvedValue({
       id: 'entry-existing', userId: null, guestIdentityId: 'guest-new',
       category: 'general', language: 'fa', status: MatchmakingEntryStatus.WAITING,
-      matchId: null, queuedAt, matchedAt: null, cancelledAt: null,
+      matchId: null, queuedAt, matchedAt: null, cancelledAt: null, expiresAt: new Date(queuedAt.getTime() + 300_000),
     });
     await expect(service.enqueue(guest, input)).resolves.toMatchObject({
       queueId: 'entry-existing', status: MatchmakingEntryStatus.WAITING,
@@ -71,7 +72,7 @@ describe('MatchmakingService', () => {
     const opponent = {
       id: 'entry-old', userId: 'user-old', guestIdentityId: null,
       category: 'general', language: 'fa', status: MatchmakingEntryStatus.WAITING,
-      matchId: null, queuedAt: new Date(queuedAt.getTime() - 1000), matchedAt: null, cancelledAt: null,
+      matchId: null, queuedAt: new Date(queuedAt.getTime() - 1000), matchedAt: null, cancelledAt: null, expiresAt: new Date(queuedAt.getTime() + 300_000),
     };
     tx.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: opponent.id }]);
     tx.matchmakingEntry.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(opponent);
