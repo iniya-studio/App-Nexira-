@@ -79,7 +79,7 @@ describe('MatchmakingService', () => {
       status: MatchStatus.COMPLETED,
     });
 
-    await expect(service.getMine(guest)).resolves.toEqual({ status: 'NOT_QUEUED' });
+    await expect(service.getMine(guest)).resolves.toMatchObject({ status: 'NOT_QUEUED', lastEntryStatus: MatchmakingEntryStatus.MATCHED });
   });
 
   it('rejects categories outside the server-supported list before opening a transaction', async () => {
