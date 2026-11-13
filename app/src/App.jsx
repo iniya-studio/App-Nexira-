@@ -122,7 +122,8 @@ export default function App() {
   const displayLevel = serverProgress?.level ?? profile.level;
   const displayXp = serverProgress?.currentLevelXp ?? profile.xp;
   const displayTotalXp = serverProgress?.totalXp ?? String(profile.totalXp);
-  const threshold = serverProgress?.xpRequiredForNextLevel ?? xpForNextLevel(profile.level);
+  const localThreshold = xpForNextLevel(profile.level);
+  const threshold = serverProgress?.xpRequiredForNextLevel ?? localThreshold;
   const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
   const activeRanking = rankingView === 'global' ? globalRanking : seasonalRanking;
   const rankingEntries = activeRanking?.entries ?? [];
@@ -945,7 +946,7 @@ export default function App() {
             <StatCard icon={Zap} label={text.speedBonus} value={`+${run.answers.reduce((sum, answer) => sum + answer.speedBonus, 0)}`} tone="pink" />
             <StatCard icon={Sparkles} label={text.xpEarned} value={`+${Math.max(0, Math.floor(run.score / 5))}`} tone="gold" />
           </div>
-          <div className="level-update"><span className="level-emblem"><Sparkles size={17} /></span><span className="level-copy"><strong>{text.level} {profile.level}</strong><small>{profile.xp} / {threshold} XP · {text.nextLevel}</small><i className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / threshold * 100)}%` }} /></i></span></div>
+          <div className="level-update"><span className="level-emblem"><Sparkles size={17} /></span><span className="level-copy"><strong>{text.level} {profile.level}</strong><small>{profile.xp} / {localThreshold} XP · {text.nextLevel}</small><i className="rank-track"><span style={{ width: `${Math.min(100, profile.xp / localThreshold * 100)}%` }} /></i></span></div>
         </div>
         <div className="answer-review" hidden={resultsView !== 'review'}>
           {run.questions.map((item, index) => {
