@@ -55,8 +55,10 @@ export class MatchmakingService {
           AND "category" = ${category}
           AND "language" = ${language}
           AND "id" <> ${entry.id}::uuid
-          AND "userId" IS DISTINCT FROM ${userId}::uuid
-          AND "guestIdentityId" IS DISTINCT FROM ${guestIdentityId}::uuid
+          AND NOT (
+            (${userId}::uuid IS NOT NULL AND "userId" = ${userId}::uuid)
+            OR (${guestIdentityId}::uuid IS NOT NULL AND "guestIdentityId" = ${guestIdentityId}::uuid)
+          )
         ORDER BY "queuedAt" ASC, "id" ASC
         FOR UPDATE SKIP LOCKED
         LIMIT 1
