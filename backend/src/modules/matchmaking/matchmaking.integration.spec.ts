@@ -84,6 +84,21 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     expect(await prisma.matchmakingEntry.count({ where: { guestIdentityId: principal.principalId, status: 'WAITING' } })).toBe(1);
   });
 
+  it('pairs four concurrent compatible enqueues into two distinct matches without double consumption', async () => {
+    const principals = await Promise.all([createGuest(), createGuest(), createGuest(), createGuest()]);
+    const results = await Promise.all(principals.map((principal) => matchmaking.enqueue(principal, request('general', 'en'))));
+    queueIds.push(...results.map((result) => result.queueId));
+    const entries = await prisma.matchmakingEntry.findMany({ where: { id: { in: queueIds } } });
+    expect(entries).toHaveLength(4);
+    expect(entries.every((entry) => entry.status === 'MATCHED' && entry.matchId !== null)).toBe(true);
+    const uniqueMatchIds = [...new Set(entries.map((entry) => entry.matchId!))];
+    expect(uniqueMatchIds).toHaveLength(2);
+    for (const matchId of uniqueMatchIds) {
+      matchIds.push(matchId);
+      expect(await prisma.matchParticipant.count({ where: { matchId, participantType: 'HUMAN' } })).toBe(2);
+      expect(await prisma.matchmakingEntry.count({ where: { matchId, status: 'MATCHED' } })).toBe(2);
+    }
+  });
   it('resolves cancellation racing with pairing to one valid terminal outcome', async () => {
     const first = await createGuest();
     const second = await createGuest();
