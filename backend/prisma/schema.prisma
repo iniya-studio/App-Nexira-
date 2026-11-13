@@ -349,7 +349,6 @@ model Match {
   rankingEvents          RankingTransaction[]
   scoreEntries           MatchScoreEntry[]
   questionGenerationJobs QuestionGenerationJob[]
-  aiAnswerJobs           AiAnswerJob[]
 
   @@index([status, createdAt])
   @@index([roomId, createdAt])
