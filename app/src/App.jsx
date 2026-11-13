@@ -546,6 +546,30 @@ export default function App() {
   }, [screen, matchView?.matchId, matchView?.phase]);
 
   useEffect(() => {
+    const adapter = onlineMatchmakingAdapterRef.current;
+    if (screen !== 'matchmaking' || !adapter) return undefined;
+    let active = true;
+    let inFlight = false;
+    const synchronize = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const next = await adapter.refresh();
+        if (active && next) {
+          setMatchmakingView((previous) => ({ ...next, categoryTitle: previous?.categoryTitle ?? 'General' }));
+          if (next.status === 'MATCHED' && next.matchId) await openMatchedOnlineMatch(next);
+        }
+      } catch (error) {
+        if (active) setMatchError(error instanceof Error ? error.message : 'Unable to synchronize matchmaking.');
+      } finally {
+        inFlight = false;
+      }
+    };
+    void synchronize();
+    const interval = window.setInterval(synchronize, 1000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [openMatchedOnlineMatch, screen]);
+  useEffect(() => {
     if (screen !== 'game' || !run?.lastAnswer || run.status !== 'active') return undefined;
     const advanceTimer = window.setTimeout(() => {
       finishOrAdvance();
@@ -731,6 +755,21 @@ export default function App() {
       </ScreenFrame>;
     })()}
 
+    {screen === 'matchmaking' && <ScreenFrame className="categories-screen matchmaking-screen">
+      <ScreenHeading eyebrow={language === 'fa' ? 'مسابقه آنلاین' : 'ONLINE COMPETITIVE MATCH'} title={language === 'fa' ? 'در حال یافتن حریف' : 'Finding your opponent'} accent="1vs1" description={language === 'fa' ? 'در حال جست‌وجوی بازیکنی با موضوع و زبان یکسان هستیم.' : 'Searching for a player with the same category and language.'} />
+      <GlassPanel variant="feature" className="matchmaking-panel">
+        <div className="matchmaking-search-state" role="status" aria-live="polite">
+          <span className="live-dot" />
+          <strong>{language === 'fa' ? 'جست‌وجو ادامه دارد…' : 'Search is active…'}</strong>
+          <small>{matchmakingView?.categoryTitle ?? (language === 'fa' ? 'موضوع انتخاب‌شده' : 'Selected category')} · {language === 'fa' ? 'زبان' : 'Language'}: {language === 'fa' ? 'فارسی' : 'English'}</small>
+          <p>{language === 'fa' ? 'اگر اتصال قطع شود، وضعیت صف و مسابقه از سرور بازیابی می‌شود.' : 'If your connection drops, queue and match state can be recovered from the server.'}</p>
+        </div>
+        {matchError && <p className="empty-state" role="alert">{matchError}</p>}
+        <button className="secondary-action" disabled={matchBusy} onClick={() => { void cancelMatchmaking(); }}>
+          {language === 'fa' ? 'لغو جست‌وجو' : 'Cancel search'}
+        </button>
+      </GlassPanel>
+    </ScreenFrame>}
     {screen === 'game' && <ScreenFrame className="challenge-screen">
       {!playableRun || !question ? <GlassPanel variant="feature" className="game-error-panel" role="alert">
         <span className="game-error-icon"><Activity size={21} /></span>
