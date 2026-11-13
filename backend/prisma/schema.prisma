@@ -182,7 +182,7 @@ model User {
   progress                UserProgress?
   xpTransactions          XPTransaction[]
   globalRanking           GlobalUserRanking?
-  matchParticipants        MatchParticipant[]
+  matchParticipants       MatchParticipant[]
   matchmakingEntries       MatchmakingEntry[]
   hostedRooms             Room[]                   @relation("RoomHost")
   roomMemberships         RoomMember[]
@@ -249,7 +249,7 @@ model GuestIdentity {
 
   convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: Restrict)
   sessions                UserSession[]
-  matchParticipants        MatchParticipant[]       @relation("CurrentGuestParticipant")
+  matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
   matchmakingEntries       MatchmakingEntry[]
   emailVerificationTokens EmailVerificationToken[]
   companionProfile        CompanionProfile?
