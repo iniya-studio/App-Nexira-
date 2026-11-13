@@ -1,4 +1,4 @@
-import { PrincipalType } from '@prisma/client';
+import { Prisma, PrincipalType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchService } from './match.service';
@@ -155,7 +155,7 @@ describe('1vAI technical recovery for AI opponent failures', () => {
         canonicalLanguage: question.canonicalLanguage,
         answerType: question.answerType,
         canonicalPrompt: question.canonicalPrompt,
-        canonicalOptions: null,
+        canonicalOptions: Prisma.DbNull,
         answerKey: question.answerKey,
         gradingRubric: question.gradingRubric,
         localized: question.localized,
