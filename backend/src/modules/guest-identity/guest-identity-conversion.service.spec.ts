@@ -29,6 +29,7 @@ describe('GuestIdentityService conversion', () => {
     guestIdentity: { findUnique: jest.Mock; updateMany: jest.Mock };
     user: { create: jest.Mock };
     companionProfile: { updateMany: jest.Mock };
+    matchmakingEntry: { updateMany: jest.Mock };
     userSession: { updateMany: jest.Mock };
     refreshToken: { updateMany: jest.Mock };
     identityAuditEvent: { create: jest.Mock };
@@ -52,6 +53,7 @@ describe('GuestIdentityService conversion', () => {
         }),
       },
       companionProfile: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      matchmakingEntry: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       userSession: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
       refreshToken: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
       identityAuditEvent: { create: jest.fn().mockResolvedValue({}) },
@@ -91,6 +93,10 @@ describe('GuestIdentityService conversion', () => {
     });
     expect(tx.companionProfile.updateMany).toHaveBeenCalledWith({
       where: { guestIdentityId: 'guest-1', userId: null },
+      data: { guestIdentityId: null, userId: 'user-1' },
+    });
+    expect(tx.matchmakingEntry.updateMany).toHaveBeenCalledWith({
+      where: { guestIdentityId: 'guest-1', status: 'WAITING' },
       data: { guestIdentityId: null, userId: 'user-1' },
     });
     expect(tx.guestIdentity.updateMany).toHaveBeenCalledWith(expect.objectContaining({
