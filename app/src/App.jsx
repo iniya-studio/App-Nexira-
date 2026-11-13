@@ -560,7 +560,14 @@ export default function App() {
         const next = await adapter.refresh();
         if (active && next) {
           setMatchmakingView((previous) => ({ ...next, categoryTitle: categoryById(next.category)?.title ?? previous?.categoryTitle ?? 'General' }));
-          if (next.status === 'MATCHED' && next.matchId) await openMatchedOnlineMatch(next);
+          if (next.status === 'MATCHED' && next.matchId) {
+            await openMatchedOnlineMatch(next);
+          } else if (['CANCELLED', 'EXPIRED', 'NOT_QUEUED'].includes(next.status)) {
+            adapter.reset();
+            onlineMatchmakingAdapterRef.current = null;
+            setMatchError(language === 'fa' ? 'جست‌وجوی مسابقه پایان یافته است؛ دوباره تلاش کن.' : 'The matchmaking search has ended. Start a new search.');
+            setScreen('categories');
+          }
         }
       } catch (error) {
         if (active) setMatchError(error instanceof Error ? error.message : 'Unable to synchronize matchmaking.');
