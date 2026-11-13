@@ -19,11 +19,23 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
       const recovered = await api.getMine();
       const activeMatchedGame = recovered?.status === 'MATCHED' &&
         !['COMPLETED', 'CANCELLED'].includes(recovered.match?.status);
-      if (recovered?.status === 'WAITING' || activeMatchedGame) {
+      if (activeMatchedGame) {
         view = recovered;
         return view;
       }
-      if (!idempotencyKey) idempotencyKey = createKey();
+      if (recovered?.status === 'WAITING') {
+        if (recovered.category === category && recovered.language === language) {
+          view = recovered;
+          return view;
+        }
+        const cancelled = await api.cancel();
+        if (cancelled?.status === 'MATCHED' &&
+            !['COMPLETED', 'CANCELLED'].includes(cancelled.match?.status)) {
+          view = cancelled;
+          return view;
+        }
+      }
+      idempotencyKey = createKey();
       view = await api.enqueue({ category, language, idempotencyKey });
       return view;
     },
