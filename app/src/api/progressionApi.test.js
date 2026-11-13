@@ -1,19 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import { createProgressionApi } from './progressionApi.js';
 
-describe('createProgressionApi', () => {
-  it('requires a configured HTTP client', () => {
-    expect(() => createProgressionApi(null)).toThrow('A configured HTTP client is required.');
-  });
+test('createProgressionApi requires a configured HTTP client', () => {
+  assert.throws(
+    () => createProgressionApi(null),
+    /A configured HTTP client is required/,
+  );
+});
 
-  it('reads server-authoritative progression and leaderboard resources', async () => {
-    const http = { get: jest.fn(async (path) => ({ path })) };
-    const api = createProgressionApi(http);
+test('reads server-authoritative progression and leaderboard resources', async () => {
+  const calls = [];
+  const http = {
+    get: async (path) => {
+      calls.push(path);
+      return { path };
+    },
+  };
+  const api = createProgressionApi(http);
 
-    await expect(api.getMyProgress()).resolves.toEqual({ path: '/progression/me' });
-    await expect(api.getGlobalRanking()).resolves.toEqual({ path: '/ranking/global' });
-    await expect(api.getCurrentSeasonRanking()).resolves.toEqual({
-      path: '/ranking/seasonal/current',
-    });
-    expect(http.get).toHaveBeenCalledTimes(3);
+  assert.deepEqual(await api.getMyProgress(), { path: '/progression/me' });
+  assert.deepEqual(await api.getGlobalRanking(), { path: '/ranking/global' });
+  assert.deepEqual(await api.getCurrentSeasonRanking(), {
+    path: '/ranking/seasonal/current',
   });
+  assert.deepEqual(calls, [
+    '/progression/me',
+    '/ranking/global',
+    '/ranking/seasonal/current',
+  ]);
 });
