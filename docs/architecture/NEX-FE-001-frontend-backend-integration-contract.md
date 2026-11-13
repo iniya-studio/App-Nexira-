@@ -178,3 +178,13 @@ Still required before a real device match can run against live AI:
 - Both result routes authorize against the participant's authenticated user/guest identity and never serialize internal participant IDs or submitted answer text.
 - Backend CORS is now an explicit origin allowlist. Production Android WebView must be allowed through `https://localhost`; `capacitor://localhost` and local Vite development origins are configurable. Authorization and JSON headers are allowed; credentialed cookies are not used.
 - CORS, participant-safe result visibility, and winner gating are included in the Backend CI verification.
+
+
+## Progression and ranking read APIs — 2026-11-14
+
+The authenticated client reads server-authoritative progression and leaderboard state through:
+- `GET /api/v1/progression/me`: level, current-level XP, lifetime XP (decimal string), XP required for next level, remaining XP, and progress percentage. Works for USER and GUEST principals.
+- `GET /api/v1/ranking/global`: top 50 global registered-user entries and the caller's global summary/position when available.
+- `GET /api/v1/ranking/seasonal/current`: top 50 entries for the single season active at server time and the caller's seasonal summary/position. Returns an empty season state when no season is active.
+
+Guest principals may progress and see their level, but are not exposed in competitive ranking until conversion to a registered account. Leaderboard responses expose username/display name only; email and identity credentials are never returned.
