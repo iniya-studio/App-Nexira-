@@ -5,7 +5,7 @@ import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
 import { MatchmakingGateway } from './matchmaking.gateway';
 
-const SUPPORTED_CATEGORIES = new Set(['general', 'general-knowledge', 'english', 'math', 'programming', 'cars', 'chess']);
+const SUPPORTED_CATEGORIES = new Set(['general', 'general-knowledge', 'english', 'math', 'mathematics', 'programming', 'cars', 'chess', 'memory', 'logic', 'knowledge', 'reaction', 'focus', 'language', 'science']);
 
 type QueueEntry = {
   id: string;
