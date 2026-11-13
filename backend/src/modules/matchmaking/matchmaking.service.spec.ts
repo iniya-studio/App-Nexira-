@@ -134,7 +134,7 @@ describe('MatchmakingService', () => {
         cancelledAt: expect.any(Date),
       },
     });
-    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
   });
 
   it('rejects an expired or revoked session before creating a queue entry', async () => {
