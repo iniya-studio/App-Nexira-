@@ -190,7 +190,7 @@ export class RoundTechnicalVoidWorker implements OnModuleInit, OnModuleDestroy {
             status: 'FAILED',
             triggerReason: TECHNICAL_VOID_LIMIT_REASON,
             requestContext,
-            attempts: 0,
+            attempts: 1,
             maxAttempts: 1,
             lastErrorCode: TECHNICAL_VOID_LIMIT_REASON,
             completedAt: voidedAt,
