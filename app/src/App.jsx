@@ -435,7 +435,7 @@ export default function App() {
         onlineMatchmakingAdapterRef.current = null;
         matchmakingTransitionRef.current = null;
         setMatchmakingView(null);
-        setScreen('categories');
+        setScreen('modes');
       }
     } catch (error) {
       setMatchError(error instanceof Error ? error.message : 'Unable to cancel matchmaking.');
@@ -738,7 +738,7 @@ export default function App() {
             setMatchError(language === 'fa'
               ? 'جست‌وجوی مسابقه پایان یافته است؛ دوباره تلاش کن.'
               : 'The matchmaking search has ended. Start a new search.');
-            setScreen('categories');
+            setScreen('modes');
           }
         }
       } catch (error) {
