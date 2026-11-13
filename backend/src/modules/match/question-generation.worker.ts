@@ -474,6 +474,25 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
           };
         }),
       });
+      if (match.mode === MatchMode.ONE_V_AI) {
+        const aiParticipant = requiredParticipants.find(
+          (participant) => participant.participantType === ParticipantType.AI,
+        );
+        if (!aiParticipant || activeAi !== 1) {
+          throw new QuestionGenerationError(
+            'GENERATOR_AI_PARTICIPANT_INVALID',
+            'A 1vAI match must contain exactly one active AI participant',
+          );
+        }
+        await tx.aiAnswerJob.create({
+          data: {
+            matchId: match.id,
+            roundId: round.id,
+            participantId: aiParticipant.id,
+            idempotencyKey: `ai-answer:${round.id}:${aiParticipant.id}:v1`,
+          },
+        });
+      }
       const readinessExpiry = new Date(
         readyAt.getTime() + READINESS_TIMEOUT_SECONDS * 1000,
       );
