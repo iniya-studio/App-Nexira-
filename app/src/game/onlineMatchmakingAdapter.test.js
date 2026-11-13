@@ -30,3 +30,20 @@ test('starts a fresh queue after the previous matched game is terminal', async (
   assert.equal(enqueueCalls, 1);
   assert.equal(result.queueId, 'new-queue');
 });
+test('replaces a waiting queue when the player selects a different category or language', async () => {
+  const enqueued = [];
+  let cancelCalls = 0;
+  const api = {
+    getMine: async () => ({ status: 'WAITING', category: 'memory', language: 'en', queueId: 'old-queue' }),
+    cancel: async () => { cancelCalls += 1; return { status: 'CANCELLED' }; },
+    enqueue: async (input) => { enqueued.push(input); return { status: 'WAITING', ...input, queueId: 'new-queue' }; },
+  };
+  const adapter = createOnlineMatchmakingAdapter(api, { createKey: () => 'new-queue-key-000001' });
+  const result = await adapter.start({ category: 'science', language: 'fa' });
+
+  assert.equal(cancelCalls, 1);
+  assert.equal(enqueued.length, 1);
+  assert.equal(enqueued[0].category, 'science');
+  assert.equal(enqueued[0].language, 'fa');
+  assert.equal(result.queueId, 'new-queue');
+});
