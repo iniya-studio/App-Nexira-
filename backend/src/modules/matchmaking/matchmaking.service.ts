@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, TooManyRequestsException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, TooManyRequestsException } from '@nestjs/common';
 import { MatchmakingEntryStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
@@ -29,6 +29,8 @@ type QueueEntry = {
 
 @Injectable()
 export class MatchmakingService {
+  private readonly logger = new Logger(MatchmakingService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly matches: MatchService,
@@ -140,10 +142,14 @@ export class MatchmakingService {
     });
 
     if (outcome.notificationPrincipals.length > 0 && outcome.state.matchId) {
-      await this.gateway.notifyMatchFound(outcome.notificationPrincipals, {
-        matchId: outcome.state.matchId,
-        match: 'match' in outcome.state ? outcome.state.match : null,
-      });
+      try {
+        await this.gateway.notifyMatchFound(outcome.notificationPrincipals, {
+          matchId: outcome.state.matchId,
+          match: 'match' in outcome.state ? outcome.state.match : null,
+        });
+      } catch (error) {
+        this.logger.warn(`Match-found notification failed; clients can recover from queue status: ${error instanceof Error ? error.message : 'unknown error'}`);
+      }
     }
     return outcome.state;
   }
