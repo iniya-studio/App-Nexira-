@@ -81,7 +81,7 @@ describe('MatchmakingService', () => {
       category: 'general', language: 'fa', status: MatchmakingEntryStatus.WAITING,
       matchId: null, queuedAt: new Date(queuedAt.getTime() - 1000), matchedAt: null, cancelledAt: null, expiresAt: new Date(queuedAt.getTime() + 300_000),
     };
-    tx.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: opponent.id }]);
+    tx.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: opponent.id }]);
     tx.matchmakingEntry.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(opponent);
     const match = { id: 'match-created', mode: 'ONE_V_ONE', status: 'WAITING' };
     (matches.createOneVsOne as jest.Mock).mockResolvedValue(match);
