@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, TooManyRequestsException } from '@nestjs/common';
 import { MatchmakingEntryStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
@@ -6,6 +6,12 @@ import { MatchService } from '../match/match.service';
 import { MatchmakingGateway } from './matchmaking.gateway';
 
 const SUPPORTED_CATEGORIES = new Set(['general', 'general-knowledge', 'english', 'math', 'mathematics', 'programming', 'cars', 'chess', 'memory', 'logic', 'knowledge', 'reaction', 'focus', 'language', 'science']);
+
+function configuredPositiveInteger(name: string, fallback: number) {
+  const value = Number(process.env[name] ?? fallback);
+  if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
+  return value;
+}
 
 type QueueEntry = {
   id: string;
@@ -18,6 +24,7 @@ type QueueEntry = {
   queuedAt: Date;
   matchedAt: Date | null;
   cancelledAt: Date | null;
+  expiresAt: Date | null;
 };
 
 @Injectable()
@@ -48,8 +55,28 @@ export class MatchmakingService {
       const principalData = principal.principalType === PrincipalType.USER
         ? { userId: principal.principalId, guestIdentityId: null }
         : { userId: null, guestIdentityId: principal.principalId };
+      const principalLock = `nexira:1v1:principal:${principal.principalType}:${principal.principalId}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
+      const now = new Date();
+      const recentEnqueues = await tx.matchmakingEntry.count({
+        where: { ...principalData, queuedAt: { gte: new Date(now.getTime() - 60_000) } },
+      });
+      if (recentEnqueues >= configuredPositiveInteger('NEXIRA_MATCHMAKING_MAX_ENQUEUES_PER_MINUTE', 10)) {
+        throw new TooManyRequestsException('Matchmaking enqueue rate limit exceeded');
+      }
+      const queueTtlSeconds = configuredPositiveInteger('NEXIRA_MATCHMAKING_QUEUE_TTL_SECONDS', 300);
+      await tx.matchmakingEntry.updateMany({
+        where: { status: MatchmakingEntryStatus.WAITING, category, language, expiresAt: { lte: now } },
+        data: { status: MatchmakingEntryStatus.EXPIRED },
+      });
       const entry = await tx.matchmakingEntry.create({
-        data: { ...principalData, category, language, idempotencyKey: input.idempotencyKey },
+        data: {
+          ...principalData,
+          category,
+          language,
+          idempotencyKey: input.idempotencyKey,
+          expiresAt: new Date(now.getTime() + queueTtlSeconds * 1000),
+        },
       });
 
       const userId = principal.principalType === PrincipalType.USER ? principal.principalId : null;
@@ -59,6 +86,7 @@ export class MatchmakingService {
         WHERE "status" = 'WAITING'::"MatchmakingEntryStatus"
           AND "category" = ${category}
           AND "language" = ${language}
+          AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
           AND "id" <> ${entry.id}::uuid
           AND NOT (
             (${userId}::uuid IS NOT NULL AND "userId" = ${userId}::uuid)
@@ -114,6 +142,10 @@ export class MatchmakingService {
   }
 
   async getMine(principal: AuthenticatedPrincipal) {
+    await this.prisma.matchmakingEntry.updateMany({
+      where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING, expiresAt: { lte: new Date() } },
+      data: { status: MatchmakingEntryStatus.EXPIRED },
+    });
     const entry = await this.prisma.matchmakingEntry.findFirst({
       where: this.principalWhere(principal),
       orderBy: { queuedAt: 'desc' },
@@ -163,6 +195,7 @@ export class MatchmakingService {
       queuedAt: entry.queuedAt,
       matchedAt: entry.matchedAt,
       cancelledAt: entry.cancelledAt,
+      expiresAt: entry.expiresAt,
     };
   }
 }
