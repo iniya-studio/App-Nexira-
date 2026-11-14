@@ -27,6 +27,14 @@ export class MatchController {
     return this.matches.getMatchResult(matchId, request.principal);
   }
 
+  @Get(':matchId/live-score')
+  getLiveScoreboard(
+    @Param('matchId', new ParseUUIDPipe()) matchId: string,
+    @Req() request: PrincipalRequest,
+  ) {
+    return this.matches.getLiveScoreboard(matchId, request.principal);
+  }
+
   @Get(':matchId')
   getMatch(
     @Param('matchId', new ParseUUIDPipe()) matchId: string,
