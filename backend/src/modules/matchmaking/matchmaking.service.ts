@@ -284,8 +284,6 @@ export class MatchmakingService {
     await this.prisma.$transaction(async (tx) => {
       const principalLock = `nexira:1v1:principal:${principal.principalType}:${principal.principalId}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
-      await this.assertActivePrincipal(tx, principal, new Date());
-
       const waitingBuckets = await tx.matchmakingEntry.findMany({
         where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING },
         select: { category: true, language: true },
@@ -296,6 +294,8 @@ export class MatchmakingService {
       for (const bucket of bucketLocks) {
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
       }
+
+      await this.assertActivePrincipal(tx, principal, new Date());
 
       await tx.matchmakingEntry.updateMany({
         where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING },
