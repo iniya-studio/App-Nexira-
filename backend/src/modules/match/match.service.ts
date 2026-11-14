@@ -223,7 +223,6 @@ export class MatchService {
             id: true,
             participantType: true,
             status: true,
-            score: true,
             userId: true,
             guestIdentityId: true,
           },
@@ -242,7 +241,6 @@ export class MatchService {
           id: participant.id,
           type: participant.participantType,
           status: participant.status,
-          score: participant.score,
           isSelf,
           displayName: isSelf ? 'YOU' : 'OPPONENT',
         };
