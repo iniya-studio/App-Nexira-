@@ -69,7 +69,7 @@ describe('MatchmakingService', () => {
 
   it('allows a new queue after the latest paired match has completed', async () => {
     const { service, matches, prisma, entry } = setup();
-    prisma.matchmakingEntry.findFirst.mockResolvedValue({
+    (prisma.matchmakingEntry.findFirst as jest.Mock).mockResolvedValue({
       ...entry,
       status: MatchmakingEntryStatus.MATCHED,
       matchId: 'completed-match',
