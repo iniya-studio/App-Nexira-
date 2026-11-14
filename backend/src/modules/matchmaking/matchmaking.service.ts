@@ -259,14 +259,17 @@ export class MatchmakingService {
       orderBy: { queuedAt: 'desc' },
     });
     if (!entry) return { status: 'NOT_QUEUED' as const };
-    if ([MatchmakingEntryStatus.CANCELLED, MatchmakingEntryStatus.EXPIRED].includes(entry.status)) {
+    if (
+      entry.status === MatchmakingEntryStatus.CANCELLED ||
+      entry.status === MatchmakingEntryStatus.EXPIRED
+    ) {
       return { status: 'NOT_QUEUED' as const, lastEntryStatus: entry.status };
     }
     const match = entry.matchId ? await this.matches.getMatch(entry.matchId, principal) : null;
     if (
       entry.status === MatchmakingEntryStatus.MATCHED &&
       match &&
-      [MatchStatus.COMPLETED, MatchStatus.CANCELLED].includes(match.status)
+      (match.status === MatchStatus.COMPLETED || match.status === MatchStatus.CANCELLED)
     ) {
       return {
         status: 'NOT_QUEUED' as const,
