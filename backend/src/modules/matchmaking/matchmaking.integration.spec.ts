@@ -19,7 +19,25 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
   beforeAll(async () => { await prisma.$connect(); });
   afterEach(async () => {
     if (queueIds.length) { await prisma.matchmakingEntry.deleteMany({ where: { id: { in: queueIds } } }); queueIds.length = 0; }
-    if (matchIds.length) { await prisma.match.deleteMany({ where: { id: { in: matchIds } } }); matchIds.length = 0; }
+    const principalFilters = [
+      ...(guestIds.length ? [{ guestIdentityId: { in: guestIds } }] : []),
+      ...(userIds.length ? [{ userId: { in: userIds } }] : []),
+    ];
+    if (principalFilters.length) {
+      await prisma.matchmakingEntry.deleteMany({ where: { OR: principalFilters } });
+    }
+    const relatedMatches = principalFilters.length
+      ? await prisma.match.findMany({
+          where: { participants: { some: { OR: principalFilters } } },
+          select: { id: true },
+        })
+      : [];
+    const cleanupMatchIds = [...new Set([...matchIds, ...relatedMatches.map((match) => match.id)])];
+    if (cleanupMatchIds.length) {
+      await prisma.matchmakingEntry.deleteMany({ where: { matchId: { in: cleanupMatchIds } } });
+      await prisma.match.deleteMany({ where: { id: { in: cleanupMatchIds } } });
+      matchIds.length = 0;
+    }
     if (sessionIds.length) { await prisma.userSession.deleteMany({ where: { id: { in: sessionIds } } }); sessionIds.length = 0; }
     if (guestIds.length) { await prisma.guestIdentity.deleteMany({ where: { id: { in: guestIds } } }); guestIds.length = 0; }
     if (userIds.length) { await prisma.user.deleteMany({ where: { id: { in: userIds } } }); userIds.length = 0; }
@@ -108,7 +126,7 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     const queued = await matchmaking.enqueue(first, request());
     queueIds.push(queued.queueId);
     await prisma.matchmakingEntry.update({ where: { id: queued.queueId }, data: { expiresAt: new Date(Date.now() - 1000) } });
-    await expect(matchmaking.getMine(first)).resolves.toMatchObject({ status: 'EXPIRED', matchId: null });
+    await expect(matchmaking.getMine(first)).resolves.toMatchObject({ status: 'NOT_QUEUED', lastEntryStatus: 'EXPIRED' });
     const secondQueue = await matchmaking.enqueue(second, request());
     queueIds.push(secondQueue.queueId);
     expect(secondQueue.status).toBe('WAITING');
