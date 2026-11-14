@@ -1150,7 +1150,7 @@ export default function App() {
                   : participant.id === matchView.activeParticipantId
                     ? (language === 'fa' ? 'نوبت شما' : 'ACTIVE TURN')
                     : text.localSession}</small><strong>{participant.displayName}</strong></span>
-                <span className="combatant-score"><small>{text.score}</small><strong>{participant.score}</strong></span>
+                <span className="combatant-score"><small>{text.score}</small><strong>{participant.score ?? '—'}</strong></span>
               </GlassPanel>)}
             </div>
           </div>
