@@ -694,6 +694,32 @@ export default function App() {
 
   useEffect(() => {
     const adapter = onlineMatchAdapterRef.current;
+    if (screen !== 'match-game' || !adapter || matchView?.phase !== 'question'
+        || showExitConfirm || !isPageVisible) return undefined;
+    let active = true;
+    let inFlight = false;
+    const synchronizeScoreboard = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const next = await adapter.refreshLiveScoreboard();
+        if (active && next) setMatchView(next);
+      } catch {
+        // Keep the last server-confirmed scores visible during transient network failures.
+      } finally {
+        inFlight = false;
+      }
+    };
+    void synchronizeScoreboard();
+    const interval = window.setInterval(synchronizeScoreboard, 1000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [isPageVisible, matchView?.matchId, matchView?.phase, screen, showExitConfirm]);
+
+  useEffect(() => {
+    const adapter = onlineMatchAdapterRef.current;
     if (screen !== 'match-game' || !adapter || !matchView
         || !['waiting-question', 'waiting-result', 'submitting', 'submission-error'].includes(matchView.phase)) {
       return undefined;
