@@ -37,6 +37,7 @@ export function createOnlineMatchAdapter(api, {
 } = {}) {
   if (!api || typeof api.createAiMatch !== 'function' ||
       typeof api.getMatch !== 'function' ||
+      typeof api.getLiveScoreboard !== 'function' ||
       typeof api.getQuestionRecovery !== 'function' ||
       typeof api.getRoundQuestion !== 'function' ||
       typeof api.markRoundReady !== 'function' ||
@@ -84,6 +85,32 @@ export function createOnlineMatchAdapter(api, {
     return await refresh();
   }
 
+  async function refreshLiveScoreboard() {
+    if (!view) return null;
+    const scoreboard = await api.getLiveScoreboard(view.matchId);
+    if (scoreboard?.matchId !== view.matchId || !Array.isArray(scoreboard.participants)) {
+      throw new Error('Backend returned an invalid live scoreboard.');
+    }
+    const participants = scoreboard.participants.map((participant) => {
+      if (!Number.isSafeInteger(participant.score)) {
+        throw new Error('Backend returned an invalid server-confirmed score.');
+      }
+      const previous = view.participants.find(
+        (item) => item.isSelf === Boolean(participant.isSelf),
+      );
+      return {
+        ...previous,
+        ...participantSnapshot(participant),
+        score: participant.score,
+      };
+    });
+    return update({
+      status: scoreboard.status,
+      currentRound: scoreboard.currentRound,
+      participants,
+    });
+  }
+
   async function refresh() {
     if (!view) return null;
     if (syncInFlight) return syncInFlight;
@@ -111,6 +138,7 @@ export function createOnlineMatchAdapter(api, {
             }
           : {}),
       });
+      await refreshLiveScoreboard();
 
       if (match.status === 'COMPLETED') {
         const result = await api.getMatchResult(view.matchId);
@@ -272,8 +300,8 @@ export function createOnlineMatchAdapter(api, {
         question: null,
         roundSummary: null,
         participants: [
-          { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
-          { id: 'scripted-opponent', type: 'ai', displayName: 'NEXIRA AI', score: 0, isSelf: false },
+          { id: 'human-1', type: 'human', displayName: 'YOU', isSelf: true },
+          { id: 'scripted-opponent', type: 'ai', displayName: 'NEXIRA AI', isSelf: false },
         ],
         error: null,
       };
@@ -309,7 +337,7 @@ export function createOnlineMatchAdapter(api, {
           : isOneVsOne
             ? [
                 { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
-                { id: 'human-2', type: 'human', displayName: 'OPPONENT', score: 0, isSelf: false },
+                { id: 'human-2', type: 'human', displayName: 'OPPONENT', isSelf: false },
               ]
             : [
                 { id: 'human-1', type: 'human', displayName: 'YOU', score: 0, isSelf: true },
@@ -326,6 +354,8 @@ export function createOnlineMatchAdapter(api, {
     getView: () => view,
 
     refresh,
+
+    refreshLiveScoreboard,
 
     async submitAnswer(responseText) {
       const normalized = typeof responseText === 'string' ? responseText.trim() : '';
