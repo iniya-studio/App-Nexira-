@@ -160,7 +160,7 @@ test('resumes a persisted 1v1 match and distinguishes the two human participants
   assert.equal(view.participants[1].displayName, 'OPPONENT');
 });
 
-test('restores both human scores from an active 1v1 match snapshot', async () => {
+test('does not expose interim scores from an active 1v1 match snapshot', async () => {
   const { api } = makeApi({
     getMatch: async () => ({
       id: 'active-human-match',
@@ -168,8 +168,8 @@ test('restores both human scores from an active 1v1 match snapshot', async () =>
       currentRound: 4,
       roundsTarget: 10,
       participants: [
-        { id: 'participant-1', type: 'HUMAN', status: 'ACTIVE', score: 42, isSelf: true },
-        { id: 'participant-2', type: 'HUMAN', status: 'ACTIVE', score: 57, isSelf: false },
+        { id: 'participant-1', type: 'HUMAN', status: 'ACTIVE', isSelf: true },
+        { id: 'participant-2', type: 'HUMAN', status: 'ACTIVE', isSelf: false },
       ],
     }),
     getQuestionRecovery: async () => ({ status: 'PENDING', roundId: null, ready: null }),
@@ -178,14 +178,7 @@ test('restores both human scores from an active 1v1 match snapshot', async () =>
   const view = await adapter.resume('active-human-match', { mode: '1v1', category: 'science' });
 
   assert.equal(view.currentRound, 4);
-  assert.deepEqual(view.participants.map((participant) => ({
-    id: participant.id,
-    score: participant.score,
-    isSelf: participant.isSelf,
-    displayName: participant.displayName,
-  })), [
-    { id: 'human-1', score: 42, isSelf: true, displayName: 'YOU' },
-    { id: 'human-2', score: 57, isSelf: false, displayName: 'OPPONENT' },
-  ]);
+  assert.equal(Object.hasOwn(view.participants[0], 'score'), false);
+  assert.equal(Object.hasOwn(view.participants[1], 'score'), false);
   assert.equal(view.categoryId, 'science');
 });
