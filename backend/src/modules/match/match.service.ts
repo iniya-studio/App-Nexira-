@@ -133,6 +133,53 @@ export class MatchService {
     return transaction ? create(transaction) : this.prisma.$transaction(create);
   }
 
+  /**
+   * Exposes only server-persisted participant score aggregates to match participants.
+   * Answer content, judge decisions, and question internals are intentionally excluded.
+   */
+  async getLiveScoreboard(matchId: string, principal: AuthenticatedPrincipal) {
+    const ownership = principal.principalType === PrincipalType.USER
+      ? { userId: principal.principalId }
+      : { guestIdentityId: principal.principalId };
+    const match = await this.prisma.match.findFirst({
+      where: { id: matchId, participants: { some: ownership } },
+      select: {
+        id: true,
+        status: true,
+        currentRound: true,
+        participants: {
+          select: {
+            id: true,
+            userId: true,
+            guestIdentityId: true,
+            participantType: true,
+            status: true,
+            score: true,
+          },
+        },
+      },
+    });
+    if (!match) throw new NotFoundException('Match not found');
+    const self = match.participants.find((participant) =>
+      principal.principalType === PrincipalType.USER
+        ? participant.userId === principal.principalId
+        : participant.guestIdentityId === principal.principalId,
+    );
+    if (!self) throw new NotFoundException('Match not found');
+
+    return {
+      matchId: match.id,
+      status: match.status,
+      currentRound: match.currentRound,
+      participants: match.participants.map((participant) => ({
+        type: participant.participantType,
+        status: participant.status,
+        score: participant.score,
+        isSelf: participant.id === self.id,
+      })),
+    };
+  }
+
   async getMatchResult(matchId: string, principal: AuthenticatedPrincipal) {
     const ownership = principal.principalType === PrincipalType.USER
       ? { userId: principal.principalId }
