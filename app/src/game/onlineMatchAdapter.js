@@ -14,14 +14,15 @@ function createIdempotencyKey() {
 function participantSnapshot(participant) {
   const isAi = participant.type === 'AI';
   const isSelf = Boolean(participant.isSelf);
-  return {
+  const snapshot = {
     id: isAi ? 'scripted-opponent' : isSelf ? 'human-1' : 'human-2',
     type: isAi ? 'ai' : 'human',
     displayName: isAi ? 'NEXIRA AI' : isSelf ? 'YOU' : 'OPPONENT',
-    score: Number.isSafeInteger(participant.score) ? participant.score : 0,
     isSelf,
     status: participant.status,
   };
+  if (Number.isSafeInteger(participant.score)) snapshot.score = participant.score;
+  return snapshot;
 }
 
 function participantView(participant) {
@@ -94,7 +95,20 @@ export function createOnlineMatchAdapter(api, {
         currentRound: match.currentRound,
         totalRounds: match.roundsTarget,
         ...(Array.isArray(match.participants)
-          ? { participants: match.participants.map(participantSnapshot) }
+          ? {
+              participants: match.participants.map((participant) => {
+                const previous = view.participants.find(
+                  (item) => item.isSelf === Boolean(participant.isSelf),
+                );
+                const score = Number.isSafeInteger(participant.score)
+                  ? participant.score
+                  : previous?.score;
+                return participantSnapshot({
+                  ...participant,
+                  ...(Number.isSafeInteger(score) ? { score } : {}),
+                });
+              }),
+            }
           : {}),
       });
 
