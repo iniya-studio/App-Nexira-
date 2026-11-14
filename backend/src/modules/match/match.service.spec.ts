@@ -93,10 +93,17 @@ describe('MatchService', () => {
       sessionId: 'session-1',
     })).resolves.toMatchObject({
       participants: [
-        { id: 'participant-1', type: ParticipantType.HUMAN, score: 42, isSelf: true, displayName: 'YOU' },
-        { id: 'participant-2', type: ParticipantType.HUMAN, score: 57, isSelf: false, displayName: 'OPPONENT' },
+        { id: 'participant-1', type: ParticipantType.HUMAN, isSelf: true, displayName: 'YOU' },
+        { id: 'participant-2', type: ParticipantType.HUMAN, isSelf: false, displayName: 'OPPONENT' },
       ],
     });
+    const snapshot = await service.getMatch('match-1', {
+      principalType: PrincipalType.USER,
+      principalId: 'user-1',
+      sessionId: 'session-1',
+    });
+    expect(snapshot.participants[0]).not.toHaveProperty('score');
+    expect(snapshot.participants[1]).not.toHaveProperty('score');
   });
 
   it('creates 1v1 match and initial question inside the caller transaction', async () => {
