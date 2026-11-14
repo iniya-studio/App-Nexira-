@@ -183,7 +183,7 @@ test('resumes a persisted 1v1 match and distinguishes the two human participants
   assert.equal(view.participants[1].displayName, 'OPPONENT');
 });
 
-test('does not expose interim scores from an active 1v1 match snapshot', async () => {
+test('keeps match snapshots score-private while displaying the dedicated server scoreboard', async () => {
   const { api } = makeApi({
     getMatch: async () => ({
       id: 'active-human-match',
@@ -195,13 +195,22 @@ test('does not expose interim scores from an active 1v1 match snapshot', async (
         { id: 'participant-2', type: 'HUMAN', status: 'ACTIVE', isSelf: false },
       ],
     }),
+    getLiveScoreboard: async (matchId) => ({
+      matchId, status: 'ACTIVE', currentRound: 4,
+      participants: [
+        { type: 'HUMAN', status: 'ACTIVE', score: 19, isSelf: true },
+        { type: 'HUMAN', status: 'ACTIVE', score: 25, isSelf: false },
+      ],
+    }),
     getQuestionRecovery: async () => ({ status: 'PENDING', roundId: null, ready: null }),
   });
+  const snapshot = await api.getMatch('active-human-match');
+  assert.equal(Object.hasOwn(snapshot.participants[0], 'score'), false);
+  assert.equal(Object.hasOwn(snapshot.participants[1], 'score'), false);
+
   const adapter = createOnlineMatchAdapter(api);
   const view = await adapter.resume('active-human-match', { mode: '1v1', category: 'science' });
-
   assert.equal(view.currentRound, 4);
-  assert.equal(Object.hasOwn(view.participants[0], 'score'), false);
-  assert.equal(Object.hasOwn(view.participants[1], 'score'), false);
+  assert.deepEqual(view.participants.map((participant) => participant.score), [19, 25]);
   assert.equal(view.categoryId, 'science');
 });
