@@ -125,6 +125,7 @@ app.*.symbols
 .env
 .env.*
 !.env.example
+!.env.staging.example
 
 # Generated archives and local backups
 *.tar

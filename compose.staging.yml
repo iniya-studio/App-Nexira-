@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nexira
+      POSTGRES_USER: nexira
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.staging}
+    volumes:
+      - nexira_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexira -d nexira"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks: [private]
+    security_opt: [no-new-privileges:true]
+  backend:
+    build: { context: ./backend, dockerfile: Dockerfile }
+    restart: unless-stopped
+    init: true
+    env_file: [.env.staging]
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://nexira:${POSTGRES_PASSWORD}@db:5432/nexira?schema=public
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks: [private]
+    security_opt: [no-new-privileges:true]
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      NEXIRA_DOMAIN: ${NEXIRA_DOMAIN:?Set NEXIRA_DOMAIN in .env.staging}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env.staging}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - nexira_caddy_data:/data
+      - nexira_caddy_config:/config
+    depends_on:
+      backend: { condition: service_healthy }
+    networks: [private]
+    security_opt: [no-new-privileges:true]
+volumes:
+  nexira_postgres_data:
+  nexira_caddy_data:
+  nexira_caddy_config:
+networks:
+  private: { driver: bridge }

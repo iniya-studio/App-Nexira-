@@ -40,6 +40,10 @@ npm run start:dev
 
 The API can start while PostgreSQL is temporarily unavailable. In that case, liveness remains available and readiness returns HTTP 503 until the database connection succeeds.
 
+## Staging deployment
+
+See docs/STAGING-DEPLOYMENT.md for the HTTPS + PostgreSQL staging setup. Never expose PostgreSQL publicly or commit .env.staging.
+
 ## Quality checks
 
 ```bash
