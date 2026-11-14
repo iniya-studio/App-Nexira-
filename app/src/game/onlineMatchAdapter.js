@@ -104,11 +104,7 @@ export function createOnlineMatchAdapter(api, {
         score: participant.score,
       };
     });
-    return update({
-      status: scoreboard.status,
-      currentRound: scoreboard.currentRound,
-      participants,
-    });
+    return update({ participants });
   }
 
   async function refresh() {
