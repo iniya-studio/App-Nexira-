@@ -7,6 +7,10 @@ function makeApi(overrides = {}) {
   const api = {
     createAiMatch: async (options) => { calls.push(['createAiMatch', options]); return { id: 'match-1', status: 'WAITING', roundsTarget: 10 }; },
     getMatch: async () => ({ id: 'match-1', status: 'WAITING', currentRound: 0, roundsTarget: 10 }),
+    getLiveScoreboard: async (matchId) => ({ matchId, status: 'WAITING', currentRound: 0, participants: [
+      { type: 'HUMAN', status: 'ACTIVE', score: 0, isSelf: true },
+      { type: 'AI', status: 'ACTIVE', score: 0, isSelf: false },
+    ] }),
     getQuestionRecovery: async () => ({ status: 'PENDING', roundId: null, ready: null }),
     markRoundReady: async () => ({ startedAt: '2026-11-13T10:00:00.000Z', deadlineAt: '2026-11-13T10:00:30.000Z' }),
     getRoundQuestion: async () => ({
@@ -80,6 +84,25 @@ test('submits free-text answers with one stable idempotency key and waits for se
   assert.equal(view.participants[0].score, 0);
 });
 
+
+test('uses only scores returned by the authorized server scoreboard', async () => {
+  const { api } = makeApi({
+    getMatch: async () => ({ id: 'live-match', status: 'ACTIVE', currentRound: 2, roundsTarget: 10 }),
+    getLiveScoreboard: async (matchId) => ({
+      matchId, status: 'ACTIVE', currentRound: 2,
+      participants: [
+        { type: 'HUMAN', status: 'ACTIVE', score: 47, isSelf: true },
+        { type: 'HUMAN', status: 'ACTIVE', score: 32, isSelf: false },
+      ],
+    }),
+    getQuestionRecovery: async () => ({ status: 'PENDING', roundId: null, ready: null }),
+  });
+  const adapter = createOnlineMatchAdapter(api);
+  const view = await adapter.resume('live-match', { mode: '1v1' });
+  assert.deepEqual(view.participants.map((participant) => participant.score), [47, 32]);
+  assert.equal(view.participants[0].isSelf, true);
+  assert.equal(view.participants[1].isSelf, false);
+});
 
 test('keeps a waiting match recoverable after a transient synchronization failure', async () => {
   let shouldFail = true;
