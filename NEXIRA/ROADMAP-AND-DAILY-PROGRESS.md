@@ -1,7 +1,7 @@
 # NEXIRA — نقشه راه اجرایی و دفتر روزانه پیشرفت
 
 - شناسه سند: NEX-ROADMAP-001
-- نسخه: 1.5
+- نسخه: 2.2
 - وضعیت: سند مرجع اجرایی — ایجادشده؛ گزارش ممیزی شاخه‌ها قبلاً تهیه و بررسی شده است؛ تطبیق اجرایی قابلیت‌ها و آزمون‌های main مرحله‌ای انجام می‌شود
 - شاخه مرجع توسعه: `main`
 - دامنه: از آماده‌سازی مخزن تا انتشار V1، سپس توسعه V2 و عملیات زنده
@@ -289,17 +289,20 @@
 | 2026-11-13 | R-013 / قرارداد Matchmaking عمومی 1v1 | ممیزی Match Core و Prisma تأیید کرد زیرساخت مسابقه دونفره، MatchParticipant انعطاف‌پذیر، متد داخلی `createOneVsOne` و وابستگی Socket.IO موجود است؛ صف عمومی و pairing هنوز وجود ندارند. قرارداد `NEX-BE-009` برای صف پایدار، سازگاری دقیق category/language، FIFO، جفت‌سازی اتمیک، idempotency، cancellation race، REST، اعلان WebSocket و بازیابی reconnect تهیه و در main ثبت شد. | بازخوانی Match Core contract، Prisma schema، MatchService/Controller/Module، Frontend-Backend contract و package dependencies؛ سند جدید در GitHub ثبت و قابل‌بازیابی است. | `42164ed356755a8a29653a151794c5fb6ea1d541` | CONTRACT BASELINE DONE | گام بعد: پیاده‌سازی persistence و queue service طبق NEX-BE-009؛ migration فقط additive و با تست PostgreSQL 16. هسته 1vAI و Match Engine بدون بازطراحی/تغییر غیرضروری حفظ شوند. |
 
 | 2026-11-14 | R-014 / تکمیل زیرساخت 1v1 و تسویه XP/Ranking فقط روی main | سیاست NEX-BE-010 و تسویه XP/Ranking روی main پیاده‌سازی شد: XP مستقل از Ranking، GuestProgress/GuestXPTransaction، انتقال اتمیک XP هنگام تبدیل Guest به User، و اتصال settlement به پایان عادی و Forfeit. سپس public 1v1 queue نیز مستقیماً به main منتقل شد: MatchmakingEntry، REST queue API، FIFO سازگار با category/language، advisory locks، جفت‌سازی اتمیک از طریق MatchService، active-session validation، stale queue expiry، guest conversion handoff، waiting/cancel UI، reconnect/cold-process queue recovery و participant score snapshot. هیچ شاخه جدیدی ساخته نشد؛ PR قدیمی #11 به‌عنوان superseded بسته شد و هیچ merge از آن انجام نشد. | migrations additive: `20261114000100_add_guest_progression` و `20261114000100_add_public_1v1_matchmaking_queue`؛ unit/integration tests برای settlement، guest XP، 10-round registered 1v1، idempotency، duplicate/session guards، pairing/cancel race و queue recovery روی main افزوده شده‌اند. اجرای نهایی CI و PostgreSQL 16 برای این مجموعه هنوز تأیید نشده است. | progression: `8291f6518001d304e0bdd2d8068fd71f8ceedea1`; NEX-BE-009 updated: `63de53bf63d90b5a0f67dc0ab14c37750e93ab6c`; NEX-BE-011 acceptance checklist: `bc7df78a78d8b4e8e94b045466f9f46b5a35c077`; frontend contract updated on main | MAIN IMPLEMENTATION COMPLETE / CI PENDING | گام بعد: Prisma format/validate/generate، migration PostgreSQL 16، Nest build، full unit/integration tests، ESLint، Frontend tests و Android APK verification. پس از سبزشدن CI، پذیرش دو دستگاه، سؤال/زمان/پاسخ همسان، cancellation race، قطع شبکه و cold-process recovery؛ سپس production HTTPS. |
+
+| 2026-11-14 | R-015 / تطبیق ایستای چرخه‌های 1vAI و 1v1، نشست و XP/Ranking در main | بازبینی فقط‌خواندنی کدهای main انجام شد. در 1vAI، چرخه server-authoritative، داوری پاسخ و تست یکپارچه‌سازی چرخه ۱۰ دور با providerهای deterministic موجود است؛ این شواهد تماس زنده با OpenAI یا پذیرش روی گوشی را اثبات نمی‌کنند. در 1v1، public queue با category/language matching، FIFO، قفل‌گذاری، pairing اتمیک، idempotency، انقضای صف، کنترل session و مسیرهای cancellation/recovery در کد و تست‌ها موجود است؛ کلاینت عمدتاً از REST polling/recovery استفاده می‌کند و اتصال push بلادرنگ کامل تأیید نشده است. در نشست‌ها، refresh token تصادفی و hash‌شده، rotation، retry محدود با idempotency، revoke و guest conversion دیده شد. در XP/Ranking، settlement دارای idempotency و تفکیک global/seasonal است و XP مهمان نیز پشتیبانی می‌شود. | شواهد از بررسی فایل‌ها و تست‌های موجود در main استخراج شد؛ هیچ تستی در این نوبت اجرا نشد. CI Backend run 43527355238 در مرحله Verify Prisma formatting شکست خورده و مراحل بعدی را اجرا نکرده است؛ بنابراین وضعیت فعلی CI سبز نیست و migration روی PostgreSQL 16، Prisma validate/generate، Nest build، unit/integration tests، ESLint، Frontend tests و Android APK verification برای commitهای فعلی هنوز تأیید نشده‌اند. دو migration جدید با پیشوند زمانی یکسان ولی نام مسیر متفاوت موجودند؛ ترتیب و اجرای واقعی آن‌ها باید با migration deploy بررسی شود. | مبنای بررسی: main 5bc7d8dd4f42a97b2d5e931c076cb11e2942690a; آخرین commit کد مرتبط با queue cancellation race: 4bce249d2b95317cec4b946ca54dcbdc3a6f54c5; CI run 43527355238 | STATIC REVIEW COMPLETE / RUNTIME VERIFICATION PENDING | گام بعد: رفع دقیق Prisma formatting blocker روی main، سپس اجرای زنجیره کامل Backend CI با PostgreSQL 16؛ پس از سبزشدن، اجرای تست‌های Frontend/Android و پذیرش دو دستگاه شامل سؤال/زمان/پاسخ یکسان، cancellation race، قطع شبکه و cold-process recovery. برای پذیرش زنده 1vAI همچنان deployment HTTPS و provider credentials و تماس واقعی AI لازم است. |
+
 ### داشبورد وضعیت
 
 | شاخص | وضعیت فعلی |
 |---|---|
 | شاخه مرجع | `main`؛ سیاست اجرایی: فقط main، بدون ساخت شاخه جدید |
-| ممیزی شاخه‌ها و ثبت گزارش | انجام‌شده؛ گزارش قبلی مرجع حفظ دارایی‌هاست |\n| وضعیت تطبیق قابلیت‌ها و آزمون‌های main | 1vAI core baseline از قبل تأیید شده بود؛ settlement XP/Ranking، public queue/pairing و کلاینت production 1v1 اکنون روی main پیاده‌سازی شده‌اند؛ CI برای commitهای جدید و پذیرش دو دستگاه هنوز pending است |
+| ممیزی شاخه‌ها و ثبت گزارش | انجام‌شده؛ گزارش قبلی مرجع حفظ دارایی‌هاست |\n| وضعیت تطبیق قابلیت‌ها و آزمون‌های main | بازبینی ایستای 1vAI، 1v1، نشست و XP/Ranking انجام شد؛ کد و تست‌های مرتبط در main موجودند؛ اجرای تست‌های جدید و پذیرش دو دستگاه هنوز pending است |
 | فازهای V1 تکمیل‌شده | پس از تطبیق کد و آزمون‌های main تعیین می‌شود |
 | پیشرفت V1 | تا ثبت baseline: نامشخص |
 | آمادگی زیرساخت V2 | پس از تطبیق معماری و قراردادهای موجود در main تعیین می‌شود |
-| تست‌های معتبر main | آخرین baseline پیش از تغییرات فعلی: Frontend ۸۹/۸۹ و Backend ۳۳ suite / ۱۷۶ تست PASS؛ این نتایج، تغییرات جدید settlement/1v1 را پوشش نمی‌دهند. CI جدید، Prisma migration deploy، build، full tests، lint و APK verification باید دوباره تأیید شوند |
-| موانع/پیگیری فعال | مانع اجرای واقعی 1vAI: API deployment/HTTPS URL و provider credentials. برای 1v1: CI و migrationهای جدید هنوز تأیید نهایی نشده‌اند؛ پذیرش واقعی دو دستگاه و قطع/وصل شبکه انجام نشده؛ Socket.IO client فعلاً با REST polling جایگزین شده؛ API deployment/HTTPS و تنظیمات عملیاتی نیز باقی است. PR قدیمی #11 به main ادغام نمی‌شود؛ ادامه تغییرات فقط روی main. |
+| تست‌های معتبر main | آخرین CI مرتبط با تغییرات جدید در Backend run 43527355238 در Verify Prisma formatting شکست خورد؛ مراحل بعدی اجرا نشدند. نتایج قدیمی ۸۹/۸۹ Frontend و ۳۳ suite / ۱۷۶ Backend مربوط به baseline قبلی‌اند و تغییرات جدید settlement/1v1 را تأیید نمی‌کنند. اجرای مجدد Prisma، PostgreSQL 16 migration، build، full tests، lint و APK verification لازم است |
+| موانع/پیگیری فعال | Prisma formatting blocker در CI؛ اجرای migrationها و full test suite روی PostgreSQL 16 تأیید نشده؛ پذیرش دو دستگاه و قطع/وصل شبکه انجام نشده؛ کلاینت matchmaking فعلاً عمدتاً REST polling/recovery دارد؛ برای اجرای زنده 1vAI، HTTPS deployment و provider credentials لازم است. PR قدیمی #11 ادغام نمی‌شود؛ ادامه تغییرات فقط روی main. |
 
 ## 9. قالب گزارش پایان هر نوبت کاری
 
@@ -326,6 +329,7 @@
 | 1.9 | 2026-11-13 | رفع race بین Deadline Worker و AI Judge technical void؛ حفظ polling پس از خطای موقت API و تفکیک خطای ارسال پاسخ از خطای دریافت نتیجه؛ ثبت ۱۷۶ تست Backend و ۸۹ تست Frontend موفق به‌همراه APK تأییدشده |
 | 2.0 | 2026-11-13 | ثبت پذیرش فنی هسته 1vAI در R-012.2 و افزودن قرارداد NEX-BE-009 برای public 1v1 matchmaking، صف پایدار و pairing اتمیک؛ شروع فاز implementation |
 | 2.1 | 2026-11-14 | ثبت قرارداد NEX-BE-010 برای تسویه exactly-once XP/Ranking، پیشرفت مهمان و منحنی Level؛ تثبیت سیاست ادامه توسعه فقط روی main و عدم ادغام PR قدیمی بدون پذیرش واقعی |
+| 2.2 | 2026-11-14 | ثبت شواهد بازبینی ایستای 1vAI، public 1v1، نشست و XP/Ranking؛ ثبت دقیق CI Prisma formatting blocker و تفکیک پیاده‌سازی موجود از آزمون‌های runtime و پذیرش زنده انجام‌نشده |
 
 ---
 
