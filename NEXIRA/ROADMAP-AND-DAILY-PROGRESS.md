@@ -299,12 +299,12 @@
 | شاخص | وضعیت فعلی |
 |---|---|
 | شاخه مرجع | `main`؛ سیاست اجرایی: فقط main، بدون ساخت شاخه جدید |
-| ممیزی شاخه‌ها و ثبت گزارش | انجام‌شده؛ گزارش قبلی مرجع حفظ دارایی‌هاست |\n| وضعیت تطبیق قابلیت‌ها و آزمون‌های main | Backend CI موفق؛ Frontend tests روی HEAD فعلی موفق؛ Android Gradle build در run `43640831383` هنوز در حال اجراست؛ پذیرش آنلاین 1vAI/1v1 و آزمون دو دستگاه pending است |
+| ممیزی شاخه‌ها و ثبت گزارش | انجام‌شده؛ گزارش قبلی مرجع حفظ دارایی‌هاست |\n| وضعیت تطبیق قابلیت‌ها و آزمون‌های main | Backend CI برای Live Scoreboard موفق؛ Frontend/Match Engine tests روی HEAD `10e9dca` موفق؛ Android Gradle build و APK verification در run `43641610815` در حال اجرا؛ staging و پذیرش آنلاین/دو دستگاه pending است |
 | فازهای V1 تکمیل‌شده | پس از تطبیق کد و آزمون‌های main تعیین می‌شود |
 | پیشرفت V1 | تا ثبت baseline: نامشخص |
 | آمادگی زیرساخت V2 | پس از تطبیق معماری و قراردادهای موجود در main تعیین می‌شود |
-| تست‌های معتبر main | Backend CI: run `43639642201` موفق، ۳۸ suite و ۲۱۴ تست. Android CI: run `43640831383` روی app commit `a54c258bc567c2e0ce6dacd3eb346db3665e3fcd` موفق، ۹۷/۹۷ تست، Gradle build و APK verification/upload موفق. Artifact ID `14131987110`؛ Coverage اندازه‌گیری نشده است |
-| موانع/پیگیری فعال | Android CI بسته شد؛ staging HTTPS/PostgreSQL، deployment definition، secrets و AI provider credentials هنوز لازم‌اند؛ سپس پذیرش زنده و دو دستگاه، قطع/وصل شبکه و cold-process recovery. پرداخت واقعی عمداً به مرحله بعد موکول است. PR قدیمی #11 ادغام نمی‌شود؛ ادامه تغییرات فقط روی main. |
+| تست‌های معتبر main | Backend CI: run `43641465346` برای endpoint و قرارداد Live Scoreboard موفق؛ Prisma format/validate/generate، PostgreSQL migrations، Nest build، unit/integration tests و ESLint همگی PASS. Android CI: run `43641610815` روی HEAD `10e9dca36d1798d17ebb0f3265e1df6fc4fd1ffa`؛ Frontend/Match Engine tests PASS، Android build/APK verification هنوز در حال اجرا. آخرین APK تأییدشده مربوط به run `43640831383` و app commit قدیمی‌تر است؛ Coverage اندازه‌گیری نشده است |
+| موانع/پیگیری فعال | تکمیل Android build/APK verification؛ staging HTTPS/PostgreSQL، deployment definition، secrets و AI provider credentials؛ سپس پذیرش زنده و دو دستگاه، قطع/وصل شبکه و cold-process recovery. پرداخت واقعی عمداً به مرحله بعد موکول است. PR قدیمی #11 ادغام نمی‌شود؛ ادامه تغییرات فقط روی main. |
 
 ## 9. قالب گزارش پایان هر نوبت کاری
 
