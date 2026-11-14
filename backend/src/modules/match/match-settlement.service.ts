@@ -93,9 +93,9 @@ export class MatchSettlementService {
 
     for (const owner of resolved) {
       if (!owner.userId) continue;
-      const outcome = owner.participant.id === match.result.winnerParticipantId
+      const outcome = owner.participant.id === result.winnerParticipantId
         ? 'WIN'
-        : match.result.winnerParticipantId === null
+        : result.winnerParticipantId === null
           ? 'DRAW'
           : 'LOSS';
       await this.awardRanking(tx, owner.userId, matchId, outcome, activeSeason?.id ?? null);
