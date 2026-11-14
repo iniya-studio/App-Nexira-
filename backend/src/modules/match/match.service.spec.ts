@@ -154,6 +154,45 @@ describe('MatchService', () => {
     });
   });
 
+  it('returns only server-persisted live scores to an authorized match participant', async () => {
+    const findFirst = jest.fn().mockResolvedValue({
+      id: 'match-live-score',
+      status: MatchStatus.ACTIVE,
+      currentRound: 3,
+      participants: [
+        { id: 'participant-self', userId: 'user-1', guestIdentityId: null, participantType: ParticipantType.HUMAN, status: 'ACTIVE', score: 35 },
+        { id: 'participant-opponent', userId: null, guestIdentityId: 'guest-2', participantType: ParticipantType.HUMAN, status: 'ACTIVE', score: 50 },
+      ],
+    });
+    const service = new MatchService({ match: { findFirst } } as unknown as PrismaService);
+    const result = await service.getLiveScoreboard('match-live-score', {
+      principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1',
+    });
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'match-live-score', participants: { some: { userId: 'user-1' } } },
+    }));
+    expect(result).toEqual({
+      matchId: 'match-live-score', status: MatchStatus.ACTIVE, currentRound: 3,
+      participants: [
+        { type: ParticipantType.HUMAN, status: 'ACTIVE', score: 35, isSelf: true },
+        { type: ParticipantType.HUMAN, status: 'ACTIVE', score: 50, isSelf: false },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain('participant-self');
+    expect(JSON.stringify(result)).not.toContain('guest-2');
+    expect(JSON.stringify(result)).not.toContain('answer');
+    expect(JSON.stringify(result)).not.toContain('decision');
+  });
+
+  it('does not reveal a live scoreboard to a non-participant', async () => {
+    const service = new MatchService({
+      match: { findFirst: jest.fn().mockResolvedValue(null) },
+    } as unknown as PrismaService);
+    await expect(service.getLiveScoreboard('private-match', {
+      principalType: PrincipalType.USER, principalId: 'outsider', sessionId: 'session-1',
+    })).rejects.toThrow('Match not found');
+  });
+
   it('returns a participant-authorized final result without exposing participant IDs', async () => {
     const prisma = {
       match: { findFirst: jest.fn().mockResolvedValue({
