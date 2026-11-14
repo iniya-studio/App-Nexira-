@@ -8,6 +8,9 @@ on:
     paths:
       - "backend/**"
       - "docs/**"
+      - "compose.staging.yml"
+      - "Caddyfile"
+      - ".env.staging.example"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     branches:
@@ -85,3 +88,14 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Validate staging Compose configuration
+        working-directory: .
+        run: |
+          cp .env.staging.example .env.staging
+          docker compose --env-file .env.staging -f compose.staging.yml config --quiet
+          rm .env.staging
+
+      - name: Build staging backend image
+        working-directory: .
+        run: docker build --pull -f backend/Dockerfile -t nexira-backend:ci backend
