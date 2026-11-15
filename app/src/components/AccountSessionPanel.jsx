@@ -123,7 +123,8 @@ export function AccountSessionPanel({
     clearFeedback();
     setGoogleBusy(true);
     try {
-      const identity = await googleAuth.getIdentity();
+      const challenge = await lifecycle.createGoogleChallenge();
+      const identity = await googleAuth.getIdentity(challenge.nonce);
       await lifecycle.signInWithGoogle(identity);
       setNotice(isFa ? 'ورود با حساب Google موفق بود.' : 'You are signed in with Google.');
     } catch (cause) {
@@ -137,7 +138,8 @@ export function AccountSessionPanel({
     clearFeedback();
     setGoogleBusy(true);
     try {
-      const identity = await googleAuth.getIdentity();
+      const challenge = await lifecycle.createGoogleChallenge();
+      const identity = await googleAuth.getIdentity(challenge.nonce);
       const result = await lifecycle.linkGoogleIdentity(identity);
       setNotice(result.alreadyLinked
         ? (isFa ? 'این حساب Google از قبل متصل است.' : 'This Google account is already linked.')
