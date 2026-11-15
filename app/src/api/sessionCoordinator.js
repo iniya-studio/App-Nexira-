@@ -83,6 +83,7 @@ export function createSessionCoordinator({
     async login(credentials) { return acceptSession(await sessionApi.login(credentials)); },
     async register(credentials) { return acceptSession(await sessionApi.register(credentials)); },
     async convertGuest(credentials) { return acceptSession(await sessionApi.convertGuest(credentials)); },
+    async createGoogleChallenge() { return sessionApi.createGoogleChallenge(); },
     async signInWithGoogle(idToken) { return acceptSession(await sessionApi.signInWithGoogle(idToken)); },
     async requestPasswordReset(email) { return sessionApi.requestPasswordReset(email); },
     async resetPassword(token, newPassword) { return sessionApi.resetPassword(token, newPassword); },
