@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Version:** 1.0  
-**Status:** V1 contract locked; implementation ported to `main`, automated verification pending  
+**Status:** V1 implementation on `main`; Backend CI, PostgreSQL 16 migrations/integration tests, and Android CI passed; two-device acceptance remains pending  
 **Target:** Existing `main` modular monolith  
 **Depends on:** NEX-BE-006 Synchronized Match Core; NEX-BE-002 Identity & Access; NEX-BE-003 Guest & Session Foundation  
 **Scope:** Public V1 1v1 queue, atomic human pairing, queue lifecycle, and client notification/recovery.
@@ -212,6 +212,11 @@ Implemented on `main`:
 
 **Rollout protection:** server enqueue is disabled by default outside automated tests unless `NEXIRA_PUBLIC_1V1_ENABLED=true`; the Android/web production entry point is client-disabled unless `VITE_ENABLE_PUBLIC_1V1=true`. Both flags must remain off until all acceptance gates pass.
 
-**Verification status:** the queue and pairing unit/PostgreSQL integration tests have been ported and adapted for persisted active sessions. Backend CI, Prisma formatting/validation, migration deployment, full integration suite, Android build, and two-device acceptance are not yet verified for the current main commit. The client currently uses REST polling; Socket.IO client subscription remains a later transport optimization.
+**Automated verification — 2026-11-14:**
+- Backend CI run `43639642201` completed successfully: Prisma formatting/validation/client generation, PostgreSQL 16 migration deployment, NestJS production build, 38/38 suites and 214/214 tests, and ESLint passed.
+- Backend CI run `43643270328` completed successfully after the staging baseline was added; Backend quality checks, Compose validation, and Docker image build passed.
+- Android CI run `43641610815` completed successfully: 98/98 frontend/Match Engine tests, Vite/Capacitor build, Gradle APK build, APK verification, and artifact upload passed.
+- These results verify automated code and database gates, not a live two-device match. The required NEX-BE-011 scenarios (including physical-device pairing, shared question/deadline, reconnect, force-stop recovery, and guest conversion) remain pending.
+- The client currently uses authenticated REST polling for queue discovery; the server-side Socket.IO gateway is implemented, while client subscription remains a later transport optimization. REST status/snapshot remains authoritative.
 
 **Release gate:** do not enable production rollout until CI is green, PostgreSQL 16 migration and concurrency tests pass, and all required two-device tests in [NEX-BE-011 — Public 1v1 Acceptance Checklist](./NEX-BE-011-public-1v1-acceptance-checklist.md) pass. 1vAI shared lifecycle and scoring remain unchanged.
