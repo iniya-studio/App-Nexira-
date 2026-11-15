@@ -51,6 +51,8 @@ jobs:
       - name: Build web app and Android package
         env:
           VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          APP_LINK_HOST: ${{ vars.APP_LINK_HOST }}
+          VITE_APP_LINK_HOST: ${{ vars.APP_LINK_HOST }}
         run: npm run android:apk
 
       - name: Verify APK artifact
