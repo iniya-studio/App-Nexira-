@@ -125,6 +125,7 @@ export default function App() {
   const [profile, setProfile] = useState(() => loadProfile());
   const [isInitialLanguageSelection, setIsInitialLanguageSelection] = useState(() => !hasCompletedLanguageSelection());
   const [screen, setScreen] = useState('splash');
+  const [passwordResetToken, setPasswordResetToken] = useState(null);
   const [entryMatchMode, setEntryMatchMode] = useState(null);
   const [profileView, setProfileView] = useState('progress');
   const [resultsView, setResultsView] = useState('summary');
@@ -208,9 +209,16 @@ export default function App() {
       if (typeof rawUrl !== 'string' || disposed) return;
       let parsed;
       try { parsed = new URL(rawUrl); } catch { return; }
-      if (parsed.protocol !== 'nexira:' || parsed.hostname !== 'auth' || parsed.pathname !== '/verify-email') return;
+      if (parsed.protocol !== 'nexira:' || parsed.hostname !== 'auth') return;
       const token = parsed.searchParams.get('token');
       if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token) || processedTokens.has(token)) return;
+      if (parsed.pathname === '/reset-password') {
+        processedTokens.add(token);
+        setPasswordResetToken(token);
+        setScreen('profile');
+        return;
+      }
+      if (parsed.pathname !== '/verify-email') return;
       processedTokens.add(token);
       setScreen('profile');
       try {
@@ -1394,7 +1402,7 @@ export default function App() {
         {['offline', 'error'].includes(sessionState.status) && <button type="button" className="secondary-action" onClick={() => { void appSessionLifecycle.retry(); }}>
           {language === 'fa' ? 'تلاش دوباره برای اتصال' : 'Retry secure connection'}
         </button>}
-        <AccountSessionPanel lifecycle={appSessionLifecycle} sessionState={sessionState} language={language} />
+        <AccountSessionPanel lifecycle={appSessionLifecycle} sessionState={sessionState} language={language} resetToken={passwordResetToken} onResetTokenConsumed={() => setPasswordResetToken(null)} />
         <div className="screen-tabs" role="group" aria-label={text.profile}>
           <button type="button" className={profileView === 'progress' ? 'is-selected' : ''} aria-pressed={profileView === 'progress'} onClick={() => setProfileView('progress')}>{text.progress}</button>
           <button type="button" className={profileView === 'honors' ? 'is-selected' : ''} aria-pressed={profileView === 'honors'} onClick={() => setProfileView('honors')}>{text.battleHonors}</button>
