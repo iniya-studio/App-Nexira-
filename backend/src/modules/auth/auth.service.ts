@@ -134,9 +134,9 @@ export class AuthService {
     });
   }
 
-  async googleSignIn(idToken: string, ipAddress: string) {
+  async googleSignIn(idToken: string, ipAddress: string, nonce: string) {
     this.enforceLimit('google', ipAddress || 'unknown');
-    const claims = await this.google.verify(idToken);
+    const claims = await this.google.verify(idToken, nonce);
     const providerSubject = claims.sub;
     const email = this.normalizeEmail(claims.email!);
 
