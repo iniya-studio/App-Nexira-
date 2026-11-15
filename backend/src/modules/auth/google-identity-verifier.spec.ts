@@ -129,4 +129,22 @@ describe('GoogleIdentityVerifier', () => {
     await expect(verifier.verify('signed-id-token', '')).rejects.toBeInstanceOf(UnauthorizedException);
     expect(verify).not.toHaveBeenCalled();
   });
+
+  it('does not disguise challenge-store outages as invalid Google credentials', async () => {
+    prisma.googleAuthChallenge.updateMany.mockRejectedValue(new Error('database unavailable'));
+    jest.spyOn(OAuth2Client.prototype, 'verifyIdToken')
+      .mockResolvedValue({
+        getPayload: () => ({
+          sub: 'google-subject',
+          email: 'player@example.com',
+          email_verified: true,
+          iss: 'https://accounts.google.com',
+          aud: 'nexira-google-client-id',
+          nonce,
+        }),
+      } as never);
+
+    await expect(verifier.verify('signed-id-token', nonce))
+      .rejects.toThrow('database unavailable');
+  });
 });
