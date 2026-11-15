@@ -70,6 +70,7 @@ export class PasswordLifecycleService {
       const ids = others.map((s) => s.id);
       const revoked = await tx.userSession.updateMany({ where: { userId: principal.principalId, id: { not: principal.sessionId }, revokedAt: null }, data: { revokedAt: now } });
       if (ids.length) await tx.refreshToken.updateMany({ where: { sessionId: { in: ids }, revokedAt: null }, data: { revokedAt: now, retryResponseCiphertext: null, retryResponseExpiresAt: null } });
+      await tx.passwordResetToken.updateMany({ where: { userId: principal.principalId, consumedAt: null }, data: { consumedAt: now } });
       await tx.identityAuditEvent.create({ data: { eventType: 'PASSWORD_CHANGED', principalType: PrincipalType.USER, principalId: principal.principalId, sessionId: principal.sessionId, result: 'SUCCESS', metadata: { revokedSessions: revoked.count } } });
       return { success: true as const, sessionsRevoked: revoked.count };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

@@ -32,7 +32,7 @@ describe('PasswordLifecycleService', () => {
       PASSWORD_RESET_TOKEN_TTL_SECONDS: '1800', ARGON2_MEMORY_COST_KIB: '1024',
       ARGON2_TIME_COST: '2', ARGON2_PARALLELISM: '1',
     })[key]) };
-    service = new PasswordLifecycleService(prisma as PrismaService, config as ConfigService, delivery as EmailDeliveryService);
+    service = new PasswordLifecycleService(prisma as PrismaService, config as unknown as ConfigService, delivery as EmailDeliveryService);
   });
 
   it('returns the same accepted response for an unknown email', async () => {
@@ -75,6 +75,15 @@ describe('PasswordLifecycleService', () => {
     expect(result.success).toBe(true);
   });
 
+  it('rejects a reset if another request has already consumed the token', async () => {
+    prisma.passwordResetToken.findUnique.mockResolvedValue({
+      id: 'reset-1', userId: user.id, consumedAt: null, expiresAt: new Date(Date.now() + 60000), user,
+    });
+    tx.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.resetPassword('A'.repeat(43), 'a-long-and-strong-password')).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(tx.accountCredential.upsert).not.toHaveBeenCalled();
+  });
+
   it('rejects password changes from guests', async () => {
     await expect(service.changePassword(
       { principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'guest-session' },
@@ -86,6 +95,7 @@ describe('PasswordLifecycleService', () => {
     const passwordHash = await argon2.hash('current-password', { type: argon2.argon2id, memoryCost: 1024, timeCost: 2, parallelism: 1 });
     prisma.user.findFirst.mockResolvedValue({ credential: { id: 'credential-1', passwordHash } });
     await service.changePassword(principal, 'current-password', 'a-new-strong-password');
+    expect(tx.passwordResetToken.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: user.id, consumedAt: null } }));
     expect(tx.userSession.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ userId: user.id, id: { not: principal.sessionId } }),
     }));
