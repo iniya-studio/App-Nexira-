@@ -1,7 +1,7 @@
 # NEXIRA — نقشه راه اجرایی و دفتر روزانه پیشرفت
 
 - شناسه سند: NEX-ROADMAP-001
-- نسخه: 2.9
+- نسخه: 3.0
 - وضعیت: سند مرجع اجرایی — Backend/Android CI و خط‌پایه Staging تأیید شده‌اند؛ وضعیت مستندات 1v1 و XP/Ranking با شواهد CI هم‌تراز شده؛ استقرار واقعی، پذیرش دو دستگاه و آزمون زنده AI هنوز باز است
 - شاخه مرجع توسعه: `main`
 - دامنه: از آماده‌سازی مخزن تا انتشار V1، سپس توسعه V2 و عملیات زنده
@@ -298,6 +298,8 @@
 
 | 2026-11-15 | R-019 / ممیزی 1v1 و هم‌ترازی اسناد با شواهد CI | ممیزی فقط‌خواندنی `main` تأیید کرد که صف عمومی و pairing در Backend، adapter و رابط صف آنلاین در Frontend، بازیابی صف/مسابقه، و endpointهای progression و ranking پیاده‌سازی شده‌اند. صف 1v1 در UI و Backend با feature flag غیرفعال می‌ماند تا پذیرش کامل دو دستگاه انجام شود. تست‌های PostgreSQL matchmaking سناریوهای سازگاری category/language، idempotency، جلوگیری از صف تکراری، FIFO/concurrency، انقضای صف، cancellation race و rollback را پوشش می‌دهند؛ این تست‌ها جایگزین پذیرش فیزیکی دو دستگاه نیستند. وضعیت سه سند NEX-BE-009، NEX-BE-010 و NEX-FE-001 با شواهد موجود اصلاح شد تا CI موفق به‌اشتباه «pending» و پذیرش زنده به‌اشتباه «تکمیل‌شده» ثبت نشود. | Backend CI `43639642201`: ۳۸/۳۸ suite و ۲۱۴/۲۱۴ test؛ Backend/Staging CI `43643270328`: Backend quality، Compose validation و Docker image build؛ Android CI `43641610815`: ۹۸/۹۸ تست Frontend/Match Engine، build و APK verification/upload؛ هر سه run موفق. در این نوبت تست جدیدی اجرا نشد و هیچ ادعایی درباره اجرای دو دستگاه، staging آنلاین یا تماس زنده AI ثبت نمی‌شود. | `64225b19f6d90d7e6a7afdbce53800105886684d`, `9c3d3443df992675f5c43c8f05649eba0ec54389`, `3ec715f74c6044ae9d03e11871501272393741bb` | DOCUMENTATION RECONCILED / TWO-DEVICE ACCEPTANCE PENDING | گام بعد: ممیزی تکمیل V1 با نگاه محصول جهانی، به‌ویژه localization و پشتیبانی زبان، Store/Inventory، حساب/پروفایل و جریان‌های کاربری؛ ادامه توسعه فقط در بخش‌های مستقل از VPS و اعتبار AI تا افتتاح حساب ارمنستان. سپس deploy واقعی و پذیرش زنده 1vAI/1v1. |
 
+| 2026-11-15 | R-020 / تکمیل رابط V1 فروشگاه و مجموعه آیتم‌ها | صفحه Store از حالت placeholder خارج شد و یک storefront دو‌زبانه فارسی/انگلیسی با دسته‌های Featured، Frames، Profile Style، Match Effects و My Collection اضافه شد. شش طرح صرفاً به‌عنوان concept preview نمایش داده می‌شوند؛ پیش‌نمایش جزئیات دارد، اما خرید، پرداخت، قیمت‌گذاری، مالکیت یا موجودی جعلی ایجاد نمی‌شود. پیام شفاف غیرفعال‌بودن پرداخت و اصل عدم مزیت رقابتی حفظ شده است. هیچ تغییری در Backend یا مدل مالی انجام نشد. | تغییرات فقط روی `main`: App.jsx و nexira-premium.css. CI مربوط به Android با تغییر `app/**` باید اجرا شود؛ در این ثبت هنوز نتیجه اجرای جدید CI و بررسی ظاهری روی گوشی تأیید نشده است. کاتالوگ و UserInventory واقعی هنوز به API متصل نیستند و طرح‌های فعلی نمونه‌های نمایشی‌اند. | `9b03980e7a322b233bfb28c133e68a68ca6ede19`, `1db7cc3477d04e2830e497d751fdc5c3246bd7c7` | STOREFRONT UI BASELINE IMPLEMENTED / CI AND DEVICE VISUAL QA PENDING | گام بعد: بررسی CI و ظاهر Store در Android؛ سپس ممیزی و تکمیل بخش‌های V1 مستقل از سرور، با اولویت Profile/Account UX و پشتیبانی چندزبانه. اتصال catalog/ownership به Backend و پرداخت واقعی پس از تکمیل قراردادهای فروشگاه و آمادگی مالی انجام می‌شود. |
+
 ### داشبورد وضعیت
 
 | شاخص | وضعیت فعلی |
@@ -343,6 +345,7 @@
 | 2.7 | 2026-11-14 | ثبت موفقیت نهایی Backend و Android CI برای Live Scoreboard؛ ۹۸/۹۸ تست Frontend/Match Engine، Gradle build، APK verification و upload artifact با شناسه `14131948582` |
 | 2.8 | 2026-11-14 | ثبت خط‌پایه استقرار staging شامل Dockerfile، Compose، PostgreSQL خصوصی، Caddy/HTTPS، healthchecks، نمونه env و راهنمای عملیات؛ ثبت موفقیت کامل Backend CI، Compose validation و Docker image build در run `43643270328`؛ تفکیک شفاف موارد آماده‌شده از deploy واقعی، secrets/provider credentials و پذیرش زنده باقی‌مانده |
 | 2.9 | 2026-11-15 | هم‌ترازی وضعیت اسناد matchmaking 1v1، progression/Ranking و Frontend–Backend با شواهد CI؛ ثبت ممیزی کد و تست‌های صف/جفت‌سازی؛ تفکیک صریح CI موفق از پذیرش دو دستگاه و اجرای زنده AI که همچنان باز هستند |
+| 3.0 | 2026-11-15 | افزودن رابط کامل‌تر Store به‌صورت catalog preview دو‌زبانه با دسته‌بندی‌ها، جزئیات ظاهری و empty state مجموعه؛ بدون پرداخت، قیمت یا ادعای مالکیت ساختگی؛ ثبت CI و visual QA به‌عنوان pending |
 
 ---
 
