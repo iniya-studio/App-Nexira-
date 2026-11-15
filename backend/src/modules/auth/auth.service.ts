@@ -134,6 +134,11 @@ export class AuthService {
     });
   }
 
+  async createGoogleChallenge(ipAddress: string) {
+    this.enforceLimit('google-challenge', ipAddress || 'unknown');
+    return this.google.createChallenge();
+  }
+
   async googleSignIn(idToken: string, ipAddress: string, nonce: string) {
     this.enforceLimit('google', ipAddress || 'unknown');
     const claims = await this.google.verify(idToken, nonce);
@@ -266,14 +271,15 @@ export class AuthService {
     return email.trim().toLowerCase();
   }
 
-  private enforceLimit(kind: 'login' | 'google' | 'register', key: string): void {
+  private enforceLimit(kind: 'login' | 'google' | 'google-challenge' | 'register', key: string): void {
     const isRegister = kind === 'register';
+    const isGoogleChallenge = kind === 'google-challenge';
     const max = this.positiveInteger(
-      isRegister ? 'AUTH_REGISTER_MAX_ATTEMPTS' : 'AUTH_LOGIN_MAX_ATTEMPTS',
-      isRegister ? 5 : 10,
+      isRegister ? 'AUTH_REGISTER_MAX_ATTEMPTS' : isGoogleChallenge ? 'AUTH_GOOGLE_CHALLENGE_MAX_ATTEMPTS' : 'AUTH_LOGIN_MAX_ATTEMPTS',
+      isRegister ? 5 : isGoogleChallenge ? 20 : 10,
     );
     const windowSeconds = this.positiveInteger(
-      isRegister ? 'AUTH_REGISTER_WINDOW_SECONDS' : 'AUTH_LOGIN_WINDOW_SECONDS',
+      isRegister ? 'AUTH_REGISTER_WINDOW_SECONDS' : isGoogleChallenge ? 'AUTH_GOOGLE_CHALLENGE_WINDOW_SECONDS' : 'AUTH_LOGIN_WINDOW_SECONDS',
       isRegister ? 3600 : 900,
     );
     const mapKey = `${kind}:${key}`;
