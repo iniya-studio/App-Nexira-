@@ -518,6 +518,6 @@ No deferred value may be guessed by implementation. If a deferred decision becom
 
 ## 14. Implementation alignment update — 2026-11-15
 
-The V1 Android client uses the native Android Credential Manager integration and first obtains a one-time nonce from the backend. The `VITE_GOOGLE_WEB_CLIENT_ID` build value and backend `GOOGLE_CLIENT_ID` must refer to the same Google Web OAuth client ID. The Android OAuth client must separately be configured in the same Google Cloud project for the app package name and signing certificate. No OAuth client secret belongs in the Android app or repository.
+The V1 Android client uses the native Android Credential Manager integration and first obtains a one-time nonce from the backend. The `VITE_GOOGLE_WEB_CLIENT_ID` build value and backend `GOOGLE_CLIENT_ID` must refer to the same Google Web OAuth client ID. The Android OAuth client must separately be configured in the same Google Cloud project for the app package name and signing certificate. No OAuth client secret belongs in the Android app or repository. Email verification and password reset support the custom `nexira://auth/...` scheme for development and verified HTTPS Android App Links for production. `APP_LINK_HOST` / `VITE_APP_LINK_HOST` must match the email-link host, and that domain must publish the Android Digital Asset Links file before production use.
 
 **End of NEX-BE-002 v1.2**
