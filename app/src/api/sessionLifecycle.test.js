@@ -268,3 +268,45 @@ test('email verification rejects malformed tokens before calling the API', async
   await assert.rejects(lifecycle.verifyEmail('short'), /valid email verification token/);
   assert.equal(services.calls.some((call) => Array.isArray(call) && call[0] === 'verifyEmail'), false);
 });
+
+
+test('password reset request uses the public generic-response endpoint', async () => {
+  const services = makeServices({ restored: userResponse });
+  services.coordinator.requestPasswordReset = async (email) => {
+    services.calls.push(['requestPasswordReset', email]);
+    return { accepted: true };
+  };
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const result = await lifecycle.requestPasswordReset('player@example.com');
+  assert.deepEqual(result, { accepted: true });
+  assert.deepEqual(services.calls.at(-1), ['requestPasswordReset', 'player@example.com']);
+});
+
+test('successful password reset clears the local session and returns to signed-out state', async () => {
+  const services = makeServices({ restored: userResponse });
+  services.coordinator.resetPassword = async (token, newPassword) => {
+    services.calls.push(['resetPassword', token, newPassword]);
+    return { success: true, sessionsRevoked: 2 };
+  };
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const result = await lifecycle.resetPassword('r'.repeat(43), 'a-new-long-password');
+  assert.equal(result.sessionsRevoked, 2);
+  assert.equal(lifecycle.getState().status, 'signed-out');
+  assert.ok(services.calls.includes('clearLocalSession'));
+});
+
+test('password change and explicit Google linking require a registered account and refresh account data', async () => {
+  const services = makeServices({ restored: userResponse });
+  services.coordinator.changePassword = async () => ({ success: true, sessionsRevoked: 1 });
+  services.coordinator.linkGoogleIdentity = async () => ({ linked: true, alreadyLinked: false, provider: 'GOOGLE' });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const passwordResult = await lifecycle.changePassword('current-password', 'a-new-long-password');
+  assert.equal(passwordResult.success, true);
+  const linkResult = await lifecycle.linkGoogleIdentity('google-id-token');
+  assert.equal(linkResult.linked, true);
+  assert.ok(services.calls.filter((call) => call === 'getMyAccount').length >= 2);
+  assert.ok(services.calls.filter((call) => call === 'listSessions').length >= 2);
+});
