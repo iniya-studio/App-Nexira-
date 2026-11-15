@@ -100,6 +100,6 @@ export class ProfileService {
   }
 
   private guestFallback(id: string): string {
-    return `Player-${id.slice(0, 6)}`;
+    return `Player-${id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6)}`;
   }
 }

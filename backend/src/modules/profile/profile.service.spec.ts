@@ -35,7 +35,7 @@ describe('ProfileService', () => {
       { id: 'p3', match: { result: { winnerParticipantId: null } } },
     ]);
     const result = await service.getMyProfile(guest);
-    expect(result.profile.displayName).toBe('Player-guest');
+    expect(result.profile.displayName).toBe('Player-guest1');
     expect(result.statistics).toEqual({ matchesPlayed: 3, wins: 1, losses: 1, draws: 1, availability: 'AVAILABLE' });
   });
   it('normalizes and persists a registered display name', async () => {
