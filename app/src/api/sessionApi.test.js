@@ -49,3 +49,23 @@ test('auth API exposes independent registration, Google sign-in and email verifi
     ['/auth/email/verify', { token: 'v'.repeat(43) }, { authenticated: false }],
   ]);
 });
+
+
+test('session API exposes password recovery, password change and explicit Google linking', async () => {
+  const calls = [];
+  const http = {
+    post: async (...args) => { calls.push(args); return {}; },
+    get: async () => ({}), patch: async () => ({}), delete: async () => ({}),
+  };
+  const api = createSessionApi(http);
+  await api.requestPasswordReset('player@example.com');
+  await api.resetPassword('r'.repeat(43), 'a-new-long-password');
+  await api.changePassword('the-current-password', 'a-new-long-password');
+  await api.linkGoogleIdentity('google-id-token');
+  assert.deepEqual(calls, [
+    ['/auth/password/forgot', { email: 'player@example.com' }, { authenticated: false }],
+    ['/auth/password/reset', { token: 'r'.repeat(43), newPassword: 'a-new-long-password' }, { authenticated: false }],
+    ['/account/password/change', { currentPassword: 'the-current-password', newPassword: 'a-new-long-password' }],
+    ['/account/identities/google/link', { idToken: 'google-id-token' }],
+  ]);
+});
