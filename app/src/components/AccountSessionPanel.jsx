@@ -184,6 +184,21 @@ export function AccountSessionPanel({
     }
   }
 
+  async function requestPasswordSetup() {
+    clearFeedback();
+    setBusy(true);
+    try {
+      await lifecycle.requestPasswordReset(sessionState.account?.email ?? '');
+      setNotice(isFa
+        ? 'اگر ایمیل حساب واجد شرایط باشد، لینک تنظیم رمز ارسال می‌شود.'
+        : 'If this account is eligible, a password setup link will be sent to its email.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (isFa ? 'درخواست تنظیم رمز انجام نشد.' : 'Could not request password setup.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function changePassword(event) {
     event.preventDefault();
     clearFeedback();
@@ -294,6 +309,9 @@ export function AccountSessionPanel({
       {!googleLinked && !sessionState.emailVerification?.verified && <p className="panel-note account-warning">
         {isFa ? 'برای اتصال Google ابتدا ایمیل حساب نکسیرا را تأیید کنید.' : 'Verify your NEXIRA account email before linking Google.'}
       </p>}
+      {!sessionState.authentication?.passwordEnabled && sessionState.account?.email && <button type="button" className="secondary-action" disabled={busy} onClick={requestPasswordSetup}>
+        <Mail size={15} /> {isFa ? 'تنظیم رمز با ایمیل' : 'Set a password by email'}
+      </button>}
       <div className="account-password-management">
         <button type="button" className="secondary-action" onClick={() => setPasswordChangeOpen((open) => !open)}>
           <KeyRound size={15} /> {passwordChangeOpen
@@ -341,7 +359,7 @@ export function AccountSessionPanel({
     </div>}
 
     {(guest || signedOut) && <>
-      {guest && <div className="account-mode-switch" role="group" aria-label={isFa ? 'روش ورود یا ثبت‌نام' : 'Account action'}>
+      {guest && mode !== 'reset' && <div className="account-mode-switch" role="group" aria-label={isFa ? 'روش ورود یا ثبت‌نام' : 'Account action'}>
         <button type="button" className={mode === 'convert' ? 'is-selected' : ''} aria-pressed={mode === 'convert'} onClick={() => { setMode('convert'); clearFeedback(); }}>
           {isFa ? 'ساخت حساب دائمی' : 'Create account'}
         </button>
