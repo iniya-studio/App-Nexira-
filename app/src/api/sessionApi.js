@@ -9,6 +9,10 @@ export function createSessionApi(http) {
     register: (credentials) => http.post('/auth/register', credentials, { authenticated: false }),
     login: (credentials) => http.post('/auth/login', credentials, { authenticated: false }),
     signInWithGoogle: (idToken) => http.post('/auth/google', { idToken }, { authenticated: false }),
+    requestPasswordReset: (email) => http.post('/auth/password/forgot', { email }, { authenticated: false }),
+    resetPassword: (token, newPassword) => http.post('/auth/password/reset', { token, newPassword }, { authenticated: false }),
+    changePassword: (currentPassword, newPassword) => http.post('/account/password/change', { currentPassword, newPassword }),
+    linkGoogleIdentity: (idToken) => http.post('/account/identities/google/link', { idToken }),
     verifyEmail: (token) => http.post('/auth/email/verify', { token }, { authenticated: false }),
     resendVerification: () => http.post('/auth/email/resend'),
     refresh: (refreshToken, idempotencyKey) => http.post(
