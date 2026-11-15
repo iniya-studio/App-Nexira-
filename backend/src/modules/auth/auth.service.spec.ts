@@ -209,4 +209,13 @@ describe('AuthService', () => {
     });
     expect(google.createChallenge).toHaveBeenCalledTimes(1);
   });
+
+  it('limits Google challenge issuance per IP', async () => {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await service.createGoogleChallenge('198.51.100.10');
+    }
+    await expect(service.createGoogleChallenge('198.51.100.10'))
+      .rejects.toMatchObject({ status: 429 });
+    expect(google.createChallenge).toHaveBeenCalledTimes(20);
+  });
 });
