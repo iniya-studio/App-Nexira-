@@ -42,6 +42,30 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
     }
   }
 
+  async function register(event) {
+    event.preventDefault();
+    clearFeedback();
+    setBusy(true);
+    try {
+      const next = await lifecycle.register({
+        email: email.trim(),
+        username: username.trim(),
+        displayName: displayName.trim(),
+        password,
+      });
+      setPassword('');
+      setNotice(next.emailVerification?.delivery === 'SENT'
+        ? (isFa ? 'حساب ساخته شد؛ لینک تأیید به ایمیل شما ارسال شد.' : 'Account created; a verification email was sent.')
+        : next.emailVerification?.delivery === 'NOT_CONFIGURED'
+          ? (isFa ? 'حساب ساخته شد؛ ارسال ایمیل هنوز روی سرور پیکربندی نشده است.' : 'Account created; email delivery is not configured yet.')
+          : (isFa ? 'حساب ساخته شد؛ وضعیت ارسال ایمیل را بررسی کنید.' : 'Account created; check the email delivery status.'));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (isFa ? 'ثبت‌نام انجام نشد.' : 'Registration failed.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function convert(event) {
     event.preventDefault();
     clearFeedback();
@@ -188,6 +212,10 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
           {isFa ? 'ورود به حساب' : 'Sign in'}
         </button>
       </div>}
+      {signedOut && <div className="account-mode-switch" role="group" aria-label={isFa ? 'ورود یا ثبت‌نام مستقل' : 'Sign in or create account'}>
+        <button type="button" className={mode === 'login' ? 'is-selected' : ''} aria-pressed={mode === 'login'} onClick={() => { setMode('login'); clearFeedback(); }}>{isFa ? 'ورود' : 'Sign in'}</button>
+        <button type="button" className={mode === 'register' ? 'is-selected' : ''} aria-pressed={mode === 'register'} onClick={() => { setMode('register'); clearFeedback(); }}>{isFa ? 'ساخت حساب جدید' : 'Create account'}</button>
+      </div>}
 
       {mode === 'login' && <form className="account-conversion-form" onSubmit={login}>
         {guest && <p className="panel-note account-warning">{isFa
@@ -204,6 +232,22 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
         <p className="panel-note account-recovery-note">{isFa
           ? 'بازیابی رمز عبور پس از آماده‌شدن مسیر امن بازیابی در سرور فعال می‌شود.'
           : 'Password recovery will be enabled once the secure server recovery flow is ready.'}</p>
+      </form>}
+
+      {mode === 'register' && signedOut && <form className="account-conversion-form" onSubmit={register}>
+        <p className="panel-note">{isFa ? 'یک حساب مستقل بساز؛ برای ثبت‌نام نیازی به حساب مهمان نیست.' : 'Create an independent account. A guest account is not required.'}</p>
+        <label className="field-label" htmlFor="account-register-email">{isFa ? 'ایمیل' : 'Email'}</label>
+        <input id="account-register-email" className="text-input" type="email" autoComplete="email" maxLength={254} required value={email} onChange={event => setEmail(event.target.value)} />
+        <label className="field-label" htmlFor="account-register-username">{isFa ? 'نام کاربری' : 'Username'}</label>
+        <input id="account-register-username" className="text-input" autoComplete="username" minLength={3} maxLength={20} pattern="[a-zA-Z0-9_]{3,20}" required value={username} onChange={event => setUsername(event.target.value)} />
+        <label className="field-label" htmlFor="account-register-display-name">{isFa ? 'نام نمایشی' : 'Display name'}</label>
+        <input id="account-register-display-name" className="text-input" minLength={1} maxLength={40} required value={displayName} onChange={event => setDisplayName(event.target.value)} />
+        <label className="field-label" htmlFor="account-register-password">{isFa ? 'رمز عبور (حداقل ۱۲ کاراکتر)' : 'Password (12 characters minimum)'}</label>
+        <input id="account-register-password" className="text-input" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={password} onChange={event => setPassword(event.target.value)} />
+        <button className="primary-button account-submit" type="submit" disabled={busy}>
+          <span className="play-mark"><UserRound size={15} /></span>
+          <span className="primary-label">{busy ? (isFa ? 'در حال ثبت‌نام…' : 'Creating account…') : (isFa ? 'ساخت حساب نکسیرا' : 'Create NEXIRA account')}</span>
+        </button>
       </form>}
 
       {mode === 'convert' && guest && <form className="account-conversion-form" onSubmit={convert}>
@@ -225,6 +269,8 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
       </form>}
     </>}
 
+    {sessionState.emailVerification?.verified && authenticated && <p className="account-feedback" role="status">{isFa ? 'ایمیل حساب تأیید شده است.' : 'Account email is verified.'}</p>}
+    {sessionState.accountDataError && !authenticated && <p className="account-feedback account-feedback--error" role="status">{sessionState.accountDataError}</p>}
     {error && <p className="account-feedback account-feedback--error" role="alert">{error}</p>}
     {notice && <p className="account-feedback" role="status">{notice}</p>}
   </section>;

@@ -201,6 +201,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let disposed = false;
+    let listenerHandle = null;
+    const processedTokens = new Set();
+    const consumeVerificationLink = async (rawUrl) => {
+      if (typeof rawUrl !== 'string' || disposed) return;
+      let parsed;
+      try { parsed = new URL(rawUrl); } catch { return; }
+      if (parsed.protocol !== 'nexira:' || parsed.hostname !== 'auth' || parsed.pathname !== '/verify-email') return;
+      const token = parsed.searchParams.get('token');
+      if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token) || processedTokens.has(token)) return;
+      processedTokens.add(token);
+      setScreen('profile');
+      try {
+        await appSessionLifecycle.initialize();
+        if (!disposed) await appSessionLifecycle.verifyEmail(token);
+      } catch {
+        // Lifecycle publishes a safe error; the one-time token is never logged.
+      }
+    };
+    void CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      void consumeVerificationLink(url);
+    }).then((handle) => {
+      if (disposed) void handle.remove();
+      else listenerHandle = handle;
+    }).catch(() => {});
+    void CapacitorApp.getLaunchUrl().then((launch) => {
+      if (launch?.url) void consumeVerificationLink(launch.url);
+    }).catch(() => {});
+    return () => {
+      disposed = true;
+      if (listenerHandle) void listenerHandle.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'fa' ? 'rtl' : 'ltr';
     document.title = text.pageTitle;

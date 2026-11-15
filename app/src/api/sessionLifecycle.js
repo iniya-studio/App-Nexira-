@@ -214,6 +214,22 @@ export function createSessionLifecycle({
       return result;
     },
 
+    async verifyEmail(token) {
+      if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
+        throw new TypeError('A valid email verification token is required.');
+      }
+      const activeServices = ensureServices();
+      try {
+        const result = await activeServices.coordinator.verifyEmail(token);
+        publish({ ...state, emailVerification: { required: false, verified: true }, accountDataError: null });
+        if (['guest', 'authenticated'].includes(state.status)) await loadAccountData();
+        return result;
+      } catch (error) {
+        publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Email verification failed.' });
+        throw error;
+      }
+    },
+
     async resendVerification() {
       const activeServices = ensureServices();
       const result = await activeServices.coordinator.resendVerification();

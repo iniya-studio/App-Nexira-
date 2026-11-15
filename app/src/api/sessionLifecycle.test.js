@@ -22,6 +22,7 @@ function makeServices({ restored = null, restoreError = null, guest = null, gues
       async logoutAll() { calls.push('logoutAll'); return { success: true, revokedSessions: 2 }; },
       async clearLocalSession() { calls.push('clearLocalSession'); current = null; },
       async resendVerification() { calls.push('resendVerification'); return { accepted: true, delivery: 'SENT' }; },
+      async verifyEmail(token) { calls.push(['verifyEmail', token]); return { verified: true }; },
       getCurrentPrincipal() { return current?.principal ?? null; },
       getCurrentSession() { return current?.session ?? null; },
       async logout() { calls.push('logout'); current = null; },
@@ -231,4 +232,34 @@ test('logout-all revokes server sessions and clears the local authenticated iden
   assert.equal(result.revokedSessions, 2);
   assert.equal(lifecycle.getState().status, 'signed-out');
   assert.ok(services.calls.includes('clearLocalSession'));
+});
+
+
+test('independent registration creates a registered session', async () => {
+  const registered = { ...userResponse, user: { id: 'user-1', email: 'new@example.com' }, emailVerification: { required: true, verified: false, delivery: 'NOT_CONFIGURED' } };
+  const services = makeServices({ guest: guestResponse, register: registered });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.register({ email: 'new@example.com', username: 'new_player', displayName: 'New Player', password: 'a-long-secure-password' });
+  assert.equal(state.status, 'authenticated');
+  assert.equal(state.account.email, 'new@example.com');
+  assert.equal(state.emailVerification.delivery, 'NOT_CONFIGURED');
+});
+
+test('email verification accepts a valid one-time token and updates lifecycle state', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const result = await lifecycle.verifyEmail('a'.repeat(43));
+  assert.equal(result.verified, true);
+  assert.equal(lifecycle.getState().emailVerification.verified, true);
+  assert.ok(services.calls.some((call) => Array.isArray(call) && call[0] === 'verifyEmail'));
+});
+
+test('email verification rejects malformed tokens before calling the API', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  await assert.rejects(lifecycle.verifyEmail('short'), /valid email verification token/);
+  assert.equal(services.calls.some((call) => Array.isArray(call) && call[0] === 'verifyEmail'), false);
 });
