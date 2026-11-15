@@ -29,40 +29,45 @@ export class GoogleIdentityVerifier {
   }
 
   async verify(idToken: string, expectedNonce: string): Promise<TokenPayload> {
-    try {
-      if (!/^[A-Za-z0-9_-]{43}$/.test(expectedNonce)) {
-        throw new Error('A valid Google challenge nonce is required');
-      }
-      const audience = this.config.getOrThrow<string>('GOOGLE_CLIENT_ID');
-      const ticket = await this.client.verifyIdToken({ idToken, audience });
-      const payload = ticket.getPayload();
-      if (
-        !payload ||
-        !payload.sub ||
-        !payload.email ||
-        payload.email_verified !== true ||
-        !payload.iss ||
-        !['accounts.google.com', 'https://accounts.google.com'].includes(payload.iss) ||
-        !payload.aud ||
-        payload.nonce !== expectedNonce
-      ) {
-        throw new Error('Required verified Google claims are missing or do not match the challenge');
-      }
+    if (!/^[A-Za-z0-9_-]{43}$/.test(expectedNonce)) {
+      throw new UnauthorizedException('Google authentication could not be verified');
+    }
 
-      const now = new Date();
-      const consumed = await this.prisma.googleAuthChallenge.updateMany({
-        where: {
-          nonceHash: this.hash(expectedNonce),
-          consumedAt: null,
-          expiresAt: { gt: now },
-        },
-        data: { consumedAt: now },
-      });
-      if (consumed.count !== 1) throw new Error('Google challenge is expired, unknown, or already consumed');
-      return payload;
+    const audience = this.config.getOrThrow<string>('GOOGLE_CLIENT_ID');
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await this.client.verifyIdToken({ idToken, audience });
+      payload = ticket.getPayload();
     } catch {
       throw new UnauthorizedException('Google authentication could not be verified');
     }
+
+    if (
+      !payload ||
+      !payload.sub ||
+      !payload.email ||
+      payload.email_verified !== true ||
+      !payload.iss ||
+      !['accounts.google.com', 'https://accounts.google.com'].includes(payload.iss) ||
+      !payload.aud ||
+      payload.nonce !== expectedNonce
+    ) {
+      throw new UnauthorizedException('Google authentication could not be verified');
+    }
+
+    const now = new Date();
+    const consumed = await this.prisma.googleAuthChallenge.updateMany({
+      where: {
+        nonceHash: this.hash(expectedNonce),
+        consumedAt: null,
+        expiresAt: { gt: now },
+      },
+      data: { consumedAt: now },
+    });
+    if (consumed.count !== 1) {
+      throw new UnauthorizedException('Google authentication could not be verified');
+    }
+    return payload;
   }
 
   private hash(value: string): string {
