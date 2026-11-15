@@ -221,7 +221,7 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
       <div className="account-mode-switch" role="group" aria-label={isFa ? 'ورود یا ثبت‌نام مستقل' : 'Sign in or create account'}>
         <button type="button" className={mode === 'login' ? 'is-selected' : ''} aria-pressed={mode === 'login'} onClick={() => { setMode('login'); clearFeedback(); }}>{isFa ? 'ورود' : 'Sign in'}</button>
         <button type="button" className={mode === 'register' ? 'is-selected' : ''} aria-pressed={mode === 'register'} onClick={() => { setMode('register'); clearFeedback(); }}>{isFa ? 'ساخت حساب جدید' : 'Create account'}</button>
-      </div>}
+      </div>
 
       {mode === 'login' && <form className="account-conversion-form" onSubmit={login}>
         {guest && <p className="panel-note account-warning">{isFa
