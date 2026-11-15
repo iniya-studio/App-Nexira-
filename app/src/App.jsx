@@ -33,6 +33,47 @@ const CATEGORY_ICONS = {
   languages: Languages,
   atom: Atom,
 };
+const STORE_TABS = [
+  { id: 'featured', en: 'Featured', fa: 'ویژه' },
+  { id: 'frames', en: 'Frames', fa: 'قاب‌ها' },
+  { id: 'profile', en: 'Profile style', fa: 'سبک پروفایل' },
+  { id: 'effects', en: 'Match effects', fa: 'افکت مسابقه' },
+  { id: 'inventory', en: 'My collection', fa: 'مجموعه من' },
+];
+
+const STORE_ITEMS = [
+  {
+    id: 'prism-frame', group: 'frames', title: { en: 'Prism Frame', fa: 'قاب منشوری' },
+    description: { en: 'A spectral edge for your player identity.', fa: 'قابی رنگین برای هویت بازیکن شما.' },
+    type: { en: 'PROFILE FRAME', fa: 'قاب پروفایل' }, tone: 'prism', Icon: Sparkles,
+  },
+  {
+    id: 'ion-frame', group: 'frames', title: { en: 'Ion Circuit', fa: 'مدار یونی' },
+    description: { en: 'A precise, electric profile outline.', fa: 'خطی الکتریکی و دقیق برای پروفایل.' },
+    type: { en: 'PROFILE FRAME', fa: 'قاب پروفایل' }, tone: 'ion', Icon: Cpu,
+  },
+  {
+    id: 'signal-plate', group: 'profile', title: { en: 'Signal Plate', fa: 'پلاک سیگنال' },
+    description: { en: 'A clean nameplate with a bright signal accent.', fa: 'پلاک نام مینیمال با تأکید نوری.' },
+    type: { en: 'NAMEPLATE', fa: 'پلاک نام' }, tone: 'signal', Icon: Scan,
+  },
+  {
+    id: 'orbit-plate', group: 'profile', title: { en: 'Orbit Line', fa: 'خط مدار' },
+    description: { en: 'A subtle orbital treatment for your profile.', fa: 'جلوه‌ای ظریف با الهام از مدارها.' },
+    type: { en: 'NAMEPLATE', fa: 'پلاک نام' }, tone: 'orbit', Icon: Globe2,
+  },
+  {
+    id: 'pulse-entry', group: 'effects', title: { en: 'Pulse Entry', fa: 'ورود تپشی' },
+    description: { en: 'A visual-only entrance effect for match intros.', fa: 'افکت بصری ورود به مسابقه.' },
+    type: { en: 'MATCH EFFECT', fa: 'افکت مسابقه' }, tone: 'pulse', Icon: Zap,
+  },
+  {
+    id: 'nova-response', group: 'effects', title: { en: 'Nova Response', fa: 'پاسخ نوا' },
+    description: { en: 'A cosmetic answer-feedback style.', fa: 'سبک ظاهری برای بازخورد پاسخ.' },
+    type: { en: 'ANSWER EFFECT', fa: 'افکت پاسخ' }, tone: 'nova', Icon: Target,
+  },
+];
+
 
 function makeRunId() {
   return globalThis.crypto?.randomUUID?.() ?? `run-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -104,6 +145,8 @@ export default function App() {
   const [globalRanking, setGlobalRanking] = useState(null);
   const [seasonalRanking, setSeasonalRanking] = useState(null);
   const [rankingView, setRankingView] = useState('global');
+  const [storeTab, setStoreTab] = useState('featured');
+  const [storePreviewId, setStorePreviewId] = useState(null);
   const [progressionLoading, setProgressionLoading] = useState(false);
   const [progressionError, setProgressionError] = useState('');
   const [splashExiting, setSplashExiting] = useState(false);
@@ -135,6 +178,11 @@ export default function App() {
   const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
   const activeRanking = rankingView === 'global' ? globalRanking : seasonalRanking;
   const rankingEntries = activeRanking?.entries ?? [];
+  const storeVisibleItems = storeTab === 'featured'
+    ? STORE_ITEMS.slice(0, 4)
+    : STORE_ITEMS.filter((item) => item.group === storeTab);
+  const storePreviewItem = STORE_ITEMS.find((item) => item.id === storePreviewId) ?? null;
+  const StorePreviewIcon = storePreviewItem?.Icon ?? Sparkles;
   const accuracy = profile.totalAnswers ? Math.round(profile.correctAnswers / profile.totalAnswers * 100) : 0;
   const playableRun = isPlayableChallenge(run);
   const question = playableRun
@@ -1425,12 +1473,107 @@ export default function App() {
 
     {screen === 'store' && <ScreenFrame className="info-screen store-screen">
       <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
-      <ScreenHeading eyebrow={language === 'fa' ? 'شخصی‌سازی' : 'PERSONALIZATION'} title={language === 'fa' ? 'فروشگاه' : 'Store'} accent={language === 'fa' ? 'نکسیرا' : 'NEXIRA'} description={language === 'fa' ? 'آیتم‌های ظاهری اختیاری؛ بدون هیچ مزیت رقابتی.' : 'Optional cosmetic items. Never pay for a competitive advantage.'} />
-      <GlassPanel className="store-coming-soon">
-        <span className="store-mark"><Sparkles size={25} /></span>
-        <h2>{language === 'fa' ? 'فروشگاه در حال آماده‌سازی است' : 'The store is being prepared'}</h2>
-        <p>{language === 'fa' ? 'پرداخت و خرید هنوز فعال نیست. هیچ آیتم پولی یا مزیت رقابتی در این نسخه ارائه نمی‌شود.' : 'Purchases are not available yet. No paid items or competitive advantages are offered in this build.'}</p>
-      </GlassPanel>
+      <ScreenHeading
+        eyebrow={language === 'fa' ? 'شخصی‌سازی بازیکن' : 'PLAYER PERSONALIZATION'}
+        title={language === 'fa' ? 'فروشگاه' : 'Store'}
+        accent="NEXIRA"
+        description={language === 'fa'
+          ? 'ظاهر و هویت بازیکنت را شخصی‌سازی کن؛ بدون هیچ مزیت رقابتی.'
+          : 'Customize your player identity. Every item is cosmetic and never changes competitive play.'}
+      />
+      <section className="store-hero">
+        <div className="store-hero-copy">
+          <span className="store-kicker"><Sparkles size={14} /> {language === 'fa' ? 'مجموعه منتخب' : 'THE CURATED COLLECTION'}</span>
+          <h2>{language === 'fa' ? 'سبک خودت را وارد میدان کن' : 'Bring your style to the arena'}</h2>
+          <p>{language === 'fa'
+            ? 'قاب‌ها، پلاک‌ها و جلوه‌های بصری؛ فقط برای نمایش شخصیت تو.'
+            : 'Frames, profile plates and visual effects made for self-expression.'}</p>
+          <span className="store-preview-pill">{language === 'fa' ? 'پیش‌نمایش کاتالوگ' : 'CATALOG PREVIEW'}</span>
+        </div>
+        <div className="store-hero-art" aria-hidden="true">
+          <div className="store-hero-orbit store-hero-orbit--one" />
+          <div className="store-hero-orbit store-hero-orbit--two" />
+          <div className="store-hero-core"><Sparkles size={34} /></div>
+        </div>
+      </section>
+
+      <div className="store-toolbar">
+        <div className="store-tabs" role="tablist" aria-label={language === 'fa' ? 'دسته‌بندی فروشگاه' : 'Store categories'}>
+          {STORE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={storeTab === tab.id}
+              className={`store-tab${storeTab === tab.id ? ' is-active' : ''}`}
+              onClick={() => setStoreTab(tab.id)}
+            >{language === 'fa' ? tab.fa : tab.en}</button>
+          ))}
+        </div>
+        <span className="store-payment-state">{language === 'fa' ? 'پرداخت غیرفعال' : 'PAYMENTS OFF'}</span>
+      </div>
+
+      {storeTab === 'inventory' ? (
+        <section className="store-inventory-empty">
+          <span className="store-empty-mark"><ShoppingCart size={25} /></span>
+          <h2>{language === 'fa' ? 'هنوز آیتمی در مجموعه نیست' : 'Your collection is waiting'}</h2>
+          <p>{language === 'fa'
+            ? 'پس از فعال‌شدن کاتالوگ و مالکیت آیتم‌ها، موارد دریافت‌شده در این بخش نمایش داده می‌شوند.'
+            : 'Items will appear here when the live catalog and account inventory are connected.'}</p>
+          <button type="button" className="store-secondary-action" onClick={() => setStoreTab('featured')}>
+            {language === 'fa' ? 'مشاهده مجموعه منتخب' : 'Explore featured items'}
+          </button>
+        </section>
+      ) : (
+        <div className="store-grid">
+          {storeVisibleItems.map((item) => {
+            const ItemIcon = item.Icon;
+            return (
+              <article className="store-item-card" key={item.id}>
+                <div className={`store-item-art store-item-art--${item.tone}`}>
+                  <span className="store-art-grid" />
+                  <ItemIcon size={29} strokeWidth={1.7} />
+                  <span className="store-art-orbit" />
+                </div>
+                <div className="store-item-meta">
+                  <span>{language === 'fa' ? item.type.fa : item.type.en}</span>
+                  <b>{language === 'fa' ? 'پیش‌نمایش' : 'PREVIEW'}</b>
+                </div>
+                <h3>{language === 'fa' ? item.title.fa : item.title.en}</h3>
+                <p>{language === 'fa' ? item.description.fa : item.description.en}</p>
+                <button type="button" className="store-preview-action" onClick={() => setStorePreviewId(item.id)}>
+                  {language === 'fa' ? 'مشاهده سبک' : 'View style'} <ChevronRight size={15} />
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="store-fairness-note"><Check size={14} />
+        {language === 'fa'
+          ? 'همه آیتم‌ها صرفاً تزئینی هستند. خرید هیچ امتیاز، زمان بیشتر یا برتری در مسابقه ایجاد نمی‌کند.'
+          : 'Cosmetics only. No purchase can change score, timing, matchmaking or competitive ranking.'}
+      </p>
+
+      {storePreviewItem && <div className="store-modal-backdrop">
+        <section className="store-preview-modal" role="dialog" aria-modal="true" aria-labelledby="store-preview-title">
+          <button type="button" className="store-modal-close" onClick={() => setStorePreviewId(null)}>
+            {language === 'fa' ? 'بستن' : 'Close'}
+          </button>
+          <div className={`store-modal-art store-item-art--${storePreviewItem.tone}`}>
+            <StorePreviewIcon size={38} strokeWidth={1.6} />
+          </div>
+          <span className="store-kicker">{language === 'fa' ? 'پیش‌نمایش ظاهری' : 'COSMETIC PREVIEW'}</span>
+          <h2 id="store-preview-title">{language === 'fa' ? storePreviewItem.title.fa : storePreviewItem.title.en}</h2>
+          <p>{language === 'fa' ? storePreviewItem.description.fa : storePreviewItem.description.en}</p>
+          <div className="store-modal-notice">
+            {language === 'fa'
+              ? 'این طرح نمایشی است؛ هنوز به حساب کاربری اضافه نمی‌شود و خریدی انجام نمی‌دهد.'
+              : 'This is a visual concept only. It is not added to your account and no purchase is made.'}
+          </div>
+        </section>
+      </div>}
     </ScreenFrame>}
 
     {screen === 'settings' && <ScreenFrame className="info-screen">
