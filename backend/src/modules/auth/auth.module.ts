@@ -12,6 +12,6 @@ import { PasswordLifecycleService } from './password-lifecycle.service';
   imports: [SessionModule],
   controllers: [AuthController],
   providers: [AuthService, GoogleIdentityVerifier, EmailVerifiedGuard, EmailVerificationService, EmailDeliveryService, PasswordLifecycleService],
-  exports: [AuthService, EmailVerifiedGuard, EmailVerificationService, PasswordLifecycleService],
+  exports: [AuthService, EmailVerifiedGuard, EmailVerificationService, PasswordLifecycleService, GoogleIdentityVerifier],
 })
 export class AuthModule {}
