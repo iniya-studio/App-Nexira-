@@ -49,6 +49,8 @@ jobs:
         run: npm test
 
       - name: Build web app and Android package
+        env:
+          VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
         run: npm run android:apk
 
       - name: Verify APK artifact
