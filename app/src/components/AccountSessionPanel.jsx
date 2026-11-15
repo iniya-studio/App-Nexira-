@@ -16,7 +16,11 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
 
   const guest = sessionState.status === 'guest';
   const authenticated = sessionState.status === 'authenticated';
-  const signedOut = sessionState.status === 'signed-out';
+  const signedOut = ['signed-out', 'offline', 'error'].includes(sessionState.status);
+
+  useEffect(() => {
+    if (['offline', 'error'].includes(sessionState.status)) setMode('register');
+  }, [sessionState.status]);
 
   useEffect(() => {
     if (guest || authenticated) void lifecycle.loadAccountData();
@@ -212,7 +216,9 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
           {isFa ? 'ورود به حساب' : 'Sign in'}
         </button>
       </div>}
-      {signedOut && <div className="account-mode-switch" role="group" aria-label={isFa ? 'ورود یا ثبت‌نام مستقل' : 'Sign in or create account'}>
+      {signedOut && <>
+      {['offline', 'error'].includes(sessionState.status) && <p className="panel-note account-warning">{isFa ? 'اتصال حساب هنوز برقرار نشده است. فرم ثبت‌نام در دسترس است، اما ارسال آن به اتصال سرور نیاز دارد.' : 'Account connection is unavailable. Registration is shown, but submitting it requires a server connection.'}</p>}
+      <div className="account-mode-switch" role="group" aria-label={isFa ? 'ورود یا ثبت‌نام مستقل' : 'Sign in or create account'}>
         <button type="button" className={mode === 'login' ? 'is-selected' : ''} aria-pressed={mode === 'login'} onClick={() => { setMode('login'); clearFeedback(); }}>{isFa ? 'ورود' : 'Sign in'}</button>
         <button type="button" className={mode === 'register' ? 'is-selected' : ''} aria-pressed={mode === 'register'} onClick={() => { setMode('register'); clearFeedback(); }}>{isFa ? 'ساخت حساب جدید' : 'Create account'}</button>
       </div>}
@@ -267,6 +273,7 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
           <span className="primary-label">{busy ? (isFa ? 'در حال ساخت…' : 'Creating…') : (isFa ? 'تبدیل به حساب دائمی' : 'Create permanent account')}</span>
         </button>
       </form>}
+      </>}
     </>}
 
     {sessionState.emailVerification?.verified && authenticated && <p className="account-feedback" role="status">{isFa ? 'ایمیل حساب تأیید شده است.' : 'Account email is verified.'}</p>}
