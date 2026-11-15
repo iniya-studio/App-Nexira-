@@ -180,6 +180,34 @@ export function createSessionLifecycle({
 
     signInWithGoogle(idToken) { return performAccountAction('signInWithGoogle', idToken); },
 
+    async requestPasswordReset(email) {
+      return ensureServices().coordinator.requestPasswordReset(email);
+    },
+
+    async resetPassword(token, newPassword) {
+      const activeServices = ensureServices();
+      const result = await activeServices.coordinator.resetPassword(token, newPassword);
+      await activeServices.coordinator.clearLocalSession();
+      publish({ ...INITIAL_STATE, status: 'signed-out' });
+      return result;
+    },
+
+    async changePassword(currentPassword, newPassword) {
+      if (state.status !== 'authenticated') throw new Error('A registered account session is required.');
+      const result = await ensureServices().coordinator.changePassword(currentPassword, newPassword);
+      await loadAccountData();
+      return result;
+    },
+
+    async linkGoogleIdentity(idToken) {
+      if (state.status !== 'authenticated' || state.principal?.principalType !== 'USER') {
+        throw new Error('Sign in to a registered account before linking Google.');
+      }
+      const result = await ensureServices().coordinator.linkGoogleIdentity(idToken);
+      await loadAccountData();
+      return result;
+    },
+
     async loadAccountData() { return loadAccountData(); },
 
     async updateProfile(changes) {
