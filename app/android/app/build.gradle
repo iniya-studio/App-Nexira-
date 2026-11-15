@@ -5,6 +5,7 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.nexira.prototype"
+        manifestPlaceholders = [appLinkHost: (project.findProperty("APP_LINK_HOST") ?: System.getenv("APP_LINK_HOST") ?: "invalid.nexira.invalid")]
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
