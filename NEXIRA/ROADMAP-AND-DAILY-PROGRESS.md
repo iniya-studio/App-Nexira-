@@ -309,7 +309,7 @@
 
 | شاخص | وضعیت فعلی |
 |---|---|
-| شاخه مرجع و HEAD | main؛ ce5385baa5f0bd24ed0bb83a51009783c21c7fde (پس از ثبت نسخه 3.3). فقط روی main توسعه می‌دهیم. سه شاخه permission-test باقی‌مانده، طبق دستور مالک دست‌نخورده‌اند. |
+| شاخه مرجع و HEAD | main؛ کد اپلیکیشن روی f624277f3d1d62a3de5564110ac6da081a495b6d و سند روزانه روی HEAD فعلی main. فقط روی main توسعه می‌دهیم. سه شاخه permission-test باقی‌مانده، طبق دستور مالک دست‌نخورده‌اند. |
 | وضعیت اسناد ENG | ENG-001 و ENG-002 اسناد ممیزی/حفظ دارایی شاخه‌ها در snapshot مورخ 2026-11-13 هستند، نه سنجه پیشرفت محصول. آمار 74 فایل main در ENG-001 مربوط به snapshot تاریخی است؛ main فعلی 284 فایل tracked دارد. |
 | وضعیت کیفیت خودکار | Backend CI آخرین بار روی commit d526eaa در run 43711111608 موفق شد؛ Android CI روی HEAD فعلی f624277f در run 43714635464 موفق شد؛ 109 تست Frontend/Match Engine، web/Android build، APK verification و upload PASS. |
 | هسته Backend و داده | NestJS/Prisma/PostgreSQL، migration chain، identity/session، match/round lifecycle، AI workers، matchmaking و progression/settlement در main موجود و CI-verified هستند؛ استقرار واقعی و provider execution تأیید نشده است. |
