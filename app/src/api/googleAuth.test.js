@@ -69,3 +69,18 @@ test('native Google adapter exposes cancellation without leaking credentials', a
   await adapter.cancel();
   assert.equal(cancelled, true);
 });
+
+
+test('native Google adapter returns the exact nonce bound into the native request', async () => {
+  let request;
+  const adapter = createGoogleAuthAdapter({
+    platform: () => 'android',
+    clientId: validClientId,
+    cryptoObject: cryptoStub(),
+    plugin: { async signIn(args) { request = args; return { idToken: 'i'.repeat(120) }; } },
+  });
+  const identity = await adapter.getIdentity();
+  assert.equal(identity.idToken, 'i'.repeat(120));
+  assert.equal(identity.nonce, request.nonce);
+  assert.equal(identity.nonce.length, 43);
+});
