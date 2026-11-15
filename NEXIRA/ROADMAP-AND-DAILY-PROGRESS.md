@@ -329,6 +329,8 @@
 
 | 2026-11-15 | R-025 / پیاده‌سازی Password Recovery & Credential Lifecycle | مدل PasswordResetToken و Migration افزایشی PostgreSQL، سرویس بازیابی رمز با توکن ۲۵۶بیتی هش‌شده و یک‌بارمصرف، پاسخ ضد-enumeration، ارسال ایمیل مستقل، ابطال همه نشست‌ها/Refresh Tokenها پس از Reset، API تغییر رمز با حفظ نشست جاری و ابطال نشست‌های دیگر و توکن‌های Reset قبلی، DTOها و تست واحد و PostgreSQL integration اضافه شدند. | Backend CI run 43727007771 روی commit d2e89d2e موفق: Prisma format/validate/generate، migration روی PostgreSQL، NestJS production build، 43 test suites و 238 tests PASS، ESLint، staging Compose validation و Docker image build PASS. | main code: d2e89d2e60225ca0219fbe6d8d7df7b7fa211999; CI: https://github.com/iniya-studio/App-Nexira-/actions/runs/43727007771 | PASSWORD LIFECYCLE IMPLEMENTED / POSTGRESQL INTEGRATION VERIFIED / CI GREEN | گام بعد: تکمیل Google account linking صریح و امن در Backend؛ سپس Google native Android sign-in، اتصال APIهای recovery/change به frontend، صفحه reset/deep-link، پیکربندی SMTP فقط در محیط امن، و پذیرش end-to-end حساب و نشست‌ها. |
 
+| 2026-11-15 | R-026 / Google identity linking صریح | AccountIdentityService و API ‏POST /account/identities/google/link اضافه شد. اتصال فقط با USER احراز‌شده، ایمیل حساب تأییدشده و تطبیق ایمیل Google تأییدشده انجام می‌شود؛ اتصال خودکار با تطبیق ایمیل ممنوع است، اتصال تکراری idempotent و هویت متصل به حساب دیگر رد می‌شود؛ رویداد audit ثبت می‌شود. | Backend CI run 43727387178 روی commit d5ec1169 موفق: Prisma format/validate/generate، PostgreSQL migrations، NestJS build، 44 test suites و 244 tests PASS، ESLint، staging Compose و Docker image build PASS. Password lifecycle PostgreSQL integration نیز در run قبلی 43727007771 موفق بود. | main code: d5ec116957835aca3e08f57a5bbe045cb462b435; CI: https://github.com/iniya-studio/App-Nexira-/actions/runs/43727387178 | PASSWORD RECOVERY/CHANGE VERIFIED / EXPLICIT GOOGLE LINKING IMPLEMENTED / CI GREEN | گام بعد: Google native Android sign-in با مسیر SDK پشتیبانی‌شده؛ سپس اتصال APIهای reset/change/link به frontend و صفحه reset/deep-link، اصلاح ثبت‌نام دستی (submit/scroll)، SMTP امن و پذیرش end-to-end چنددستگاهی. |
+
 ## 9. قالب گزارش پایان هر نوبت کاری
 
 - **انجام شد:** آیتم‌ها و تغییرات واقعی.
@@ -368,6 +370,7 @@
 | 3.3 | 2026-11-15 | ثبت پیاده‌سازی Profile/Account API و نشست‌ها، ثبت‌نام مستقل و deep-link ایمیل روی main؛ ثبت شکست پذیرش دستی submit/scroll در APK، نبود Google native UI، CI سبز Backend/Android و برآورد اولیه 48٪ اجرای V1 در برابر 25–30٪ آمادگی انتشار عمومی |
 | 3.4 | 2026-11-15 | ثبت بازبینی مجدد Auth/Account/Session و قرارداد NEX-BE-011 برای password recovery/change، توکن مستقل یک‌بارمصرف، جلوگیری از account enumeration، ابطال نشست‌ها و معیارهای آزمون؛ پیاده‌سازی اجرایی هنوز شروع نشده است |
 | 3.5 | 2026-11-15 | ثبت پیاده‌سازی کامل Password Recovery/Change در Backend، Migration و آزمون PostgreSQL؛ CI run 43727007771 با 43 suite و 238 test موفق و Docker image build سبز |
+| 3.6 | 2026-11-15 | ثبت پیاده‌سازی اتصال صریح و امن Google به حساب موجود؛ CI run 43727387178 با 44 suite و 244 test موفق و Docker image build سبز |
 
 ---
 
