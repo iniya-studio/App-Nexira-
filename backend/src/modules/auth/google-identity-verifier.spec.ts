@@ -17,11 +17,12 @@ describe('GoogleIdentityVerifier', () => {
       email_verified: true,
       iss: 'https://accounts.google.com',
       aud: 'nexira-google-client-id',
+      nonce: 'n'.repeat(43),
     };
     const verify = jest.spyOn(OAuth2Client.prototype, 'verifyIdToken')
       .mockResolvedValue({ getPayload: () => payload } as never);
 
-    await expect(verifier.verify('signed-id-token')).resolves.toMatchObject(payload);
+    await expect(verifier.verify('signed-id-token', 'n'.repeat(43))).resolves.toMatchObject(payload);
     expect(verify).toHaveBeenCalledWith({
       idToken: 'signed-id-token',
       audience: 'nexira-google-client-id',
