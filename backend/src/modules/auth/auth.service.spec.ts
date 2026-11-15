@@ -158,7 +158,7 @@ describe('AuthService', () => {
     google.verify.mockResolvedValue({
       sub: 'google-subject-123', email: 'player@example.com', email_verified: true,
     });
-    const result = await service.googleSignIn('signed-google-id-token', '127.0.0.1');
+    const result = await service.googleSignIn('signed-google-id-token', '127.0.0.1', 'n'.repeat(43));
     expect(prisma.externalIdentity.findUnique).toHaveBeenCalledWith({
       where: { provider_providerSubject: { provider: 'GOOGLE', providerSubject: 'google-subject-123' } },
       include: { user: true },
@@ -173,7 +173,7 @@ describe('AuthService', () => {
     google.verify.mockResolvedValue({
       sub: 'google-subject-456', email: 'player@example.com', email_verified: true,
     });
-    await expect(service.googleSignIn('signed-google-id-token', '127.0.0.1'))
+    await expect(service.googleSignIn('signed-google-id-token', '127.0.0.1', 'n'.repeat(43)))
       .rejects.toBeInstanceOf(ConflictException);
     expect(sessions.createSessionInTransaction).not.toHaveBeenCalled();
   });
@@ -185,7 +185,7 @@ describe('AuthService', () => {
       sub: 'google-subject-new', email: 'newplayer@example.com',
       email_verified: true, name: 'New Player',
     });
-    await service.googleSignIn('signed-google-id-token', '127.0.0.1');
+    await service.googleSignIn('signed-google-id-token', '127.0.0.1', 'n'.repeat(43));
     expect(tx.user.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         email: 'newplayer@example.com',
