@@ -325,6 +325,8 @@
 **روش تفسیر درصد:** 48٪ به معنی «نیمی از محصول آماده انتشار است» نیست. بخش قابل‌توجهی از هسته و کد Backend ساخته و CI-verified شده، اما پذیرش واقعی روی سرور/دستگاه و بخش‌های محصولی/عملیاتی هنوز تکمیل نشده‌اند.
 
 
+| 2026-11-15 | R-024 / آغاز فاز تکمیل حساب و هویت | بازبینی مجدد کد و قراردادهای فعلی روی main انجام شد. هسته ثبت‌نام/ورود ایمیلی، Google verifier سمت Backend، Guest conversion، email verification، token rotation و session management موجودند؛ اما password recovery/change، explicit Google linking، native Google Android flow و پذیرش end-to-end حساب هنوز کامل نیستند. قرارداد NEX-BE-011 برای بازیابی و تغییر رمز عبور، توکن مستقل یک‌بارمصرف، پاسخ ضد-enumeration، ابطال نشست‌ها، audit و آزمون‌های لازم ثبت شد. هیچ کد اجرایی در این نوبت تغییر نکرده است. | Read-only audit of current auth/account/session services and tests; prior Backend CI run 43711111608 succeeded on d526eaa3, but no backend CI was run for this documentation-only contract commit. | main: 768c03ec665b1e83c435aedc5aca8b8e6c01f301; new contract: docs/NEX-BE-011-password-recovery-credential-lifecycle.md | ACCOUNT/IDENTITY AUDIT REFRESHED / PASSWORD LIFECYCLE CONTRACT LOCKED / IMPLEMENTATION NOT YET STARTED | گام بعد: اجرای NEX-BE-011 با مدل مستقل PasswordResetToken و migration افزایشی، service/controller/email adapter، atomic reset و revocation، password-change و unit/PostgreSQL integration tests؛ سپس Google linking/native sign-in و end-to-end account acceptance. UI polish remains deferred, but registration submission must pass before account-flow acceptance. |
+
 ## 9. قالب گزارش پایان هر نوبت کاری
 
 - **انجام شد:** آیتم‌ها و تغییرات واقعی.
@@ -362,6 +364,7 @@
 | 3.1 | 2026-11-15 | ثبت تأیید دستی نصب APK و بازشدن Store روی دستگاه، نتیجه Android CI run 43684477886 با ۹۸/۹۸ تست موفق، و تصمیم جدید ترتیب اجرا: تکمیل/ممیزی زیرساخت و هسته، سپس Profile/Account و localization جهانی، و موکول‌کردن بازطراحی سراسری UI/UX به مرحله بعد |
 | 3.2 | 2026-11-15 | ثبت ممیزی فقط‌خواندنی Profile/Account: تأیید نقاط قوت guest conversion و session security، شناسایی شکاف‌های profile server-sync، Google UI، verification deep-link، recovery، cold-restore account data، privacy/session management و نبود تست UI اختصاصی؛ بدون تغییر کد و بدون اجرای تست جدید |
 | 3.3 | 2026-11-15 | ثبت پیاده‌سازی Profile/Account API و نشست‌ها، ثبت‌نام مستقل و deep-link ایمیل روی main؛ ثبت شکست پذیرش دستی submit/scroll در APK، نبود Google native UI، CI سبز Backend/Android و برآورد اولیه 48٪ اجرای V1 در برابر 25–30٪ آمادگی انتشار عمومی |
+| 3.4 | 2026-11-15 | ثبت بازبینی مجدد Auth/Account/Session و قرارداد NEX-BE-011 برای password recovery/change، توکن مستقل یک‌بارمصرف، جلوگیری از account enumeration، ابطال نشست‌ها و معیارهای آزمون؛ پیاده‌سازی اجرایی هنوز شروع نشده است |
 
 ---
 
