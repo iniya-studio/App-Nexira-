@@ -14,6 +14,13 @@ function makeServices({ restored = null, restoreError = null, guest = null, gues
       async register(credentials) { calls.push(['register', credentials]); current = register; return register; },
       async convertGuest(credentials) { calls.push(['convertGuest', credentials]); current = convertGuest; return convertGuest; },
       async signInWithGoogle(token) { calls.push(['google', token]); current = google; return google; },
+      async getMyProfile() { calls.push('getMyProfile'); return { principalType: current?.principal?.principalType, profile: { displayName: 'Player One' }, statistics: { matchesPlayed: 3, wins: 2, losses: 1, draws: 0 } }; },
+      async updateMyProfile(changes) { calls.push(['updateMyProfile', changes]); return { principalType: current?.principal?.principalType, profile: { displayName: changes.displayName }, statistics: { matchesPlayed: 3, wins: 2, losses: 1, draws: 0 } }; },
+      async getMyAccount() { calls.push('getMyAccount'); return { user: { id: 'user-1', email: 'player@example.com' }, authentication: { passwordEnabled: true, providers: [] }, emailVerification: { required: true, verified: false } }; },
+      async listSessions() { calls.push('listSessions'); return { sessions: [{ sessionId: 'session-2', isCurrent: true, status: 'ACTIVE' }] }; },
+      async revokeSession(id) { calls.push(['revokeSession', id]); return { success: true, revoked: true }; },
+      async logoutAll() { calls.push('logoutAll'); return { success: true, revokedSessions: 2 }; },
+      async clearLocalSession() { calls.push('clearLocalSession'); current = null; },
       async resendVerification() { calls.push('resendVerification'); return { accepted: true, delivery: 'SENT' }; },
       getCurrentPrincipal() { return current?.principal ?? null; },
       getCurrentSession() { return current?.session ?? null; },
@@ -172,4 +179,56 @@ test('email login exposes account details and derives verification state', async
   assert.equal(state.status, 'authenticated');
   assert.equal(state.account.email, 'player@example.com');
   assert.deepEqual(state.emailVerification, { required: true, verified: false, delivery: null });
+});
+
+
+test('registered profile loads authoritative profile, account and sessions', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.loadAccountData();
+  assert.equal(state.profile.profile.displayName, 'Player One');
+  assert.equal(state.profile.statistics.matchesPlayed, 3);
+  assert.equal(state.account.email, 'player@example.com');
+  assert.equal(state.sessions[0].isCurrent, true);
+  assert.deepEqual(services.calls.slice(-3), ['getMyProfile', 'getMyAccount', 'listSessions']);
+});
+
+test('guest profile loads without requesting registered account or sessions', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.loadAccountData();
+  assert.equal(state.profile.principalType, 'GUEST');
+  assert.equal(services.calls.includes('getMyAccount'), false);
+  assert.equal(services.calls.includes('listSessions'), false);
+});
+
+test('profile updates use the server response as canonical data', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const state = await lifecycle.updateProfile({ displayName: 'Player Two' });
+  assert.equal(state.profile.profile.displayName, 'Player Two');
+});
+
+test('revoking another session refreshes the server session inventory', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  await lifecycle.loadAccountData();
+  const result = await lifecycle.revokeSession('session-old');
+  assert.equal(result.revoked, true);
+  assert.ok(services.calls.some((call) => Array.isArray(call) && call[0] === 'revokeSession'));
+  assert.equal(services.calls.at(-3), 'getMyProfile');
+});
+
+test('logout-all revokes server sessions and clears the local authenticated identity', async () => {
+  const services = makeServices({ restored: userResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const result = await lifecycle.logoutAll();
+  assert.equal(result.revokedSessions, 2);
+  assert.equal(lifecycle.getState().status, 'signed-out');
+  assert.ok(services.calls.includes('clearLocalSession'));
 });

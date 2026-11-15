@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, LogIn, LogOut, ShieldCheck, UserRound } from 'lucide-react';
 
 export function AccountSessionPanel({ lifecycle, sessionState, language }) {
@@ -12,10 +12,15 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [resending, setResending] = useState(false);
+  const [sessionBusy, setSessionBusy] = useState('');
 
   const guest = sessionState.status === 'guest';
   const authenticated = sessionState.status === 'authenticated';
   const signedOut = sessionState.status === 'signed-out';
+
+  useEffect(() => {
+    if (guest || authenticated) void lifecycle.loadAccountData();
+  }, [lifecycle, guest, authenticated]);
 
   function clearFeedback() {
     setError('');
@@ -75,6 +80,38 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
     }
   }
 
+  async function revokeSession(sessionId) {
+    clearFeedback();
+    setSessionBusy(sessionId);
+    try {
+      await lifecycle.revokeSession(sessionId);
+      setNotice(isFa ? 'نشست انتخاب‌شده باطل شد.' : 'The selected session was revoked.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (isFa ? 'ابطال نشست ناموفق بود.' : 'Could not revoke the session.'));
+    } finally {
+      setSessionBusy('');
+    }
+  }
+
+  async function logoutAll() {
+    clearFeedback();
+    if (!globalThis.confirm(isFa
+      ? 'همه نشست‌ها، از جمله این دستگاه، خارج شوند؟'
+      : 'Sign out all sessions, including this device?')) return;
+    setSessionBusy('all');
+    try {
+      const result = await lifecycle.logoutAll();
+      setMode('login');
+      setNotice(isFa
+        ? `همه نشست‌ها باطل شدند (${result.revokedSessions}).`
+        : `All sessions were revoked (${result.revokedSessions}).`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (isFa ? 'خروج از همه دستگاه‌ها ناموفق بود.' : 'Could not sign out all devices.'));
+    } finally {
+      setSessionBusy('');
+    }
+  }
+
   async function logout() {
     clearFeedback();
     setBusy(true);
@@ -107,6 +144,30 @@ export function AccountSessionPanel({ lifecycle, sessionState, language }) {
     {authenticated && <div className="account-signed-in">
       <p className="panel-note"><Check size={14} /> {isFa ? 'حساب دائمی متصل است.' : 'Permanent account connected.'}</p>
       {sessionState.account?.email && <p className="account-email">{sessionState.account.email}</p>}
+      {sessionState.authentication && <p className="panel-note account-auth-methods">
+        {isFa ? 'روش‌های ورود:' : 'Sign-in methods:'} {[
+          ...(sessionState.authentication.passwordEnabled ? [isFa ? 'رمز عبور' : 'Password'] : []),
+          ...(sessionState.authentication.providers ?? []),
+        ].join(' · ') || (isFa ? 'نامشخص' : 'Not available')}
+      </p>}
+      <div className="account-session-list">
+        <strong>{isFa ? 'نشست‌های فعال و اخیر' : 'Active and recent sessions'}</strong>
+        {sessionState.sessions?.length
+          ? sessionState.sessions.map((item) => <div className="account-session-row" key={item.sessionId}>
+              <span>
+                <b>{item.isCurrent ? (isFa ? 'این دستگاه' : 'This device') : (isFa ? 'دستگاه دیگر' : 'Another device')}</b>
+                <small>{new Date(item.createdAt).toLocaleString(isFa ? 'fa-IR' : 'en-US')} · {item.status}</small>
+              </span>
+              {item.status === 'ACTIVE' && !item.isCurrent && <button type="button" className="text-action" disabled={Boolean(sessionBusy)} onClick={() => revokeSession(item.sessionId)}>
+                {sessionBusy === item.sessionId ? (isFa ? 'در حال ابطال…' : 'Revoking…') : (isFa ? 'ابطال نشست' : 'Revoke session')}
+              </button>}
+            </div>)
+          : <p className="panel-note">{sessionState.accountDataError || (isFa ? 'نشستی برای نمایش وجود ندارد.' : 'No sessions to display.')}</p>}
+        {sessionState.accountDataError && <p className="account-feedback account-feedback--error" role="status">{sessionState.accountDataError}</p>}
+        <button type="button" className="secondary-action" disabled={Boolean(sessionBusy)} onClick={logoutAll}>
+          {sessionBusy === 'all' ? (isFa ? 'در حال خروج…' : 'Signing out…') : (isFa ? 'خروج از همه دستگاه‌ها' : 'Sign out all devices')}
+        </button>
+      </div>
       {sessionState.emailVerification?.required && !sessionState.emailVerification?.verified && <div className="account-verification">
         <p className="panel-note">{isFa ? 'برای تکمیل امنیت حساب، ایمیل خود را تأیید کنید.' : 'Verify your email to complete account security.'}</p>
         <button type="button" className="secondary-action" disabled={busy || resending} onClick={resendVerification}>

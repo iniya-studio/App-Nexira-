@@ -8,6 +8,10 @@ const INITIAL_STATE = Object.freeze({
   error: null,
   emailVerification: null,
   account: null,
+  profile: null,
+  authentication: null,
+  sessions: [],
+  accountDataError: null,
 });
 
 export function createSessionLifecycle({
@@ -29,7 +33,13 @@ export function createSessionLifecycle({
     const status = error?.code === 'NETWORK_ERROR' || error?.code === 'REQUEST_ABORTED'
       ? 'offline'
       : 'error';
-    publish({ status, principal: null, session: null, error: error instanceof Error ? error.message : 'Session initialization failed.' });
+    publish({
+      ...state,
+      status,
+      principal: null,
+      session: null,
+      error: error instanceof Error ? error.message : 'Session initialization failed.',
+    });
     return state;
   }
 
@@ -49,19 +59,60 @@ export function createSessionLifecycle({
       const session = activeServices.coordinator.getCurrentSession() ?? response?.session ?? null;
       if (!principal || !session) throw new Error('Backend did not provide a valid NEXIRA account session.');
       return publish({
+        ...state,
         status: principal.principalType === 'GUEST' ? 'guest' : 'authenticated',
         principal,
         session,
-        account: response?.user ?? state.account ?? null,
+        account: response?.user ?? null,
         emailVerification: response?.emailVerification ?? (response?.user
           ? { required: true, verified: Boolean(response.user.emailVerifiedAt), delivery: null }
-          : state.emailVerification),
+          : null),
+        profile: null,
+        authentication: null,
+        sessions: [],
+        accountDataError: null,
         error: null,
       });
     } catch (error) {
       // A failed login or guest conversion must not discard a still-valid guest session.
       publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
       throw error;
+    }
+  }
+
+  async function loadAccountData() {
+    const activeServices = ensureServices();
+    if (!['guest', 'authenticated'].includes(state.status)) return state;
+    try {
+      const profile = await activeServices.coordinator.getMyProfile();
+      let account = null;
+      let authentication = null;
+      let sessions = [];
+      let emailVerification = state.emailVerification;
+      if (state.principal?.principalType === 'USER') {
+        const [accountResult, sessionsResult] = await Promise.all([
+          activeServices.coordinator.getMyAccount(),
+          activeServices.coordinator.listSessions(),
+        ]);
+        account = accountResult?.user ?? null;
+        authentication = accountResult?.authentication ?? null;
+        sessions = Array.isArray(sessionsResult?.sessions) ? sessionsResult.sessions : [];
+        emailVerification = accountResult?.emailVerification ?? emailVerification;
+      }
+      return publish({
+        ...state,
+        profile,
+        account,
+        authentication,
+        sessions,
+        emailVerification,
+        accountDataError: null,
+      });
+    } catch (error) {
+      return publish({
+        ...state,
+        accountDataError: error instanceof Error ? error.message : 'Unable to load account data.',
+      });
     }
   }
 
@@ -81,24 +132,20 @@ export function createSessionLifecycle({
 
     initialize() {
       if (initialization) return initialization;
-
       initialization = (async () => {
         try {
           if (platform() !== 'android') {
-            return publish({ status: 'unsupported', principal: null, session: null, error: null });
+            return publish({ ...INITIAL_STATE, status: 'unsupported' });
           }
-
-          publish({ status: 'initializing', principal: null, session: null, error: null });
+          publish({ ...INITIAL_STATE, status: 'initializing' });
           services = createServices();
           let response = await services.coordinator.restore();
           if (!response) response = await services.coordinator.startGuest();
-
           const principal = services.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
           const session = services.coordinator.getCurrentSession() ?? response?.session ?? null;
-          if (!principal || !session) {
-            throw new Error('Backend did not provide a restorable NEXIRA identity.');
-          }
+          if (!principal || !session) throw new Error('Backend did not provide a restorable NEXIRA identity.');
           return publish({
+            ...INITIAL_STATE,
             status: principal.principalType === 'GUEST' ? 'guest' : 'authenticated',
             principal,
             session,
@@ -106,13 +153,11 @@ export function createSessionLifecycle({
             emailVerification: response?.emailVerification ?? (response?.user
               ? { required: true, verified: Boolean(response.user.emailVerifiedAt), delivery: null }
               : null),
-            error: null,
           });
         } catch (error) {
           return classifyFailure(error);
         }
       })();
-
       return initialization;
     },
 
@@ -123,13 +168,8 @@ export function createSessionLifecycle({
       return this.initialize();
     },
 
-    login(credentials) {
-      return performAccountAction('login', credentials);
-    },
-
-    register(credentials) {
-      return performAccountAction('register', credentials);
-    },
+    login(credentials) { return performAccountAction('login', credentials); },
+    register(credentials) { return performAccountAction('register', credentials); },
 
     convertGuest(credentials) {
       if (state.principal?.principalType !== 'GUEST') {
@@ -138,8 +178,40 @@ export function createSessionLifecycle({
       return performAccountAction('convertGuest', credentials);
     },
 
-    signInWithGoogle(idToken) {
-      return performAccountAction('signInWithGoogle', idToken);
+    signInWithGoogle(idToken) { return performAccountAction('signInWithGoogle', idToken); },
+
+    async loadAccountData() { return loadAccountData(); },
+
+    async updateProfile(changes) {
+      const activeServices = ensureServices();
+      try {
+        const profile = await activeServices.coordinator.updateMyProfile(changes);
+        return publish({ ...state, profile, accountDataError: null });
+      } catch (error) {
+        publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Unable to update profile.' });
+        throw error;
+      }
+    },
+
+    async revokeSession(sessionId) {
+      if (sessionId === state.session?.sessionId) {
+        throw new Error('Use the current-session sign-out action to revoke this device.');
+      }
+      const activeServices = ensureServices();
+      const result = await activeServices.coordinator.revokeSession(sessionId);
+      await loadAccountData();
+      return result;
+    },
+
+    async logoutAll() {
+      const activeServices = ensureServices();
+      const result = await activeServices.coordinator.logoutAll();
+      await activeServices.coordinator.clearLocalSession();
+      publish({
+        ...INITIAL_STATE,
+        status: 'signed-out',
+      });
+      return result;
     },
 
     async resendVerification() {
@@ -152,7 +224,7 @@ export function createSessionLifecycle({
       if (!services) throw new Error('NEXIRA session services are not initialized.');
       try {
         await services.coordinator.logout();
-        return publish({ status: 'signed-out', principal: null, session: null, emailVerification: null, account: null, error: null });
+        return publish({ ...INITIAL_STATE, status: 'signed-out' });
       } catch (error) {
         classifyFailure(error);
         throw error;
@@ -161,6 +233,4 @@ export function createSessionLifecycle({
   });
 }
 
-// A module-level lifecycle keeps React StrictMode effect replays from creating
-// duplicate guest sessions during one application process.
 export const appSessionLifecycle = createSessionLifecycle();

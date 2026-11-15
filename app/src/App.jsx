@@ -268,6 +268,13 @@ export default function App() {
     setStorageFailed(!saveProfile(next));
   }, []);
 
+  useEffect(() => {
+    const canonicalName = sessionState.profile?.profile?.displayName;
+    if (canonicalName && canonicalName !== profileRef.current.playerName) {
+      updateProfile((saved) => ({ ...saved, playerName: canonicalName }));
+    }
+  }, [sessionState.profile, updateProfile]);
+
   const refreshServerProgression = useCallback(async () => {
     const currentState = appSessionLifecycle.getState();
     if (!['guest', 'authenticated'].includes(currentState.status)) return null;
@@ -1361,7 +1368,12 @@ export default function App() {
         <div className="profile-view" hidden={profileView !== 'progress'}>
         <span className="profile-rank-chip"><Medal size={14} /> {text.arenaLevel} {String(displayLevel).padStart(2, '0')}</span>
         <label className="field-label" htmlFor="player-name">{text.displayName}</label>
-        <input id="player-name" className="text-input" maxLength={20} value={playerName} onChange={(event) => updateProfile((saved) => ({ ...saved, playerName: event.target.value }))} />
+        <input id="player-name" className="text-input" maxLength={40} value={playerName} onChange={(event) => updateProfile((saved) => ({ ...saved, playerName: event.target.value }))} onBlur={(event) => {
+          const displayName = event.target.value.trim();
+          if (displayName && displayName !== sessionState.profile?.profile?.displayName) {
+            void appSessionLifecycle.updateProfile({ displayName }).catch(() => {});
+          }
+        }} />
         <div className="profile-progress">
           <div><span>{text.progress}</span><strong>{displayXp}<i> / {threshold} XP</i></strong></div>
           <span className="rank-track"><span style={{ width: `${displayProgressPercent}%` }} /></span>
@@ -1372,6 +1384,13 @@ export default function App() {
           <div><strong>{profile.bestScore}</strong><span>{text.best}</span></div>
           <div><strong>{accuracy}%</strong><span>{text.accuracy}</span></div>
         </div>
+        {sessionState.profile?.statistics && <div className="profile-server-record" aria-live="polite">
+          <strong>{language === 'fa' ? 'کارنامه رسمی سرور' : 'Official server record'}</strong>
+          <span>{language === 'fa' ? 'مسابقات' : 'Matches'}: {sessionState.profile.statistics.matchesPlayed}</span>
+          <span>{language === 'fa' ? 'برد' : 'Wins'}: {sessionState.profile.statistics.wins}</span>
+          <span>{language === 'fa' ? 'باخت' : 'Losses'}: {sessionState.profile.statistics.losses}</span>
+          <span>{language === 'fa' ? 'مساوی' : 'Draws'}: {sessionState.profile.statistics.draws}</span>
+        </div>}
         </div>
         <div className="profile-view" hidden={profileView !== 'honors'}>
         <h2 className="subsection-title"><Medal size={15} /> {text.battleHonors}</h2>

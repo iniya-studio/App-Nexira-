@@ -91,6 +91,11 @@ export function createSessionCoordinator({
     async listSessions() { return sessionApi.listSessions(); },
     async logoutAll() { return sessionApi.logoutAll(); },
     async revokeSession(sessionId) { return sessionApi.revokeSession(sessionId); },
+    async clearLocalSession() {
+      await tokenStore.clear();
+      currentPrincipal = null;
+      currentSession = null;
+    },
     refresh: refreshSession,
 
     async restore() {
