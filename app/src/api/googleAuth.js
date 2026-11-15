@@ -21,7 +21,7 @@ export function createGoogleAuthAdapter({
   cryptoObject = globalThis.crypto,
 } = {}) {
   return Object.freeze({
-    async getIdToken() {
+    async getIdentity() {
       if (platform() !== 'android') {
         throw new Error('Native Google sign-in is currently available on Android only.');
       }
@@ -29,15 +29,17 @@ export function createGoogleAuthAdapter({
       if (!serverClientId || !serverClientId.endsWith('.apps.googleusercontent.com')) {
         throw new Error('Google sign-in is not configured yet. Please try another sign-in method.');
       }
+      const requestNonce = createNonce(cryptoObject);
       const result = await plugin.signIn({
         serverClientId,
-        nonce: createNonce(cryptoObject),
+        nonce: requestNonce,
       });
       if (typeof result?.idToken !== 'string' || result.idToken.length < 100) {
         throw new Error('Google did not return a valid identity token.');
       }
-      return result.idToken;
+      return { idToken: result.idToken, nonce: requestNonce };
     },
+    async getIdToken() { return (await this.getIdentity()).idToken; },
     async cancel() {
       if (typeof plugin.cancel === 'function') await plugin.cancel();
     },
