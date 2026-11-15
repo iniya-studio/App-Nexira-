@@ -1,4 +1,4 @@
-import { IsEmail, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 
 export class GuestConversionDto {
   @IsEmail()
@@ -13,7 +13,9 @@ export class GuestConversionDto {
   @Matches(/^[a-zA-Z0-9_]{3,20}$/)
   username!: string;
 
+  @IsOptional()
   @IsString()
-  @Length(1, 40)
-  displayName!: string;
+  @Length(1, 80)
+  @Matches(/^[\p{L}\p{M}\p{N} ._'’-]+$/u)
+  displayName?: string;
 }

@@ -242,6 +242,7 @@ model ExternalIdentity {
 model GuestIdentity {
   id                String              @id @default(uuid()) @db.Uuid
   status            GuestIdentityStatus @default(ACTIVE)
+  displayName       String?             @db.VarChar(160)
   convertedToUserId String?             @db.Uuid
   convertedAt       DateTime?           @db.Timestamptz(3)
   createdAt         DateTime            @default(now()) @db.Timestamptz(3)

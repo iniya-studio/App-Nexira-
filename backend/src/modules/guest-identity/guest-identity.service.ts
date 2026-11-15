@@ -50,7 +50,7 @@ export class GuestIdentityService {
 
     const email = input.email.trim().toLowerCase();
     const username = input.username.trim().toLowerCase();
-    const displayName = input.displayName.trim();
+    const requestedDisplayName = input.displayName?.normalize('NFC').trim();
     const passwordHash = await argon2.hash(input.password, {
       type: argon2.argon2id,
       memoryCost: this.positiveInteger('ARGON2_MEMORY_COST_KIB', 19456),
@@ -116,7 +116,7 @@ export class GuestIdentityService {
         );
         const guest = await tx.guestIdentity.findUnique({
           where: { id: principal.principalId },
-          select: { id: true, status: true, convertedToUserId: true },
+          select: { id: true, status: true, convertedToUserId: true, displayName: true },
         });
         if (!guest || guest.status !== GuestIdentityStatus.ACTIVE || guest.convertedToUserId) {
           throw new UnauthorizedException('Guest identity is no longer active');
@@ -126,7 +126,7 @@ export class GuestIdentityService {
           data: {
             email,
             username,
-            displayName,
+            displayName: requestedDisplayName || guest.displayName || `Player-${guest.id.slice(0, 6)}`,
             status: UserStatus.ACTIVE,
             credential: { create: { passwordHash } },
           },
