@@ -178,6 +178,7 @@ export function createSessionLifecycle({
       return performAccountAction('convertGuest', credentials);
     },
 
+    async createGoogleChallenge() { return ensureServices().coordinator.createGoogleChallenge(); },
     signInWithGoogle(idToken) { return performAccountAction('signInWithGoogle', idToken); },
 
     async requestPasswordReset(email) {
