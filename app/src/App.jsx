@@ -209,7 +209,12 @@ export default function App() {
       if (typeof rawUrl !== 'string' || disposed) return;
       let parsed;
       try { parsed = new URL(rawUrl); } catch { return; }
-      if (parsed.protocol !== 'nexira:' || parsed.hostname !== 'auth') return;
+      const appLinkHost = String(import.meta.env.VITE_APP_LINK_HOST ?? '').trim().toLowerCase();
+      const isCustomScheme = parsed.protocol === 'nexira:' && parsed.hostname === 'auth';
+      const isVerifiedAppLink = parsed.protocol === 'https:'
+        && Boolean(appLinkHost)
+        && parsed.hostname.toLowerCase() === appLinkHost;
+      if (!isCustomScheme && !isVerifiedAppLink) return;
       const token = parsed.searchParams.get('token');
       if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token) || processedTokens.has(token)) return;
       if (parsed.pathname === '/reset-password') {
