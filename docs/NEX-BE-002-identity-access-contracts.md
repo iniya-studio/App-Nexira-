@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Document:** NEX-BE-002  
-**Version:** 1.1  
+**Version:** 1.2  
 **Status:** Owner-approved technical contract  
 **Target branch:** `main`  
 **Scope:** Guest Identity, Authentication, Session Management, and Guest-to-User conversion
@@ -217,9 +217,10 @@ Apply rate limits and abuse controls by account identifier, IP / network signals
 
 ### 5.5 Google Sign-In
 
-1. Android client obtains a Google ID token through Credential Manager using a fresh cryptographically random nonce.
-2. Client sends both the ID token and the exact request nonce to the backend over TLS.
-3. Auth validates the token signature using Google's trusted key set, issuer, configured audience/client ID, expiry, verified-email claim, and exact nonce-claim match. A missing or mismatched nonce is rejected.
+1. Client requests a short-lived one-time nonce from `POST /auth/google/challenge`.
+2. Android obtains a Google ID token through Credential Manager using that server-issued nonce.
+3. Client sends both the ID token and exact nonce to the backend over TLS.
+4. Auth validates the token signature, issuer, configured audience/client ID, expiry, verified-email claim, and exact nonce-claim match; it then atomically consumes the stored challenge. Unknown, expired, mismatched, or previously consumed challenges are rejected.
 4. Auth identifies the external account by the stable provider subject (`sub`), not by email alone.
 5. If the provider subject is already linked, resolve its NEXIRA User.
 6. If it is not linked, follow explicit account-creation / linking policy.
@@ -492,7 +493,7 @@ The Identity & Access implementation is not complete until:
 - Guest refresh rotation is atomic and replay is detected.
 - A registered user can register and log in with email/password.
 - Google ID tokens are verified by the backend, not trusted from client claims.
-- Google ID tokens used by Android sign-in and explicit account linking carry a request nonce that the backend must validate.
+- Google ID tokens used by Android sign-in and explicit account linking carry a short-lived server-issued one-time nonce; the backend validates and atomically consumes its hash to reject replay.
 - External identities cannot be attached to an existing account based only on matching email.
 - Guest conversion preserves all historical match records and links history through `convertedToUserId`.
 - Conversion cannot be repeated to attach one guest to a different user.
@@ -517,6 +518,6 @@ No deferred value may be guessed by implementation. If a deferred decision becom
 
 ## 14. Implementation alignment update — 2026-11-15
 
-The V1 Android client uses the native Android Credential Manager integration. The `VITE_GOOGLE_WEB_CLIENT_ID` build value and backend `GOOGLE_CLIENT_ID` must refer to the same Google Web OAuth client ID. The Android OAuth client must separately be configured in the same Google Cloud project for the app package name and signing certificate. No OAuth client secret belongs in the Android app or repository.
+The V1 Android client uses the native Android Credential Manager integration and first obtains a one-time nonce from the backend. The `VITE_GOOGLE_WEB_CLIENT_ID` build value and backend `GOOGLE_CLIENT_ID` must refer to the same Google Web OAuth client ID. The Android OAuth client must separately be configured in the same Google Cloud project for the app package name and signing certificate. No OAuth client secret belongs in the Android app or repository.
 
-**End of NEX-BE-002 v1.1**
+**End of NEX-BE-002 v1.2**
