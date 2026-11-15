@@ -310,6 +310,7 @@ model PasswordResetToken {
   consumedAt DateTime? @db.Timestamptz(3)
   createdAt  DateTime  @default(now()) @db.Timestamptz(3)
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, expiresAt])
   @@index([expiresAt, consumedAt])
 }
