@@ -31,6 +31,11 @@ export class AuthController {
     return this.auth.login(body, ip);
   }
 
+  @Post('google/challenge')
+  googleChallenge(@Ip() ip: string) {
+    return this.auth.createGoogleChallenge(ip);
+  }
+
   @Post('google')
   google(@Body() body: GoogleAuthDto, @Ip() ip: string) {
     return this.auth.googleSignIn(body.idToken, ip, body.nonce);
