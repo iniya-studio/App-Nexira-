@@ -248,6 +248,11 @@ test('independent registration creates a registered session', async () => {
 
 test('email verification accepts a valid one-time token and updates lifecycle state', async () => {
   const services = makeServices({ restored: userResponse });
+  services.coordinator.getMyAccount = async () => ({
+    user: { id: 'user-1', email: 'player@example.com' },
+    authentication: { passwordEnabled: true, providers: [] },
+    emailVerification: { required: false, verified: true },
+  });
   const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
   await lifecycle.initialize();
   const result = await lifecycle.verifyEmail('a'.repeat(43));
