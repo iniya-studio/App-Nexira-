@@ -8,6 +8,7 @@ export function createSessionApi(http) {
     convertGuest: (credentials) => http.post('/guest/convert', credentials),
     register: (credentials) => http.post('/auth/register', credentials, { authenticated: false }),
     login: (credentials) => http.post('/auth/login', credentials, { authenticated: false }),
+    createGoogleChallenge: () => http.post('/auth/google/challenge', undefined, { authenticated: false }),
     signInWithGoogle: (identity) => http.post('/auth/google', identity, { authenticated: false }),
     requestPasswordReset: (email) => http.post('/auth/password/forgot', { email }, { authenticated: false }),
     resetPassword: (token, newPassword) => http.post('/auth/password/reset', { token, newPassword }, { authenticated: false }),
