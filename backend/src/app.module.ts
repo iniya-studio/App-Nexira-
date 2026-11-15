@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
+import { AccountModule } from './modules/account/account.module';
 import { CompanionModule } from './modules/companion/companion.module';
 import { HealthModule } from './modules/health/health.module';
 import { GuestIdentityModule } from './modules/guest-identity/guest-identity.module';
@@ -23,6 +24,7 @@ import { PrismaModule } from './prisma/prisma.module';
     SessionModule,
     GuestIdentityModule,
     AuthModule,
+    AccountModule,
     CompanionModule,
     MatchModule,
     MatchmakingModule,
