@@ -315,6 +315,16 @@ model PasswordResetToken {
   @@index([expiresAt, consumedAt])
 }
 
+model GoogleAuthChallenge {
+  id         String    @id @default(uuid()) @db.Uuid
+  nonceHash  String    @unique @db.VarChar(64)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([expiresAt, consumedAt])
+}
+
 model IdentityAuditEvent {
   id            String              @id @default(uuid()) @db.Uuid
   eventType     String              @db.VarChar(64)
