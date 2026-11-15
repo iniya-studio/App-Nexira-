@@ -33,7 +33,7 @@ export class AuthController {
 
   @Post('google')
   google(@Body() body: GoogleAuthDto, @Ip() ip: string) {
-    return this.auth.googleSignIn(body.idToken, ip);
+    return this.auth.googleSignIn(body.idToken, ip, body.nonce);
   }
 
   @Post('password/forgot')
