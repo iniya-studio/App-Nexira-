@@ -5,6 +5,9 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { EmailVerificationDto } from './dto/email-verification.dto';
 import { EmailVerificationService } from './email-verification.service';
+import { PasswordLifecycleService } from './password-lifecycle.service';
+import { PasswordForgotDto } from './dto/password-forgot.dto';
+import { PasswordResetDto } from './dto/password-reset.dto';
 import { AccessTokenGuard } from '../identity/access-token.guard';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 
@@ -15,6 +18,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly passwords: PasswordLifecycleService,
   ) {}
 
   @Post('register')
@@ -31,6 +35,12 @@ export class AuthController {
   google(@Body() body: GoogleAuthDto, @Ip() ip: string) {
     return this.auth.googleSignIn(body.idToken, ip);
   }
+
+  @Post('password/forgot')
+  forgotPassword(@Body() body: PasswordForgotDto, @Ip() ip: string) { return this.passwords.requestReset(body.email, ip); }
+
+  @Post('password/reset')
+  resetPassword(@Body() body: PasswordResetDto) { return this.passwords.resetPassword(body.token, body.newPassword); }
 
   @Post('email/verify')
   verifyEmail(@Body() body: EmailVerificationDto) {

@@ -6,11 +6,12 @@ import { EmailVerifiedGuard } from './email-verified.guard';
 import { GoogleIdentityVerifier } from './google-identity-verifier';
 import { EmailVerificationService } from './email-verification.service';
 import { EmailDeliveryService } from './email-delivery.service';
+import { PasswordLifecycleService } from './password-lifecycle.service';
 
 @Module({
   imports: [SessionModule],
   controllers: [AuthController],
-  providers: [AuthService, GoogleIdentityVerifier, EmailVerifiedGuard, EmailVerificationService, EmailDeliveryService],
-  exports: [AuthService, EmailVerifiedGuard, EmailVerificationService],
+  providers: [AuthService, GoogleIdentityVerifier, EmailVerifiedGuard, EmailVerificationService, EmailDeliveryService, PasswordLifecycleService],
+  exports: [AuthService, EmailVerifiedGuard, EmailVerificationService, PasswordLifecycleService],
 })
 export class AuthModule {}
