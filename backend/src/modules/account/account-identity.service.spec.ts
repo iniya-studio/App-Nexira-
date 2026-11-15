@@ -30,21 +30,21 @@ describe('AccountIdentityService', () => {
   it('requires a registered account', async () => {
     await expect(service.linkGoogle(
       { principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'guest-session' },
-      'google-id-token',
+      'google-id-token', 'n'.repeat(43),
     )).rejects.toBeInstanceOf(ForbiddenException);
     expect(google.verify).not.toHaveBeenCalled();
   });
 
   it('requires a verified matching account email', async () => {
     prisma.user.findFirst.mockResolvedValue({ ...verifiedUser, emailVerifiedAt: null });
-    await expect(service.linkGoogle(principal, 'google-id-token')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.linkGoogle(principal, 'google-id-token', 'n'.repeat(43))).rejects.toBeInstanceOf(ForbiddenException);
     prisma.user.findFirst.mockResolvedValue({ ...verifiedUser, email: 'different@example.test' });
-    await expect(service.linkGoogle(principal, 'google-id-token')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.linkGoogle(principal, 'google-id-token', 'n'.repeat(43))).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('links a verified Google identity only after explicit authenticated action', async () => {
-    await expect(service.linkGoogle(principal, 'google-id-token')).resolves.toEqual({
+    await expect(service.linkGoogle(principal, 'google-id-token', 'n'.repeat(43))).resolves.toEqual({
       linked: true, alreadyLinked: false, provider: 'GOOGLE',
     });
     expect(tx.externalIdentity.create).toHaveBeenCalledWith({
@@ -60,18 +60,18 @@ describe('AccountIdentityService', () => {
 
   it('is idempotent when the same Google identity is already linked to this user', async () => {
     prisma.externalIdentity.findUnique.mockResolvedValue({ id: 'identity-1', userId: 'user-1' });
-    await expect(service.linkGoogle(principal, 'google-id-token')).resolves.toMatchObject({ linked: true, alreadyLinked: true });
+    await expect(service.linkGoogle(principal, 'google-id-token', 'n'.repeat(43))).resolves.toMatchObject({ linked: true, alreadyLinked: true });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects a Google identity linked to another user', async () => {
     prisma.externalIdentity.findUnique.mockResolvedValue({ id: 'identity-1', userId: 'another-user' });
-    await expect(service.linkGoogle(principal, 'google-id-token')).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.linkGoogle(principal, 'google-id-token', 'n'.repeat(43))).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('does not link a second Google identity to one account', async () => {
     prisma.externalIdentity.findFirst.mockResolvedValue({ id: 'existing-google' });
-    await expect(service.linkGoogle(principal, 'google-id-token')).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.linkGoogle(principal, 'google-id-token', 'n'.repeat(43))).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
