@@ -17,5 +17,11 @@ export function createSessionApi(http) {
       { authenticated: false },
     ),
     logout: () => http.post('/sessions/logout'),
+    getMyProfile: () => http.get('/profile/me'),
+    updateMyProfile: (changes) => http.patch('/profile/me', changes),
+    getMyAccount: () => http.get('/account/me'),
+    listSessions: () => http.get('/sessions'),
+    logoutAll: () => http.post('/sessions/logout-all'),
+    revokeSession: (sessionId) => http.delete(`/sessions/${encodeURIComponent(sessionId)}`),
   };
 }

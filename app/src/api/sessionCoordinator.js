@@ -85,6 +85,12 @@ export function createSessionCoordinator({
     async convertGuest(credentials) { return acceptSession(await sessionApi.convertGuest(credentials)); },
     async signInWithGoogle(idToken) { return acceptSession(await sessionApi.signInWithGoogle(idToken)); },
     async resendVerification() { return sessionApi.resendVerification(); },
+    async getMyProfile() { return sessionApi.getMyProfile(); },
+    async updateMyProfile(changes) { return sessionApi.updateMyProfile(changes); },
+    async getMyAccount() { return sessionApi.getMyAccount(); },
+    async listSessions() { return sessionApi.listSessions(); },
+    async logoutAll() { return sessionApi.logoutAll(); },
+    async revokeSession(sessionId) { return sessionApi.revokeSession(sessionId); },
     refresh: refreshSession,
 
     async restore() {
