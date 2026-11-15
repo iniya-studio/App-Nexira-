@@ -16,7 +16,7 @@ export class AccountController {
 
   @Post('identities/google/link')
   linkGoogleIdentity(@Req() request: PrincipalRequest, @Body() body: GoogleIdentityLinkDto) {
-    return this.identities.linkGoogle(request.principal, body.idToken);
+    return this.identities.linkGoogle(request.principal, body.idToken, body.nonce);
   }
 
   @Post('password/change')
