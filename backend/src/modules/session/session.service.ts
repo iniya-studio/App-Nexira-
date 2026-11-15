@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, PrincipalType } from '@prisma/client';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -195,6 +195,99 @@ export class SessionService {
       });
     });
     return { success: true };
+  }
+
+  async listSessions(principal: AuthenticatedPrincipal) {
+    this.requireRegisteredUser(principal);
+    const now = new Date();
+    const recentSince = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const sessions = await this.prisma.userSession.findMany({
+      where: { userId: principal.principalId, createdAt: { gte: recentSince } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: { id: true, createdAt: true, expiresAt: true, revokedAt: true },
+    });
+    return {
+      sessions: sessions.map((session) => ({
+        sessionId: session.id,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        revokedAt: session.revokedAt,
+        isCurrent: session.id === principal.sessionId,
+        status: session.revokedAt ? 'REVOKED' : session.expiresAt <= now ? 'EXPIRED' : 'ACTIVE',
+      })),
+    };
+  }
+
+  async logoutAll(principal: AuthenticatedPrincipal): Promise<{ success: true; revokedSessions: number }> {
+    this.requireRegisteredUser(principal);
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const owned = await tx.userSession.findMany({
+        where: { userId: principal.principalId, revokedAt: null },
+        select: { id: true },
+      });
+      const sessionIds = owned.map((session) => session.id);
+      const revoked = await tx.userSession.updateMany({
+        where: { userId: principal.principalId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      if (sessionIds.length > 0) {
+        await tx.refreshToken.updateMany({
+          where: { sessionId: { in: sessionIds }, revokedAt: null },
+          data: { revokedAt: now, retryResponseCiphertext: null, retryResponseExpiresAt: null },
+        });
+      }
+      await tx.identityAuditEvent.create({
+        data: {
+          eventType: 'USER_SESSIONS_LOGOUT_ALL',
+          principalType: PrincipalType.USER,
+          principalId: principal.principalId,
+          sessionId: principal.sessionId,
+          result: 'SUCCESS',
+          metadata: { revokedSessions: revoked.count },
+        },
+      });
+      return { success: true as const, revokedSessions: revoked.count };
+    });
+  }
+
+  async revokeSession(principal: AuthenticatedPrincipal, sessionId: string): Promise<{ success: true; revoked: boolean }> {
+    this.requireRegisteredUser(principal);
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const owned = await tx.userSession.findFirst({
+        where: { id: sessionId, userId: principal.principalId },
+        select: { id: true },
+      });
+      if (!owned) throw new NotFoundException('Session not found');
+      const revoked = await tx.userSession.updateMany({
+        where: { id: sessionId, userId: principal.principalId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      await tx.refreshToken.updateMany({
+        where: { sessionId, revokedAt: null },
+        data: { revokedAt: now, retryResponseCiphertext: null, retryResponseExpiresAt: null },
+      });
+      if (revoked.count === 1) {
+        await tx.identityAuditEvent.create({
+          data: {
+            eventType: 'USER_SESSION_REVOKED',
+            principalType: PrincipalType.USER,
+            principalId: principal.principalId,
+            sessionId,
+            result: 'SUCCESS',
+          },
+        });
+      }
+      return { success: true as const, revoked: revoked.count === 1 };
+    });
+  }
+
+  private requireRegisteredUser(principal: AuthenticatedPrincipal): void {
+    if (principal.principalType !== PrincipalType.USER) {
+      throw new ForbiddenException('Registered account required');
+    }
   }
 
   private hash(value: string): string {
