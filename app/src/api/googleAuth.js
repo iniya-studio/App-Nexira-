@@ -1,27 +1,15 @@
-import { Capacitor } from '@capacitor/core';
-import { registerPlugin } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 const NativeGoogleAuth = registerPlugin('NexiraGoogleAuth');
 const environment = import.meta.env ?? {};
-
-function createNonce(cryptoObject = globalThis.crypto) {
-  if (!cryptoObject?.getRandomValues) {
-    throw new Error('Secure random generation is unavailable on this device.');
-  }
-  const bytes = cryptoObject.getRandomValues(new Uint8Array(32));
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
 
 export function createGoogleAuthAdapter({
   platform = () => Capacitor.getPlatform(),
   clientId = environment.VITE_GOOGLE_WEB_CLIENT_ID ?? '',
   plugin = NativeGoogleAuth,
-  cryptoObject = globalThis.crypto,
 } = {}) {
   return Object.freeze({
-    async getIdentity() {
+    async getIdentity(nonce) {
       if (platform() !== 'android') {
         throw new Error('Native Google sign-in is currently available on Android only.');
       }
@@ -29,17 +17,16 @@ export function createGoogleAuthAdapter({
       if (!serverClientId || !serverClientId.endsWith('.apps.googleusercontent.com')) {
         throw new Error('Google sign-in is not configured yet. Please try another sign-in method.');
       }
-      const requestNonce = createNonce(cryptoObject);
-      const result = await plugin.signIn({
-        serverClientId,
-        nonce: requestNonce,
-      });
+      if (typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(nonce)) {
+        throw new Error('A valid one-time Google sign-in challenge is required.');
+      }
+      const result = await plugin.signIn({ serverClientId, nonce });
       if (typeof result?.idToken !== 'string' || result.idToken.length < 100) {
         throw new Error('Google did not return a valid identity token.');
       }
-      return { idToken: result.idToken, nonce: requestNonce };
+      return { idToken: result.idToken, nonce };
     },
-    async getIdToken() { return (await this.getIdentity()).idToken; },
+    async getIdToken(nonce) { return (await this.getIdentity(nonce)).idToken; },
     async cancel() {
       if (typeof plugin.cancel === 'function') await plugin.cancel();
     },
