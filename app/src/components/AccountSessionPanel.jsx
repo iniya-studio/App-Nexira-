@@ -123,8 +123,8 @@ export function AccountSessionPanel({
     clearFeedback();
     setGoogleBusy(true);
     try {
-      const idToken = await googleAuth.getIdToken();
-      await lifecycle.signInWithGoogle(idToken);
+      const identity = await googleAuth.getIdentity();
+      await lifecycle.signInWithGoogle(identity);
       setNotice(isFa ? 'ورود با حساب Google موفق بود.' : 'You are signed in with Google.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : (isFa ? 'ورود با Google انجام نشد.' : 'Google sign-in failed.'));
@@ -137,8 +137,8 @@ export function AccountSessionPanel({
     clearFeedback();
     setGoogleBusy(true);
     try {
-      const idToken = await googleAuth.getIdToken();
-      const result = await lifecycle.linkGoogleIdentity(idToken);
+      const identity = await googleAuth.getIdentity();
+      const result = await lifecycle.linkGoogleIdentity(identity);
       setNotice(result.alreadyLinked
         ? (isFa ? 'این حساب Google از قبل متصل است.' : 'This Google account is already linked.')
         : (isFa ? 'حساب Google با موفقیت متصل شد.' : 'Google account linked successfully.'));
