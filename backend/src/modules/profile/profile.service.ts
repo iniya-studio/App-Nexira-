@@ -93,7 +93,13 @@ export class ProfileService {
     if (codePoints.length < 1 || codePoints.length > 40) {
       throw new BadRequestException('Display name must contain 1 to 40 Unicode code points');
     }
-    if (/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u.test(normalized)) {
+    const hasUnsupportedCharacters = codePoints.some((character) => {
+      const point = character.codePointAt(0) ?? 0;
+      return point <= 0x1f || (point >= 0x7f && point <= 0x9f)
+        || (point >= 0x200b && point <= 0x200f) || (point >= 0x202a && point <= 0x202e)
+        || point === 0x2060 || (point >= 0x2066 && point <= 0x2069) || point === 0xfeff;
+    });
+    if (hasUnsupportedCharacters) {
       throw new BadRequestException('Display name contains unsupported invisible or control characters');
     }
     return normalized;
