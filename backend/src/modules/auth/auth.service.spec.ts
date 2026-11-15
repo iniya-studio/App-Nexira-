@@ -41,7 +41,7 @@ describe('AuthService', () => {
     identityAuditEvent: { create: jest.Mock };
   };
   let sessions: { createSessionInTransaction: jest.Mock };
-  let google: { verify: jest.Mock };
+  let google: { verify: jest.Mock; createChallenge: jest.Mock };
   let emailVerification: { issueAndSend: jest.Mock };
 
   beforeEach(() => {
@@ -56,7 +56,7 @@ describe('AuthService', () => {
       identityAuditEvent: { create: jest.fn().mockResolvedValue({}) },
     };
     sessions = { createSessionInTransaction: jest.fn().mockResolvedValue(sessionResponse) };
-    google = { verify: jest.fn() };
+    google = { verify: jest.fn(), createChallenge: jest.fn().mockResolvedValue({ nonce: 'n'.repeat(43), expiresAt: '2030-01-01T00:05:00.000Z' }) };
     emailVerification = { issueAndSend: jest.fn().mockResolvedValue('NOT_CONFIGURED') };
     const config = {
       get: jest.fn((key: string) => ({
@@ -202,3 +202,11 @@ describe('AuthService', () => {
     expect(sessions.createSessionInTransaction).toHaveBeenCalled();
   });
 });
+
+  it('issues a one-time Google challenge with IP-based rate limiting', async () => {
+    await expect(service.createGoogleChallenge('127.0.0.1')).resolves.toEqual({
+      nonce: 'n'.repeat(43),
+      expiresAt: '2030-01-01T00:05:00.000Z',
+    });
+    expect(google.createChallenge).toHaveBeenCalledTimes(1);
+  });
