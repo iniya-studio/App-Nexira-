@@ -215,7 +215,7 @@ describe('AuthService', () => {
       await service.createGoogleChallenge('198.51.100.10');
     }
     await expect(service.createGoogleChallenge('198.51.100.10'))
-      .rejects.toMatchObject({ status: 429 });
+      .rejects.toThrow('Too many authentication attempts');
     expect(google.createChallenge).toHaveBeenCalledTimes(20);
   });
 });
