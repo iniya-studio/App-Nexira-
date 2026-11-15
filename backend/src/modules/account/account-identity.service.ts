@@ -8,11 +8,11 @@ import { GoogleIdentityVerifier } from '../auth/google-identity-verifier';
 export class AccountIdentityService {
   constructor(private readonly prisma: PrismaService, private readonly google: GoogleIdentityVerifier) {}
 
-  async linkGoogle(principal: AuthenticatedPrincipal, idToken: string) {
+  async linkGoogle(principal: AuthenticatedPrincipal, idToken: string, nonce: string) {
     if (principal.principalType !== PrincipalType.USER) {
       throw new ForbiddenException('Registered account required');
     }
-    const claims = await this.google.verify(idToken);
+    const claims = await this.google.verify(idToken, nonce);
     const providerEmail = claims.email!.trim().toLowerCase();
     const user = await this.prisma.user.findFirst({
       where: { id: principal.principalId, status: UserStatus.ACTIVE },
