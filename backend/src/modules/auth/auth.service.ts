@@ -274,14 +274,18 @@ export class AuthService {
   private enforceLimit(kind: 'login' | 'google' | 'google-challenge' | 'register', key: string): void {
     const isRegister = kind === 'register';
     const isGoogleChallenge = kind === 'google-challenge';
-    const max = this.positiveInteger(
-      isRegister ? 'AUTH_REGISTER_MAX_ATTEMPTS' : isGoogleChallenge ? 'AUTH_GOOGLE_CHALLENGE_MAX_ATTEMPTS' : 'AUTH_LOGIN_MAX_ATTEMPTS',
-      isRegister ? 5 : isGoogleChallenge ? 20 : 10,
-    );
-    const windowSeconds = this.positiveInteger(
-      isRegister ? 'AUTH_REGISTER_WINDOW_SECONDS' : isGoogleChallenge ? 'AUTH_GOOGLE_CHALLENGE_WINDOW_SECONDS' : 'AUTH_LOGIN_WINDOW_SECONDS',
-      isRegister ? 3600 : 900,
-    );
+    const maxKey = isRegister
+      ? 'AUTH_REGISTER_MAX_ATTEMPTS'
+      : isGoogleChallenge
+        ? 'AUTH_GOOGLE_CHALLENGE_MAX_ATTEMPTS'
+        : 'AUTH_LOGIN_MAX_ATTEMPTS';
+    const windowKey = isRegister
+      ? 'AUTH_REGISTER_WINDOW_SECONDS'
+      : isGoogleChallenge
+        ? 'AUTH_GOOGLE_CHALLENGE_WINDOW_SECONDS'
+        : 'AUTH_LOGIN_WINDOW_SECONDS';
+    const max = this.positiveInteger(maxKey, isRegister ? 5 : isGoogleChallenge ? 20 : 10);
+    const windowSeconds = this.positiveInteger(windowKey, isRegister ? 3600 : 900);
     const mapKey = `${kind}:${key}`;
     const now = Date.now();
     const current = this.attempts.get(mapKey);
