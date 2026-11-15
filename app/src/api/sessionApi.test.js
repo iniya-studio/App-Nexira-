@@ -41,10 +41,12 @@ test('auth API exposes independent registration, Google sign-in and email verifi
   const api = createSessionApi(http);
   const credentials = { email: 'player@example.com', username: 'player_01', displayName: 'Player', password: 'a-long-secure-password' };
   await api.register(credentials);
+  await api.createGoogleChallenge();
   await api.signInWithGoogle({ idToken: 'google-id-token', nonce: 'n'.repeat(43) });
   await api.verifyEmail('v'.repeat(43));
   assert.deepEqual(calls, [
     ['/auth/register', credentials, { authenticated: false }],
+    ['/auth/google/challenge', undefined, { authenticated: false }],
     ['/auth/google', { idToken: 'google-id-token', nonce: 'n'.repeat(43) }, { authenticated: false }],
     ['/auth/email/verify', { token: 'v'.repeat(43) }, { authenticated: false }],
   ]);
