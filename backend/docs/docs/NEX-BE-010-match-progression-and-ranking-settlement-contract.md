@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Version:** 1.0  
-**Status:** V1 policy locked; implementation on `main` in progress, CI and PostgreSQL acceptance pending  
+**Status:** V1 policy and implementation on `main`; Backend CI and PostgreSQL 16 integration gates passed; physical two-device acceptance pending  
 **Target branch:** `main` only  
 **Depends on:** NEX-BE-006 Synchronized Match Core; NEX-BE-008 AI Judge & Server-Side Scoring; NEX-BE-009 Public 1v1 Matchmaking; existing Identity/Guest Identity contracts  
 **Scope:** Exactly-once XP progression and competitive ranking settlement after authoritative match completion.
@@ -195,4 +195,6 @@ Implemented on `main` (not yet CI-accepted):
 - Unit coverage includes 1v1 XP/global/season ranking, guest 1vAI XP without ranking, converted guest routing, invalid-result rejection, and converted-identity self-match protection.
 - PostgreSQL integration coverage has been extended for a complete registered-user ten-round 1v1 settlement/idempotent retry, guest 1vAI XP, and guest XP conversion.
 
-**Current verification gate:** Prisma formatting/validation, migration deploy on PostgreSQL 16, production build, full unit/integration tests and ESLint must pass. Real two-device 1v1 acceptance remains a separate release gate. No CI pass is claimed in this status note.
+**Automated verification — 2026-11-14:** Backend CI run `43639642201` completed successfully: Prisma format/validate/generate, PostgreSQL 16 migrations, NestJS production build, 38/38 suites, 214/214 tests, and ESLint passed. The later Backend CI run `43643270328` also passed after deployment files were added. Android CI run `43641610815` passed 98/98 frontend/Match Engine tests, Vite/Capacitor build, Gradle APK build, APK verification, and artifact upload.
+
+**Still required before release:** physical two-device 1v1 acceptance from NEX-BE-011, including complete match settlement, reconnect/force-stop recovery, guest conversion, and confirmation that XP and Ranking ledgers are committed exactly once. Automated CI does not replace this acceptance.
