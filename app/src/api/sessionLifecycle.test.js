@@ -13,6 +13,7 @@ function makeServices({ restored = null, restoreError = null, guest = null, gues
       async login(credentials) { calls.push(['login', credentials]); current = login; return login; },
       async register(credentials) { calls.push(['register', credentials]); current = register; return register; },
       async convertGuest(credentials) { calls.push(['convertGuest', credentials]); current = convertGuest; return convertGuest; },
+      async createGoogleChallenge() { calls.push('createGoogleChallenge'); return { nonce: 'n'.repeat(43), expiresAt: '2030-01-01T00:05:00.000Z' }; },
       async signInWithGoogle(token) { calls.push(['google', token]); current = google; return google; },
       async getMyProfile() { calls.push('getMyProfile'); return { principalType: current?.principal?.principalType, profile: { displayName: 'Player One' }, statistics: { matchesPlayed: 3, wins: 2, losses: 1, draws: 0 } }; },
       async updateMyProfile(changes) { calls.push(['updateMyProfile', changes]); return { principalType: current?.principal?.principalType, profile: { displayName: changes.displayName }, statistics: { matchesPlayed: 3, wins: 2, losses: 1, draws: 0 } }; },
@@ -309,4 +310,14 @@ test('password change and explicit Google linking require a registered account a
   assert.equal(linkResult.linked, true);
   assert.ok(services.calls.filter((call) => call === 'getMyAccount').length >= 2);
   assert.ok(services.calls.filter((call) => call === 'listSessions').length >= 2);
+});
+
+
+test('Google authentication starts with a backend-issued one-time challenge', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+  const challenge = await lifecycle.createGoogleChallenge();
+  assert.equal(challenge.nonce, 'n'.repeat(43));
+  assert.equal(services.calls.at(-1), 'createGoogleChallenge');
 });
