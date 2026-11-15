@@ -201,7 +201,6 @@ describe('AuthService', () => {
     }));
     expect(sessions.createSessionInTransaction).toHaveBeenCalled();
   });
-});
 
   it('issues a one-time Google challenge with IP-based rate limiting', async () => {
     await expect(service.createGoogleChallenge('127.0.0.1')).resolves.toEqual({
@@ -210,3 +209,4 @@ describe('AuthService', () => {
     });
     expect(google.createChallenge).toHaveBeenCalledTimes(1);
   });
+});
