@@ -41,11 +41,11 @@ test('auth API exposes independent registration, Google sign-in and email verifi
   const api = createSessionApi(http);
   const credentials = { email: 'player@example.com', username: 'player_01', displayName: 'Player', password: 'a-long-secure-password' };
   await api.register(credentials);
-  await api.signInWithGoogle('google-id-token');
+  await api.signInWithGoogle({ idToken: 'google-id-token', nonce: 'n'.repeat(43) });
   await api.verifyEmail('v'.repeat(43));
   assert.deepEqual(calls, [
     ['/auth/register', credentials, { authenticated: false }],
-    ['/auth/google', { idToken: 'google-id-token' }, { authenticated: false }],
+    ['/auth/google', { idToken: 'google-id-token', nonce: 'n'.repeat(43) }, { authenticated: false }],
     ['/auth/email/verify', { token: 'v'.repeat(43) }, { authenticated: false }],
   ]);
 });
@@ -61,11 +61,11 @@ test('session API exposes password recovery, password change and explicit Google
   await api.requestPasswordReset('player@example.com');
   await api.resetPassword('r'.repeat(43), 'a-new-long-password');
   await api.changePassword('the-current-password', 'a-new-long-password');
-  await api.linkGoogleIdentity('google-id-token');
+  await api.linkGoogleIdentity({ idToken: 'google-id-token', nonce: 'n'.repeat(43) });
   assert.deepEqual(calls, [
     ['/auth/password/forgot', { email: 'player@example.com' }, { authenticated: false }],
     ['/auth/password/reset', { token: 'r'.repeat(43), newPassword: 'a-new-long-password' }, { authenticated: false }],
     ['/account/password/change', { currentPassword: 'the-current-password', newPassword: 'a-new-long-password' }],
-    ['/account/identities/google/link', { idToken: 'google-id-token' }],
+    ['/account/identities/google/link', { idToken: 'google-id-token', nonce: 'n'.repeat(43) }],
   ]);
 });
