@@ -165,3 +165,26 @@ test('coordinator forwards cancellation options to session API calls', async () 
   assert.equal(seen[0][1].signal, signal);
   assert.equal(seen[1][1].signal, signal);
 });
+
+
+test('a newer identity transition supersedes an earlier pending login response', async () => {
+  const store = makeStore();
+  const gate = deferred();
+  let loginStarted = false;
+  const coordinator = createSessionCoordinator({
+    sessionApi: { login: async () => { loginStarted = true; return gate.promise; } },
+    tokenStore: store,
+  });
+
+  const login = coordinator.login({ email: 'player@example.test', password: 'password' });
+  for (let i = 0; i < 20 && !loginStarted; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.equal(loginStarted, true);
+  coordinator.beginSessionTransition();
+  gate.resolve(sessionResponse('USER'));
+  await assert.rejects(login, (error) => error.code === 'SESSION_SUPERSEDED');
+  assert.equal(store.getAccessToken(), null);
+  assert.equal(await store.getRefreshToken(), null);
+  assert.equal(coordinator.getCurrentPrincipal(), null);
+});
