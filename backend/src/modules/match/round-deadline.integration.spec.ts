@@ -214,7 +214,17 @@ describe('Round deadline and no-response scoring integration', () => {
     ]);
 
     expect(answerOutcome.status).toBe('rejected');
-    expect(deadlineOutcome).toMatchObject({ status: 'fulfilled', value: true });
+    expect(deadlineOutcome.status).toBe('fulfilled');
+    // The answer request and deadline worker share the Round row lock. If the
+    // answer request owns it first, SKIP LOCKED correctly lets this poll return
+    // false; retry after the competing transaction releases the row.
+    if (deadlineOutcome.status === 'fulfilled' && !deadlineOutcome.value) {
+      const stateAfterRace = await prisma.round.findUniqueOrThrow({
+        where: { id: scenario.roundId },
+        select: { completedAt: true },
+      });
+      if (!stateAfterRace.completedAt) expect(await worker.runOnce()).toBe(true);
+    }
     expect(await worker.runOnce()).toBe(false);
 
     const persisted = await prisma.answer.findMany({
