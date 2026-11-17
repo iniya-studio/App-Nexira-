@@ -290,8 +290,14 @@ export function createSessionLifecycle({
 
     retry() {
       if (!['offline', 'error'].includes(state.status)) return initialization ?? Promise.resolve(state);
+      abortActiveRequests('Session initialization is being retried.');
+      services?.coordinator.beginSessionTransition?.();
+      lifecycleGeneration += 1;
       initialization = null;
       services = null;
+      managedHttpSource = null;
+      managedHttpGeneration = null;
+      managedHttpClient = null;
       return this.initialize();
     },
 
