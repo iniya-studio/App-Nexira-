@@ -20,26 +20,64 @@ export function createSessionCoordinator({
   }
 
   let refreshInFlight = null;
+  let logoutInFlight = null;
+  let sessionGeneration = 0;
   let currentPrincipal = null;
   let currentSession = null;
+  const pendingSessionWrites = new Set();
 
-  async function acceptSession(response) {
+  function supersededError() {
+    return new ApiError('The session operation was superseded by a newer session action.', {
+      code: 'SESSION_SUPERSEDED',
+    });
+  }
+
+  async function clearCredentials() {
+    sessionGeneration += 1;
+    await Promise.allSettled([...pendingSessionWrites]);
+    await tokenStore.clear();
+    currentPrincipal = null;
+    currentSession = null;
+  }
+
+  async function acceptSession(response, expectedGeneration) {
     if (!response?.principal || !response?.session || !response?.tokens) {
       throw new TypeError('Backend returned an invalid session response.');
     }
-    await tokenStore.saveTokenResponse(response);
+    if (expectedGeneration !== sessionGeneration) throw supersededError();
+
+    const write = tokenStore.saveTokenResponse(response);
+    pendingSessionWrites.add(write);
+    try {
+      await write;
+    } finally {
+      pendingSessionWrites.delete(write);
+    }
+    if (expectedGeneration !== sessionGeneration) throw supersededError();
+
     currentPrincipal = response.principal;
     currentSession = response.session;
     return response;
   }
 
+  async function createSession(action, ...args) {
+    if (logoutInFlight) await logoutInFlight.catch(() => {});
+    const generation = sessionGeneration;
+    const response = await sessionApi[action](...args);
+    return acceptSession(response, generation);
+  }
+
   async function refreshSession() {
+    if (logoutInFlight) await logoutInFlight.catch(() => {});
     if (refreshInFlight) return refreshInFlight;
 
+    const generation = sessionGeneration;
     refreshInFlight = (async () => {
       const state = typeof tokenStore.getSessionState === 'function'
         ? await tokenStore.getSessionState()
         : { refreshToken: await tokenStore.getRefreshToken(), pendingRefreshAttempt: null };
+      if (generation !== sessionGeneration) throw supersededError();
+
       const refreshToken = state.refreshToken;
       if (!refreshToken) {
         await tokenStore.clear();
@@ -57,15 +95,14 @@ export function createSessionCoordinator({
         // Must commit before the request can rotate the server-side token.
         await tokenStore.savePendingRefreshAttempt(attempt);
       }
+      if (generation !== sessionGeneration) throw supersededError();
 
       try {
         const response = await sessionApi.refresh(attempt.refreshToken, attempt.idempotencyKey);
-        return await acceptSession(response);
+        return await acceptSession(response, generation);
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
-          await tokenStore.clear();
-          currentPrincipal = null;
-          currentSession = null;
+          await clearCredentials();
         }
         // On uncertain failures the encrypted attempt remains for exact replay
         // after either an in-process retry or an application restart.
@@ -79,12 +116,12 @@ export function createSessionCoordinator({
   }
 
   return {
-    async startGuest() { return acceptSession(await sessionApi.startGuest()); },
-    async login(credentials) { return acceptSession(await sessionApi.login(credentials)); },
-    async register(credentials) { return acceptSession(await sessionApi.register(credentials)); },
-    async convertGuest(credentials) { return acceptSession(await sessionApi.convertGuest(credentials)); },
+    async startGuest() { return createSession('startGuest'); },
+    async login(credentials) { return createSession('login', credentials); },
+    async register(credentials) { return createSession('register', credentials); },
+    async convertGuest(credentials) { return createSession('convertGuest', credentials); },
     async createGoogleChallenge() { return sessionApi.createGoogleChallenge(); },
-    async signInWithGoogle(idToken) { return acceptSession(await sessionApi.signInWithGoogle(idToken)); },
+    async signInWithGoogle(idToken) { return createSession('signInWithGoogle', idToken); },
     async requestPasswordReset(email) { return sessionApi.requestPasswordReset(email); },
     async resetPassword(token, newPassword) { return sessionApi.resetPassword(token, newPassword); },
     async changePassword(currentPassword, newPassword) { return sessionApi.changePassword(currentPassword, newPassword); },
@@ -98,9 +135,7 @@ export function createSessionCoordinator({
     async logoutAll() { return sessionApi.logoutAll(); },
     async revokeSession(sessionId) { return sessionApi.revokeSession(sessionId); },
     async clearLocalSession() {
-      await tokenStore.clear();
-      currentPrincipal = null;
-      currentSession = null;
+      await clearCredentials();
     },
     refresh: refreshSession,
 
@@ -111,14 +146,22 @@ export function createSessionCoordinator({
       return refreshSession();
     },
 
-    async logout() {
-      try {
-        if (tokenStore.getAccessToken()) await sessionApi.logout();
-      } finally {
-        await tokenStore.clear();
-        currentPrincipal = null;
-        currentSession = null;
-      }
+    logout() {
+      if (logoutInFlight) return logoutInFlight;
+      sessionGeneration += 1;
+      logoutInFlight = (async () => {
+        try {
+          if (tokenStore.getAccessToken()) await sessionApi.logout();
+        } finally {
+          await Promise.allSettled([...pendingSessionWrites]);
+          await tokenStore.clear();
+          currentPrincipal = null;
+          currentSession = null;
+        }
+      })().finally(() => {
+        logoutInFlight = null;
+      });
+      return logoutInFlight;
     },
 
     getCurrentPrincipal: () => currentPrincipal,
