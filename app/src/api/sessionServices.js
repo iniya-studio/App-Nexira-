@@ -30,13 +30,24 @@ export function createSessionServices({
   }
 
   const tokenStore = createTokenStore({ secureStorage });
+  let coordinator = null;
+  const refreshAccessToken = async ({ accessToken } = {}) => {
+    const latestToken = tokenStore.getAccessToken();
+    // Another concurrent request may already have rotated the token.
+    if (latestToken && latestToken !== accessToken) return latestToken;
+    if (!coordinator) return null;
+    const response = await coordinator.refresh();
+    return response?.tokens?.accessToken ?? tokenStore.getAccessToken();
+  };
+
   const http = createHttpClient({
     baseUrl,
     getAccessToken: () => tokenStore.getAccessToken(),
+    refreshAccessToken,
     fetchImpl,
   });
   const sessionApi = createSessionApi(http);
-  const coordinator = createSessionCoordinator({ sessionApi, tokenStore });
+  coordinator = createSessionCoordinator({ sessionApi, tokenStore });
 
   return Object.freeze({ tokenStore, http, sessionApi, coordinator });
 }
