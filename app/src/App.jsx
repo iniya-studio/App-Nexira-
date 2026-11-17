@@ -1391,7 +1391,7 @@ export default function App() {
       </div>
     </ScreenFrame>}
 
-    {screen === 'profile' && <ScreenFrame className="info-screen">
+    {screen === 'profile' && <ScreenFrame className="info-screen profile-screen">
       <div className="profile-screen-actions">
         <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
         <button className="profile-settings-link" onClick={() => navigate('settings')}><Settings size={15} /> {text.settings}</button>
