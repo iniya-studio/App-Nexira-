@@ -21,6 +21,7 @@ export function createSessionCoordinator({
 
   let refreshInFlight = null;
   let logoutInFlight = null;
+  let clearInFlight = null;
   let sessionGeneration = 0;
   let currentPrincipal = null;
   let currentSession = null;
@@ -33,11 +34,17 @@ export function createSessionCoordinator({
   }
 
   async function clearCredentials() {
+    if (clearInFlight) return clearInFlight;
     sessionGeneration += 1;
-    await Promise.allSettled([...pendingSessionWrites]);
-    await tokenStore.clear();
-    currentPrincipal = null;
-    currentSession = null;
+    clearInFlight = (async () => {
+      await Promise.allSettled([...pendingSessionWrites]);
+      await tokenStore.clear();
+      currentPrincipal = null;
+      currentSession = null;
+    })().finally(() => {
+      clearInFlight = null;
+    });
+    return clearInFlight;
   }
 
   async function acceptSession(response, expectedGeneration) {
@@ -62,6 +69,7 @@ export function createSessionCoordinator({
 
   async function createSession(action, ...args) {
     if (logoutInFlight) await logoutInFlight.catch(() => {});
+    if (clearInFlight) await clearInFlight;
     const generation = sessionGeneration;
     const response = await sessionApi[action](...args);
     return acceptSession(response, generation);
@@ -69,6 +77,7 @@ export function createSessionCoordinator({
 
   async function refreshSession() {
     if (logoutInFlight) await logoutInFlight.catch(() => {});
+    if (clearInFlight) await clearInFlight;
     if (refreshInFlight) return refreshInFlight;
 
     const generation = sessionGeneration;
