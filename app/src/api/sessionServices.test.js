@@ -258,7 +258,7 @@ test('lifecycle-managed HTTP client aborts progression, match and matchmaking re
   assert.ok(activeSignals.every((signal) => signal.aborted === true));
   const outcomes = await Promise.allSettled(requests);
   assert.ok(outcomes.every((outcome) => outcome.status === 'rejected'
-    && outcome.reason.code === 'REQUEST_ABORTED'));
+    && outcome.reason.code === 'SESSION_SUPERSEDED'));
 });
 
 
