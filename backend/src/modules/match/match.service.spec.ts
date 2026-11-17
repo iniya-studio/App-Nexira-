@@ -102,8 +102,8 @@ describe('MatchService', () => {
       select: { id: true },
     });
     expect(result).toMatchObject({ id: 'active-ai-match', mode: MatchMode.ONE_V_AI, currentRound: 3 });
-    expect(result.participants[0]).toMatchObject({ isSelf: true, displayName: 'YOU' });
-    expect(result.participants[1]).toMatchObject({ isSelf: false, displayName: 'OPPONENT' });
+    expect(result!.participants[0]).toMatchObject({ isSelf: true, displayName: 'YOU' });
+    expect(result!.participants[1]).toMatchObject({ isSelf: false, displayName: 'OPPONENT' });
   });
 
   it('returns null when the principal has no active 1vAI match', async () => {
