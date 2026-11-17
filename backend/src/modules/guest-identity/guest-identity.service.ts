@@ -122,6 +122,25 @@ export class GuestIdentityService {
           throw new UnauthorizedException('Guest identity is no longer active');
         }
 
+        // Revalidate the exact access-token session inside the conversion transaction.
+        // Locking the row serializes conversion with a concurrent logout: whichever
+        // acquires this lock first defines the outcome, and a revoked session cannot
+        // create an account after its authenticated request has gone stale.
+        await tx.$queryRaw`SELECT "id" FROM "UserSession" WHERE "id" = ${principal.sessionId}::uuid FOR UPDATE`;
+        const activeGuestSession = await tx.userSession.findFirst({
+          where: {
+            id: principal.sessionId,
+            guestIdentityId: guest.id,
+            userId: null,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+        });
+        if (!activeGuestSession) {
+          throw new UnauthorizedException('Guest session is no longer active');
+        }
+
         const user = await tx.user.create({
           data: {
             email,
