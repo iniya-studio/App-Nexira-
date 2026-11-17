@@ -25,6 +25,7 @@ export function createSessionLifecycle({
   const listeners = new Set();
   const activeRequests = new Set();
   let managedHttpSource = null;
+  let managedHttpGeneration = null;
   let managedHttpClient = null;
 
   function abortActiveRequests(reason = 'The active account session is changing.', except = null) {
@@ -68,15 +69,31 @@ export function createSessionLifecycle({
     };
   }
 
-  function createManagedHttpClient(http) {
+  function createManagedHttpClient(http, expectedGeneration) {
+    function assertCurrentGeneration() {
+      if (expectedGeneration !== lifecycleGeneration) {
+        const error = new Error('The request belongs to a previous account session.');
+        error.code = 'SESSION_SUPERSEDED';
+        throw error;
+      }
+    }
+
     function invoke(method, args, optionsIndex) {
       const options = args[optionsIndex] ?? {};
       return runRequest(({ signal }) => {
+        assertCurrentGeneration();
         const linked = linkAbortSignals(signal, options.signal);
         const nextArgs = [...args];
         nextArgs[optionsIndex] = { ...options, signal: linked.signal };
         return Promise.resolve()
-          .then(() => http[method](...nextArgs))
+          .then(() => {
+            assertCurrentGeneration();
+            return http[method](...nextArgs);
+          })
+          .then((result) => {
+            assertCurrentGeneration();
+            return result;
+          })
           .finally(linked.cleanup);
       });
     }
@@ -92,9 +109,11 @@ export function createSessionLifecycle({
 
   function getManagedHttpClient() {
     const activeServices = ensureServices();
-    if (managedHttpSource !== activeServices.http) {
+    if (managedHttpSource !== activeServices.http
+        || managedHttpGeneration !== lifecycleGeneration) {
       managedHttpSource = activeServices.http;
-      managedHttpClient = createManagedHttpClient(activeServices.http);
+      managedHttpGeneration = lifecycleGeneration;
+      managedHttpClient = createManagedHttpClient(activeServices.http, managedHttpGeneration);
     }
     return managedHttpClient;
   }
