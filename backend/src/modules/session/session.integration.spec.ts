@@ -171,7 +171,8 @@ describe('Guest identity and session integration', () => {
         convertedToUserId: null,
       });
       expect(createdUser).toBeNull();
-      expect(conversion.reason).toBeTruthy();
+      const conversionError = conversion.reason as { getStatus?: () => number; code?: string };
+      expect(conversionError.getStatus?.() === 401 || conversionError.code === 'P2034').toBe(true);
     }
   });
 
