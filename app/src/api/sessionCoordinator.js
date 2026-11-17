@@ -67,11 +67,11 @@ export function createSessionCoordinator({
     return response;
   }
 
-  async function createSession(action, ...args) {
+  async function createSession(action, args = [], options = {}) {
     if (logoutInFlight) await logoutInFlight.catch(() => {});
     if (clearInFlight) await clearInFlight;
     const generation = sessionGeneration;
-    const response = await sessionApi[action](...args);
+    const response = await sessionApi[action](...args, options);
     return acceptSession(response, generation);
   }
 
@@ -131,24 +131,24 @@ export function createSessionCoordinator({
   }
 
   return {
-    async startGuest() { return createSession('startGuest'); },
-    async login(credentials) { return createSession('login', credentials); },
-    async register(credentials) { return createSession('register', credentials); },
-    async convertGuest(credentials) { return createSession('convertGuest', credentials); },
-    async createGoogleChallenge() { return sessionApi.createGoogleChallenge(); },
-    async signInWithGoogle(idToken) { return createSession('signInWithGoogle', idToken); },
-    async requestPasswordReset(email) { return sessionApi.requestPasswordReset(email); },
-    async resetPassword(token, newPassword) { return sessionApi.resetPassword(token, newPassword); },
-    async changePassword(currentPassword, newPassword) { return sessionApi.changePassword(currentPassword, newPassword); },
-    async linkGoogleIdentity(idToken) { return sessionApi.linkGoogleIdentity(idToken); },
-    async resendVerification() { return sessionApi.resendVerification(); },
-    async verifyEmail(token) { return sessionApi.verifyEmail(token); },
-    async getMyProfile() { return sessionApi.getMyProfile(); },
-    async updateMyProfile(changes) { return sessionApi.updateMyProfile(changes); },
-    async getMyAccount() { return sessionApi.getMyAccount(); },
-    async listSessions() { return sessionApi.listSessions(); },
-    async logoutAll() { return sessionApi.logoutAll(); },
-    async revokeSession(sessionId) { return sessionApi.revokeSession(sessionId); },
+    async startGuest(options) { return createSession('startGuest', [], options); },
+    async login(credentials, options) { return createSession('login', [credentials], options); },
+    async register(credentials, options) { return createSession('register', [credentials], options); },
+    async convertGuest(credentials, options) { return createSession('convertGuest', [credentials], options); },
+    async createGoogleChallenge(options) { return sessionApi.createGoogleChallenge(options); },
+    async signInWithGoogle(idToken, options) { return createSession('signInWithGoogle', [idToken], options); },
+    async requestPasswordReset(email, options) { return sessionApi.requestPasswordReset(email, options); },
+    async resetPassword(token, newPassword, options) { return sessionApi.resetPassword(token, newPassword, options); },
+    async changePassword(currentPassword, newPassword, options) { return sessionApi.changePassword(currentPassword, newPassword, options); },
+    async linkGoogleIdentity(idToken, options) { return sessionApi.linkGoogleIdentity(idToken, options); },
+    async resendVerification(options) { return sessionApi.resendVerification(options); },
+    async verifyEmail(token, options) { return sessionApi.verifyEmail(token, options); },
+    async getMyProfile(options) { return sessionApi.getMyProfile(options); },
+    async updateMyProfile(changes, options) { return sessionApi.updateMyProfile(changes, options); },
+    async getMyAccount(options) { return sessionApi.getMyAccount(options); },
+    async listSessions(options) { return sessionApi.listSessions(options); },
+    async logoutAll(options) { return sessionApi.logoutAll(options); },
+    async revokeSession(sessionId, options) { return sessionApi.revokeSession(sessionId, options); },
     async clearLocalSession() {
       await clearCredentials();
     },
