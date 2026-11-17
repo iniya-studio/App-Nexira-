@@ -128,6 +128,53 @@ describe('Guest identity and session integration', () => {
     expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
   });
 
+  it('serializes a concurrent guest logout and conversion without creating an account from a revoked session', async () => {
+    const started = await startGuest();
+    const guestId = started.principal.principalId;
+    const sessionId = started.session.sessionId;
+    const email = `logout-race-${randomUUID()}@example.test`;
+    const principal = {
+      principalType: PrincipalType.GUEST,
+      principalId: guestId,
+      sessionId,
+    };
+
+    const [conversion, logout] = await Promise.allSettled([
+      guests.convert(principal, {
+        email,
+        password: 'integration-test-password-strong',
+        username: `logout_race_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+        displayName: 'Logout Race Guest',
+      }),
+      sessions.logout(principal),
+    ]);
+
+    expect(logout.status).toBe('fulfilled');
+    const [guest, oldSession, createdUser] = await Promise.all([
+      prisma.guestIdentity.findUniqueOrThrow({ where: { id: guestId } }),
+      prisma.userSession.findUniqueOrThrow({ where: { id: sessionId } }),
+      prisma.user.findUnique({ where: { email } }),
+    ]);
+    expect(oldSession.revokedAt).toBeInstanceOf(Date);
+
+    if (conversion.status === 'fulfilled') {
+      convertedUserIds.push(conversion.value.user.id);
+      expect(guest).toMatchObject({
+        status: GuestIdentityStatus.CONVERTED,
+        convertedToUserId: conversion.value.user.id,
+      });
+      expect(createdUser?.id).toBe(conversion.value.user.id);
+      expect(conversion.value.session.sessionId).not.toBe(sessionId);
+    } else {
+      expect(guest).toMatchObject({
+        status: GuestIdentityStatus.ACTIVE,
+        convertedToUserId: null,
+      });
+      expect(createdUser).toBeNull();
+      expect(conversion.reason).toBeTruthy();
+    }
+  });
+
   it('rejects a guest whose identity is no longer active', async () => {
     const started = await startGuest();
     await prisma.guestIdentity.update({
