@@ -87,9 +87,9 @@ test('session API forwards AbortSignal without changing endpoint authentication 
   await api.getMyProfile({ signal });
   await api.requestPasswordReset('player@example.com', { signal });
 
-  assert.equal(calls[0][2].signal, signal);
-  assert.equal(calls[0][2].authenticated, false);
+  assert.equal(calls[0][3].signal, signal);
+  assert.equal(calls[0][3].authenticated, false);
   assert.equal(calls[1][2].signal, signal);
-  assert.equal(calls[2][2].signal, signal);
-  assert.equal(calls[2][2].authenticated, false);
+  assert.equal(calls[2][3].signal, signal);
+  assert.equal(calls[2][3].authenticated, false);
 });
