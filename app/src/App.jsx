@@ -133,6 +133,7 @@ export default function App() {
   const [run, setRun] = useState(null);
   const [matchView, setMatchView] = useState(null);
   const [matchmakingView, setMatchmakingView] = useState(null);
+  const [matchmakingRecoveryRetry, setMatchmakingRecoveryRetry] = useState(0);
   const [matchRemaining, setMatchRemaining] = useState(10);
   const [matchError, setMatchError] = useState('');
   const [matchBusy, setMatchBusy] = useState(false);
@@ -165,6 +166,7 @@ export default function App() {
   const onlineMatchmakingAdapterRef = useRef(null);
   const matchmakingTransitionRef = useRef(null);
   const matchmakingRecoveryPrincipalRef = useRef(null);
+  const matchmakingRecoveryAttemptRef = useRef(0);
   const cancelMatchmakingRef = useRef(null);
   const matchTimerRemainingRef = useRef(10);
   const matchTimerKeyRef = useRef(null);
@@ -593,14 +595,18 @@ export default function App() {
 
   useEffect(() => {
     if (!import.meta.env.PROD && !publicOneVsOneEnabled) return undefined;
+    if (!['splash', 'home'].includes(screen)) return undefined;
     if (!['guest', 'authenticated'].includes(sessionState.status)) {
       matchmakingRecoveryPrincipalRef.current = null;
+      matchmakingRecoveryAttemptRef.current = 0;
       return undefined;
     }
     const principalId = sessionState.principal?.principalId;
     if (!principalId || matchmakingRecoveryPrincipalRef.current === principalId) return undefined;
     matchmakingRecoveryPrincipalRef.current = principalId;
     let active = true;
+    let recoveryCompleted = false;
+    let retryTimer;
     const restoreQueue = async () => {
       const adapter = createOnlineMatchmakingAdapter(
         createMatchmakingApi(appSessionLifecycle.getHttpClient()),
@@ -608,7 +614,8 @@ export default function App() {
       onlineMatchmakingAdapterRef.current = adapter;
       try {
         const next = await adapter.refresh();
-        if (!active || !next) return;
+        if (!active) return;
+        if (!next) throw new Error('The matchmaking recovery endpoint returned no state.');
         if (!['splash', 'home'].includes(screenRef.current)) {
           adapter.reset();
           if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
@@ -616,6 +623,8 @@ export default function App() {
         }
         if (next.status === 'MATCHED' && next.matchId) {
           await openMatchedOnlineMatch(next);
+          recoveryCompleted = true;
+          matchmakingRecoveryAttemptRef.current = 0;
           return;
         }
         if (next.status === 'WAITING' && publicOneVsOneEnabled) {
@@ -624,12 +633,16 @@ export default function App() {
             categoryTitle: categoryById(next.category)?.title ?? next.category ?? 'General',
           });
           setScreen('matchmaking');
+          recoveryCompleted = true;
+          matchmakingRecoveryAttemptRef.current = 0;
           return;
         }
         if (next.status === 'WAITING') {
           const cancelled = await adapter.cancel();
           if (cancelled?.status === 'MATCHED' && cancelled.matchId) {
             await openMatchedOnlineMatch(cancelled);
+            recoveryCompleted = true;
+            matchmakingRecoveryAttemptRef.current = 0;
             return;
           }
         }
@@ -641,7 +654,12 @@ export default function App() {
         if (!active || !['splash', 'home'].includes(screenRef.current)) return;
         const matchApi = createMatchApi(appSessionLifecycle.getHttpClient());
         const activeAiMatch = await matchApi.getActiveAiMatch();
-        if (!active || !activeAiMatch?.id || !['splash', 'home'].includes(screenRef.current)) return;
+        if (!active || !['splash', 'home'].includes(screenRef.current)) return;
+        if (!activeAiMatch?.id) {
+          recoveryCompleted = true;
+          matchmakingRecoveryAttemptRef.current = 0;
+          return;
+        }
         const matchAdapter = createOnlineMatchAdapter(matchApi);
         onlineMatchAdapterRef.current = matchAdapter;
         const restored = await matchAdapter.resume(activeAiMatch.id, {
@@ -657,16 +675,32 @@ export default function App() {
         setOnlineAnswerText('');
         setMatchError('');
         setScreen(restored.phase === 'complete' ? 'match-results' : 'match-game');
+        recoveryCompleted = true;
+        matchmakingRecoveryAttemptRef.current = 0;
       } catch {
         adapter.reset();
         if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
+        if (active && ['splash', 'home'].includes(screenRef.current)) {
+          const attempt = Math.min(matchmakingRecoveryAttemptRef.current + 1, 6);
+          matchmakingRecoveryAttemptRef.current = attempt;
+          const delayMs = Math.min(1_000 * (2 ** (attempt - 1)), 30_000);
+          retryTimer = window.setTimeout(() => {
+            if (!active) return;
+            matchmakingRecoveryPrincipalRef.current = null;
+            setMatchmakingRecoveryRetry((current) => current + 1);
+          }, delayMs);
+        }
       }
     };
     void restoreQueue();
     return () => {
       active = false;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      if (!recoveryCompleted && matchmakingRecoveryPrincipalRef.current === principalId) {
+        matchmakingRecoveryPrincipalRef.current = null;
+      }
     };
-  }, [openMatchedOnlineMatch, publicOneVsOneEnabled, sessionState.principal?.principalId, sessionState.status]);
+  }, [matchmakingRecoveryRetry, openMatchedOnlineMatch, publicOneVsOneEnabled, screen, sessionState.principal?.principalId, sessionState.status]);
 
   const handleMatchOption = useCallback(async (optionId) => {
     try {
