@@ -9,12 +9,14 @@ import {
   PrincipalType,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AnswerService } from './answer.service';
 import { MatchService } from './match.service';
 import { RoundDeadlineWorker } from './round-deadline.worker';
 
 describe('Round deadline and no-response scoring integration', () => {
   const prisma = new PrismaService();
   const matches = new MatchService(prisma);
+  const answers = new AnswerService(prisma);
   const worker = new RoundDeadlineWorker(prisma);
   const matchIds: string[] = [];
   const guestIds: string[] = [];
@@ -197,6 +199,37 @@ describe('Round deadline and no-response scoring integration', () => {
       participants,
     };
   }
+
+  it('serializes a late 1v1 answer racing deadline finalization into one NO_RESPONSE outcome', async () => {
+    const scenario = await createScenario([], []);
+    const firstPrincipal = {
+      principalType: PrincipalType.GUEST,
+      principalId: scenario.participants[0].guestIdentityId!,
+      sessionId: randomUUID(),
+    } as const;
+
+    const [answerOutcome, deadlineOutcome] = await Promise.allSettled([
+      answers.submitAnswer(scenario.matchId, scenario.roundId, firstPrincipal, 'B', randomUUID()),
+      worker.runOnce(),
+    ]);
+
+    expect(answerOutcome.status).toBe('rejected');
+    expect(deadlineOutcome).toMatchObject({ status: 'fulfilled', value: true });
+    expect(await worker.runOnce()).toBe(false);
+
+    const persisted = await prisma.answer.findMany({
+      where: { roundId: scenario.roundId },
+      orderBy: { participantId: 'asc' },
+    });
+    expect(persisted).toHaveLength(2);
+    expect(persisted.every((answer) => answer.status === AnswerStatus.NO_RESPONSE)).toBe(true);
+    expect(await prisma.answer.count({ where: { roundId: scenario.roundId, participantId: scenario.participants[0].id } })).toBe(1);
+    expect(await prisma.matchScoreEntry.count({
+      where: { roundId: scenario.roundId, entryType: 'NO_RESPONSE_PENALTY' },
+    })).toBe(2);
+    const round = await prisma.round.findUniqueOrThrow({ where: { id: scenario.roundId } });
+    expect(round.completedAt).not.toBeNull();
+  });
 
   it('finalizes 1vAI with explicit AI NO_RESPONSE and applies only the human penalty', async () => {
     const guest = await prisma.guestIdentity.create({ data: {} });
