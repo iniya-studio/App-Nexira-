@@ -11,6 +11,7 @@ export class ApiError extends Error {
 export function createHttpClient({
   baseUrl,
   getAccessToken = () => null,
+  refreshAccessToken = null,
   fetchImpl = globalThis.fetch,
   timeoutMs = 15000,
 } = {}) {
@@ -19,6 +20,9 @@ export function createHttpClient({
   }
   if (typeof fetchImpl !== 'function') {
     throw new TypeError('A fetch implementation is required.');
+  }
+  if (refreshAccessToken !== null && typeof refreshAccessToken !== 'function') {
+    throw new TypeError('The access-token refresh handler must be a function.');
   }
 
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
@@ -34,68 +38,97 @@ export function createHttpClient({
       throw new TypeError('API paths must be absolute paths relative to the API base URL.');
     }
 
-    const requestHeaders = new Headers(headers);
-    if (body !== undefined && !requestHeaders.has('Content-Type')) {
-      requestHeaders.set('Content-Type', 'application/json');
+    const baseHeaders = new Headers(headers);
+    if (body !== undefined && !baseHeaders.has('Content-Type')) {
+      baseHeaders.set('Content-Type', 'application/json');
     }
 
+    let accessToken = null;
     if (authenticated) {
-      const accessToken = await getAccessToken();
-      if (accessToken) requestHeaders.set('Authorization', `Bearer ${accessToken}`);
+      accessToken = await getAccessToken();
+      // A missing in-memory access token may mean that it expired while the
+      // app stayed open. Restore it before sending the protected request.
+      if (!accessToken && refreshAccessToken) {
+        accessToken = await refreshAccessToken({ accessToken: null, path, method });
+      }
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(new Error('Request timed out.')), timeoutMs);
-    const abortFromCaller = () => controller.abort(signal.reason);
-    if (signal) {
-      if (signal.aborted) abortFromCaller();
-      else signal.addEventListener('abort', abortFromCaller, { once: true });
-    }
+    async function send(token) {
+      const requestHeaders = new Headers(baseHeaders);
+      if (authenticated && token) requestHeaders.set('Authorization', `Bearer ${token}`);
 
-    try {
-      const response = await fetchImpl(`${normalizedBaseUrl}${path}`, {
-        method,
-        headers: requestHeaders,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: controller.signal,
-      });
-      const raw = await response.text();
-      let payload = null;
-      if (raw) {
-        try {
-          payload = JSON.parse(raw);
-        } catch {
-          payload = raw;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(new Error('Request timed out.')), timeoutMs);
+      const abortFromCaller = () => controller.abort(signal.reason);
+      if (signal) {
+        if (signal.aborted) abortFromCaller();
+        else signal.addEventListener('abort', abortFromCaller, { once: true });
+      }
+
+      try {
+        const response = await fetchImpl(`${normalizedBaseUrl}${path}`, {
+          method,
+          headers: requestHeaders,
+          body: body === undefined ? undefined : JSON.stringify(body),
+          signal: controller.signal,
+        });
+        const raw = await response.text();
+        let payload = null;
+        if (raw) {
+          try {
+            payload = JSON.parse(raw);
+          } catch {
+            payload = raw;
+          }
         }
-      }
 
-      if (!response.ok) {
-        const message = typeof payload?.message === 'string'
-          ? payload.message
-          : `API request failed with status ${response.status}.`;
-        throw new ApiError(message, {
-          status: response.status,
-          code: typeof payload?.code === 'string' ? payload.code : 'HTTP_ERROR',
-          details: payload,
-        });
+        if (!response.ok) {
+          const message = typeof payload?.message === 'string'
+            ? payload.message
+            : `API request failed with status ${response.status}.`;
+          return {
+            error: new ApiError(message, {
+              status: response.status,
+              code: typeof payload?.code === 'string' ? payload.code : 'HTTP_ERROR',
+              details: payload,
+            }),
+          };
+        }
+        return { payload };
+      } catch (error) {
+        if (error instanceof ApiError) return { error };
+        if (controller.signal.aborted) {
+          return {
+            error: new ApiError('The API request was aborted or timed out.', {
+              code: 'REQUEST_ABORTED',
+              details: error,
+            }),
+          };
+        }
+        return {
+          error: new ApiError('Unable to reach the NEXIRA API.', {
+            code: 'NETWORK_ERROR',
+            details: error,
+          }),
+        };
+      } finally {
+        clearTimeout(timeout);
+        if (signal) signal.removeEventListener('abort', abortFromCaller);
       }
-      return payload;
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      if (controller.signal.aborted) {
-        throw new ApiError('The API request was aborted or timed out.', {
-          code: 'REQUEST_ABORTED',
-          details: error,
-        });
-      }
-      throw new ApiError('Unable to reach the NEXIRA API.', {
-        code: 'NETWORK_ERROR',
-        details: error,
-      });
-    } finally {
-      clearTimeout(timeout);
-      if (signal) signal.removeEventListener('abort', abortFromCaller);
     }
+
+    let result = await send(accessToken);
+    if (authenticated && accessToken && result.error?.status === 401 && refreshAccessToken) {
+      // The coordinator serializes refresh. It also returns an already-rotated
+      // token when another request completed the refresh before this 401 arrived.
+      const refreshedToken = await refreshAccessToken({ accessToken, path, method });
+      if (refreshedToken && refreshedToken !== accessToken) {
+        result = await send(refreshedToken);
+      }
+    }
+
+    if (result.error) throw result.error;
+    return result.payload;
   }
 
   return {
