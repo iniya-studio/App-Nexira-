@@ -407,3 +407,20 @@ test('a restore response arriving after logout cannot restart an active session'
   assert.equal(state.session, null);
   assert.equal(services.calls.includes('startGuest'), false);
 });
+
+
+test('logout during empty-session restore prevents automatic guest creation', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const restoreGate = deferredLifecycleValue();
+  services.coordinator.restore = async () => restoreGate.promise;
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+
+  const initializing = lifecycle.initialize();
+  await lifecycle.logout();
+  restoreGate.resolve(null);
+  const state = await initializing;
+
+  assert.equal(state.status, 'signed-out');
+  assert.equal(state.principal, null);
+  assert.equal(services.calls.includes('startGuest'), false);
+});
