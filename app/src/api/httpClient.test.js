@@ -59,3 +59,77 @@ test('HTTP client rejects malformed API paths before making a request', async ()
   });
   await assert.rejects(client.get('//attacker.example/path'), /absolute paths/);
 });
+
+
+test('HTTP client refreshes once after an authenticated request receives 401', async () => {
+  const authorizations = [];
+  let refreshCalls = 0;
+  const client = createHttpClient({
+    baseUrl: 'https://api.example.test/api/v1',
+    getAccessToken: () => 'expired-access-token',
+    refreshAccessToken: async ({ accessToken }) => {
+      refreshCalls++;
+      assert.equal(accessToken, 'expired-access-token');
+      return 'rotated-access-token';
+    },
+    fetchImpl: async (_url, options) => {
+      authorizations.push(options.headers.get('Authorization'));
+      if (authorizations.length === 1) {
+        return new Response(JSON.stringify({ message: 'Expired', code: 'AUTH_EXPIRED' }), { status: 401 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    },
+  });
+
+  assert.deepEqual(await client.get('/profile/me'), { ok: true });
+  assert.deepEqual(authorizations, ['Bearer expired-access-token', 'Bearer rotated-access-token']);
+  assert.equal(refreshCalls, 1);
+});
+
+test('HTTP client proactively refreshes when the in-memory access token has expired', async () => {
+  const authorizations = [];
+  let refreshCalls = 0;
+  const client = createHttpClient({
+    baseUrl: 'https://api.example.test/api/v1',
+    getAccessToken: () => null,
+    refreshAccessToken: async ({ accessToken }) => {
+      refreshCalls++;
+      assert.equal(accessToken, null);
+      return 'restored-access-token';
+    },
+    fetchImpl: async (_url, options) => {
+      authorizations.push(options.headers.get('Authorization'));
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    },
+  });
+
+  assert.deepEqual(await client.get('/profile/me'), { ok: true });
+  assert.deepEqual(authorizations, ['Bearer restored-access-token']);
+  assert.equal(refreshCalls, 1);
+});
+
+test('HTTP client does not refresh public requests or retry a second unauthorized response', async () => {
+  let refreshCalls = 0;
+  let requestCalls = 0;
+  const client = createHttpClient({
+    baseUrl: 'https://api.example.test/api/v1',
+    getAccessToken: () => 'expired-access-token',
+    refreshAccessToken: async () => { refreshCalls++; return 'rotated-access-token'; },
+    fetchImpl: async () => {
+      requestCalls++;
+      return new Response(JSON.stringify({ message: 'Still unauthorized' }), { status: 401 });
+    },
+  });
+
+  await assert.rejects(
+    client.get('/public', { authenticated: false }),
+    (error) => error instanceof ApiError && error.status === 401,
+  );
+  assert.equal(refreshCalls, 0);
+  await assert.rejects(
+    client.get('/profile/me'),
+    (error) => error instanceof ApiError && error.status === 401,
+  );
+  assert.equal(refreshCalls, 1);
+  assert.equal(requestCalls, 3);
+});
