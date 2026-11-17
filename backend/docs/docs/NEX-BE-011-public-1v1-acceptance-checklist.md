@@ -46,7 +46,7 @@ Before controlled acceptance testing:
 
 ## 4. Automated quality gates
 
-The backend now has a PostgreSQL integration path that starts two authenticated principals through the public matchmaking queue, verifies exactly one shared 1v1 match and two MATCHED queue entries, runs all ten synchronized rounds, finalizes once, settles XP and Global Ranking exactly once, and verifies both queue snapshots become terminal after completion. Backend CI run `44055646276` passed on commit `847f9d17383a66501acbb53e493fe81af3ff3eb8` (44 suites, 255 tests).
+The backend now has a PostgreSQL integration path that starts two authenticated principals through the public matchmaking queue, verifies exactly one shared 1v1 match and two MATCHED queue entries, confirms both principals can recover the same active match snapshot through `GET /matchmaking/queue/me`, runs all ten synchronized rounds, finalizes once, settles XP and Global Ranking exactly once, and verifies both queue snapshots become terminal after completion. Backend CI run `44056655461` passed on commit `6e43ed308447c1988134848b4864a8fe68016677` (44 suites, 255 tests).
 
 All must pass on the current `main` commit:
 
