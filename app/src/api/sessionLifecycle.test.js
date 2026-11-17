@@ -491,3 +491,47 @@ test('logout aborts an in-flight startup restore signal before it can create a g
   assert.equal((await initializing).status, 'signed-out');
   assert.equal(services.calls.includes('startGuest'), false);
 });
+
+
+test('retry aborts in-flight requests and invalidates HTTP clients from the failed session', async () => {
+  const gate = deferredLifecycleValue();
+  let creations = 0;
+  let capturedSignal = null;
+  const firstServices = {
+    http: {
+      get: async (_path, { signal } = {}) => {
+        capturedSignal = signal;
+        return gate.promise;
+      },
+    },
+    coordinator: {
+      async restore() { throw Object.assign(new Error('offline'), { code: 'NETWORK_ERROR' }); },
+      beginSessionTransition() {},
+    },
+  };
+  const secondServices = {
+    http: { get: async () => ({}) },
+    coordinator: {
+      async restore() { return guestResponse; },
+      getCurrentPrincipal() { return guestResponse.principal; },
+      getCurrentSession() { return guestResponse.session; },
+    },
+  };
+  const lifecycle = createSessionLifecycle({
+    platform: () => 'android',
+    createServices: () => (++creations === 1 ? firstServices : secondServices),
+  });
+
+  assert.equal((await lifecycle.initialize()).status, 'offline');
+  const oldHttp = lifecycle.getHttpClient();
+  const oldRequest = oldHttp.get('/progression/me');
+  for (let i = 0; i < 20 && !capturedSignal; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.ok(capturedSignal);
+
+  assert.equal((await lifecycle.retry()).status, 'guest');
+  assert.equal(capturedSignal.aborted, true);
+  gate.resolve({ totalXp: 500, level: 3 });
+  await assert.rejects(oldRequest, (error) => error.code === 'SESSION_SUPERSEDED');
+});
