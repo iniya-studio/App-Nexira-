@@ -93,7 +93,13 @@ export function createSessionCoordinator({
           throw new Error('Crash-safe secure refresh-attempt storage is required.');
         }
         // Must commit before the request can rotate the server-side token.
-        await tokenStore.savePendingRefreshAttempt(attempt);
+        const pendingWrite = tokenStore.savePendingRefreshAttempt(attempt);
+        pendingSessionWrites.add(pendingWrite);
+        try {
+          await pendingWrite;
+        } finally {
+          pendingSessionWrites.delete(pendingWrite);
+        }
       }
       if (generation !== sessionGeneration) throw supersededError();
 
