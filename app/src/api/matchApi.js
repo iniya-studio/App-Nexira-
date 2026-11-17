@@ -5,6 +5,7 @@ export function createMatchApi(http) {
 
   return {
     createAiMatch: (options = {}) => http.post('/matches/ai', options),
+    getActiveAiMatch: () => http.get('/matches/active/ai'),
     getMatch: (matchId) => http.get(`/matches/${encodeURIComponent(matchId)}`),
     getLiveScoreboard: (matchId) => http.get(`/matches/${encodeURIComponent(matchId)}/live-score`),
     getMatchResult: (matchId) => http.get(`/matches/${encodeURIComponent(matchId)}/result`),
