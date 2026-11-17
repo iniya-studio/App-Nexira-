@@ -74,7 +74,9 @@ export function createHttpClient({
       throw new TypeError('API paths must be absolute paths relative to the API base URL.');
     }
 
-    throwIfAborted(signal);\n\n    const baseHeaders = new Headers(headers);
+    throwIfAborted(signal);
+
+    const baseHeaders = new Headers(headers);
     if (body !== undefined && !baseHeaders.has('Content-Type')) {
       baseHeaders.set('Content-Type', 'application/json');
     }
@@ -85,7 +87,10 @@ export function createHttpClient({
       // A missing in-memory access token may mean that it expired while the
       // app stayed open. Restore it before sending the protected request.
       if (!accessToken && refreshAccessToken) {
-        accessToken = await awaitWithAbort(\n          refreshAccessToken({ accessToken: null, path, method }),\n          signal,\n        );
+        accessToken = await awaitWithAbort(
+          refreshAccessToken({ accessToken: null, path, method }),
+          signal,
+        );
       }
     }
 
@@ -157,7 +162,10 @@ export function createHttpClient({
     if (authenticated && accessToken && result.error?.status === 401 && refreshAccessToken) {
       // The coordinator serializes refresh. It also returns an already-rotated
       // token when another request completed the refresh before this 401 arrived.
-      const refreshedToken = await awaitWithAbort(\n        refreshAccessToken({ accessToken, path, method }),\n        signal,\n      );
+      const refreshedToken = await awaitWithAbort(
+        refreshAccessToken({ accessToken, path, method }),
+        signal,
+      );
       if (refreshedToken && refreshedToken !== accessToken) {
         result = await send(refreshedToken);
       }
