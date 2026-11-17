@@ -142,6 +142,10 @@ export default function App() {
   const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
   const [storageFailed, setStorageFailed] = useState(false);
   const [sessionState, setSessionState] = useState(() => appSessionLifecycle.getState());
+  const sessionIdentityKey = sessionState.principal
+    ? `${sessionState.principal.principalType}:${sessionState.principal.principalId}`
+    : 'none';
+  const sessionIdentityRef = useRef(sessionIdentityKey);
   const [serverProgress, setServerProgress] = useState(null);
   const [globalRanking, setGlobalRanking] = useState(null);
   const [seasonalRanking, setSeasonalRanking] = useState(null);
@@ -200,6 +204,28 @@ export default function App() {
     void appSessionLifecycle.initialize();
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (sessionIdentityRef.current === sessionIdentityKey) return;
+    sessionIdentityRef.current = sessionIdentityKey;
+    setServerProgress(null);
+    setGlobalRanking(null);
+    setSeasonalRanking(null);
+    setProgressionError('');
+    onlineMatchmakingAdapterRef.current?.reset();
+    onlineMatchmakingAdapterRef.current = null;
+    onlineMatchAdapterRef.current?.reset();
+    onlineMatchAdapterRef.current = null;
+    matchmakingTransitionRef.current = null;
+    setMatchmakingView(null);
+    setMatchView(null);
+    setMatchError('');
+    setMatchBusy(false);
+    setOnlineAnswerText('');
+    if (['matchmaking', 'match-game', 'match-results'].includes(screenRef.current)) {
+      setScreen('home');
+    }
+  }, [sessionIdentityKey]);
 
   useEffect(() => {
     let disposed = false;
