@@ -104,6 +104,31 @@ test('uses only scores returned by the authorized server scoreboard', async () =
   assert.equal(view.participants[1].isSelf, false);
 });
 
+test('does not reopen an already accepted answer after a cold 1v1 match recovery', async () => {
+  const startedAt = new Date(Date.now() - 2_000).toISOString();
+  const deadlineAt = new Date(Date.now() + 28_000).toISOString();
+  let submitCalls = 0;
+  const { api } = makeApi({
+    getMatch: async () => ({ id: 'human-match', status: 'ACTIVE', currentRound: 1, roundsTarget: 10 }),
+    getQuestionRecovery: async () => ({
+      status: 'COMPLETED', roundId: 'round-1', ready: true, startedAt, deadlineAt,
+    }),
+    getRoundQuestion: async () => ({
+      matchId: 'human-match', roundId: 'round-1', roundNumber: 1, questionId: 'question-1',
+      answerType: 'FREE_TEXT', prompt: 'Question', options: [],
+      timeLimitSeconds: 30, startedAt, deadlineAt, hasSubmitted: true,
+    }),
+    getRoundResult: async () => ({ status: 'ACTIVE', participants: [] }),
+    submitAnswer: async () => { submitCalls += 1; return { status: 'ACCEPTED' }; },
+  });
+  const adapter = createOnlineMatchAdapter(api);
+  const view = await adapter.resume('human-match', { mode: '1v1', language: 'en' });
+  assert.equal(view.phase, 'waiting-result');
+  assert.equal(view.question, null);
+  assert.equal(view.roundId, 'round-1');
+  assert.equal(submitCalls, 0);
+});
+
 test('keeps a waiting match recoverable after a transient synchronization failure', async () => {
   let shouldFail = true;
   const { api } = makeApi({
