@@ -63,7 +63,7 @@ test('password-reset deep link renders only the reset form and enforces the pass
   );
 
   assert.match(html, /id="account-reset-password"/);
-  assert.match(html, /minlength="12"/);
+  assert.match(html, /minlength="12"/i);
   assert.match(html, /Set new password/);
   assert.doesNotMatch(html, /id="account-login-email"/);
   assert.doesNotMatch(html, /Continue with Google/);
