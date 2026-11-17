@@ -258,12 +258,12 @@ Conversion is an explicit authenticated operation, not an account merge based on
 1. Client authenticates as the active GUEST principal.
 2. Client submits registration credentials or completes a supported external-provider registration flow.
 3. Auth creates or resolves a USER account only after credential ownership and uniqueness checks.
-4. Guest Identity verifies the current guest principal and conversion eligibility.
+4. Guest Identity verifies the current guest principal and conversion eligibility. Before creating the account, it locks and revalidates the exact `UserSession` from the authenticated principal: the session must belong to this guest, remain unrevoked, and be unexpired. The row lock serializes conversion with concurrent logout; a stale, revoked, or expired session must fail without creating a user.
 5. In one database transaction, set:
    - `GuestIdentity.status = CONVERTED`
    - `GuestIdentity.convertedToUserId = User.id`
    - `GuestIdentity.convertedAt = now()`
-6. Preserve existing `MatchParticipant.guestIdentityId` references. Do not rewrite completed match history or change historical participant identity.
+6. Preserve completed/historical `MatchParticipant.guestIdentityId` references. For WAITING queue entries and participants in active (`WAITING`, `READY`, or `ACTIVE`) matches, transfer ownership to the new USER atomically while preserving the same Match, MatchParticipant row, current round, scores, answers, and deadline. Never rewrite completed match history or historical participant identity.
 7. Revoke guest sessions and prevent new guest refreshes.
 8. Create a new USER session and return USER credentials.
 
