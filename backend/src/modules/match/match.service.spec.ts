@@ -9,9 +9,11 @@ describe('MatchService', () => {
   function setup(mode: MatchMode, participants: Array<{ participantKey: string; participantType: ParticipantType; status: string }>) {
     const matchRecord = { id: 'match-1', mode, status: MatchStatus.WAITING, currentRound: 0, createdAt, participants };
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       user: { findUnique: jest.fn().mockResolvedValue({ preferredLanguage: 'fa' }) },
       match: {
         create: jest.fn().mockResolvedValue(matchRecord),
+        findFirst: jest.fn().mockResolvedValue(null),
         findUnique: jest.fn().mockResolvedValue({ participants: participants.map((p) => ({ participantKey: p.participantKey })) }),
         findMany: jest.fn().mockResolvedValue([]),
       },
@@ -24,6 +26,36 @@ describe('MatchService', () => {
     } as unknown as PrismaService;
     return { service: new MatchService(prisma), prisma, tx };
   }
+
+  it('returns the existing active 1vAI match on a repeated start request', async () => {
+    const { service, prisma, tx } = setup(MatchMode.ONE_V_AI, [
+      { participantKey: 'human:guest:guest-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+      { participantKey: 'ai:default-v1', participantType: ParticipantType.AI, status: 'ACTIVE' },
+    ]);
+    tx.match.findFirst.mockResolvedValue({
+      id: 'existing-ai-match', mode: MatchMode.ONE_V_AI, status: MatchStatus.ACTIVE,
+      currentRound: 2, roundsTarget: 10, createdAt, startedAt: createdAt, completedAt: null,
+      participants: [
+        { participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+        { participantType: ParticipantType.AI, status: 'ACTIVE' },
+      ],
+    });
+    const result = await service.createAiMatch({
+      principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'session-1',
+    }, { category: 'cars', language: 'fa' });
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.match.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        mode: MatchMode.ONE_V_AI,
+        status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] },
+        participants: { some: { guestIdentityId: 'guest-1' } },
+      },
+    }));
+    expect(result).toMatchObject({ id: 'existing-ai-match', status: MatchStatus.ACTIVE, currentRound: 2 });
+    expect(tx.match.create).not.toHaveBeenCalled();
+    expect(tx.questionGenerationJob.create).not.toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
 
   it.each([[PrincipalType.USER, 'user-1'], [PrincipalType.GUEST, 'guest-1']] as const)(
     'creates a waiting 1vAI match and queues its initial question for %s',
