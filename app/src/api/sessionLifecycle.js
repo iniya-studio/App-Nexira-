@@ -24,6 +24,8 @@ export function createSessionLifecycle({
   let lifecycleGeneration = 0;
   const listeners = new Set();
   const activeRequests = new Set();
+  let managedHttpSource = null;
+  let managedHttpClient = null;
 
   function abortActiveRequests(reason = 'The active account session is changing.', except = null) {
     for (const controller of activeRequests) {
@@ -37,6 +39,64 @@ export function createSessionLifecycle({
     return Promise.resolve()
       .then(() => operation({ signal: controller.signal, controller }))
       .finally(() => activeRequests.delete(controller));
+  }
+
+  function linkAbortSignals(lifecycleSignal, callerSignal = null) {
+    if (!callerSignal || callerSignal === lifecycleSignal) {
+      return { signal: lifecycleSignal, cleanup() {} };
+    }
+    const controller = new AbortController();
+    const sources = [lifecycleSignal, callerSignal];
+    const listenersForCleanup = [];
+    for (const source of sources) {
+      const abort = () => {
+        if (!controller.signal.aborted) controller.abort(source.reason);
+      };
+      if (source.aborted) abort();
+      else {
+        source.addEventListener('abort', abort, { once: true });
+        listenersForCleanup.push([source, abort]);
+      }
+    }
+    return {
+      signal: controller.signal,
+      cleanup() {
+        for (const [source, listener] of listenersForCleanup) {
+          source.removeEventListener('abort', listener);
+        }
+      },
+    };
+  }
+
+  function createManagedHttpClient(http) {
+    function invoke(method, args, optionsIndex) {
+      const options = args[optionsIndex] ?? {};
+      return runRequest(({ signal }) => {
+        const linked = linkAbortSignals(signal, options.signal);
+        const nextArgs = [...args];
+        nextArgs[optionsIndex] = { ...options, signal: linked.signal };
+        return Promise.resolve()
+          .then(() => http[method](...nextArgs))
+          .finally(linked.cleanup);
+      });
+    }
+
+    return Object.freeze({
+      request: (path, options = {}) => invoke('request', [path, options], 1),
+      get: (path, options = {}) => invoke('get', [path, options], 1),
+      post: (path, body, options = {}) => invoke('post', [path, body, options], 2),
+      patch: (path, body, options = {}) => invoke('patch', [path, body, options], 2),
+      delete: (path, options = {}) => invoke('delete', [path, options], 1),
+    });
+  }
+
+  function getManagedHttpClient() {
+    const activeServices = ensureServices();
+    if (managedHttpSource !== activeServices.http) {
+      managedHttpSource = activeServices.http;
+      managedHttpClient = createManagedHttpClient(activeServices.http);
+    }
+    return managedHttpClient;
   }
 
   function publish(next) {
@@ -160,7 +220,7 @@ export function createSessionLifecycle({
     getState: () => state,
 
     getHttpClient() {
-      return ensureServices().http;
+      return getManagedHttpClient();
     },
 
     subscribe(listener) {
