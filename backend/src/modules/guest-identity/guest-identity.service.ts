@@ -64,6 +64,12 @@ export class GuestIdentityService {
     };
     try {
       converted = await this.prisma.$transaction(async (tx) => {
+        // READ COMMITTED is intentional: after this transaction waits for the GuestIdentity
+        // row lock, later statements must see any GuestProgress committed by settlement.
+        // SERIALIZABLE fixes a transaction-wide snapshot before the lock wait and can miss
+        // that committed progression. The shared identity lock serializes settlement vs.
+        // conversion; advisory/Match/session locks and database constraints protect the
+        // matchmaking, ownership, and exactly-once invariants within this atomic transaction.
         // Matchmaking and conversion share the same principal -> bucket lock order.
         // This prevents a guest enqueue from creating a queue row while conversion
         // is transferring ownership.
@@ -269,7 +275,7 @@ export class GuestIdentityService {
           },
         });
         return { user, session };
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException('An account with this email or username already exists');
