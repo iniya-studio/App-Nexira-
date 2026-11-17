@@ -41,7 +41,7 @@ test('guest account renders the conversion form with required identity and passw
   assert.match(html, /id="account-display-name"/);
   assert.match(html, /id="account-password"/);
   assert.match(html, /minlength="12"/i);
-  assert.match(html, /Signing in replaces this device’s guest session/);
+  assert.match(html, /Convert your guest identity to a permanent account/);
   assert.match(html, /Continue with Google/);
 });
 
