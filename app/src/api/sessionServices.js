@@ -16,6 +16,7 @@ export function createSessionServices({
   baseUrl = getApiV1BaseUrl(),
   secureStorage = nativeSecureStorage,
   fetchImpl = globalThis.fetch,
+  onSessionInvalidated = null,
 } = {}) {
   if (platform !== 'android') {
     throw new Error('Persistent NEXIRA sessions are currently supported on Android only.');
@@ -36,8 +37,15 @@ export function createSessionServices({
     // Another concurrent request may already have rotated the token.
     if (latestToken && latestToken !== accessToken) return latestToken;
     if (!coordinator) return null;
-    const response = await coordinator.refresh();
-    return response?.tokens?.accessToken ?? tokenStore.getAccessToken();
+    try {
+      const response = await coordinator.refresh();
+      return response?.tokens?.accessToken ?? tokenStore.getAccessToken();
+    } catch (error) {
+      if (error?.status === 401 && typeof onSessionInvalidated === 'function') {
+        onSessionInvalidated(error);
+      }
+      throw error;
+    }
   };
 
   const http = createHttpClient({
