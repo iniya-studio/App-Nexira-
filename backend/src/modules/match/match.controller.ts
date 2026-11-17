@@ -19,6 +19,11 @@ export class MatchController {
     return this.matches.createAiMatch(request.principal, body);
   }
 
+  @Get('active/ai')
+  getActiveAiMatch(@Req() request: PrincipalRequest) {
+    return this.matches.getActiveAiMatch(request.principal);
+  }
+
   @Get(':matchId/result')
   getResult(
     @Param('matchId', new ParseUUIDPipe()) matchId: string,
