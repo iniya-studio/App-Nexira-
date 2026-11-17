@@ -424,3 +424,70 @@ test('logout during empty-session restore prevents automatic guest creation', as
   assert.equal(state.principal, null);
   assert.equal(services.calls.includes('startGuest'), false);
 });
+
+
+test('logout aborts the in-flight profile request at the lifecycle boundary', async () => {
+  const services = makeServices({ restored: userResponse });
+  const profileGate = deferredLifecycleValue();
+  let requestSignal = null;
+  services.coordinator.getMyProfile = async ({ signal } = {}) => {
+    requestSignal = signal;
+    return profileGate.promise;
+  };
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+
+  const loading = lifecycle.loadAccountData();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(requestSignal);
+  assert.equal(requestSignal.aborted, false);
+
+  await lifecycle.logout();
+  assert.equal(requestSignal.aborted, true);
+  profileGate.resolve({ profile: { displayName: 'Stale profile' }, statistics: {} });
+  assert.equal((await loading).status, 'signed-out');
+  assert.equal(lifecycle.getState().profile, null);
+});
+
+test('switching from guest to registered identity aborts requests from the guest session', async () => {
+  const services = makeServices({ guest: guestResponse, login: userResponse });
+  const profileGate = deferredLifecycleValue();
+  let requestSignal = null;
+  services.coordinator.getMyProfile = async ({ signal } = {}) => {
+    requestSignal = signal;
+    return profileGate.promise;
+  };
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+
+  const loading = lifecycle.loadAccountData();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const nextState = await lifecycle.login({ email: 'player@example.com', password: 'correct-password' });
+
+  assert.equal(requestSignal.aborted, true);
+  assert.equal(nextState.status, 'authenticated');
+  profileGate.resolve({ profile: { displayName: 'Old guest profile' }, statistics: {} });
+  await loading;
+  assert.equal(lifecycle.getState().status, 'authenticated');
+  assert.equal(lifecycle.getState().profile, null);
+});
+
+test('logout aborts an in-flight startup restore signal before it can create a guest', async () => {
+  const services = makeServices();
+  const restoreGate = deferredLifecycleValue();
+  let restoreSignal = null;
+  services.coordinator.restore = async ({ signal } = {}) => {
+    restoreSignal = signal;
+    return restoreGate.promise;
+  };
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+
+  const initializing = lifecycle.initialize();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(restoreSignal);
+  await lifecycle.logout();
+  assert.equal(restoreSignal.aborted, true);
+  restoreGate.resolve(null);
+  assert.equal((await initializing).status, 'signed-out');
+  assert.equal(services.calls.includes('startGuest'), false);
+});
