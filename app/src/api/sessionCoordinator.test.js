@@ -99,3 +99,50 @@ test('logout clears local credentials even when backend logout fails', async () 
   await assert.rejects(coordinator.logout(), /offline/);
   assert.equal(store.getAccessToken(), null); assert.equal(await store.getRefreshToken(), null);
 });
+
+
+test('a refresh response arriving after logout cannot restore credentials', async () => {
+  const store = makeStore(token('o')); await store.initialize();
+  const gate = deferred(); let refreshStarted = false;
+  const coordinator = createSessionCoordinator({
+    sessionApi: {
+      refresh: async () => { refreshStarted = true; return gate.promise; },
+      logout: async () => ({ success: true }),
+    },
+    tokenStore: store, createIdempotencyKey: () => token('i'),
+  });
+
+  const refresh = coordinator.refresh();
+  for (let i = 0; i < 20 && !refreshStarted; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.equal(refreshStarted, true);
+
+  await coordinator.logout();
+  gate.resolve(sessionResponse('GUEST', token('n')));
+  await assert.rejects(refresh, (error) => error.code === 'SESSION_SUPERSEDED');
+  assert.equal(store.getAccessToken(), null);
+  assert.equal(await store.getRefreshToken(), null);
+  assert.equal(coordinator.getCurrentPrincipal(), null);
+  assert.equal(coordinator.getCurrentSession(), null);
+});
+
+test('an authentication response started before logout cannot recreate the session', async () => {
+  const store = makeStore(token('o')); await store.initialize();
+  const gate = deferred();
+  const coordinator = createSessionCoordinator({
+    sessionApi: {
+      login: async () => gate.promise,
+      logout: async () => ({ success: true }),
+    },
+    tokenStore: store,
+  });
+
+  const login = coordinator.login({ email: 'player@example.test', password: 'password' });
+  await coordinator.logout();
+  gate.resolve(sessionResponse('USER', token('n')));
+  await assert.rejects(login, (error) => error.code === 'SESSION_SUPERSEDED');
+  assert.equal(store.getAccessToken(), null);
+  assert.equal(await store.getRefreshToken(), null);
+  assert.equal(coordinator.getCurrentPrincipal(), null);
+});
