@@ -168,6 +168,7 @@ export default function App() {
   const cancelMatchmakingRef = useRef(null);
   const matchTimerRemainingRef = useRef(10);
   const matchTimerKeyRef = useRef(null);
+  const progressionRequestRef = useRef(0);
   if (!matchAdapterRef.current) matchAdapterRef.current = createLocalMatchAdapter();
 
   const language = profile.settings.language;
@@ -208,6 +209,8 @@ export default function App() {
   useEffect(() => {
     if (sessionIdentityRef.current === sessionIdentityKey) return;
     sessionIdentityRef.current = sessionIdentityKey;
+    progressionRequestRef.current += 1;
+    setProgressionLoading(false);
     setServerProgress(null);
     setGlobalRanking(null);
     setSeasonalRanking(null);
@@ -352,6 +355,7 @@ export default function App() {
   const refreshServerProgression = useCallback(async () => {
     const currentState = appSessionLifecycle.getState();
     if (!['guest', 'authenticated'].includes(currentState.status)) return null;
+    const requestId = ++progressionRequestRef.current;
     setProgressionLoading(true);
     try {
       const api = createProgressionApi(appSessionLifecycle.getHttpClient());
@@ -360,6 +364,7 @@ export default function App() {
         api.getGlobalRanking(),
         api.getCurrentSeasonRanking(),
       ]);
+      if (requestId !== progressionRequestRef.current) return null;
       if (progressResult.status === 'rejected') throw progressResult.reason;
       setServerProgress(progressResult.value);
       if (globalResult.status === 'fulfilled') setGlobalRanking(globalResult.value);
@@ -374,10 +379,11 @@ export default function App() {
         : '');
       return progressResult.value;
     } catch (error) {
+      if (error?.code === 'SESSION_SUPERSEDED') return null;
       setProgressionError(error instanceof Error ? error.message : 'Unable to load progression.');
       return null;
     } finally {
-      setProgressionLoading(false);
+      if (requestId === progressionRequestRef.current) setProgressionLoading(false);
     }
   }, []);
 
