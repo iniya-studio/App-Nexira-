@@ -146,3 +146,22 @@ test('an authentication response started before logout cannot recreate the sessi
   assert.equal(await store.getRefreshToken(), null);
   assert.equal(coordinator.getCurrentPrincipal(), null);
 });
+
+
+test('coordinator forwards cancellation options to session API calls', async () => {
+  const store = makeStore();
+  const signal = new AbortController().signal;
+  const seen = [];
+  const coordinator = createSessionCoordinator({
+    sessionApi: {
+      startGuest: async (options) => { seen.push(['startGuest', options]); return sessionResponse(); },
+      getMyProfile: async (options) => { seen.push(['getMyProfile', options]); return { profile: {} }; },
+    },
+    tokenStore: store,
+  });
+
+  await coordinator.startGuest({ signal });
+  await coordinator.getMyProfile({ signal });
+  assert.equal(seen[0][1].signal, signal);
+  assert.equal(seen[1][1].signal, signal);
+});
