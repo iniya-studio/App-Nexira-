@@ -1,6 +1,6 @@
 # NEX-BE-011 — Public 1v1 Acceptance Checklist
 
-**Status:** Automated backend queue-to-ten-round lifecycle integration passed; physical two-device acceptance plan — execution pending  
+**Status:** Automated backend queue-to-ten-round lifecycle and guest conversion during a live round passed; physical two-device acceptance plan — execution pending  
 **Branch policy:** All implementation and documentation changes are made directly on `main`. Do not create a new branch for this work.  
 **Release rule:** Keep both public 1v1 feature flags disabled until every required acceptance test passes.
 
@@ -29,7 +29,7 @@ Before controlled acceptance testing:
 | 9 | One player submits at the deadline boundary | Exactly one valid server outcome; no duplicate scoring or double finalization | Answer status, round status, result |
 | 10 | Network drops and reconnects | Client restores the same active match and current scores | Match snapshot before/after reconnect |
 | 11 | App is force-stopped and reopened during a round | Queue recovery opens the same match and restores round/question state | Match ID, round ID, participant scores |
-| 12 | Guest converts to a registered account during an active match | Queue and active participant ownership transfer; match continues; no duplicate XP | Old guest ID, new user ID, match participant row |
+| 12 | Guest converts to a registered account during a live round | Queue and active participant ownership transfer; the new account and opponent recover the same question/deadline and both submit answers; old guest can no longer read or submit; no duplicate XP | Old guest ID, new user ID, match/round/question IDs, accepted answer IDs, session revocation state |
 | 13 | Match completes normally | Correct winner/draw, XP ledger and eligible ranking transactions are committed exactly once | MatchResult, XPTransaction, RankingTransaction |
 | 14 | Match ends by forfeit/deadline | Correct terminal result and exactly-once settlement | MatchResult and progression ledgers |
 | 15 | Android system Back is pressed while searching | Queue cancellation is requested; app returns to mode selection | Queue status CANCELLED or MATCHED |
@@ -46,7 +46,7 @@ Before controlled acceptance testing:
 
 ## 4. Automated quality gates
 
-The backend now has a PostgreSQL integration path that starts two authenticated principals through the public matchmaking queue, verifies exactly one shared 1v1 match and two MATCHED queue entries, confirms both principals can recover the same active match snapshot through `GET /matchmaking/queue/me`, runs all ten synchronized rounds, finalizes once, settles XP and Global Ranking exactly once, and verifies both queue snapshots become terminal after completion. A PostgreSQL race test runs a late answer submission concurrently with deadline finalization and verifies one NO_RESPONSE per player, one penalty per player, and no duplicate worker outcome. A guest-conversion integration test converts one player during an active public 1v1, verifies queue and participant ownership transfer, revokes the guest session, preserves the match, and confirms both the converted account and opponent can still recover it. Backend CI run `44058707927` passed on commit `099c86102076b22f1127e292a7f0bb136344ca61` (45 suites, 257 tests).
+The backend has a PostgreSQL integration path that starts two authenticated principals through the public matchmaking queue, verifies exactly one shared 1v1 match and two MATCHED queue entries, confirms both principals recover the same active match snapshot, runs all ten synchronized rounds, finalizes once, settles XP and Global Ranking exactly once, and verifies both queue snapshots become terminal. A PostgreSQL race test covers a late answer versus deadline finalization with one NO_RESPONSE and penalty per player and no duplicate worker outcome. Guest-conversion integration starts a genuinely ACTIVE round, transfers queue/participant ownership, verifies the new USER and opponent recover the same question/deadline and both submit accepted answers, and confirms the old guest cannot read or submit. Session integration also proves a revoked guest session cannot convert and no account is created. Backend CI run `44061093871` passed on code commit `275ea52494129957b2d6cbe93ae7594d22be10bc` (45 suites, 259 tests); Prisma, PostgreSQL 16 migrations, Nest build, ESLint, Compose validation, and staging Docker image build all passed.
 
 All must pass on the current `main` commit:
 
