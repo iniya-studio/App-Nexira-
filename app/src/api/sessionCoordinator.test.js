@@ -188,3 +188,35 @@ test('a newer identity transition supersedes an earlier pending login response',
   assert.equal(await store.getRefreshToken(), null);
   assert.equal(coordinator.getCurrentPrincipal(), null);
 });
+
+
+test('a stale unauthorized refresh cannot clear credentials from a newer login', async () => {
+  const store = makeStore(token('o'));
+  await store.initialize();
+  const gate = deferred();
+  let refreshStarted = false;
+  const coordinator = createSessionCoordinator({
+    sessionApi: {
+      refresh: async () => { refreshStarted = true; return gate.promise; },
+      login: async () => sessionResponse('USER', token('n')),
+    },
+    tokenStore: store,
+    createIdempotencyKey: () => token('i'),
+  });
+
+  const refresh = coordinator.refresh();
+  for (let i = 0; i < 20 && !refreshStarted; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.equal(refreshStarted, true);
+
+  coordinator.beginSessionTransition();
+  await coordinator.login({ email: 'player@example.test', password: 'password' });
+  assert.equal(store.getAccessToken(), 'access-token');
+
+  gate.reject(new ApiError('Old refresh token was revoked', { status: 401 }));
+  await assert.rejects(refresh, /Old refresh token was revoked/);
+  assert.equal(store.getAccessToken(), 'access-token');
+  assert.equal(await store.getRefreshToken(), token('n'));
+  assert.equal(coordinator.getCurrentPrincipal().principalType, 'USER');
+});
