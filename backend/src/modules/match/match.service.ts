@@ -33,19 +33,51 @@ export class MatchService {
     principal: AuthenticatedPrincipal,
     options: AiMatchOptions = {},
   ) {
-    return this.createMatchWithInitialQuestion(
-      MatchMode.ONE_V_AI,
-      [
-        this.humanParticipantData(principal),
-        { participantKey: 'ai:default-v1', participantType: ParticipantType.AI },
-      ],
-      principal,
-      {
-        ...INITIAL_QUESTION_SETTINGS,
-        category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
-        language: options.language,
-      },
-    );
+    return this.prisma.$transaction(async (tx) => {
+      // Serialize retries/concurrent starts for one principal so a lost POST
+      // response cannot leave multiple active 1vAI matches behind.
+      const principalLock = `nexira:1vai:principal:${principal.principalType}:${principal.principalId}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock}))`;
+
+      const ownership = principal.principalType === PrincipalType.USER
+        ? { userId: principal.principalId }
+        : { guestIdentityId: principal.principalId };
+      const existing = await tx.match.findFirst({
+        where: {
+          mode: MatchMode.ONE_V_AI,
+          status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] },
+          participants: { some: ownership },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          mode: true,
+          status: true,
+          currentRound: true,
+          roundsTarget: true,
+          createdAt: true,
+          startedAt: true,
+          completedAt: true,
+          participants: { select: { participantType: true, status: true } },
+        },
+      });
+      if (existing) return this.toMatchSummary(existing);
+
+      return this.createMatchWithInitialQuestion(
+        MatchMode.ONE_V_AI,
+        [
+          this.humanParticipantData(principal),
+          { participantKey: 'ai:default-v1', participantType: ParticipantType.AI },
+        ],
+        principal,
+        {
+          ...INITIAL_QUESTION_SETTINGS,
+          category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
+          language: options.language,
+        },
+        tx,
+      );
+    });
   }
 
   // Shared 1v1 creation primitive. Public callers must go through MatchmakingService,
