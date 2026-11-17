@@ -422,7 +422,23 @@ describe('Guest identity and session integration', () => {
       },
     });
 
-    const conversionPromise = guests.convert({
+    // Isolate the settlement-first ordering: XP must first land in the guest ledger,
+    // then conversion must transfer that exact ledger into the registered account.
+    await prisma.$transaction((tx) =>
+      settlement.settleCompletedMatch(tx, match.id),
+    );
+
+    const [preConversionProgress, preConversionXp, preConversionOpponentProgress] = await Promise.all([
+      prisma.guestProgress.findUnique({ where: { guestIdentityId: guestId } }),
+      prisma.guestXPTransaction.findMany({ where: { guestIdentityId: guestId, matchId: match.id } }),
+      prisma.userProgress.findUnique({ where: { userId: opponent.id } }),
+    ]);
+    expect(preConversionProgress?.totalXp).toBe(BigInt(17));
+    expect(preConversionXp).toHaveLength(1);
+    expect(preConversionXp[0]).toMatchObject({ amount: 17, reason: 'MATCH_REWARD' });
+    expect(preConversionOpponentProgress?.totalXp).toBe(BigInt(11));
+
+    const conversion = await guests.convert({
       principalType: PrincipalType.GUEST,
       principalId: guestId,
       sessionId: started.session.sessionId,
@@ -432,11 +448,6 @@ describe('Guest identity and session integration', () => {
       username: `settlement_race_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
       displayName: 'Converted Settlement Player',
     });
-    const settlementPromise = prisma.$transaction((tx) =>
-      settlement.settleCompletedMatch(tx, match.id),
-    );
-
-    const [conversion] = await Promise.all([conversionPromise, settlementPromise]);
     const userId = conversion.principal.principalId;
     convertedUserIds.push(userId);
 
