@@ -145,3 +145,56 @@ test('invalid refresh credentials notify the session owner after clearing local 
   assert.equal(services.coordinator.getCurrentPrincipal(), null);
   assert.equal(services.coordinator.getCurrentSession(), null);
 });
+
+
+test('lifecycle logout aborts a real composed HTTP profile request end to end', async () => {
+  const storage = secureStorage();
+  const initial = {
+    principal: { principalType: 'GUEST', principalId: 'guest-1' },
+    session: { sessionId: 'session-1', expiresAt: '2030-01-01T00:00:00.000Z' },
+    tokens: {
+      accessToken: 'access-token',
+      accessTokenExpiresAt: '2030-01-01T00:05:00.000Z',
+      refreshToken: 'r'.repeat(43),
+      refreshTokenExpiresAt: '2030-01-08T00:00:00.000Z',
+    },
+  };
+  let profileSignal = null;
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/guest/start')) return new Response(JSON.stringify(initial), { status: 201 });
+    if (url.endsWith('/profile/me')) {
+      profileSignal = options.signal;
+      return new Promise((resolve, reject) => {
+        const abort = () => reject(new Error('profile request aborted'));
+        if (options.signal.aborted) abort();
+        else options.signal.addEventListener('abort', abort, { once: true });
+      });
+    }
+    if (url.endsWith('/sessions/logout')) return new Response(JSON.stringify({ success: true }), { status: 200 });
+    return new Response(JSON.stringify({ message: 'Unexpected request' }), { status: 500 });
+  };
+  const { createSessionLifecycle } = await import('./sessionLifecycle.js');
+  const lifecycle = createSessionLifecycle({
+    platform: () => 'android',
+    createServices: (options) => createSessionServices({
+      platform: 'android',
+      baseUrl: 'https://api.example.test/api/v1',
+      secureStorage: storage,
+      fetchImpl,
+      ...options,
+    }),
+  });
+
+  await lifecycle.initialize();
+  const loading = lifecycle.loadAccountData();
+  for (let i = 0; i < 20 && !profileSignal; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.ok(profileSignal);
+  assert.equal(profileSignal.aborted, false);
+
+  await lifecycle.logout();
+  assert.equal(profileSignal.aborted, true);
+  assert.equal((await loading).status, 'signed-out');
+  assert.equal(lifecycle.getState().profile, null);
+});
