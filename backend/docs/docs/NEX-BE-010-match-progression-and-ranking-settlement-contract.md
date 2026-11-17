@@ -135,7 +135,7 @@ If an idempotency key already exists, verify that its match, principal, amount, 
 ### 5.3 Concurrency
 
 - Serialize updates to each progress/ranking aggregate using row locks or a serializable transaction with bounded retry for serialization conflicts.
-- Guest settlement and guest conversion must lock the same `GuestIdentity` row before resolving the destination ledger.
+- Guest settlement and guest conversion must lock the same `GuestIdentity` row before resolving the destination ledger. Guest conversion uses READ COMMITTED (not SERIALIZABLE) so statements after waiting on that row lock observe a settlement committed during the wait; the shared row lock serializes the destination decision, while idempotency keys and database uniqueness enforce exactly-once ledger writes.
 - Use database uniqueness as the final exactly-once guard; process-local locks are not sufficient.
 - Keep AI/provider/network calls outside settlement transactions.
 - Settlement is a database-only operation and must remain safe after process restart.
