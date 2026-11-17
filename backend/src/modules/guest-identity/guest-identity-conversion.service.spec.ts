@@ -37,7 +37,7 @@ describe('GuestIdentityService conversion', () => {
     companionProfile: { updateMany: jest.Mock };
     matchmakingEntry: { updateMany: jest.Mock; findMany: jest.Mock };
     matchParticipant: { updateMany: jest.Mock };
-    userSession: { updateMany: jest.Mock };
+    userSession: { findFirst: jest.Mock; updateMany: jest.Mock };
     refreshToken: { updateMany: jest.Mock };
     identityAuditEvent: { create: jest.Mock };
   };
@@ -74,7 +74,10 @@ describe('GuestIdentityService conversion', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       matchParticipant: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
-      userSession: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      userSession: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'guest-session-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
       refreshToken: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
       identityAuditEvent: { create: jest.fn().mockResolvedValue({}) },
     };
@@ -211,6 +214,13 @@ describe('GuestIdentityService conversion', () => {
       where: { id: { in: ['queue-1'] }, guestIdentityId: 'guest-1', status: 'MATCHED' },
       data: { guestIdentityId: null, userId: 'user-1' },
     });
+  });
+
+  it('rejects conversion when the authenticated guest session is no longer active', async () => {
+    tx.userSession.findFirst.mockResolvedValue(null);
+    await expect(service.convert(principal, input)).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(tx.user.create).not.toHaveBeenCalled();
+    expect(sessions.createSessionInTransaction).not.toHaveBeenCalled();
   });
 
   it('rejects conversion from a registered USER principal', async () => {
