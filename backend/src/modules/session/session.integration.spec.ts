@@ -1,10 +1,11 @@
 import { ConfigService } from '@nestjs/config';
-import { GuestIdentityStatus, PrincipalType } from '@prisma/client';
+import { AnswerStatus, GuestIdentityStatus, JudgeDecision, JudgeStatus, MatchMode, MatchStatus, ParticipantStatus, ParticipantType, PrincipalType } from '@prisma/client';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AccessTokenGuard } from '../identity/access-token.guard';
 import { AccessTokenService } from '../identity/access-token.service';
 import { GuestIdentityService } from '../guest-identity/guest-identity.service';
+import { MatchSettlementService } from '../match/match-settlement.service';
 import { SessionService } from './session.service';
 
 describe('Guest identity and session integration', () => {
@@ -40,6 +41,9 @@ describe('Guest identity and session integration', () => {
   const emailVerification = { issueAndSend: async () => 'SENT' };
   const guests = new GuestIdentityService(prisma, sessions, config, emailVerification as never);
   const accessGuard = new AccessTokenGuard(accessTokens, prisma);
+  const settlement = new MatchSettlementService();
+  const matchIds: string[] = [];
+  const questionIds: string[] = [];
   const guestIds: string[] = [];
   const convertedUserIds: string[] = [];
 
@@ -48,6 +52,14 @@ describe('Guest identity and session integration', () => {
   });
 
   afterEach(async () => {
+    if (matchIds.length) {
+      await prisma.match.deleteMany({ where: { id: { in: matchIds } } });
+      matchIds.length = 0;
+    }
+    if (questionIds.length) {
+      await prisma.question.deleteMany({ where: { id: { in: questionIds } } });
+      questionIds.length = 0;
+    }
     if (guestIds.length) {
       await prisma.userSession.deleteMany({ where: { guestIdentityId: { in: guestIds } } });
       await prisma.identityAuditEvent.deleteMany({ where: { principalId: { in: guestIds } } });
@@ -290,6 +302,156 @@ describe('Guest identity and session integration', () => {
       verified: false,
       delivery: 'SENT',
     });
+  });
+
+
+  it('serializes guest conversion against completed-match settlement without losing or duplicating XP', async () => {
+    const started = await startGuest();
+    const guestId = started.principal.principalId;
+    const opponent = await prisma.user.create({
+      data: { username: `settlement-opponent-${randomUUID()}`, displayName: 'Settlement Opponent' },
+    });
+    convertedUserIds.push(opponent.id);
+
+    const matchCompletedAt = new Date();
+    const match = await prisma.match.create({
+      data: {
+        mode: MatchMode.ONE_V_ONE,
+        status: MatchStatus.COMPLETED,
+        currentRound: 1,
+        roundsTarget: 1,
+        startedAt: new Date(matchCompletedAt.getTime() - 60_000),
+        completedAt: matchCompletedAt,
+      },
+    });
+    matchIds.push(match.id);
+
+    const [guestParticipant, opponentParticipant] = await Promise.all([
+      prisma.matchParticipant.create({
+        data: {
+          matchId: match.id,
+          guestIdentityId: guestId,
+          participantKey: `guest:${guestId}`,
+          participantType: ParticipantType.HUMAN,
+          status: ParticipantStatus.COMPLETED,
+          score: 10,
+          finishedAt: matchCompletedAt,
+        },
+      }),
+      prisma.matchParticipant.create({
+        data: {
+          matchId: match.id,
+          userId: opponent.id,
+          participantKey: `user:${opponent.id}`,
+          participantType: ParticipantType.HUMAN,
+          status: ParticipantStatus.COMPLETED,
+          score: 5,
+          finishedAt: matchCompletedAt,
+        },
+      }),
+    ]);
+    const question = await prisma.question.create({
+      data: {
+        canonicalLanguage: 'en',
+        answerType: 'FREE_TEXT',
+        canonicalPrompt: 'Name the red planet.',
+        answerKey: 'Mars',
+        gradingRubric: { requiredConcepts: ['Mars'] },
+        localized: { en: { prompt: 'Name the red planet.' } },
+        timeLimitSeconds: 30,
+        contentVersion: `guest-settlement-race-${randomUUID()}`,
+      },
+    });
+    questionIds.push(question.id);
+    const round = await prisma.round.create({
+      data: {
+        matchId: match.id,
+        roundNumber: 1,
+        questionId: question.id,
+        startedAt: new Date(matchCompletedAt.getTime() - 30_000),
+        deadlineAt: matchCompletedAt,
+        completedAt: matchCompletedAt,
+      },
+    });
+    await prisma.answer.createMany({
+      data: [
+        {
+          matchId: match.id,
+          roundId: round.id,
+          participantId: guestParticipant.id,
+          responseText: 'Mars',
+          status: AnswerStatus.ANSWERED,
+          judgeStatus: JudgeStatus.COMPLETED,
+          decision: JudgeDecision.CORRECT,
+          elapsedMs: 2_000,
+          points: 10,
+        },
+        {
+          matchId: match.id,
+          roundId: round.id,
+          participantId: opponentParticipant.id,
+          responseText: 'Venus',
+          status: AnswerStatus.ANSWERED,
+          judgeStatus: JudgeStatus.COMPLETED,
+          decision: JudgeDecision.INCORRECT,
+          elapsedMs: 3_000,
+          points: 0,
+        },
+      ],
+    });
+    await prisma.matchResult.create({
+      data: {
+        matchId: match.id,
+        winnerParticipantId: guestParticipant.id,
+        resultSummary: {
+          outcome: 'SCORE_WIN',
+          roundsPlayed: 1,
+          winnerParticipantId: guestParticipant.id,
+          finalScores: { [guestParticipant.id]: 10, [opponentParticipant.id]: 5 },
+        },
+        completedAt: matchCompletedAt,
+      },
+    });
+
+    const conversionPromise = guests.convert({
+      principalType: PrincipalType.GUEST,
+      principalId: guestId,
+      sessionId: started.session.sessionId,
+    }, {
+      email: `settlement-race-${randomUUID()}@example.test`,
+      password: 'integration-test-password-strong',
+      username: `settlement_race_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+      displayName: 'Converted Settlement Player',
+    });
+    const settlementPromise = prisma.$transaction((tx) =>
+      settlement.settleCompletedMatch(tx, match.id),
+    );
+
+    const [conversion] = await Promise.all([conversionPromise, settlementPromise]);
+    const userId = conversion.principal.principalId;
+    convertedUserIds.push(userId);
+
+    const [guest, guestProgress, userProgress, userXpEvents, guestXpEvents, opponentProgress] = await Promise.all([
+      prisma.guestIdentity.findUniqueOrThrow({ where: { id: guestId } }),
+      prisma.guestProgress.findUnique({ where: { guestIdentityId: guestId } }),
+      prisma.userProgress.findUnique({ where: { userId } }),
+      prisma.xPTransaction.findMany({ where: { userId, matchId: match.id } }),
+      prisma.guestXPTransaction.findMany({ where: { guestIdentityId: guestId, matchId: match.id } }),
+      prisma.userProgress.findUnique({ where: { userId: opponent.id } }),
+    ]);
+
+    expect(guest.status).toBe(GuestIdentityStatus.CONVERTED);
+    expect(guest.convertedToUserId).toBe(userId);
+    expect(guestProgress?.transferredAt).toBeInstanceOf(Date);
+    expect(userProgress?.totalXp).toBe(BigInt(17));
+    expect(userXpEvents).toHaveLength(1);
+    expect(userXpEvents[0]).toMatchObject({
+      amount: 17,
+      reason: 'GUEST_CONVERSION_TRANSFER',
+    });
+    expect(guestXpEvents).toHaveLength(1);
+    expect(guestXpEvents[0].amount).toBe(17);
+    expect(opponentProgress?.totalXp).toBe(BigInt(11));
   });
 
 });
