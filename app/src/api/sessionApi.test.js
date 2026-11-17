@@ -71,3 +71,25 @@ test('session API exposes password recovery, password change and explicit Google
     ['/account/identities/google/link', { idToken: 'google-id-token', nonce: 'n'.repeat(43) }],
   ]);
 });
+
+
+test('session API forwards AbortSignal without changing endpoint authentication policy', async () => {
+  const calls = [];
+  const signal = new AbortController().signal;
+  const http = {
+    post: async (...args) => { calls.push(['post', ...args]); return {}; },
+    get: async (...args) => { calls.push(['get', ...args]); return {}; },
+    patch: async (...args) => { calls.push(['patch', ...args]); return {}; },
+    delete: async (...args) => { calls.push(['delete', ...args]); return {}; },
+  };
+  const api = createSessionApi(http);
+  await api.login({ email: 'player@example.com', password: 'correct-password' }, { signal });
+  await api.getMyProfile({ signal });
+  await api.requestPasswordReset('player@example.com', { signal });
+
+  assert.equal(calls[0][2].signal, signal);
+  assert.equal(calls[0][2].authenticated, false);
+  assert.equal(calls[1][2].signal, signal);
+  assert.equal(calls[2][2].signal, signal);
+  assert.equal(calls[2][2].authenticated, false);
+});
