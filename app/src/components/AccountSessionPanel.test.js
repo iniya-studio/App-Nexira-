@@ -40,7 +40,7 @@ test('guest account renders the conversion form with required identity and passw
   assert.match(html, /pattern="\[a-zA-Z0-9_\]\{3,20\}"/);
   assert.match(html, /id="account-display-name"/);
   assert.match(html, /id="account-password"/);
-  assert.match(html, /minlength="12"/);
+  assert.match(html, /minlength="12"/i);
   assert.match(html, /Signing in replaces this device’s guest session/);
   assert.match(html, /Continue with Google/);
 });
@@ -101,4 +101,16 @@ test('verified registered account shows verified state and hides the resend acti
   assert.match(html, /Account email is verified/);
   assert.match(html, /GOOGLE/);
   assert.doesNotMatch(html, /Resend verification email/);
+});
+
+test('initializing session does not expose account actions before identity is known', () => {
+  const html = renderPanel({ status: 'initializing' });
+  assert.equal(html, '');
+});
+
+test('Persian account view renders localized sign-in and Google actions', () => {
+  const html = renderPanel({ status: 'signed-out' }, { language: 'fa' });
+  assert.match(html, /مدیریت حساب/);
+  assert.match(html, /ورود به نکسیرا/);
+  assert.match(html, /ادامه با Google/);
 });
