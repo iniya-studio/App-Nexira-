@@ -110,6 +110,24 @@ describe('Guest identity and session integration', () => {
     ).rejects.toThrow();
   });
 
+  it('does not convert a guest after the exact authenticated session has been revoked', async () => {
+    const started = await startGuest();
+    const principal = {
+      principalType: PrincipalType.GUEST,
+      principalId: started.principal.principalId,
+      sessionId: started.session.sessionId,
+    };
+    await sessions.logout(principal);
+    const email = `revoked-${randomUUID()}@example.test`;
+    await expect(guests.convert(principal, {
+      email,
+      password: 'integration-test-password-strong',
+      username: `revoked_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+      displayName: 'Revoked Guest',
+    })).rejects.toThrow('Guest session is no longer active');
+    expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
+  });
+
   it('rejects a guest whose identity is no longer active', async () => {
     const started = await startGuest();
     await prisma.guestIdentity.update({
