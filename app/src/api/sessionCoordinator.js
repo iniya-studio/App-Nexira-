@@ -116,7 +116,7 @@ export function createSessionCoordinator({
         const response = await sessionApi.refresh(attempt.refreshToken, attempt.idempotencyKey, options);
         return await acceptSession(response, generation);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
+        if (error instanceof ApiError && error.status === 401 && generation === sessionGeneration) {
           await clearCredentials();
         }
         // On uncertain failures the encrypted attempt remains for exact replay
