@@ -260,3 +260,65 @@ test('lifecycle-managed HTTP client aborts progression, match and matchmaking re
   assert.ok(outcomes.every((outcome) => outcome.status === 'rejected'
     && outcome.reason.code === 'REQUEST_ABORTED'));
 });
+
+
+test('HTTP API clients from a previous identity cannot issue requests after account switch', async () => {
+  const storage = secureStorage();
+  const guest = {
+    principal: { principalType: 'GUEST', principalId: 'guest-1' },
+    session: { sessionId: 'guest-session', expiresAt: '2030-01-01T00:00:00.000Z' },
+    tokens: {
+      accessToken: 'guest-access-token',
+      accessTokenExpiresAt: '2030-01-01T00:05:00.000Z',
+      refreshToken: 'r'.repeat(43),
+      refreshTokenExpiresAt: '2030-01-08T00:00:00.000Z',
+    },
+  };
+  const user = {
+    principal: { principalType: 'USER', principalId: 'user-1' },
+    session: { sessionId: 'user-session', expiresAt: '2030-01-01T00:00:00.000Z' },
+    tokens: {
+      accessToken: 'user-access-token',
+      accessTokenExpiresAt: '2030-01-01T00:05:00.000Z',
+      refreshToken: 'n'.repeat(43),
+      refreshTokenExpiresAt: '2030-01-08T00:00:00.000Z',
+    },
+    user: { id: 'user-1', email: 'player@example.com' },
+  };
+  let progressionRequests = 0;
+  const fetchImpl = async (url) => {
+    if (url.endsWith('/guest/start')) return new Response(JSON.stringify(guest), { status: 201 });
+    if (url.endsWith('/auth/login')) return new Response(JSON.stringify(user), { status: 200 });
+    if (url.endsWith('/progression/me')) {
+      progressionRequests += 1;
+      return new Response(JSON.stringify({ totalXp: 0, level: 1 }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ message: 'Unexpected request' }), { status: 500 });
+  };
+  const { createSessionLifecycle } = await import('./sessionLifecycle.js');
+  const { createProgressionApi } = await import('./progressionApi.js');
+  const lifecycle = createSessionLifecycle({
+    platform: () => 'android',
+    createServices: (options) => createSessionServices({
+      platform: 'android',
+      baseUrl: 'https://api.example.test/api/v1',
+      secureStorage: storage,
+      fetchImpl,
+      ...options,
+    }),
+  });
+
+  await lifecycle.initialize();
+  const guestApi = createProgressionApi(lifecycle.getHttpClient());
+  await lifecycle.login({ email: 'player@example.com', password: 'correct-password' });
+
+  await assert.rejects(
+    guestApi.getMyProgress(),
+    (error) => error.code === 'SESSION_SUPERSEDED',
+  );
+  assert.equal(progressionRequests, 0);
+
+  const userApi = createProgressionApi(lifecycle.getHttpClient());
+  await userApi.getMyProgress();
+  assert.equal(progressionRequests, 1);
+});
