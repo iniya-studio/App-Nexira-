@@ -193,21 +193,39 @@ export function createOnlineMatchAdapter(api, {
           view.language,
         );
         roundId = recovery.roundId;
-        return update({
-          phase: 'question',
-          roundId,
-          roundIndex: question.roundNumber - 1,
-          currentRound: question.roundNumber,
-          question,
-          timeLimit: question.timeLimitSeconds,
-          deadlineAt: question.deadlineAt,
-          roundSummary: null,
-          error: null,
-          participants: view.participants.map((participant) => ({
-            ...participant,
-            answer: null,
-          })),
-        });
+        if (question.hasSubmitted === true) {
+          // After process death, the original in-memory idempotency key is gone.
+          // The server's participant-scoped submission state is authoritative:
+          // never reopen an already accepted answer as a fresh question.
+          pendingSubmission = null;
+          update({
+            phase: 'waiting-result',
+            roundId,
+            roundIndex: question.roundNumber - 1,
+            currentRound: question.roundNumber,
+            question: null,
+            timeLimit: question.timeLimitSeconds,
+            deadlineAt: question.deadlineAt,
+            roundSummary: null,
+            error: null,
+          });
+        } else {
+          update({
+            phase: 'question',
+            roundId,
+            roundIndex: question.roundNumber - 1,
+            currentRound: question.roundNumber,
+            question,
+            timeLimit: question.timeLimitSeconds,
+            deadlineAt: question.deadlineAt,
+            roundSummary: null,
+            error: null,
+            participants: view.participants.map((participant) => ({
+              ...participant,
+              answer: null,
+            })),
+          });
+        }
       }
 
       if (roundId) {
