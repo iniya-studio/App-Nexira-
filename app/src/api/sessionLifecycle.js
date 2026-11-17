@@ -159,6 +159,7 @@ export function createSessionLifecycle({
           publish({ ...INITIAL_STATE, status: 'initializing' });
           services = createServices({ onSessionInvalidated: handleSessionInvalidated });
           let response = await services.coordinator.restore();
+          if (generation !== lifecycleGeneration) return state;
           if (!response) response = await services.coordinator.startGuest();
           if (generation !== lifecycleGeneration) return state;
           const principal = services.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
@@ -208,10 +209,12 @@ export function createSessionLifecycle({
     },
 
     async resetPassword(token, newPassword) {
+      const generation = lifecycleGeneration;
       const activeServices = ensureServices();
       const result = await activeServices.coordinator.resetPassword(token, newPassword);
+      if (generation !== lifecycleGeneration) return result;
       await activeServices.coordinator.clearLocalSession();
-      publish({ ...INITIAL_STATE, status: 'signed-out' });
+      if (generation === lifecycleGeneration) publish({ ...INITIAL_STATE, status: 'signed-out' });
       return result;
     },
 
@@ -277,21 +280,27 @@ export function createSessionLifecycle({
       if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
         throw new TypeError('A valid email verification token is required.');
       }
+      const generation = lifecycleGeneration;
       const activeServices = ensureServices();
       try {
         const result = await activeServices.coordinator.verifyEmail(token);
+        if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return result;
         publish({ ...state, emailVerification: { required: false, verified: true }, accountDataError: null });
         if (['guest', 'authenticated'].includes(state.status)) await loadAccountData();
         return result;
       } catch (error) {
-        publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Email verification failed.' });
+        if (generation === lifecycleGeneration && ['guest', 'authenticated'].includes(state.status)) {
+          publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Email verification failed.' });
+        }
         throw error;
       }
     },
 
     async resendVerification() {
+      const generation = lifecycleGeneration;
       const activeServices = ensureServices();
       const result = await activeServices.coordinator.resendVerification();
+      if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return result;
       return publish({ ...state, emailVerification: { ...state.emailVerification, ...result } });
     },
 
