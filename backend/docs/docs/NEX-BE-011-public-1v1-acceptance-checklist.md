@@ -1,6 +1,6 @@
 # NEX-BE-011 — Public 1v1 Acceptance Checklist
 
-**Status:** Acceptance plan — execution pending  
+**Status:** Automated backend queue-to-ten-round lifecycle integration passed; physical two-device acceptance plan — execution pending  
 **Branch policy:** All implementation and documentation changes are made directly on `main`. Do not create a new branch for this work.  
 **Release rule:** Keep both public 1v1 feature flags disabled until every required acceptance test passes.
 
@@ -45,6 +45,8 @@ Before controlled acceptance testing:
 - Confirm registered users update Global Ranking and the active Seasonal Ranking independently from XP.
 
 ## 4. Automated quality gates
+
+The backend now has a PostgreSQL integration path that starts two authenticated principals through the public matchmaking queue, verifies exactly one shared 1v1 match and two MATCHED queue entries, runs all ten synchronized rounds, finalizes once, settles XP and Global Ranking exactly once, and verifies both queue snapshots become terminal after completion. Backend CI run `44055646276` passed on commit `847f9d17383a66501acbb53e493fe81af3ff3eb8` (44 suites, 255 tests).
 
 All must pass on the current `main` commit:
 
