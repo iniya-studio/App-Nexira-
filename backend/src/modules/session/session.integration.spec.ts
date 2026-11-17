@@ -487,4 +487,217 @@ describe('Guest identity and session integration', () => {
     expect(opponentProgress?.totalXp).toBe(BigInt(11));
   });
 
+  it.each(['conversion-first', 'settlement-first'] as const)(
+    'preserves XP when %s wins the real PostgreSQL GuestIdentity lock race',
+    async (ordering) => {
+      const started = await startGuest();
+      const guestId = started.principal.principalId;
+      const opponent = await prisma.user.create({
+        data: { username: 'lock-race-opponent-' + randomUUID(), displayName: 'Lock Race Opponent' },
+      });
+      convertedUserIds.push(opponent.id);
+
+      const completedAt = new Date();
+      const match = await prisma.match.create({
+        data: {
+          mode: MatchMode.ONE_V_ONE,
+          status: MatchStatus.COMPLETED,
+          currentRound: 1,
+          roundsTarget: 10,
+          startedAt: new Date(completedAt.getTime() - 60_000),
+          completedAt,
+        },
+      });
+      matchIds.push(match.id);
+
+      const [guestParticipant, opponentParticipant] = await Promise.all([
+        prisma.matchParticipant.create({
+          data: {
+            matchId: match.id,
+            guestIdentityId: guestId,
+            participantKey: 'guest:' + guestId,
+            participantType: ParticipantType.HUMAN,
+            status: ParticipantStatus.COMPLETED,
+            score: 10,
+            finishedAt: completedAt,
+          },
+        }),
+        prisma.matchParticipant.create({
+          data: {
+            matchId: match.id,
+            userId: opponent.id,
+            participantKey: 'user:' + opponent.id,
+            participantType: ParticipantType.HUMAN,
+            status: ParticipantStatus.COMPLETED,
+            score: 5,
+            finishedAt: completedAt,
+          },
+        }),
+      ]);
+      const question = await prisma.question.create({
+        data: {
+          canonicalLanguage: 'en',
+          answerType: 'FREE_TEXT',
+          canonicalPrompt: 'Name the red planet.',
+          answerKey: 'Mars',
+          gradingRubric: { requiredConcepts: ['Mars'] },
+          localized: { en: { prompt: 'Name the red planet.' } },
+          timeLimitSeconds: 30,
+          contentVersion: 'guest-lock-race-' + randomUUID(),
+        },
+      });
+      questionIds.push(question.id);
+      const round = await prisma.round.create({
+        data: {
+          matchId: match.id,
+          roundNumber: 1,
+          questionId: question.id,
+          startedAt: new Date(completedAt.getTime() - 30_000),
+          deadlineAt: completedAt,
+          completedAt,
+        },
+      });
+      await prisma.answer.createMany({
+        data: [
+          {
+            matchId: match.id,
+            roundId: round.id,
+            participantId: guestParticipant.id,
+            responseText: 'Mars',
+            status: AnswerStatus.ANSWERED,
+            judgeStatus: JudgeStatus.COMPLETED,
+            decision: JudgeDecision.CORRECT,
+            elapsedMs: 2_000,
+            points: 10,
+          },
+          {
+            matchId: match.id,
+            roundId: round.id,
+            participantId: opponentParticipant.id,
+            responseText: 'Venus',
+            status: AnswerStatus.ANSWERED,
+            judgeStatus: JudgeStatus.COMPLETED,
+            decision: JudgeDecision.INCORRECT,
+            elapsedMs: 3_000,
+            points: 0,
+          },
+        ],
+      });
+      await prisma.matchResult.create({
+        data: {
+          matchId: match.id,
+          winnerParticipantId: guestParticipant.id,
+          resultSummary: {
+            outcome: 'SCORE_WIN',
+            roundsPlayed: 1,
+            winnerParticipantId: guestParticipant.id,
+            finalScores: { [guestParticipant.id]: 10, [opponentParticipant.id]: 5 },
+          },
+          completedAt,
+        },
+      });
+
+      const convertGuest = () => guests.convert({
+        principalType: PrincipalType.GUEST,
+        principalId: guestId,
+        sessionId: started.session.sessionId,
+      }, {
+        email: 'guest-lock-race-' + ordering + '-' + randomUUID() + '@example.test',
+        password: 'integration-test-password-strong',
+        username: 'guest_lock_race_' + randomUUID().replace(/-/g, '').slice(0, 12),
+        displayName: 'Lock Race Converted Player',
+      });
+
+      // Hold the actual row lock so both production transactions enter its
+      // PostgreSQL wait queue in a known order before it is released.
+      let releaseBlocker!: () => void;
+      let signalBlockerReady!: () => void;
+      const blockerGate = new Promise<void>((resolve) => { releaseBlocker = resolve; });
+      const blockerReady = new Promise<void>((resolve) => { signalBlockerReady = resolve; });
+      const blockerTransaction = prisma.$transaction(async (tx) => {
+        await tx.$queryRawUnsafe(
+          'SELECT "id" FROM "GuestIdentity" WHERE "id" = $1::uuid FOR UPDATE',
+          guestId,
+        );
+        signalBlockerReady();
+        await blockerGate;
+      });
+
+      const waitForGuestLockWaiters = async (expected: number) => {
+        const deadline = Date.now() + 10_000;
+        while (Date.now() < deadline) {
+          const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+            "SELECT COUNT(*)::bigint AS count FROM pg_stat_activity " +
+            "WHERE datname = current_database() AND wait_event_type = 'Lock' " +
+            "AND query ILIKE '%GuestIdentity%' AND query ILIKE '%FOR UPDATE%'",
+          );
+          if (Number(rows[0]?.count ?? 0n) >= expected) return;
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        throw new Error('Timed out waiting for ' + expected + ' GuestIdentity row-lock waiter(s)');
+      };
+
+      let conversion: Awaited<ReturnType<typeof guests.convert>> | undefined;
+      let settlementPromise: Promise<void> | undefined;
+      try {
+        await blockerReady;
+        if (ordering === 'conversion-first') {
+          const conversionPromise = convertGuest();
+          await waitForGuestLockWaiters(1);
+          settlementPromise = prisma.$transaction((tx) => settlement.settleCompletedMatch(tx, match.id));
+          await waitForGuestLockWaiters(2);
+          releaseBlocker();
+          conversion = await conversionPromise;
+          await settlementPromise;
+        } else {
+          settlementPromise = prisma.$transaction((tx) => settlement.settleCompletedMatch(tx, match.id));
+          await waitForGuestLockWaiters(1);
+          const conversionPromise = convertGuest();
+          await waitForGuestLockWaiters(2);
+          releaseBlocker();
+          await settlementPromise;
+          conversion = await conversionPromise;
+        }
+        await blockerTransaction;
+      } finally {
+        releaseBlocker();
+        await blockerTransaction.catch(() => undefined);
+      }
+
+      if (!conversion) throw new Error('Guest conversion did not return a result');
+      const userId = conversion.principal.principalId;
+      convertedUserIds.push(userId);
+
+      const [guest, guestProgress, userProgress, userXpEvents, guestXpEvents, opponentProgress] = await Promise.all([
+        prisma.guestIdentity.findUniqueOrThrow({ where: { id: guestId } }),
+        prisma.guestProgress.findUnique({ where: { guestIdentityId: guestId } }),
+        prisma.userProgress.findUnique({ where: { userId } }),
+        prisma.xPTransaction.findMany({ where: { userId, matchId: match.id } }),
+        prisma.guestXPTransaction.findMany({ where: { guestIdentityId: guestId, matchId: match.id } }),
+        prisma.userProgress.findUnique({ where: { userId: opponent.id } }),
+      ]);
+
+      expect(guest).toMatchObject({
+        status: GuestIdentityStatus.CONVERTED,
+        convertedToUserId: userId,
+      });
+      expect(userProgress?.totalXp).toBe(BigInt(17));
+      expect(userXpEvents).toHaveLength(1);
+      expect(userXpEvents[0]).toMatchObject({ amount: 17 });
+      expect(['MATCH_REWARD', 'GUEST_CONVERSION_TRANSFER']).toContain(userXpEvents[0].reason);
+      expect(guestXpEvents.length).toBeLessThanOrEqual(1);
+      if (guestXpEvents.length === 1) {
+        expect(guestXpEvents[0]).toMatchObject({ amount: 17, reason: 'MATCH_REWARD' });
+        expect(guestProgress?.transferredAt).toBeInstanceOf(Date);
+        expect(userXpEvents[0].reason).toBe('GUEST_CONVERSION_TRANSFER');
+      } else {
+        expect(guestProgress).toBeNull();
+        expect(userXpEvents[0].reason).toBe('MATCH_REWARD');
+      }
+      expect(opponentProgress?.totalXp).toBe(BigInt(11));
+    },
+    30_000,
+  );
+
+
 });
