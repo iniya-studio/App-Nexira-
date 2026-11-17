@@ -315,6 +315,7 @@ describe('RoundService', () => {
         },
         timeLimitSeconds: 20,
       },
+      answers: [{ id: 'answer-self' }],
     });
 
     const result = await service.getRoundQuestion(
@@ -348,9 +349,15 @@ describe('RoundService', () => {
             timeLimitSeconds: true,
           },
         },
+        answers: {
+          where: { participant: { is: { guestIdentityId: 'guest-1' } } },
+          select: { id: true },
+          take: 1,
+        },
       },
     });
     expect(result.prompt).toBe('پرسش فارسی');
+    expect(result.hasSubmitted).toBe(true);
     expect(result.options).toEqual([
       { id: 'A', text: 'گزینه الف' },
       { id: 'B', text: 'گزینه ب' },
@@ -378,6 +385,7 @@ describe('RoundService', () => {
         localized: {},
         timeLimitSeconds: 20,
       },
+      answers: [],
     });
 
     const result = await service.getRoundQuestion(
@@ -388,6 +396,7 @@ describe('RoundService', () => {
     );
 
     expect(result.prompt).toBe('Canonical prompt');
+    expect(result.hasSubmitted).toBe(false);
     expect(result.options[0].text).toBe('Canonical A');
   });
 
