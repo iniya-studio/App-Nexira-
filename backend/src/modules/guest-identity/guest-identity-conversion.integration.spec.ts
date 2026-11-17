@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
 import { MatchmakingService } from '../matchmaking/matchmaking.service';
+import { RoundService } from '../match/round.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
 import { SessionService } from '../session/session.service';
 import { GuestIdentityService } from './guest-identity.service';
@@ -13,6 +14,7 @@ import { GuestIdentityService } from './guest-identity.service';
 describe('Guest conversion during an active public 1v1 match integration', () => {
   const prisma = new PrismaService();
   const matches = new MatchService(prisma);
+  const rounds = new RoundService(prisma);
   const matchmaking = new MatchmakingService(prisma, matches, {
     notifyMatchFound: jest.fn().mockResolvedValue(undefined),
   } as never);
@@ -110,6 +112,23 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     expect(secondQueue.matchId).toBeTruthy();
     const matchId = secondQueue.matchId!;
     matchIds.push(matchId);
+    const activeRound = await rounds.startNextRound(matchId, {
+      category: 'general',
+      difficulty: 'medium',
+      canonicalLanguage: 'en',
+      answerType: 'FREE_TEXT',
+      canonicalPrompt: 'Which planet is known as the Red Planet?',
+      canonicalOptions: null,
+      answerKey: 'Mars',
+      gradingRubric: { requiredConcepts: ['Mars'], acceptEquivalentWording: true },
+      localized: { en: { prompt: 'Which planet is known as the Red Planet?' } },
+      timeLimitSeconds: 30,
+      contentVersion: `guest-conversion-${randomUUID()}`,
+      generatorVersion: 'integration-generator-v1',
+      modelVersion: 'integration-model-v1',
+      generationPolicyVersion: 'guest-conversion-v1',
+    });
+    questionIds.push(activeRound.questionId);
 
     const configValues: Record<string, string> = {
       ARGON2_MEMORY_COST_KIB: '1024',
@@ -225,21 +244,33 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     expect(convertedRecovery).toMatchObject({
       status: 'MATCHED',
       matchId,
-      match: { id: matchId, status: 'WAITING' },
+      match: { id: matchId, status: 'ACTIVE', currentRound: 1 },
     });
     expect(opponentRecovery).toMatchObject({
       status: 'MATCHED',
       matchId,
-      match: { id: matchId, status: 'WAITING' },
+      match: { id: matchId, status: 'ACTIVE', currentRound: 1 },
     });
 
     const [convertedMatch, opponentMatch] = await Promise.all([
       matches.getMatch(matchId, convertedPrincipal),
       matches.getMatch(matchId, secondPrincipal),
     ]);
+    expect(convertedMatch).toMatchObject({ status: 'ACTIVE', currentRound: 1 });
+    expect(opponentMatch).toMatchObject({ status: 'ACTIVE', currentRound: 1 });
     expect(convertedMatch.participants.filter((participant) => participant.isSelf)).toHaveLength(1);
     expect(opponentMatch.participants.filter((participant) => participant.isSelf)).toHaveLength(1);
+    const [convertedQuestion, opponentQuestion] = await Promise.all([
+      rounds.getRoundQuestion(matchId, activeRound.roundId, convertedPrincipal, 'en'),
+      rounds.getRoundQuestion(matchId, activeRound.roundId, secondPrincipal, 'en'),
+    ]);
+    expect(convertedQuestion.questionId).toBe(activeRound.questionId);
+    expect(opponentQuestion.questionId).toBe(activeRound.questionId);
+    expect(convertedQuestion.deadlineAt).toEqual(opponentQuestion.deadlineAt);
+    expect(convertedQuestion.prompt).toBe(opponentQuestion.prompt);
     await expect(matches.getMatch(matchId, firstPrincipal)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(rounds.getRoundQuestion(matchId, activeRound.roundId, firstPrincipal, 'en'))
+      .rejects.toBeInstanceOf(NotFoundException);
     await expect(matchmaking.getMine(firstPrincipal)).resolves.toMatchObject({ status: 'NOT_QUEUED' });
   });
 });
