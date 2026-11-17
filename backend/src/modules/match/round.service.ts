@@ -307,6 +307,11 @@ export class RoundService {
             timeLimitSeconds: true,
           },
         },
+        answers: {
+          where: { participant: { is: ownership } },
+          select: { id: true },
+          take: 1,
+        },
       },
     });
 
@@ -320,6 +325,7 @@ export class RoundService {
     }
 
     const question = round.question;
+    const hasSubmitted = round.answers.length > 0;
     const canonicalOptions = this.readCanonicalOptions(
       question.canonicalOptions,
     );
@@ -347,6 +353,7 @@ export class RoundService {
       timeLimitSeconds: question.timeLimitSeconds,
       startedAt: round.startedAt,
       deadlineAt: round.deadlineAt,
+      hasSubmitted,
     };
   }
 
