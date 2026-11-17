@@ -1,4 +1,4 @@
-import { PrincipalType } from '@prisma/client';
+import { MatchMode, MatchStatus, PrincipalType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchService } from './match.service';
@@ -163,6 +163,28 @@ describe('Match and round persistence integration', () => {
     expect(started.deadlineAt!.getTime() - started.startedAt!.getTime()).toBe(30_000);
     expect(await prisma.match.findUniqueOrThrow({ where: { id: match.id }, select: { status: true, currentRound: true } }))
       .toEqual({ status: 'ACTIVE', currentRound: 1 });
+  });
+
+  it('reuses the same active 1vAI match after an ambiguous create retry', async () => {
+    const guestId = await createGuest();
+    const principal = {
+      principalType: PrincipalType.GUEST,
+      principalId: guestId,
+      sessionId: randomUUID(),
+    } as const;
+    const first = await matches.createAiMatch(principal, { category: 'science', language: 'fa' });
+    matchIds.push(first.id);
+    const retry = await matches.createAiMatch(principal, { category: 'science', language: 'fa' });
+    expect(retry.id).toBe(first.id);
+    expect(await prisma.match.count({
+      where: {
+        id: first.id,
+        mode: MatchMode.ONE_V_AI,
+        status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] },
+        participants: { some: { guestIdentityId: guestId } },
+      },
+    })).toBe(1);
+    expect(await prisma.questionGenerationJob.count({ where: { matchId: first.id } })).toBe(1);
   });
 
   it('gives both 1v1 players one generated question and one shared clock after both are ready', async () => {
