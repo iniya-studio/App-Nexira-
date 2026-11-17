@@ -109,3 +109,39 @@ test('composed session services refresh and retry a protected request after back
   assert.equal(requests.filter((request) => request.url.endsWith('/sessions/refresh')).length, 1);
   assert.equal(await services.tokenStore.getRefreshToken(), 'n'.repeat(43));
 });
+
+
+test('invalid refresh credentials notify the session owner after clearing local credentials', async () => {
+  const storage = secureStorage();
+  const invalidations = [];
+  const initial = {
+    principal: { principalType: 'GUEST', principalId: 'guest-1' },
+    session: { sessionId: 'session-1', expiresAt: '2030-01-01T00:00:00.000Z' },
+    tokens: {
+      accessToken: 'old-access-token',
+      accessTokenExpiresAt: '2030-01-01T00:05:00.000Z',
+      refreshToken: 'r'.repeat(43),
+      refreshTokenExpiresAt: '2030-01-08T00:00:00.000Z',
+    },
+  };
+  const services = createSessionServices({
+    platform: 'android',
+    baseUrl: 'https://api.example.test/api/v1',
+    secureStorage: storage,
+    onSessionInvalidated: (error) => invalidations.push(error.status),
+    fetchImpl: async (url, options) => {
+      if (url.endsWith('/guest/start')) return new Response(JSON.stringify(initial), { status: 201 });
+      if (url.endsWith('/profile/me')) return new Response(JSON.stringify({ message: 'Expired' }), { status: 401 });
+      if (url.endsWith('/sessions/refresh')) return new Response(JSON.stringify({ message: 'Refresh revoked' }), { status: 401 });
+      return new Response(JSON.stringify({ message: 'Unexpected request' }), { status: 500 });
+    },
+  });
+
+  await services.coordinator.startGuest();
+  await assert.rejects(services.http.get('/profile/me'), (error) => error.status === 401);
+  assert.deepEqual(invalidations, [401]);
+  assert.equal(services.tokenStore.getAccessToken(), null);
+  assert.equal(await services.tokenStore.getRefreshToken(), null);
+  assert.equal(services.coordinator.getCurrentPrincipal(), null);
+  assert.equal(services.coordinator.getCurrentSession(), null);
+});
