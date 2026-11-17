@@ -43,6 +43,15 @@ export function createSessionLifecycle({
     return state;
   }
 
+  function handleSessionInvalidated() {
+    if (!['initializing', 'guest', 'authenticated'].includes(state.status)) return;
+    publish({
+      ...INITIAL_STATE,
+      status: 'signed-out',
+      error: 'Your session has expired. Please sign in again.',
+    });
+  }
+
   function ensureServices() {
     if (platform() !== 'android') {
       throw new Error('Account sessions are currently supported on Android only.');
@@ -138,7 +147,7 @@ export function createSessionLifecycle({
             return publish({ ...INITIAL_STATE, status: 'unsupported' });
           }
           publish({ ...INITIAL_STATE, status: 'initializing' });
-          services = createServices();
+          services = createServices({ onSessionInvalidated: handleSessionInvalidated });
           let response = await services.coordinator.restore();
           if (!response) response = await services.coordinator.startGuest();
           const principal = services.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
@@ -155,6 +164,7 @@ export function createSessionLifecycle({
               : null),
           });
         } catch (error) {
+          if (state.status === 'signed-out' && error?.status === 401) return state;
           return classifyFailure(error);
         }
       })();
