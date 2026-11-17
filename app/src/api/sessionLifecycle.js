@@ -23,6 +23,21 @@ export function createSessionLifecycle({
   let initialization = null;
   let lifecycleGeneration = 0;
   const listeners = new Set();
+  const activeRequests = new Set();
+
+  function abortActiveRequests(reason = 'The active account session is changing.', except = null) {
+    for (const controller of activeRequests) {
+      if (controller !== except) controller.abort(new Error(reason));
+    }
+  }
+
+  function runRequest(operation) {
+    const controller = new AbortController();
+    activeRequests.add(controller);
+    return Promise.resolve()
+      .then(() => operation({ signal: controller.signal, controller }))
+      .finally(() => activeRequests.delete(controller));
+  }
 
   function publish(next) {
     state = Object.freeze({ ...next });
@@ -46,6 +61,7 @@ export function createSessionLifecycle({
 
   function handleSessionInvalidated() {
     if (!['initializing', 'guest', 'authenticated'].includes(state.status)) return;
+    abortActiveRequests('The session credentials were rejected.');
     lifecycleGeneration += 1;
     publish({
       ...INITIAL_STATE,
@@ -63,75 +79,81 @@ export function createSessionLifecycle({
   }
 
   async function performAccountAction(action, ...args) {
-    const generation = lifecycleGeneration;
     const activeServices = ensureServices();
-    try {
-      const response = await activeServices.coordinator[action](...args);
-      if (generation !== lifecycleGeneration) throw new Error('The account operation was superseded by a newer session action.');
-      const principal = activeServices.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
-      const session = activeServices.coordinator.getCurrentSession() ?? response?.session ?? null;
-      if (!principal || !session) throw new Error('Backend did not provide a valid NEXIRA account session.');
-      return publish({
-        ...state,
-        status: principal.principalType === 'GUEST' ? 'guest' : 'authenticated',
-        principal,
-        session,
-        account: response?.user ?? null,
-        emailVerification: response?.emailVerification ?? (response?.user
-          ? { required: true, verified: Boolean(response.user.emailVerifiedAt), delivery: null }
-          : null),
-        profile: null,
-        authentication: null,
-        sessions: [],
-        accountDataError: null,
-        error: null,
-      });
-    } catch (error) {
-      // A failed login or guest conversion must not discard a still-valid guest session.
-      if (generation === lifecycleGeneration) {
-        publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
+    abortActiveRequests('A new account identity is being established.');
+    activeServices.coordinator.beginSessionTransition?.();
+    const generation = ++lifecycleGeneration;
+    return runRequest(async ({ signal }) => {
+      try {
+        const response = await activeServices.coordinator[action](...args, { signal });
+        if (generation !== lifecycleGeneration) throw new Error('The account operation was superseded by a newer session action.');
+        const principal = activeServices.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
+        const session = activeServices.coordinator.getCurrentSession() ?? response?.session ?? null;
+        if (!principal || !session) throw new Error('Backend did not provide a valid NEXIRA account session.');
+        return publish({
+          ...state,
+          status: principal.principalType === 'GUEST' ? 'guest' : 'authenticated',
+          principal,
+          session,
+          account: response?.user ?? null,
+          emailVerification: response?.emailVerification ?? (response?.user
+            ? { required: true, verified: Boolean(response.user.emailVerifiedAt), delivery: null }
+            : null),
+          profile: null,
+          authentication: null,
+          sessions: [],
+          accountDataError: null,
+          error: null,
+        });
+      } catch (error) {
+        // A failed login or guest conversion must not discard a still-valid guest session.
+        if (generation === lifecycleGeneration) {
+          publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
+        }
+        throw error;
       }
-      throw error;
-    }
+    });
   }
 
   async function loadAccountData() {
     const generation = lifecycleGeneration;
     const activeServices = ensureServices();
     if (!['guest', 'authenticated'].includes(state.status)) return state;
-    try {
-      const profile = await activeServices.coordinator.getMyProfile();
-      let account = null;
-      let authentication = null;
-      let sessions = [];
-      let emailVerification = state.emailVerification;
-      if (state.principal?.principalType === 'USER') {
-        const [accountResult, sessionsResult] = await Promise.all([
-          activeServices.coordinator.getMyAccount(),
-          activeServices.coordinator.listSessions(),
-        ]);
-        account = accountResult?.user ?? null;
-        authentication = accountResult?.authentication ?? null;
-        sessions = Array.isArray(sessionsResult?.sessions) ? sessionsResult.sessions : [];
-        emailVerification = accountResult?.emailVerification ?? emailVerification;
+    return runRequest(async ({ signal }) => {
+      try {
+        const profile = await activeServices.coordinator.getMyProfile({ signal });
+        let account = null;
+        let authentication = null;
+        let sessions = [];
+        let emailVerification = state.emailVerification;
+        if (state.principal?.principalType === 'USER') {
+          const [accountResult, sessionsResult] = await Promise.all([
+            activeServices.coordinator.getMyAccount({ signal }),
+            activeServices.coordinator.listSessions({ signal }),
+          ]);
+          account = accountResult?.user ?? null;
+          authentication = accountResult?.authentication ?? null;
+          sessions = Array.isArray(sessionsResult?.sessions) ? sessionsResult.sessions : [];
+          emailVerification = accountResult?.emailVerification ?? emailVerification;
+        }
+        if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
+        return publish({
+          ...state,
+          profile,
+          account,
+          authentication,
+          sessions,
+          emailVerification,
+          accountDataError: null,
+        });
+      } catch (error) {
+        if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
+        return publish({
+          ...state,
+          accountDataError: error instanceof Error ? error.message : 'Unable to load account data.',
+        });
       }
-      if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
-      return publish({
-        ...state,
-        profile,
-        account,
-        authentication,
-        sessions,
-        emailVerification,
-        accountDataError: null,
-      });
-    } catch (error) {
-      if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
-      return publish({
-        ...state,
-        accountDataError: error instanceof Error ? error.message : 'Unable to load account data.',
-      });
-    }
+    });
   }
 
   return Object.freeze({
@@ -158,9 +180,12 @@ export function createSessionLifecycle({
           }
           publish({ ...INITIAL_STATE, status: 'initializing' });
           services = createServices({ onSessionInvalidated: handleSessionInvalidated });
-          let response = await services.coordinator.restore();
-          if (generation !== lifecycleGeneration) return state;
-          if (!response) response = await services.coordinator.startGuest();
+          const response = await runRequest(async ({ signal }) => {
+            let restored = await services.coordinator.restore({ signal });
+            if (generation !== lifecycleGeneration) return null;
+            if (!restored) restored = await services.coordinator.startGuest({ signal });
+            return restored;
+          });
           if (generation !== lifecycleGeneration) return state;
           const principal = services.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
           const session = services.coordinator.getCurrentSession() ?? response?.session ?? null;
@@ -201,26 +226,35 @@ export function createSessionLifecycle({
       return performAccountAction('convertGuest', credentials);
     },
 
-    async createGoogleChallenge() { return ensureServices().coordinator.createGoogleChallenge(); },
+    async createGoogleChallenge() {
+      const activeServices = ensureServices();
+      return runRequest(({ signal }) => activeServices.coordinator.createGoogleChallenge({ signal }));
+    },
     signInWithGoogle(idToken) { return performAccountAction('signInWithGoogle', idToken); },
 
     async requestPasswordReset(email) {
-      return ensureServices().coordinator.requestPasswordReset(email);
+      const activeServices = ensureServices();
+      return runRequest(({ signal }) => activeServices.coordinator.requestPasswordReset(email, { signal }));
     },
 
     async resetPassword(token, newPassword) {
       const generation = lifecycleGeneration;
       const activeServices = ensureServices();
-      const result = await activeServices.coordinator.resetPassword(token, newPassword);
-      if (generation !== lifecycleGeneration) return result;
-      await activeServices.coordinator.clearLocalSession();
-      if (generation === lifecycleGeneration) publish({ ...INITIAL_STATE, status: 'signed-out' });
-      return result;
+      return runRequest(async ({ signal, controller }) => {
+        const result = await activeServices.coordinator.resetPassword(token, newPassword, { signal });
+        if (generation !== lifecycleGeneration) return result;
+        abortActiveRequests('The password reset invalidated the previous session.', controller);
+        lifecycleGeneration += 1;
+        await activeServices.coordinator.clearLocalSession();
+        if (generation + 1 === lifecycleGeneration) publish({ ...INITIAL_STATE, status: 'signed-out' });
+        return result;
+      });
     },
 
     async changePassword(currentPassword, newPassword) {
       if (state.status !== 'authenticated') throw new Error('A registered account session is required.');
-      const result = await ensureServices().coordinator.changePassword(currentPassword, newPassword);
+      const activeServices = ensureServices();
+      const result = await runRequest(({ signal }) => activeServices.coordinator.changePassword(currentPassword, newPassword, { signal }));
       await loadAccountData();
       return result;
     },
@@ -229,7 +263,8 @@ export function createSessionLifecycle({
       if (state.status !== 'authenticated' || state.principal?.principalType !== 'USER') {
         throw new Error('Sign in to a registered account before linking Google.');
       }
-      const result = await ensureServices().coordinator.linkGoogleIdentity(idToken);
+      const activeServices = ensureServices();
+      const result = await runRequest(({ signal }) => activeServices.coordinator.linkGoogleIdentity(idToken, { signal }));
       await loadAccountData();
       return result;
     },
@@ -239,16 +274,18 @@ export function createSessionLifecycle({
     async updateProfile(changes) {
       const generation = lifecycleGeneration;
       const activeServices = ensureServices();
-      try {
-        const profile = await activeServices.coordinator.updateMyProfile(changes);
-        if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
-        return publish({ ...state, profile, accountDataError: null });
-      } catch (error) {
-        if (generation === lifecycleGeneration && ['guest', 'authenticated'].includes(state.status)) {
-          publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Unable to update profile.' });
+      return runRequest(async ({ signal }) => {
+        try {
+          const profile = await activeServices.coordinator.updateMyProfile(changes, { signal });
+          if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
+          return publish({ ...state, profile, accountDataError: null });
+        } catch (error) {
+          if (generation === lifecycleGeneration && ['guest', 'authenticated'].includes(state.status)) {
+            publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Unable to update profile.' });
+          }
+          throw error;
         }
-        throw error;
-      }
+      });
     },
 
     async revokeSession(sessionId) {
@@ -256,13 +293,14 @@ export function createSessionLifecycle({
         throw new Error('Use the current-session sign-out action to revoke this device.');
       }
       const activeServices = ensureServices();
-      const result = await activeServices.coordinator.revokeSession(sessionId);
+      const result = await runRequest(({ signal }) => activeServices.coordinator.revokeSession(sessionId, { signal }));
       await loadAccountData();
       return result;
     },
 
     async logoutAll() {
       const activeServices = ensureServices();
+      abortActiveRequests('All sessions are being revoked.');
       const generation = ++lifecycleGeneration;
       publish({ ...INITIAL_STATE, status: 'signed-out' });
       try {
@@ -283,7 +321,7 @@ export function createSessionLifecycle({
       const generation = lifecycleGeneration;
       const activeServices = ensureServices();
       try {
-        const result = await activeServices.coordinator.verifyEmail(token);
+        const result = await runRequest(({ signal }) => activeServices.coordinator.verifyEmail(token, { signal }));
         if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return result;
         publish({ ...state, emailVerification: { required: false, verified: true }, accountDataError: null });
         if (['guest', 'authenticated'].includes(state.status)) await loadAccountData();
@@ -299,13 +337,14 @@ export function createSessionLifecycle({
     async resendVerification() {
       const generation = lifecycleGeneration;
       const activeServices = ensureServices();
-      const result = await activeServices.coordinator.resendVerification();
+      const result = await runRequest(({ signal }) => activeServices.coordinator.resendVerification({ signal }));
       if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return result;
       return publish({ ...state, emailVerification: { ...state.emailVerification, ...result } });
     },
 
     async logout() {
       if (!services) throw new Error('NEXIRA session services are not initialized.');
+      abortActiveRequests('The current account is signing out.');
       const generation = ++lifecycleGeneration;
       publish({ ...INITIAL_STATE, status: 'signed-out' });
       try {
