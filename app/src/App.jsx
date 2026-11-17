@@ -616,24 +616,47 @@ export default function App() {
         }
         if (next.status === 'MATCHED' && next.matchId) {
           await openMatchedOnlineMatch(next);
-        } else if (next.status === 'WAITING' && publicOneVsOneEnabled) {
+          return;
+        }
+        if (next.status === 'WAITING' && publicOneVsOneEnabled) {
           setMatchmakingView({
             ...next,
             categoryTitle: categoryById(next.category)?.title ?? next.category ?? 'General',
           });
           setScreen('matchmaking');
-        } else if (next.status === 'WAITING') {
+          return;
+        }
+        if (next.status === 'WAITING') {
           const cancelled = await adapter.cancel();
           if (cancelled?.status === 'MATCHED' && cancelled.matchId) {
             await openMatchedOnlineMatch(cancelled);
-          } else {
-            adapter.reset();
-            if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
+            return;
           }
-        } else {
-          adapter.reset();
-          if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
         }
+        adapter.reset();
+        if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
+
+        // 1vAI matches have no matchmaking queue entry. Recover the server-owned
+        // active match by the current authenticated principal after cold startup.
+        if (!active || !['splash', 'home'].includes(screenRef.current)) return;
+        const matchApi = createMatchApi(appSessionLifecycle.getHttpClient());
+        const activeAiMatch = await matchApi.getActiveAiMatch();
+        if (!active || !activeAiMatch?.id || !['splash', 'home'].includes(screenRef.current)) return;
+        const matchAdapter = createOnlineMatchAdapter(matchApi);
+        onlineMatchAdapterRef.current = matchAdapter;
+        const restored = await matchAdapter.resume(activeAiMatch.id, {
+          mode: '1vAI',
+          language: profileRef.current.settings.language,
+        });
+        if (!active || !['splash', 'home'].includes(screenRef.current)) {
+          matchAdapter.reset();
+          if (onlineMatchAdapterRef.current === matchAdapter) onlineMatchAdapterRef.current = null;
+          return;
+        }
+        setMatchView({ ...restored, categoryId: 'general', categoryTitle: 'General' });
+        setOnlineAnswerText('');
+        setMatchError('');
+        setScreen(restored.phase === 'complete' ? 'match-results' : 'match-game');
       } catch {
         adapter.reset();
         if (onlineMatchmakingAdapterRef.current === adapter) onlineMatchmakingAdapterRef.current = null;
