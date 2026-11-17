@@ -72,6 +72,49 @@ describe('MatchService', () => {
 
 
 
+  it('recovers only the current principal active 1vAI match', async () => {
+    const findFirst = jest.fn()
+      .mockResolvedValueOnce({ id: 'active-ai-match' })
+      .mockResolvedValueOnce({
+        id: 'active-ai-match',
+        mode: MatchMode.ONE_V_AI,
+        status: MatchStatus.ACTIVE,
+        currentRound: 3,
+        roundsTarget: 10,
+        createdAt,
+        startedAt: createdAt,
+        completedAt: null,
+        participants: [
+          { id: 'human-row', participantType: ParticipantType.HUMAN, status: 'ACTIVE', userId: null, guestIdentityId: 'guest-1' },
+          { id: 'ai-row', participantType: ParticipantType.AI, status: 'ACTIVE', userId: null, guestIdentityId: null },
+        ],
+      });
+    const service = new MatchService({ match: { findFirst } } as unknown as PrismaService);
+    const principal = { principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'session-1' } as const;
+    const result = await service.getActiveAiMatch(principal);
+    expect(findFirst).toHaveBeenNthCalledWith(1, {
+      where: {
+        mode: MatchMode.ONE_V_AI,
+        status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] },
+        participants: { some: { guestIdentityId: 'guest-1' } },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    expect(result).toMatchObject({ id: 'active-ai-match', mode: MatchMode.ONE_V_AI, currentRound: 3 });
+    expect(result.participants[0]).toMatchObject({ isSelf: true, displayName: 'YOU' });
+    expect(result.participants[1]).toMatchObject({ isSelf: false, displayName: 'OPPONENT' });
+  });
+
+  it('returns null when the principal has no active 1vAI match', async () => {
+    const findFirst = jest.fn().mockResolvedValue(null);
+    const service = new MatchService({ match: { findFirst } } as unknown as PrismaService);
+    await expect(service.getActiveAiMatch({
+      principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1',
+    })).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledTimes(1);
+  });
+
   it('returns only the authorized participant snapshot needed for reconnect recovery', async () => {
     const { service, prisma } = setup(MatchMode.ONE_V_ONE, []);
     (prisma.match.findFirst as jest.Mock).mockResolvedValue({
