@@ -8,6 +8,42 @@ export class ApiError extends Error {
   }
 }
 
+function createRequestAbortedError(reason = null) {
+  return new ApiError('The API request was aborted.', {
+    code: 'REQUEST_ABORTED',
+    details: reason,
+  });
+}
+
+function throwIfAborted(signal) {
+  if (signal?.aborted) throw createRequestAbortedError(signal.reason);
+}
+
+function awaitWithAbort(value, signal) {
+  if (!signal) return Promise.resolve(value);
+  if (signal.aborted) return Promise.reject(createRequestAbortedError(signal.reason));
+
+  return new Promise((resolve, reject) => {
+    const cleanup = () => signal.removeEventListener('abort', onAbort);
+    const onAbort = () => {
+      cleanup();
+      reject(createRequestAbortedError(signal.reason));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    Promise.resolve(value).then(
+      (result) => {
+        cleanup();
+        resolve(result);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+    if (signal.aborted) onAbort();
+  });
+}
+
 export function createHttpClient({
   baseUrl,
   getAccessToken = () => null,
@@ -38,18 +74,18 @@ export function createHttpClient({
       throw new TypeError('API paths must be absolute paths relative to the API base URL.');
     }
 
-    const baseHeaders = new Headers(headers);
+    throwIfAborted(signal);\n\n    const baseHeaders = new Headers(headers);
     if (body !== undefined && !baseHeaders.has('Content-Type')) {
       baseHeaders.set('Content-Type', 'application/json');
     }
 
     let accessToken = null;
     if (authenticated) {
-      accessToken = await getAccessToken();
+      accessToken = await awaitWithAbort(getAccessToken(), signal);
       // A missing in-memory access token may mean that it expired while the
       // app stayed open. Restore it before sending the protected request.
       if (!accessToken && refreshAccessToken) {
-        accessToken = await refreshAccessToken({ accessToken: null, path, method });
+        accessToken = await awaitWithAbort(\n          refreshAccessToken({ accessToken: null, path, method }),\n          signal,\n        );
       }
     }
 
@@ -121,7 +157,7 @@ export function createHttpClient({
     if (authenticated && accessToken && result.error?.status === 401 && refreshAccessToken) {
       // The coordinator serializes refresh. It also returns an already-rotated
       // token when another request completed the refresh before this 401 arrived.
-      const refreshedToken = await refreshAccessToken({ accessToken, path, method });
+      const refreshedToken = await awaitWithAbort(\n        refreshAccessToken({ accessToken, path, method }),\n        signal,\n      );
       if (refreshedToken && refreshedToken !== accessToken) {
         result = await send(refreshedToken);
       }
