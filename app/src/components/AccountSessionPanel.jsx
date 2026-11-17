@@ -225,7 +225,7 @@ export function AccountSessionPanel({
     setResending(true);
     try {
       const result = await lifecycle.resendVerification();
-      setNotice(result.delivery === 'SENT'
+      setNotice(result.emailVerification?.delivery === 'SENT'
         ? (isFa ? 'ایمیل تأیید دوباره ارسال شد.' : 'Verification email sent again.')
         : (isFa ? 'ارسال ایمیل فعلاً در دسترس نیست.' : 'Email delivery is currently unavailable.'));
     } catch (cause) {
