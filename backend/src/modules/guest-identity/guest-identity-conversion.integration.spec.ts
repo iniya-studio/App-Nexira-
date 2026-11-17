@@ -7,6 +7,7 @@ import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
 import { MatchmakingService } from '../matchmaking/matchmaking.service';
 import { RoundService } from '../match/round.service';
+import { AnswerService } from '../match/answer.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
 import { SessionService } from '../session/session.service';
 import { GuestIdentityService } from './guest-identity.service';
@@ -15,6 +16,7 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
   const prisma = new PrismaService();
   const matches = new MatchService(prisma);
   const rounds = new RoundService(prisma);
+  const answers = new AnswerService(prisma);
   const matchmaking = new MatchmakingService(prisma, matches, {
     notifyMatchFound: jest.fn().mockResolvedValue(undefined),
   } as never);
@@ -268,6 +270,15 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     expect(opponentQuestion.questionId).toBe(activeRound.questionId);
     expect(convertedQuestion.deadlineAt).toEqual(opponentQuestion.deadlineAt);
     expect(convertedQuestion.prompt).toBe(opponentQuestion.prompt);
+    const [convertedAnswer, opponentAnswer] = await Promise.all([
+      answers.submitAnswer(matchId, activeRound.roundId, convertedPrincipal, 'Mars', `converted-${randomUUID()}`),
+      answers.submitAnswer(matchId, activeRound.roundId, secondPrincipal, 'The Red Planet', `opponent-${randomUUID()}`),
+    ]);
+    expect(convertedAnswer).toMatchObject({ matchId, roundId: activeRound.roundId, status: 'ACCEPTED' });
+    expect(opponentAnswer).toMatchObject({ matchId, roundId: activeRound.roundId, status: 'ACCEPTED' });
+    await expect(answers.submitAnswer(
+      matchId, activeRound.roundId, firstPrincipal, 'Mars', `stale-guest-${randomUUID()}`,
+    )).rejects.toBeInstanceOf(NotFoundException);
     await expect(matches.getMatch(matchId, firstPrincipal)).rejects.toBeInstanceOf(NotFoundException);
     await expect(rounds.getRoundQuestion(matchId, activeRound.roundId, firstPrincipal, 'en'))
       .rejects.toBeInstanceOf(NotFoundException);
