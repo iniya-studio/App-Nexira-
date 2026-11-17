@@ -41,6 +41,7 @@ Base URL: environment-configured API origin + `/api/v1`.
 | Rotate session | POST `/sessions/refresh` | Refresh token in body |
 | Logout | POST `/sessions/logout` | Access token |
 | Create 1vAI match | POST `/matches/ai` with `{ category, language }` | Access token |
+| Find the caller's active 1vAI match after cold startup | GET `/matches/active/ai` | Access token |
 | Read match summary | GET `/matches/:matchId` | Access token |
 | Read participant-authorized round settlement | GET `/matches/:matchId/rounds/:roundId/result` | Access token |
 | Read participant-authorized final match result | GET `/matches/:matchId/result` | Access token |
@@ -58,7 +59,7 @@ The backend already contains substantial server-side match infrastructure: canon
 The production 1vAI lifecycle is implemented through the existing REST contracts and the two sanitized result routes. The answer submission receipt remains non-authoritative; the client waits for server settlement before displaying correctness or score.
 - 1vAI lifecycle: question generation/recovery, AI readiness, database-owned shared round clock, AI opponent answer worker, AI Judge, round settlement, next-question generation, and final match result retrieval are implemented and covered by PostgreSQL integration tests.
 - Public 1v1 matchmaking/queue and pairing are not exposed; `createOneVsOne` remains an internal service method. This is the next separate implementation milestone.
-- A WebSocket client event contract is not exposed. V1 online 1vAI uses REST polling and must reconcile after foreground/resume and network recovery. A cold-process restart/resume flow for an interrupted match remains to be completed and tested.
+- A WebSocket client event contract is not exposed. V1 online 1vAI uses REST polling and must reconcile after foreground/resume and network recovery. Cold-process recovery is now implemented through the participant-scoped `GET /matches/active/ai` lookup and the existing online adapter resume path; physical-device acceptance remains a release gate.
 - Transient API failures during waiting-question/waiting-result do not discard the recoverable lifecycle phase; polling can continue. If answer submission is accepted but the subsequent result read fails, the client preserves `waiting-result` and does not misclassify the accepted answer as a failed submission or send it again.
 - Live provider execution still requires a deployed API, PostgreSQL, HTTPS API origin in the Android build, and server-side OpenAI credentials/model configuration for Question Generator, AI Opponent, and AI Judge. CI uses deterministic test providers and does not prove production provider connectivity.
 - Full device-level 10-round acceptance against a deployed API and live OpenAI is still pending.
@@ -73,7 +74,7 @@ The implemented API boundary inside `app/src/` includes:
 - `api/httpClient.js`: base URL, JSON transport, timeout/abort, normalized API errors, authorization header injection.
 - `api/tokenStore.js`: secure token storage abstraction. Capacitor native builds must use an OS-backed secure-storage plugin selected and validated before production use. Browser development may use an in-memory test adapter only.
 - `api/sessionApi.js`: guest start, register, login, Google, refresh, logout, guest conversion.
-- `api/matchApi.js`: create match, read summary, mark ready, read question, submit answer, question recovery.
+- `api/matchApi.js`: create match, find an active 1vAI match for cold-start recovery, read summary, mark ready, read question, submit answer, and question recovery.
 - `api/sessionCoordinator.js`: single-flight refresh, refresh-token rotation, replay protection, logout on unrecoverable session invalidation.
 - `game/onlineMatchAdapter.js`: implemented for production 1vAI; calls backend APIs and exposes server lifecycle states, stable answer idempotency, readiness, round settlement, and final result.
 - The current app selects the online adapter in production builds and keeps the local adapter for Vite development/demo. It does not silently fall back to local scoring.
