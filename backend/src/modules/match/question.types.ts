@@ -42,4 +42,6 @@ export type PublicRoundQuestion = {
   timeLimitSeconds: number;
   startedAt: Date;
   deadlineAt: Date;
+  /** Whether the authenticated participant already submitted this round. */
+  hasSubmitted: boolean;
 };
