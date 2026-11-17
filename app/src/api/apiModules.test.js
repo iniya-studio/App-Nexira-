@@ -37,17 +37,19 @@ test('match API builds encoded routes and submits the exact backend DTO', async 
   const { calls, http } = createRecorder();
   const api = createMatchApi(http);
   await api.createAiMatch({ category: 'science', language: 'fa' });
+  await api.getActiveAiMatch();
   await api.getMatchResult('match-id');
   await api.getRoundResult('match/id', 'round/id');
   await api.getRoundQuestion('match/id', 'round/id', 'fa-IR');
 
   assert.equal(calls[0].path, '/matches/ai');
   assert.deepEqual(calls[0].body, { category: 'science', language: 'fa' });
-  assert.equal(calls[1].path, '/matches/match-id/result');
-  assert.equal(calls[2].path, '/matches/match%2Fid/rounds/round%2Fid/result');
-  assert.equal(calls[3].path, '/matches/match%2Fid/rounds/round%2Fid/question?language=fa-IR');
+  assert.equal(calls[1].path, '/matches/active/ai');
+  assert.equal(calls[2].path, '/matches/match-id/result');
+  assert.equal(calls[3].path, '/matches/match%2Fid/rounds/round%2Fid/result');
+  assert.equal(calls[4].path, '/matches/match%2Fid/rounds/round%2Fid/question?language=fa-IR');
   await api.submitAnswer('match-id', 'round-id', 'free text answer', 'stable-idempotency-key');
-  assert.deepEqual(calls[4].body, {
+  assert.deepEqual(calls[5].body, {
     responseText: 'free text answer',
     idempotencyKey: 'stable-idempotency-key',
   });
