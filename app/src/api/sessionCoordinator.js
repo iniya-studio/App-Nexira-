@@ -75,7 +75,7 @@ export function createSessionCoordinator({
     return acceptSession(response, generation);
   }
 
-  async function refreshSession() {
+  async function refreshSession(options = {}) {
     if (logoutInFlight) await logoutInFlight.catch(() => {});
     if (clearInFlight) await clearInFlight;
     if (refreshInFlight) return refreshInFlight;
@@ -113,7 +113,7 @@ export function createSessionCoordinator({
       if (generation !== sessionGeneration) throw supersededError();
 
       try {
-        const response = await sessionApi.refresh(attempt.refreshToken, attempt.idempotencyKey);
+        const response = await sessionApi.refresh(attempt.refreshToken, attempt.idempotencyKey, options);
         return await acceptSession(response, generation);
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
@@ -159,11 +159,11 @@ export function createSessionCoordinator({
     },
     refresh: refreshSession,
 
-    async restore() {
+    async restore(options) {
       if (tokenStore.getAccessToken()) {
         return { principal: currentPrincipal, session: currentSession };
       }
-      return refreshSession();
+      return refreshSession(options);
     },
 
     logout() {
