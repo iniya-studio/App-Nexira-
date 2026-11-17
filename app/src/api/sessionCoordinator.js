@@ -149,6 +149,11 @@ export function createSessionCoordinator({
     async listSessions(options) { return sessionApi.listSessions(options); },
     async logoutAll(options) { return sessionApi.logoutAll(options); },
     async revokeSession(sessionId, options) { return sessionApi.revokeSession(sessionId, options); },
+    beginSessionTransition() {
+      sessionGeneration += 1;
+      return sessionGeneration;
+    },
+
     async clearLocalSession() {
       await clearCredentials();
     },
