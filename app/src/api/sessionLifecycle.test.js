@@ -344,3 +344,66 @@ test('an invalidated refresh token moves the lifecycle from active identity to s
   assert.equal(state.session, null);
   assert.match(state.error, /session has expired/i);
 });
+
+
+function deferredLifecycleValue() {
+  let resolve; let reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
+test('a login response arriving after logout cannot restore the lifecycle identity', async () => {
+  const services = makeServices({ guest: guestResponse });
+  const loginGate = deferredLifecycleValue();
+  services.coordinator.login = async () => loginGate.promise;
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+
+  const login = lifecycle.login({ email: 'player@example.com', password: 'correct-password' });
+  await lifecycle.logout();
+  loginGate.resolve(userResponse);
+  await assert.rejects(login, /superseded by a newer session action/i);
+
+  assert.equal(lifecycle.getState().status, 'signed-out');
+  assert.equal(lifecycle.getState().principal, null);
+  assert.equal(lifecycle.getState().session, null);
+});
+
+test('profile data arriving after logout is ignored instead of repopulating signed-out state', async () => {
+  const services = makeServices({ restored: userResponse });
+  const profileGate = deferredLifecycleValue();
+  services.coordinator.getMyProfile = async () => profileGate.promise;
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+  await lifecycle.initialize();
+
+  const loading = lifecycle.loadAccountData();
+  await lifecycle.logout();
+  profileGate.resolve({
+    principalType: 'USER',
+    profile: { displayName: 'Stale Player Data' },
+    statistics: { matchesPlayed: 99, wins: 99, losses: 0, draws: 0 },
+  });
+  const state = await loading;
+
+  assert.equal(state.status, 'signed-out');
+  assert.equal(state.principal, null);
+  assert.equal(state.profile, null);
+  assert.equal(state.account, null);
+});
+
+test('a restore response arriving after logout cannot restart an active session', async () => {
+  const services = makeServices();
+  const restoreGate = deferredLifecycleValue();
+  services.coordinator.restore = async () => restoreGate.promise;
+  const lifecycle = createSessionLifecycle({ platform: () => 'android', createServices: () => services });
+
+  const initializing = lifecycle.initialize();
+  await lifecycle.logout();
+  restoreGate.resolve(userResponse);
+  const state = await initializing;
+
+  assert.equal(state.status, 'signed-out');
+  assert.equal(state.principal, null);
+  assert.equal(state.session, null);
+  assert.equal(services.calls.includes('startGuest'), false);
+});
