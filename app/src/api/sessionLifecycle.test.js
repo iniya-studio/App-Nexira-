@@ -321,3 +321,26 @@ test('Google authentication starts with a backend-issued one-time challenge', as
   assert.equal(challenge.nonce, 'n'.repeat(43));
   assert.equal(services.calls.at(-1), 'createGoogleChallenge');
 });
+
+
+test('an invalidated refresh token moves the lifecycle from active identity to signed-out', async () => {
+  const services = makeServices({ guest: guestResponse });
+  let notifyInvalidated;
+  const lifecycle = createSessionLifecycle({
+    platform: () => 'android',
+    createServices: (options) => {
+      notifyInvalidated = options.onSessionInvalidated;
+      return services;
+    },
+  });
+
+  await lifecycle.initialize();
+  assert.equal(lifecycle.getState().status, 'guest');
+  notifyInvalidated(Object.assign(new Error('Refresh revoked'), { status: 401 }));
+
+  const state = lifecycle.getState();
+  assert.equal(state.status, 'signed-out');
+  assert.equal(state.principal, null);
+  assert.equal(state.session, null);
+  assert.match(state.error, /session has expired/i);
+});
