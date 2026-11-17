@@ -21,6 +21,7 @@ export function createSessionLifecycle({
   let state = INITIAL_STATE;
   let services = null;
   let initialization = null;
+  let lifecycleGeneration = 0;
   const listeners = new Set();
 
   function publish(next) {
@@ -45,6 +46,7 @@ export function createSessionLifecycle({
 
   function handleSessionInvalidated() {
     if (!['initializing', 'guest', 'authenticated'].includes(state.status)) return;
+    lifecycleGeneration += 1;
     publish({
       ...INITIAL_STATE,
       status: 'signed-out',
@@ -56,14 +58,16 @@ export function createSessionLifecycle({
     if (platform() !== 'android') {
       throw new Error('Account sessions are currently supported on Android only.');
     }
-    if (!services) services = createServices();
+    if (!services) services = createServices({ onSessionInvalidated: handleSessionInvalidated });
     return services;
   }
 
   async function performAccountAction(action, ...args) {
+    const generation = lifecycleGeneration;
     const activeServices = ensureServices();
     try {
       const response = await activeServices.coordinator[action](...args);
+      if (generation !== lifecycleGeneration) throw new Error('The account operation was superseded by a newer session action.');
       const principal = activeServices.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
       const session = activeServices.coordinator.getCurrentSession() ?? response?.session ?? null;
       if (!principal || !session) throw new Error('Backend did not provide a valid NEXIRA account session.');
@@ -84,12 +88,15 @@ export function createSessionLifecycle({
       });
     } catch (error) {
       // A failed login or guest conversion must not discard a still-valid guest session.
-      publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
+      if (generation === lifecycleGeneration) {
+        publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
+      }
       throw error;
     }
   }
 
   async function loadAccountData() {
+    const generation = lifecycleGeneration;
     const activeServices = ensureServices();
     if (!['guest', 'authenticated'].includes(state.status)) return state;
     try {
@@ -108,6 +115,7 @@ export function createSessionLifecycle({
         sessions = Array.isArray(sessionsResult?.sessions) ? sessionsResult.sessions : [];
         emailVerification = accountResult?.emailVerification ?? emailVerification;
       }
+      if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
       return publish({
         ...state,
         profile,
@@ -118,6 +126,7 @@ export function createSessionLifecycle({
         accountDataError: null,
       });
     } catch (error) {
+      if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
       return publish({
         ...state,
         accountDataError: error instanceof Error ? error.message : 'Unable to load account data.',
@@ -141,6 +150,7 @@ export function createSessionLifecycle({
 
     initialize() {
       if (initialization) return initialization;
+      const generation = lifecycleGeneration;
       initialization = (async () => {
         try {
           if (platform() !== 'android') {
@@ -150,6 +160,7 @@ export function createSessionLifecycle({
           services = createServices({ onSessionInvalidated: handleSessionInvalidated });
           let response = await services.coordinator.restore();
           if (!response) response = await services.coordinator.startGuest();
+          if (generation !== lifecycleGeneration) return state;
           const principal = services.coordinator.getCurrentPrincipal() ?? response?.principal ?? null;
           const session = services.coordinator.getCurrentSession() ?? response?.session ?? null;
           if (!principal || !session) throw new Error('Backend did not provide a restorable NEXIRA identity.');
@@ -164,6 +175,7 @@ export function createSessionLifecycle({
               : null),
           });
         } catch (error) {
+          if (generation !== lifecycleGeneration) return state;
           if (state.status === 'signed-out' && error?.status === 401) return state;
           return classifyFailure(error);
         }
@@ -222,12 +234,16 @@ export function createSessionLifecycle({
     async loadAccountData() { return loadAccountData(); },
 
     async updateProfile(changes) {
+      const generation = lifecycleGeneration;
       const activeServices = ensureServices();
       try {
         const profile = await activeServices.coordinator.updateMyProfile(changes);
+        if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
         return publish({ ...state, profile, accountDataError: null });
       } catch (error) {
-        publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Unable to update profile.' });
+        if (generation === lifecycleGeneration && ['guest', 'authenticated'].includes(state.status)) {
+          publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Unable to update profile.' });
+        }
         throw error;
       }
     },
@@ -244,13 +260,17 @@ export function createSessionLifecycle({
 
     async logoutAll() {
       const activeServices = ensureServices();
-      const result = await activeServices.coordinator.logoutAll();
-      await activeServices.coordinator.clearLocalSession();
-      publish({
-        ...INITIAL_STATE,
-        status: 'signed-out',
-      });
-      return result;
+      const generation = ++lifecycleGeneration;
+      publish({ ...INITIAL_STATE, status: 'signed-out' });
+      try {
+        const result = await activeServices.coordinator.logoutAll();
+        await activeServices.coordinator.clearLocalSession();
+        if (generation === lifecycleGeneration) publish({ ...INITIAL_STATE, status: 'signed-out' });
+        return result;
+      } catch (error) {
+        if (generation === lifecycleGeneration) publish({ ...INITIAL_STATE, status: 'signed-out', error: error instanceof Error ? error.message : 'Unable to revoke sessions.' });
+        throw error;
+      }
     },
 
     async verifyEmail(token) {
@@ -277,11 +297,16 @@ export function createSessionLifecycle({
 
     async logout() {
       if (!services) throw new Error('NEXIRA session services are not initialized.');
+      const generation = ++lifecycleGeneration;
+      publish({ ...INITIAL_STATE, status: 'signed-out' });
       try {
         await services.coordinator.logout();
-        return publish({ ...INITIAL_STATE, status: 'signed-out' });
+        if (generation === lifecycleGeneration) return publish({ ...INITIAL_STATE, status: 'signed-out' });
+        return state;
       } catch (error) {
-        classifyFailure(error);
+        if (generation === lifecycleGeneration) {
+          publish({ ...INITIAL_STATE, status: 'signed-out', error: error instanceof Error ? error.message : 'Unable to complete sign out.' });
+        }
         throw error;
       }
     },
