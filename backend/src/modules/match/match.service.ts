@@ -37,7 +37,7 @@ export class MatchService {
       // Serialize retries/concurrent starts for one principal so a lost POST
       // response cannot leave multiple active 1vAI matches behind.
       const principalLock = `nexira:1vai:principal:${principal.principalType}:${principal.principalId}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock}))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
 
       const ownership = principal.principalType === PrincipalType.USER
         ? { userId: principal.principalId }
