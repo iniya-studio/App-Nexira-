@@ -94,6 +94,14 @@ export function createSessionLifecycle({
             assertCurrentGeneration();
             return result;
           })
+          .catch((error) => {
+            if (expectedGeneration !== lifecycleGeneration) {
+              const superseded = new Error('The request belongs to a previous account session.');
+              superseded.code = 'SESSION_SUPERSEDED';
+              throw superseded;
+            }
+            throw error;
+          })
           .finally(linked.cleanup);
       });
     }
