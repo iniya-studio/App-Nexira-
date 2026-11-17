@@ -2030,3 +2030,25 @@ button[aria-disabled="true"] {
 @media (prefers-reduced-motion: reduce) {
   .store-tab, .store-preview-action, .store-secondary-action { transition: none; }
 }
+
+/* Profile and account: keep the complete account form reachable on small screens. */
+.profile-screen {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.profile-screen > .profile-panel {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.profile-screen .profile-panel .profile-view {
+  overflow: visible;
+}
+
+.profile-screen > .profile-panel > .account-session-panel,
+.profile-screen > .profile-panel > .screen-tabs {
+  grid-column: 1 / -1;
+}
