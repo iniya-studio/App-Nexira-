@@ -248,6 +248,22 @@ export class MatchService {
     };
   }
 
+  async getActiveAiMatch(principal: AuthenticatedPrincipal) {
+    const ownership = principal.principalType === PrincipalType.USER
+      ? { userId: principal.principalId }
+      : { guestIdentityId: principal.principalId };
+    const match = await this.prisma.match.findFirst({
+      where: {
+        mode: MatchMode.ONE_V_AI,
+        status: { in: [MatchStatus.WAITING, MatchStatus.READY, MatchStatus.ACTIVE] },
+        participants: { some: ownership },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    return match ? this.getMatch(match.id, principal) : null;
+  }
+
   async getMatch(matchId: string, principal: AuthenticatedPrincipal) {
     const ownership =
       principal.principalType === PrincipalType.USER
