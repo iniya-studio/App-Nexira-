@@ -12,16 +12,22 @@ import { QuestionGenerationWorker } from './question-generation.worker';
 import { GeneratedQuestion } from './question.types';
 import { RoundFinalizationWorker } from './round-finalization.worker';
 import { RoundService } from './round.service';
+import { MatchmakingService } from '../matchmaking/matchmaking.service';
 
 describe('Multi-round match lifecycle integration', () => {
   const prisma = new PrismaService();
   const matches = new MatchService(prisma);
+  const matchmaking = new MatchmakingService(prisma, matches, {
+    notifyMatchFound: jest.fn().mockResolvedValue(undefined),
+  } as never);
   const rounds = new RoundService(prisma);
   const answers = new AnswerService(prisma);
   const roundFinalizer = new RoundFinalizationWorker(prisma);
   const matchFinalizer = new MatchFinalizationWorker(prisma);
   const settlement = new MatchSettlementService();
   const matchIds: string[] = [];
+  const queueIds: string[] = [];
+  const sessionIds: string[] = [];
   const userIds: string[] = [];
   const questionIds: string[] = [];
 
@@ -30,6 +36,10 @@ describe('Multi-round match lifecycle integration', () => {
   });
 
   afterEach(async () => {
+    if (queueIds.length) {
+      await prisma.matchmakingEntry.deleteMany({ where: { id: { in: queueIds } } });
+      queueIds.length = 0;
+    }
     if (matchIds.length) {
       const jobs = await prisma.questionGenerationJob.findMany({
         where: { matchId: { in: matchIds } },
@@ -45,6 +55,10 @@ describe('Multi-round match lifecycle integration', () => {
     if (questionIds.length) {
       await prisma.question.deleteMany({ where: { id: { in: questionIds } } });
       questionIds.length = 0;
+    }
+    if (sessionIds.length) {
+      await prisma.userSession.deleteMany({ where: { id: { in: sessionIds } } });
+      sessionIds.length = 0;
     }
     if (userIds.length) {
       await prisma.xPTransaction.deleteMany({ where: { userId: { in: userIds } } });
@@ -105,18 +119,47 @@ describe('Multi-round match lifecycle integration', () => {
     ]);
     userIds.push(firstUser.id, secondUser.id);
 
+    const [firstSession, secondSession] = await Promise.all([
+      prisma.userSession.create({
+        data: { userId: firstUser.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+      }),
+      prisma.userSession.create({
+        data: { userId: secondUser.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+      }),
+    ]);
+    sessionIds.push(firstSession.id, secondSession.id);
     const first = {
       principalType: PrincipalType.USER,
       principalId: firstUser.id,
-      sessionId: randomUUID(),
+      sessionId: firstSession.id,
     };
     const second = {
       principalType: PrincipalType.USER,
       principalId: secondUser.id,
-      sessionId: randomUUID(),
+      sessionId: secondSession.id,
     };
-    const match = await matches.createOneVsOne(first, second);
-    matchIds.push(match.id);
+    const firstQueue = await matchmaking.enqueue(first, {
+      category: 'general', language: 'en', idempotencyKey: `multi-round-${randomUUID()}`,
+    });
+    queueIds.push(firstQueue.queueId);
+    expect(firstQueue.status).toBe('WAITING');
+    const secondQueue = await matchmaking.enqueue(second, {
+      category: 'general', language: 'en', idempotencyKey: `multi-round-${randomUUID()}`,
+    });
+    queueIds.push(secondQueue.queueId);
+    expect(secondQueue.status).toBe('MATCHED');
+    expect(secondQueue.matchId).toBeTruthy();
+    const matchId = secondQueue.matchId!;
+    matchIds.push(matchId);
+    const match = await prisma.match.findUniqueOrThrow({
+      where: { id: matchId },
+      select: { id: true, roundsTarget: true },
+    });
+    const pairedEntries = await prisma.matchmakingEntry.findMany({
+      where: { id: { in: [firstQueue.queueId, secondQueue.queueId] } },
+    });
+    expect(pairedEntries).toHaveLength(2);
+    expect(pairedEntries.every((entry) => entry.status === 'MATCHED' && entry.matchId === match.id)).toBe(true);
     expect(match.roundsTarget).toBe(10);
 
     let generationSequence = 0;
@@ -285,5 +328,11 @@ describe('Multi-round match lifecycle integration', () => {
       .toBe(20);
     expect(await prisma.rankingTransaction.count({ where: { matchId: match.id } }))
       .toBe(2);
+    await expect(matchmaking.getMine(first)).resolves.toMatchObject({
+      status: 'NOT_QUEUED', lastEntryStatus: 'MATCHED', lastMatchStatus: 'COMPLETED',
+    });
+    await expect(matchmaking.getMine(second)).resolves.toMatchObject({
+      status: 'NOT_QUEUED', lastEntryStatus: 'MATCHED', lastMatchStatus: 'COMPLETED',
+    });
   });
 });
