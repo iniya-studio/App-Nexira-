@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Version:** 1.0  
-**Status:** V1 implementation on `main`; Backend CI, PostgreSQL 16 migrations/integration tests, and Android CI passed; two-device acceptance remains pending  
+**Status:** V1 implementation on `main`; Backend CI, PostgreSQL 16 migrations/integration tests, and Android CI passed; public queue-to-ten-round-settlement integration is verified; two-device acceptance remains pending  
 **Target:** Existing `main` modular monolith  
 **Depends on:** NEX-BE-006 Synchronized Match Core; NEX-BE-002 Identity & Access; NEX-BE-003 Guest & Session Foundation  
 **Scope:** Public V1 1v1 queue, atomic human pairing, queue lifecycle, and client notification/recovery.
@@ -209,6 +209,7 @@ Implemented on `main`:
 - Authenticated Socket.IO namespace `/matchmaking` supports subscribe/unsubscribe and post-commit match-found notification. REST queue status remains the source of truth.
 - Production client entry for 1v1, persistent queue start/status/cancel, waiting screen, one-second REST polling, Android/browser back cancellation, automatic queue/match recovery after app restart, and handoff to the shared online Match adapter.
 - Match GET now returns the authorized participant score snapshot needed to restore a live 1v1 after process death; the client distinguishes both human participants and winner identity.
+- The full backend lifecycle integration now enters through the public matchmaking queue (two active authenticated principals), verifies both queue entries are atomically MATCHED to one match, executes all ten synchronized rounds, finalizes once, settles XP/Global Ranking exactly once, and confirms both queue snapshots return terminal NOT_QUEUED state.
 
 **Rollout protection:** server enqueue is disabled by default outside automated tests unless `NEXIRA_PUBLIC_1V1_ENABLED=true`; the Android/web production entry point is client-disabled unless `VITE_ENABLE_PUBLIC_1V1=true`. Both flags must remain off until all acceptance gates pass.
 
@@ -216,6 +217,7 @@ Implemented on `main`:
 - Backend CI run `43639642201` completed successfully: Prisma formatting/validation/client generation, PostgreSQL 16 migration deployment, NestJS production build, 38/38 suites and 214/214 tests, and ESLint passed.
 - Backend CI run `43643270328` completed successfully after the staging baseline was added; Backend quality checks, Compose validation, and Docker image build passed.
 - Android CI run `43641610815` completed successfully: 98/98 frontend/Match Engine tests, Vite/Capacitor build, Gradle APK build, APK verification, and artifact upload passed.
+- Backend CI run `44055646276` completed successfully on `847f9d17383a66501acbb53e493fe81af3ff3eb8`: 44/44 suites and 255/255 tests, including the public queue → full ten-round 1v1 → exactly-once settlement path; PostgreSQL 16 migrations, NestJS build, ESLint, Compose validation, and staging Docker image build also passed.
 - These results verify automated code and database gates, not a live two-device match. The required NEX-BE-011 scenarios (including physical-device pairing, shared question/deadline, reconnect, force-stop recovery, and guest conversion) remain pending.
 - The client currently uses authenticated REST polling for queue discovery; the server-side Socket.IO gateway is implemented, while client subscription remains a later transport optimization. REST status/snapshot remains authoritative.
 
