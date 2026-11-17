@@ -328,7 +328,7 @@ describe('Guest identity and session integration', () => {
         mode: MatchMode.ONE_V_ONE,
         status: MatchStatus.COMPLETED,
         currentRound: 1,
-        roundsTarget: 1,
+        roundsTarget: 10,
         startedAt: new Date(matchCompletedAt.getTime() - 60_000),
         completedAt: matchCompletedAt,
       },
