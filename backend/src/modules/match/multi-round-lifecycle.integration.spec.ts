@@ -160,6 +160,16 @@ describe('Multi-round match lifecycle integration', () => {
     });
     expect(pairedEntries).toHaveLength(2);
     expect(pairedEntries.every((entry) => entry.status === 'MATCHED' && entry.matchId === match.id)).toBe(true);
+    const [firstRecovery, secondRecovery] = await Promise.all([
+      matchmaking.getMine(first),
+      matchmaking.getMine(second),
+    ]);
+    expect(firstRecovery).toMatchObject({
+      status: 'MATCHED', matchId: match.id, match: { id: match.id, status: 'WAITING' },
+    });
+    expect(secondRecovery).toMatchObject({
+      status: 'MATCHED', matchId: match.id, match: { id: match.id, status: 'WAITING' },
+    });
     expect(match.roundsTarget).toBe(10);
 
     let generationSequence = 0;
