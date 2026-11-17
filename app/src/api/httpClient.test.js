@@ -133,3 +133,91 @@ test('HTTP client does not refresh public requests or retry a second unauthorize
   assert.equal(refreshCalls, 1);
   assert.equal(requestCalls, 3);
 });
+
+
+function deferredRequestValue() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
+test('HTTP client aborts a request while waiting for proactive token restoration', async () => {
+  const refreshGate = deferredRequestValue();
+  let refreshStarted = false;
+  let fetchCalls = 0;
+  const controller = new AbortController();
+  const client = createHttpClient({
+    baseUrl: 'https://api.example.test/api/v1',
+    getAccessToken: () => null,
+    refreshAccessToken: () => {
+      refreshStarted = true;
+      return refreshGate.promise;
+    },
+    fetchImpl: async () => {
+      fetchCalls++;
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    },
+  });
+
+  const request = client.get('/profile/me', { signal: controller.signal });
+  for (let i = 0; i < 20 && !refreshStarted; i++) await Promise.resolve();
+  assert.equal(refreshStarted, true);
+
+  controller.abort(new Error('screen closed'));
+  await assert.rejects(request, (error) => error instanceof ApiError && error.code === 'REQUEST_ABORTED');
+  refreshGate.resolve('restored-token');
+  await Promise.resolve();
+  assert.equal(fetchCalls, 0);
+});
+
+test('HTTP client aborts while waiting for a shared refresh after 401 without cancelling the refresh itself', async () => {
+  const refreshGate = deferredRequestValue();
+  let refreshStarted = false;
+  let fetchCalls = 0;
+  const controller = new AbortController();
+  const client = createHttpClient({
+    baseUrl: 'https://api.example.test/api/v1',
+    getAccessToken: () => 'expired-token',
+    refreshAccessToken: () => {
+      refreshStarted = true;
+      return refreshGate.promise;
+    },
+    fetchImpl: async () => {
+      fetchCalls++;
+      return new Response(JSON.stringify({ message: 'Expired' }), { status: 401 });
+    },
+  });
+
+  const request = client.get('/profile/me', { signal: controller.signal });
+  for (let i = 0; i < 20 && !refreshStarted; i++) await Promise.resolve();
+  assert.equal(refreshStarted, true);
+
+  controller.abort(new Error('screen closed'));
+  await assert.rejects(request, (error) => error instanceof ApiError && error.code === 'REQUEST_ABORTED');
+  refreshGate.resolve('rotated-token');
+  await Promise.resolve();
+  assert.equal(fetchCalls, 1);
+});
+
+test('HTTP client does not start token lookup or network work for an already-aborted request', async () => {
+  const controller = new AbortController();
+  controller.abort(new Error('caller cancelled'));
+  let tokenLookups = 0;
+  let fetchCalls = 0;
+  const client = createHttpClient({
+    baseUrl: 'https://api.example.test/api/v1',
+    getAccessToken: () => { tokenLookups++; return 'token'; },
+    fetchImpl: async () => {
+      fetchCalls++;
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    },
+  });
+
+  await assert.rejects(
+    client.get('/profile/me', { signal: controller.signal }),
+    (error) => error instanceof ApiError && error.code === 'REQUEST_ABORTED',
+  );
+  assert.equal(tokenLookups, 0);
+  assert.equal(fetchCalls, 0);
+});
