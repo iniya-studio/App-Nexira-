@@ -186,12 +186,14 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       orderBy: { joinedAt: 'asc' },
     });
     expect(participants).toHaveLength(2);
-    expect(participants[0]).toMatchObject({
+    const convertedParticipant = participants.find((participant) => participant.userId === converted.user.id);
+    const opponentParticipant = participants.find((participant) => participant.guestIdentityId === secondGuest.id);
+    expect(convertedParticipant).toMatchObject({
       userId: converted.user.id,
       guestIdentityId: null,
       status: 'ACTIVE',
     });
-    expect(participants[1]).toMatchObject({
+    expect(opponentParticipant).toMatchObject({
       userId: null,
       guestIdentityId: secondGuest.id,
       status: 'ACTIVE',
