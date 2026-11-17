@@ -112,7 +112,7 @@ describe('GuestIdentityService conversion', () => {
     const result = await service.convert(principal, input);
 
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: 'Serializable',
+      isolationLevel: 'ReadCommitted',
     });
     expect(tx.$queryRawUnsafe).toHaveBeenCalledWith(
       'SELECT "id" FROM "GuestIdentity" WHERE "id" = $1::uuid FOR UPDATE',
