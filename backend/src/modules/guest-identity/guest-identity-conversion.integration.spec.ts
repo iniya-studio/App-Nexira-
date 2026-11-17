@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { GuestIdentityStatus, PrincipalType, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -238,6 +238,6 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     expect(convertedMatch.participants.filter((participant) => participant.isSelf)).toHaveLength(1);
     expect(opponentMatch.participants.filter((participant) => participant.isSelf)).toHaveLength(1);
     await expect(matches.getMatch(matchId, firstPrincipal)).rejects.toBeInstanceOf(NotFoundException);
-    await expect(matchmaking.getMine(firstPrincipal)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(matchmaking.getMine(firstPrincipal)).resolves.toMatchObject({ status: 'NOT_QUEUED' });
   });
 });
