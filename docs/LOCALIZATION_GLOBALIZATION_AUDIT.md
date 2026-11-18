@@ -96,3 +96,14 @@ A locale is not considered enabled merely because it appears in this table or in
 - English and Persian must remain backward-compatible.
 - Language changes must not alter score logic, answer identity, match authority, or matchmaking correctness.
 - Do not claim a language or release gate is complete without recorded test/CI evidence.
+
+
+## L10N-02 — UI locale and match language separation (implementation checkpoint)
+
+- The persisted profile now has independent `settings.language` (interface locale) and `settings.matchLanguage` (question/match locale).
+- Existing profiles migrate deterministically: when `matchLanguage` is absent, it inherits the previously selected interface language, preserving current matchmaking behavior.
+- Matchmaking queue creation/recovery and active AI match recovery now send the match-language setting rather than the UI locale.
+- Changing the interface locale does not silently change the selected match language.
+- Current supported values remain limited to the complete locale registry (English and Persian); this does not activate additional languages.
+- Automated migration assertions were added. Execution and CI evidence remain pending until a workflow run reports results.
+- Remaining in this stage: expose an explicit match-language preference in settings, localize its labels, verify backend question-language enforcement, and cover queue/recovery flows with tests.
