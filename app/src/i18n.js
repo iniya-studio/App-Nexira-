@@ -1,3 +1,5 @@
+import { resolveLocale } from './locales.js';
+
 export const COPY = {
   en: {
     navHome: 'HOME', navRanks: 'RANKINGS', navProfile: 'PROFILE', navSettings: 'SETTINGS',
@@ -213,7 +215,7 @@ export function getQuestionCopy(language, categoryId, questionIndex, question) {
 }
 
 export function getCopy(language) {
-  return COPY[language] ?? COPY.en;
+  return COPY[resolveLocale(language)];
 }
 
 export function getCategoryTitle(language, categoryId, fallback = '') {
