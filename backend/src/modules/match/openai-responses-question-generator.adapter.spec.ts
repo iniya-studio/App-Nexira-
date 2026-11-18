@@ -117,10 +117,51 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     expect(body.text.format.strict).toBe(true);
     expect(body.text.format.schema.additionalProperties).toBe(false);
     expect(body.tools).toBeUndefined();
+    expect(body.input[0].content[0].text).toContain('authoritative language selected by the user');
+    expect(body.input[0].content[0].text).toContain('Do not draft in English and translate afterward');
+    expect(body.input[1].content[0].text).toContain('"language":"en"');
     const providerInput = JSON.stringify(body.input);
     expect(providerInput).toContain(excludedFingerprint);
     expect(providerInput).not.toContain(excludedId);
     expect(providerInput).not.toContain('participantId');
+  });
+
+  it('requests Persian directly for every generated question field when Persian is selected', async () => {
+    const persianQuestion = {
+      ...structuredQuestion,
+      canonicalLanguage: 'fa',
+      canonicalPrompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟',
+      canonicalOptions: [
+        { id: 'A', text: 'عطارد' },
+        { id: 'B', text: 'نپتون' },
+        { id: 'C', text: 'مریخ' },
+      ],
+      answerKey: 'A',
+      gradingRubric: {
+        requiredConcepts: [],
+        acceptEquivalentWording: false,
+        notes: 'سیاره‌ای را انتخاب کن که دورهٔ گردش مداری کوتاه‌تری دارد.',
+      },
+      localizedPrompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟',
+      localizedOptions: [
+        { id: 'A', text: 'عطارد' },
+        { id: 'B', text: 'نپتون' },
+        { id: 'C', text: 'مریخ' },
+      ],
+    };
+    respond(persianQuestion);
+
+    const result = await adapter.generate({ ...input, language: 'fa' });
+
+    expect(result.canonicalLanguage).toBe('fa');
+    expect(result.localized).toMatchObject({
+      fa: {
+        prompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟',
+        options: { A: 'عطارد', B: 'نپتون', C: 'مریخ' },
+      },
+    });
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.input[1].content[0].text).toContain('"language":"fa"');
   });
 
   it('rejects incomplete provider output', async () => {
