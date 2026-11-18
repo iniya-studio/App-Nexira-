@@ -82,24 +82,31 @@ export class MatchmakingService {
       throw new ServiceUnavailableException('Public 1v1 matchmaking is not enabled');
     }
     const category = input.category.trim().toLowerCase();
-    const language = input.language.trim().toLowerCase();
+    const requestedLanguage = input.language.trim().toLowerCase();
     if (!SUPPORTED_CATEGORIES.has(category)) throw new BadRequestException('Unsupported matchmaking category');
-    if (!isEnabledLocale(language)) throw new BadRequestException('Unsupported matchmaking language');
+    if (principal.principalType === PrincipalType.GUEST && !isEnabledLocale(requestedLanguage)) {
+      throw new BadRequestException('Unsupported matchmaking language');
+    }
 
     const outcome = await this.prisma.$transaction(async (tx) => {
       // Stable principal lock comes first so guest conversion and enqueue share one lock order.
       const principalLock = `nexira:1v1:principal:${principal.principalType}:${principal.principalId}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
 
-      // Serialize only one compatibility bucket; advisory hash collisions only reduce concurrency.
-      const bucket = `nexira:1v1:${category}:${language}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
-
       const principalData = principal.principalType === PrincipalType.USER
         ? { userId: principal.principalId, guestIdentityId: null }
         : { userId: null, guestIdentityId: principal.principalId };
       const now = new Date();
       await this.assertActivePrincipal(tx, principal, now);
+      const profileLanguage = principal.principalType === PrincipalType.USER
+        ? (await tx.user.findUnique({ where: { id: principal.principalId }, select: { preferredLanguage: true } }))?.preferredLanguage
+        : null;
+      const language = (profileLanguage?.trim() || requestedLanguage);
+      if (!isEnabledLocale(language)) throw new BadRequestException('Unsupported matchmaking language');
+
+      // Locale is intentionally excluded from the compatibility lock: category defines the bucket.
+      const bucket = `nexira:1v1:${category}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
 
       const prior = await tx.matchmakingEntry.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
       if (prior) {
@@ -127,7 +134,7 @@ export class MatchmakingService {
         data: { status: MatchmakingEntryStatus.EXPIRED },
       });
       await tx.matchmakingEntry.updateMany({
-        where: { status: MatchmakingEntryStatus.WAITING, category, language, expiresAt: { lte: now } },
+        where: { status: MatchmakingEntryStatus.WAITING, category, expiresAt: { lte: now } },
         data: { status: MatchmakingEntryStatus.EXPIRED },
       });
       const entry = await tx.matchmakingEntry.create({
@@ -148,7 +155,6 @@ export class MatchmakingService {
           SELECT "id" FROM "MatchmakingEntry"
           WHERE "status" = 'WAITING'::"MatchmakingEntryStatus"
             AND "category" = ${category}
-            AND "language" = ${language}
             AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
             AND "id" <> ${entry.id}::uuid
             AND (
@@ -203,7 +209,7 @@ export class MatchmakingService {
         this.toPrincipal(opponent),
         this.toPrincipal(entry),
         tx,
-        { category, language },
+        { category, language: entry.language, participantLanguages: { first: opponent.language, second: entry.language } },
       );
       const matchedAt = new Date();
       const consumed = await tx.matchmakingEntry.updateMany({
@@ -287,10 +293,10 @@ export class MatchmakingService {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
       const waitingBuckets = await tx.matchmakingEntry.findMany({
         where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING },
-        select: { category: true, language: true },
+        select: { category: true },
       });
       const bucketLocks = [...new Set(
-        waitingBuckets.map((entry) => `nexira:1v1:${entry.category}:${entry.language}`),
+        waitingBuckets.map((entry) => `nexira:1v1:${entry.category}`),
       )].sort();
       for (const bucket of bucketLocks) {
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
