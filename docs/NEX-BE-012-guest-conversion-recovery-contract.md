@@ -283,7 +283,7 @@ This response is read-only apart from a redacted failure audit event. It must no
 
 If the guest identity is CONVERTED, recovery continues to require the exact source refresh token and idempotency key and returns the encrypted original response. If neither the active-uncommitted nor committed state can be proven, recovery fails closed; expired replay remains `CONVERSION_RECOVERY_EXPIRED`.
 
-The Android client stores the source refresh token and idempotency key together in the native encrypted session record before the first conversion request. On process restoration, pending conversion recovery runs before normal refresh. The original registration password is memory-only and is never included in the pending record. A successful recovered response atomically replaces the guest refresh token with the registered-user refresh token and clears all pending operation metadata.
+The Android client stores the source refresh token and idempotency key together in the native encrypted session record before the first conversion request. Pending proof persistence participates in the coordinator's in-flight write barrier, so logout/identity transitions cannot clear the store and then have a late pending write resurrect it. Ambiguous HTTP 5xx responses are treated as recoverable outcomes and invoke the same retry path. On process restoration, pending conversion recovery runs before normal refresh. The original registration password is memory-only and is never included in the pending record. A successful recovered response atomically replaces the guest refresh token with the registered-user refresh token and clears all pending operation metadata.
 
 ---
 

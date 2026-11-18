@@ -73,7 +73,7 @@ test('pending refresh attempt survives coordinator recreation and reuses exact k
   await restartedCoordinator.refresh();
   assert.deepEqual(seen, [[token('o'),token('i')],[token('o'),token('i')]]);
   assert.deepEqual(JSON.parse(storage.values.get('nexira.session.state.v1')), {
-    refreshToken: token('n'), pendingRefreshAttempt: null,
+    refreshToken: token('n'), pendingRefreshAttempt: null, pendingGuestConversion: null,
   });
 });
 
@@ -279,4 +279,55 @@ test('CONVERSION_NOT_COMMITTED clears pending proof and preserves guest refresh 
     refreshToken: token('r'), pendingRefreshAttempt: null, pendingGuestConversion: null,
   });
   assert.equal(store.getAccessToken(), 'access-token');
+});
+
+
+test('ambiguous HTTP 5xx triggers recovery with the exact persisted proof', async () => {
+  const storage = memoryStorage();
+  const store = makeStore(token('r'), storage);
+  await store.initialize();
+  const converted = sessionResponse('USER', token('u'));
+  let retries = 0;
+  const coordinator = createSessionCoordinator({
+    tokenStore: store, createIdempotencyKey: () => token('i'),
+    sessionApi: {
+      convertGuest: async () => { throw new ApiError('upstream failure', { status: 503, code: 'HTTP_ERROR' }); },
+      retryGuestConversion: async (refresh, key) => {
+        retries++;
+        assert.equal(refresh, token('r'));
+        assert.equal(key, token('i'));
+        return converted;
+      },
+    },
+  });
+  await coordinator.convertGuest({ email: 'player@example.test', username: 'player', password: 'long-password' });
+  assert.equal(retries, 1);
+  assert.equal(coordinator.getCurrentPrincipal().principalType, 'USER');
+});
+
+test('logout waits for pending conversion proof persistence before clearing secure storage', async () => {
+  const storage = memoryStorage();
+  const store = makeStore(token('r'), storage);
+  await store.initialize();
+  let releaseWrite;
+  const gate = new Promise((resolve) => { releaseWrite = resolve; });
+  const originalSet = storage.set;
+  storage.set = async (key, value) => {
+    if (key === 'nexira.session.state.v1' && JSON.parse(value).pendingGuestConversion) await gate;
+    return originalSet(key, value);
+  };
+  const coordinator = createSessionCoordinator({
+    tokenStore: store, createIdempotencyKey: () => token('i'),
+    sessionApi: {
+      convertGuest: async () => { throw new Error('conversion request must wait for secure persistence'); },
+      logout: async () => ({ success: true }),
+    },
+  });
+  const conversion = coordinator.convertGuest({ email: 'player@example.test', username: 'player', password: 'long-password' });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const logout = coordinator.logout();
+  releaseWrite();
+  await assert.rejects(conversion, (error) => error.code === 'SESSION_SUPERSEDED');
+  await logout;
+  assert.equal(storage.values.has('nexira.session.state.v1'), false);
 });

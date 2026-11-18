@@ -77,9 +77,10 @@ export function createTokenStore({ secureStorage = null } = {}) {
       await secureStorage.set(SESSION_STATE_KEY, JSON.stringify({
         refreshToken: legacy,
         pendingRefreshAttempt: null,
+        pendingGuestConversion: null,
       }));
       await secureStorage.remove(LEGACY_REFRESH_TOKEN_KEY);
-      return { refreshToken: legacy, pendingRefreshAttempt: null };
+      return { refreshToken: legacy, pendingRefreshAttempt: null, pendingGuestConversion: null };
     }
     return { refreshToken: null, pendingRefreshAttempt: null, pendingGuestConversion: null };
   }

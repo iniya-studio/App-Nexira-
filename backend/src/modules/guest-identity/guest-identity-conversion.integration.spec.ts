@@ -218,13 +218,34 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     expect(await prisma.guestIdentity.findUniqueOrThrow({ where: { id: firstGuest.id } }))
       .toMatchObject({ status: GuestIdentityStatus.ACTIVE, convertedToUserId: null });
 
-    const converted = await conversion.convert(firstPrincipal, {
+    const conversionInput = {
       email: `guest-${randomUUID()}@example.test`,
       password: 'integration-password-123',
       username: `guest_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
       displayName: 'Guest One Converted',
       refreshToken: sourceRefreshToken,
-    }, idempotencyKey);
+    };
+    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "nexira_test_guest_replay_failure" ON "GuestConversionReplay"');
+    await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS "nexira_test_guest_replay_failure_fn"()');
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION "nexira_test_guest_replay_failure_fn"() RETURNS trigger LANGUAGE plpgsql AS $ BEGIN IF NEW."guestIdentityId" = '${firstGuest.id}'::uuid THEN RAISE EXCEPTION 'forced replay persistence failure'; END IF; RETURN NEW; END; $`);
+    await prisma.$executeRawUnsafe('CREATE TRIGGER "nexira_test_guest_replay_failure" BEFORE INSERT ON "GuestConversionReplay" FOR EACH ROW EXECUTE FUNCTION "nexira_test_guest_replay_failure_fn"()');
+    try {
+      await expect(conversion.convert(firstPrincipal, conversionInput, idempotencyKey)).rejects.toThrow('forced replay persistence failure');
+    } finally {
+      await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "nexira_test_guest_replay_failure" ON "GuestConversionReplay"');
+      await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS "nexira_test_guest_replay_failure_fn"()');
+    }
+    expect(await prisma.guestIdentity.findUniqueOrThrow({ where: { id: firstGuest.id } }))
+      .toMatchObject({ status: GuestIdentityStatus.ACTIVE, convertedToUserId: null });
+    expect(await prisma.user.findUnique({ where: { email: conversionInput.email } })).toBeNull();
+    expect(await prisma.guestConversionReplay.count({ where: { guestIdentityId: firstGuest.id } })).toBe(0);
+    expect(await prisma.userSession.findUniqueOrThrow({ where: { id: firstSession.id } })).toMatchObject({ revokedAt: null });
+    const sourceTokenRecord = await prisma.refreshToken.findUniqueOrThrow({
+      where: { tokenHash: createHash('sha256').update(sourceRefreshToken).digest('hex') },
+    });
+    expect(sourceTokenRecord.revokedAt).toBeNull();
+
+    const converted = await conversion.convert(firstPrincipal, conversionInput, idempotencyKey);
     userIds.push(converted.user.id);
     const convertedPrincipal: AuthenticatedPrincipal = {
       principalType: PrincipalType.USER,
@@ -287,6 +308,16 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     expect(refreshed.principal).toEqual(converted.principal);
     expect(await prisma.refreshToken.count({ where: { session: { userId: converted.user.id } } })).toBe(2);
     expect(emailVerification.issueAndSend).toHaveBeenCalledTimes(1);
+    const auditRows = await prisma.identityAuditEvent.findMany({
+      where: { principalId: firstGuest.id },
+      select: { metadata: true },
+    });
+    const auditPayload = JSON.stringify(auditRows);
+    expect(auditPayload).not.toContain(sourceRefreshToken);
+    expect(auditPayload).not.toContain(idempotencyKey);
+    expect(auditPayload).not.toContain(conversionInput.password);
+    expect(auditPayload).not.toContain(converted.tokens.accessToken);
+    expect(auditPayload).not.toContain(converted.tokens.refreshToken);
 
     await expect(conversion.retryConversion(
       sourceRefreshToken, randomBytes(32).toString('base64url'),
@@ -296,13 +327,20 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       where: { guestIdentityId: firstGuest.id },
       data: { expiresAt: new Date(Date.now() - 1000) },
     });
-    await expect(conversion.retryConversion(sourceRefreshToken, idempotencyKey))
-      .rejects.toBeInstanceOf(GoneException);
+    const cleanupCounts = await Promise.all([
+      conversion.purgeExpiredReplayCiphertexts(1),
+      conversion.purgeExpiredReplayCiphertexts(1),
+    ]);
+    expect(cleanupCounts.every((count) => count >= 0 && count <= 1)).toBe(true);
+    expect(cleanupCounts.reduce((sum, count) => sum + count, 0)).toBe(1);
     const purgedReplay = await prisma.guestConversionReplay.findUniqueOrThrow({
       where: { guestIdentityId: firstGuest.id },
     });
     expect(purgedReplay.responseCiphertext).toBeNull();
     expect(purgedReplay.ciphertextPurgedAt).toBeInstanceOf(Date);
+    expect(await prisma.guestConversionReplay.count({ where: { guestIdentityId: firstGuest.id } })).toBe(1);
+    await expect(conversion.retryConversion(sourceRefreshToken, idempotencyKey))
+      .rejects.toBeInstanceOf(GoneException);
 
     const participants = await prisma.matchParticipant.findMany({
       where: { matchId },

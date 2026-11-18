@@ -163,7 +163,9 @@ export function createSessionCoordinator({
       if (attempt.refreshToken !== state.refreshToken) throw new Error('Pending guest conversion does not match the active guest session.');
       if (!state.pendingGuestConversion) {
         if (typeof tokenStore.savePendingGuestConversion !== 'function') throw new Error('Crash-safe secure guest-conversion storage is required.');
-        await tokenStore.savePendingGuestConversion(attempt);
+        const pendingWrite = tokenStore.savePendingGuestConversion(attempt);
+        pendingSessionWrites.add(pendingWrite);
+        try { await pendingWrite; } finally { pendingSessionWrites.delete(pendingWrite); }
       }
       if (generation !== sessionGeneration) throw supersededError();
       try {
@@ -171,7 +173,8 @@ export function createSessionCoordinator({
         return await acceptSession(response, generation);
       } catch (initialError) {
         const uncertain = initialError instanceof ApiError
-          && (initialError.status === 0 || initialError.status === 401 || ['NETWORK_ERROR', 'REQUEST_ABORTED'].includes(initialError.code));
+          && (initialError.status === 0 || initialError.status === 401 || initialError.status >= 500
+            || ['NETWORK_ERROR', 'REQUEST_ABORTED'].includes(initialError.code));
         if (!uncertain) { await tokenStore.clearPendingGuestConversion(); throw initialError; }
         try {
           const recovered = await recoverPendingGuestConversion(attempt, options, generation);
