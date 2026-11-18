@@ -190,7 +190,8 @@ Recovery must use the same principal advisory lock and a compatible lock order. 
 | Same guest/source token/key retry | Return the original committed response; no side effects, regardless of whether the client still has the original request body |
 | Same guest, different key after successful conversion | Reject; do not create another session or replay response |
 | Different guest using the same key | No cross-guest lookup or response disclosure |
-| Wrong refresh token or wrong key on retry | Generic 401 |
+| Wrong refresh token or wrong key when a committed replay record exists | Generic 401 |
+| Active, unconverted guest with exact active source refresh proof and a well-formed idempotency key | HTTP 409 `CONVERSION_NOT_COMMITTED`; retain guest credentials and clear only pending-conversion marker |
 | Correct pair after expiry | Stable recovery-expired response; no credentials returned |
 | Ciphertext tampered with or authentication tag invalid | Fail closed; audit safe failure code; no credentials returned |
 | Encryption key unavailable | Fail closed; do not downgrade to plaintext |
@@ -207,7 +208,7 @@ Before the first conversion request, the client must:
 3. Send the key and refresh token with the conversion request.
 4. On confirmed success, atomically replace guest credentials with the returned USER credentials and clear the pending operation.
 5. On timeout, connection loss, or ambiguous 5xx, call the recovery endpoint using the same key and original guest refresh token.
-6. Clear pending recovery material only after the USER credentials are safely persisted.
+6. On successful recovery, clear pending recovery material only after the USER credentials are safely persisted. If recovery returns HTTP 409 `CONVERSION_NOT_COMMITTED`, clear only the pending-conversion marker, retain the guest refresh token and guest identity, and require the user to submit the registration form again. Never persist the password.
 
 Do not persist the guest password in order to support recovery. Do not generate a new idempotency key after an ambiguous outcome. If the client loses both the original refresh token and idempotency key, this recovery mechanism cannot prove ownership; the user must use normal registered-account login.
 
@@ -251,6 +252,7 @@ Do not mark Guest Conversion Recovery complete until PostgreSQL-backed integrati
 10. Email delivery failure does not roll back conversion or cause duplicate conversion on retry.
 11. Cleanup clears expired ciphertext while retaining the replay tombstone.
 12. Logs and audit events contain no raw tokens, passwords, idempotency keys, or decrypted response payloads.
+13. If conversion did not commit, recovery returns `CONVERSION_NOT_COMMITTED` only while the exact source guest session and refresh token remain active; the client preserves the guest session and does not create a second conversion. The HTTP contract test proves the retry route is reachable without AccessTokenGuard.
 
 CI must run Prisma format/validation/generation, migration checks, Nest build, lint, unit tests, and PostgreSQL integration tests. Green unit tests alone are insufficient.
 
@@ -279,7 +281,7 @@ The unauthenticated recovery endpoint distinguishes a committed conversion from 
 - The source session is not revoked or expired.
 - The source refresh token is not consumed, revoked, or expired.
 
-This response is read-only apart from a redacted failure audit event. It must not rotate or issue credentials, mutate guest state, or repeat conversion. The client clears only the pending-conversion marker, retains the active guest session, and asks the user to submit the conversion form again. The password is never persisted.
+This response is read-only apart from a redacted failure audit event. Because a rolled-back conversion transaction leaves no replay row, the server cannot compare the supplied idempotency key with an uncommitted attempt; the key is still required to be well-formed and the exact source guest refresh token is the proof of possession. This response must not rotate or issue credentials, mutate guest state, or repeat conversion. The client clears only the pending-conversion marker, retains the active guest session, and asks the user to submit the conversion form again. The password is never persisted.
 
 If the guest identity is CONVERTED, recovery continues to require the exact source refresh token and idempotency key and returns the encrypted original response. If neither the active-uncommitted nor committed state can be proven, recovery fails closed; expired replay remains `CONVERSION_RECOVERY_EXPIRED`.
 
@@ -287,4 +289,4 @@ The Android client stores the source refresh token and idempotency key together 
 
 ---
 
-**End of NEX-BE-012 v1.5**
+**End of NEX-BE-012 v1.6**
