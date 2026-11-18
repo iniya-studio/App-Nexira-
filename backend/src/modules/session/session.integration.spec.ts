@@ -17,6 +17,7 @@ import { AccessTokenService } from '../identity/access-token.service';
 import { GuestIdentityService } from '../guest-identity/guest-identity.service';
 import { MatchSettlementService } from '../match/match-settlement.service';
 import { SessionService } from './session.service';
+import { AuthService } from '../auth/auth.service';
 
 describe('Guest identity and session integration', () => {
   const values: Record<string, string> = {
@@ -54,7 +55,8 @@ describe('Guest identity and session integration', () => {
   const accessTokens = new AccessTokenService(config);
   const sessions = new SessionService(prisma, config, accessTokens);
   const emailVerification = { issueAndSend: async () => 'SENT' };
-  const guests = new GuestIdentityService(prisma, sessions, config, emailVerification as never);
+  const auth = new AuthService(prisma, sessions, config, {} as never, emailVerification as never);
+  const guests = new GuestIdentityService(prisma, sessions, config, emailVerification as never, auth);
   const accessGuard = new AccessTokenGuard(accessTokens, prisma);
   const settlement = new MatchSettlementService();
   const matchIds: string[] = [];
