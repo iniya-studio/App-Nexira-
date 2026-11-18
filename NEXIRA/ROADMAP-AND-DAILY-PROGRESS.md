@@ -399,3 +399,13 @@
 ---
 
 **قاعده نهایی:** این سند مسیر و وضعیت را تعیین می‌کند؛ کد واقعی و آزمون‌های موفق در `main` تعیین می‌کنند چه چیزی واقعاً انجام شده است. هر تغییر در محدوده محصول یا معماری باید با تصمیم ثبت‌شده و نسخه جدید این سند همراه باشد.
+
+### R-034 — Cross-locale 1v1 contract and localization release execution
+- Date: 2026-11-19
+- Approved product scope: all 20 target locales must be fully functional in the final Android APK; cross-locale public 1v1 is allowed, with each player seeing the same semantic question in their own selected language.
+- Reviewed current implementation: matchmaking still validates only `en/fa`, uses `(category, language)` compatibility locks and SQL filters; `MatchService` creates one question-generation context using the first participant's language; `MatchParticipant` has no locale snapshot; Question already has a locale-keyed `localized` JSON field; answer submission uses stable option IDs for multiple choice.
+- Corrected the localization audit's historical open-decision wording so it no longer conflicts with the approved cross-locale decision.
+- Added `backend/docs/docs/NEX-BE-010-cross-locale-1v1-contract.md` defining immutable participant locale snapshots, category-only compatibility, one semantic question with locale-specific renderings, participant-specific reads, Judge locale context, migration/backfill, security and acceptance tests.
+- This is contract/documentation progress only. No matchmaking, schema, question delivery or Judge runtime code was changed in this entry. No tests or CI are claimed.
+- Next execution: L10N-02A/02B implementation, beginning with the 20-locale server registry and participant locale snapshot, then category-only queue pairing, generation/rendering and participant-specific question/Judge routing. Keep production matchmaking feature flags disabled until end-to-end gates pass.
+
