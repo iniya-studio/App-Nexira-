@@ -1,3 +1,5 @@
+import { resolveLocale } from '../locales.js';
+
 export const STORAGE_KEY = 'nexira.profile.v1';
 
 export const DEFAULT_PROFILE = {
@@ -115,7 +117,7 @@ export function normalizeProfile(value) {
     settings: {
       ...DEFAULT_PROFILE.settings,
       ...settings,
-      language: settings.language === 'fa' ? 'fa' : 'en',
+      language: resolveLocale(settings.language),
       reducedMotion: Boolean(settings.reducedMotion),
       sound: Boolean(settings.sound),
     },
