@@ -28,6 +28,11 @@ describe('Guest identity and session integration', () => {
     REFRESH_TOKEN_TTL_SECONDS: '1800',
     REFRESH_RETRY_WINDOW_SECONDS: '60',
     REFRESH_RETRY_ENCRYPTION_KEY: Buffer.alloc(32, 19).toString('base64'),
+    GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY: Buffer.alloc(32, 23).toString('base64'),
+    GUEST_CONVERSION_REPLAY_WINDOW_SECONDS: '300',
+    GUEST_CONVERSION_IP_MAX_ATTEMPTS: '100',
+    GUEST_CONVERSION_RETRY_MAX_ATTEMPTS: '100',
+    GUEST_CONVERSION_RETRY_IP_MAX_ATTEMPTS: '100',
     GUEST_START_MAX_ATTEMPTS: '20',
     GUEST_START_WINDOW_SECONDS: '60',
     GUEST_CONVERSION_MAX_ATTEMPTS: '20',
@@ -146,7 +151,8 @@ describe('Guest identity and session integration', () => {
       password: 'integration-test-password-strong',
       username: `revoked_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
       displayName: 'Revoked Guest',
-    })).rejects.toThrow('Guest session is no longer active');
+      refreshToken: started.tokens.refreshToken,
+    }, randomBytes(32).toString('base64url'))).rejects.toThrow('Guest session is no longer active');
     expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
   });
 
@@ -167,7 +173,8 @@ describe('Guest identity and session integration', () => {
         password: 'integration-test-password-strong',
         username: `logout_race_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
         displayName: 'Logout Race Guest',
-      }),
+        refreshToken: started.tokens.refreshToken,
+      }, randomBytes(32).toString('base64url')),
       sessions.logout(principal),
     ]);
 
@@ -251,7 +258,8 @@ describe('Guest identity and session integration', () => {
       password: 'integration-test-password-strong',
       username: `player_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
       displayName: 'Integration Player',
-    });
+      refreshToken: (await prisma.refreshToken.findFirstOrThrow({ where: { sessionId: guestSessionId, revokedAt: null }, orderBy: { createdAt: 'desc' } })).tokenHash,
+    }, randomBytes(32).toString('base64url'));
 
     const userId = result.principal.principalId;
     convertedUserIds.push(userId);
@@ -358,7 +366,8 @@ describe('Guest identity and session integration', () => {
       password: 'integration-test-password-strong',
       username: usernames[index],
       displayName: `Concurrent Conversion ${index}`,
-    });
+      refreshToken: started.tokens.refreshToken,
+    }, randomBytes(32).toString('base64url'));
 
     const outcomes = await Promise.allSettled([convert(0), convert(1)]);
     const successful = outcomes.find((outcome) => outcome.status === 'fulfilled');
@@ -530,7 +539,8 @@ describe('Guest identity and session integration', () => {
       password: 'integration-test-password-strong',
       username: `settlement_order_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
       displayName: 'Converted Settlement Player',
-    });
+      refreshToken: started.tokens.refreshToken,
+    }, randomBytes(32).toString('base64url'));
 
     let conversion: Awaited<ReturnType<typeof guests.convert>>;
     if (ordering === 'settlement-first') {
@@ -705,7 +715,8 @@ describe('Guest identity and session integration', () => {
         password: 'integration-test-password-strong',
         username: 'guest_lock_race_' + randomUUID().replace(/-/g, '').slice(0, 12),
         displayName: 'Lock Race Converted Player',
-      });
+        refreshToken: started.tokens.refreshToken,
+      }, randomBytes(32).toString('base64url'));
 
       // Hold the actual row lock so both production transactions enter its
       // PostgreSQL wait queue in a known order before it is released.
