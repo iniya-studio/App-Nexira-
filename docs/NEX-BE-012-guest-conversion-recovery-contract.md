@@ -2,8 +2,8 @@
 
 **Project:** NEXIRA  
 **Document:** NEX-BE-012  
-**Version:** 1.2  
-**Status:** Proposed technical contract — implementation not yet authorized by this document  
+**Version:** 1.3  
+**Status:** Approved implementation contract — implementation in progress  
 **Target branch:** `main`  
 **Related contracts:** NEX-BE-002 Identity & Access; NEX-BE-003 Guest Session Foundation; NEX-BE-010 Progression & Ranking Settlement
 
@@ -34,7 +34,7 @@ Session refresh already demonstrates a bounded encrypted-response pattern using 
 1. Add a dedicated `GuestConversionReplay` persistence record; do not overload `RefreshToken.retryResponseCiphertext`.
 2. The client creates one high-entropy idempotency key per conversion attempt and persists it in platform secure storage before sending the request.
 3. The conversion request must also present the current guest refresh token. The server verifies that its hash belongs to the exact authenticated guest session.
-4. The server binds the idempotency key and a keyed request fingerprint to the guest, source session, source refresh-token record, and target account request.
+4. The server binds the idempotency key to the guest, source session, and source refresh-token record. The original committed request is authoritative; no request-body fingerprint is used because recovery does not re-submit the password.
 5. The successful conversion response is encrypted and stored in the same PostgreSQL transaction as the conversion and USER session creation.
 6. A separate unauthenticated recovery endpoint accepts only the original guest refresh token plus the original idempotency key. It does not use AccessTokenGuard and does not issue new credentials.
 7. Recovery returns the exact original response only while the replay window is open. It never repeats conversion side effects.
@@ -170,13 +170,13 @@ The initial conversion transaction must atomically follow the established order 
 4. Lock and revalidate the GuestIdentity row.
 5. Lock and revalidate the exact authenticated guest UserSession row.
 6. Lock and validate the supplied source RefreshToken row; confirm it belongs to that exact session and is unconsumed, unrevoked, and unexpired at conversion start.
-4. Create the User and transfer progression, XP ledger, profile, and eligible queue/match ownership exactly once.
-5. Mark GuestIdentity CONVERTED and revoke guest sessions and refresh tokens.
-6. Create the USER session and its initial refresh-token record.
-7. Build the exact response envelope in memory.
-8. Create the GuestConversionReplay row and persist the encrypted response using the immutable metadata as AAD.
-9. Record the conversion audit event.
-10. Commit once.
+7. Create the User and transfer progression, XP ledger, profile, and eligible queue/match ownership exactly once.
+8. Mark GuestIdentity CONVERTED and revoke guest sessions and refresh tokens.
+9. Create the USER session and its initial refresh-token record.
+10. Build the exact response envelope in memory.
+11. Create the GuestConversionReplay row and persist the encrypted response using the immutable metadata as AAD.
+12. Record the conversion audit event.
+13. Commit once.
 
 Any failure before commit must roll back the User, all transfers, guest status changes, revocations, USER session, replay record, and audit event. Email delivery remains outside the transaction and must never be used as a reason to rerun conversion.
 
@@ -244,7 +244,7 @@ Do not mark Guest Conversion Recovery complete until PostgreSQL-backed integrati
 4. Recovery works after the guest access token and guest session have been revoked.
 5. Recovery does not create or mutate User, UserSession, RefreshToken, XPTransaction, GuestXPTransaction, UserProgress, GuestProgress, CompanionProfile, MatchmakingEntry, or MatchParticipant a second time.
 6. Same-key concurrent retries return the same stored result without duplicate side effects.
-7. Wrong key, wrong source refresh token, another guest's token, changed request fingerprint, and expired window are rejected as specified.
+7. Wrong key, wrong source refresh token, another guest's token, and expired window are rejected as specified.
 8. Ciphertext tampering, missing key, malformed ciphertext, and invalid authentication tag fail closed.
 9. A failure at every transactional stage rolls back all conversion and replay state.
 10. Email delivery failure does not roll back conversion or cause duplicate conversion on retry.
@@ -257,7 +257,7 @@ CI must run Prisma format/validation/generation, migration checks, Nest build, l
 
 1. Owner review and approval of this contract.
 2. Additive Prisma model, migration, and environment configuration.
-3. Implement source refresh-token validation and request fingerprinting in Guest Identity.
+3. Implement source refresh-token validation and exact idempotency proof binding in Guest Identity.
 4. Implement atomic replay persistence/encryption inside conversion transaction.
 5. Implement the independent retry endpoint and lock-safe lookup/decryption.
 6. Implement bounded ciphertext cleanup and safe audit events.
