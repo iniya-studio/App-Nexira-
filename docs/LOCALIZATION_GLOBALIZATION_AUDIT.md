@@ -13,10 +13,10 @@
 - `app/src/game/data.js` normalizes persisted language to exactly `fa` or `en`; any other value is rewritten to English.
 - `app/src/App.jsx` reads the selected locale through `getCopy`, but also contains many inline `language === 'fa'` branches. The source audit found 135 locale-sensitive matches, including hard-coded UI copy, number formatting, matchmaking language labels, and direction handling.
 - Document direction is currently RTL only for `fa`; all other values are LTR.
-- The language screen in `app/src/App.jsx` renders two fixed buttons (English and Persian), not a locale selector.
+- The language screen in `app/src/App.jsx` uses a registry-driven selector; only the complete locales currently in the registry (English and Persian) are selectable.
 - Existing tests in `app/src/i18n.test.js` assert parity only between English and Persian. They also verify current Persian question coverage and UI references.
 - The current question dataset has Persian translations for the existing categories; other locales do not have localized question packs.
-- The current English language-selection description explicitly says game questions remain English in this phase; the Persian equivalent says the same.
+- The language-selection description now states that the entire game, including match questions, uses the user's selected language.
 - The current language setting is persisted in the profile settings. Initial language selection has a separate completion marker and should remain backward-compatible.
 
 ## CI baseline
