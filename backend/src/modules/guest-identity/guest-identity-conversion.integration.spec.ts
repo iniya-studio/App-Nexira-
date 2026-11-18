@@ -447,16 +447,7 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     expect(await prisma.guestIdentity.findUniqueOrThrow({ where: { id: firstGuest.id } }))
       .toMatchObject({ status: GuestIdentityStatus.ACTIVE, convertedToUserId: null });
 
-    const conversionInput = {
-      email: `guest-${randomUUID()}@example.test`,
-      password: 'integration-password-123',
-      username: `guest_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
-      displayName: 'Guest One Converted',
-      refreshToken: sourceRefreshToken,
-    };
-    await prisma.$executeRawUnsafe('DROP TRIGGER IF EXISTS "nexira_test_guest_replay_failure" ON "GuestConversionReplay"');
-    await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS "nexira_test_guest_replay_failure_fn"()');
-    await prisma.$executeRawUnsafe(`CREATE FUNCTION "nexira_test_guest_replay_failure_fn"() RETURNS trigger LANGUAGE plpgsql AS $nexira$ BEGIN IF NEW."guestIdentityId" = '${firstGuest.id}'::uuid THEN RAISE EXCEPTION 'forced replay persistence failure'; END IF; );
+);
     await prisma.$executeRawUnsafe('CREATE TRIGGER "nexira_test_guest_replay_failure" BEFORE INSERT ON "GuestConversionReplay" FOR EACH ROW EXECUTE FUNCTION "nexira_test_guest_replay_failure_fn"()');
     try {
       await expect(conversion.convert(firstPrincipal, conversionInput, idempotencyKey)).rejects.toThrow('forced replay persistence failure');
