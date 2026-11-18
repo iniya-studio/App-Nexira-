@@ -74,6 +74,10 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
                 type: 'input_text',
                 text:
                   'You are a strict semantic answer judge for a competitive quiz. ' +
+                  'The supplied language field is authoritative and is the language selected for this match. ' +
+                  'Interpret the canonical question, expected answer, grading rubric, and participant response ' +
+                  'using that language; do not assume English, silently translate the question into English, ' +
+                  'or reject an answer merely because it uses a common equivalent term or script variation. ' +
                   'Evaluate whether the participant response correctly answers the canonical question ' +
                   'according to the expected answer and grading rubric. Accept semantically equivalent ' +
                   'wording, valid synonyms, concise correct answers, and harmless spelling variations. ' +
