@@ -197,10 +197,14 @@ export class GuestIdentityService {
             return { invalidReplay: true as const };
           }
         }
-        if (guest.status !== GuestIdentityStatus.ACTIVE || guest.convertedToUserId ||
-            sourceSession.revokedAt || sourceSession.expiresAt <= new Date() ||
-            sourceRefreshToken.consumedAt || sourceRefreshToken.revokedAt || sourceRefreshToken.expiresAt <= new Date()) {
-          throw new UnauthorizedException('Guest identity or source refresh token is no longer active');
+        if (guest.status !== GuestIdentityStatus.ACTIVE || guest.convertedToUserId) {
+          throw new UnauthorizedException('Guest identity is no longer active');
+        }
+        if (sourceSession.revokedAt || sourceSession.expiresAt <= new Date()) {
+          throw new UnauthorizedException('Guest session is no longer active');
+        }
+        if (sourceRefreshToken.consumedAt || sourceRefreshToken.revokedAt || sourceRefreshToken.expiresAt <= new Date()) {
+          throw new UnauthorizedException('Guest refresh token is no longer active');
         }
 
         const user = await tx.user.create({
