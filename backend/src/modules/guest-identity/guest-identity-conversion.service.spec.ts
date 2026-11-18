@@ -44,7 +44,7 @@ describe('GuestIdentityService conversion', () => {
   };
   let sessions: { createSessionInTransaction: jest.Mock };
   let emailVerification: { issueAndSend: jest.Mock };
-  let prisma: { $transaction: jest.Mock };
+  let prisma: { $transaction: jest.Mock; $queryRaw: jest.Mock; $executeRaw: jest.Mock };
 
   beforeEach(() => {
     tx = {
@@ -88,12 +88,15 @@ describe('GuestIdentityService conversion', () => {
     };
     prisma = {
       $transaction: jest.fn((callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx)),
+      $queryRaw: jest.fn().mockResolvedValue([{ attemptCount: 1 }]),
+      $executeRaw: jest.fn().mockResolvedValue(0),
     };
     sessions = { createSessionInTransaction: jest.fn().mockResolvedValue(sessionResponse) };
     emailVerification = { issueAndSend: jest.fn().mockResolvedValue('SENT') };
     const config = {
       getOrThrow: jest.fn((key: string) => ({
         ACCESS_TOKEN_TTL_SECONDS: '900',
+        GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
       })[key]),
       get: jest.fn((key: string) => ({
         ARGON2_MEMORY_COST_KIB: '1024',
