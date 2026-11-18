@@ -15,8 +15,10 @@ The generator is an internal `QuestionGenerator` port. The OpenAI Responses adap
 ## 2. Question package
 
 Every newly persisted question contains:
-- category, difficulty, canonical language, answer type, and time limit;
+- category, difficulty, canonical language (the user's selected locale), answer type, and time limit;
 - canonical prompt/options, answer key, grading rubric, and localized content;
+
+The selected locale is authoritative for the entire generated package. The generator must create the prompt, every option, free-text expected answer, rubric concepts/notes, and localized fields directly in that language. It must not generate English first and translate afterward, nor silently fall back to English. `canonicalLanguage` must exactly match the requested locale, and structured validation must reject a different language code or incomplete localized option set.
 - content version, generator version, provider model version, and generation-policy version;
 - normalized SHA-256 content fingerprint.
 
@@ -73,7 +75,7 @@ Configure these values only in secure server deployment settings:
 
 The generator uses a 12-second default timeout, configurable from 1–30 seconds. Credentials are independent of `OPENAI_API_KEY` used by the AI Judge. Never provide a provider key in client configuration, source code, GitHub, or request payloads.
 
-The provider receives only category, difficulty, language, answer type, time limit, and excluded content fingerprints. Excluded question IDs remain application-side. Network errors, timeouts, HTTP failures, refusal, incomplete responses, malformed structured output, and invalid/duplicate questions have explicit error codes.
+The provider receives only category, difficulty, the user's selected language, answer type, time limit, and excluded content fingerprints. The selected language is applied to all human-readable generated fields, not only the display prompt. Excluded question IDs remain application-side. Network errors, timeouts, HTTP failures, refusal, incomplete responses, malformed structured output, and invalid/duplicate questions have explicit error codes.
 
 ## 7. Verification and release gates
 
