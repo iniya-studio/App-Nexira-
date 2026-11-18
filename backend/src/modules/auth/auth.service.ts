@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IdentityProvider, PrincipalType, UserStatus } from '@prisma/client';
+import { IdentityProvider, PrincipalType, Prisma, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -30,6 +30,38 @@ export class AuthService {
     private readonly emailVerification: EmailVerificationService,
   ) {
     this.dummyHash = this.hashPassword('NEXIRA_DUMMY_PASSWORD_DO_NOT_USE');
+  }
+
+  async hashGuestConversionPassword(password: string): Promise<string> {
+    return this.hashPassword(password);
+  }
+
+  createGuestConversionUser(
+    tx: Prisma.TransactionClient,
+    input: {
+      email: string;
+      username: string;
+      displayName: string;
+      passwordHash: string;
+    },
+  ) {
+    return tx.user.create({
+      data: {
+        email: input.email,
+        username: input.username,
+        displayName: input.displayName,
+        status: UserStatus.ACTIVE,
+        credential: { create: { passwordHash: input.passwordHash } },
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        preferredLanguage: true,
+        emailVerifiedAt: true,
+      },
+    });
   }
 
   async register(input: RegisterDto, ipAddress: string) {
