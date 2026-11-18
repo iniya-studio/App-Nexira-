@@ -48,6 +48,19 @@ jobs:
       - name: Run frontend and match-engine tests
         run: npm test
 
+      - name: Sync web assets for instrumentation tests
+        run: npm run android:sync
+
+      - name: Run Android Keystore instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          working-directory: app/android
+          script: ./gradlew connectedDebugAndroidTest
+
       - name: Build web app and Android package
         env:
           VITE_GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
