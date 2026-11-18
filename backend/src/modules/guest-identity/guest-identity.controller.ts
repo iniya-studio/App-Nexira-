@@ -9,7 +9,7 @@ type RequestLike = {
   ip?: string;
   socket: { remoteAddress?: string };
 };
-type PrincipalRequest = { principal: AuthenticatedPrincipal };
+type PrincipalRequest = { principal: AuthenticatedPrincipal } & RequestLike;
 
 @Controller('guest')
 export class GuestIdentityController {
@@ -30,14 +30,17 @@ export class GuestIdentityController {
     @Body() body: GuestConversionDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.guests.convert(request.principal, body, idempotencyKey ?? '');
+    const ip = request.ip || request.socket.remoteAddress || 'unknown';
+    return this.guests.convert(request.principal, body, idempotencyKey ?? '', ip);
   }
 
   @Post('convert/retry')
   retryConversion(
+    @Req() request: RequestLike,
     @Body() body: GuestConversionRetryDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.guests.retryConversion(body.refreshToken, idempotencyKey ?? '');
+    const ip = request.ip || request.socket.remoteAddress || 'unknown';
+    return this.guests.retryConversion(body.refreshToken, idempotencyKey ?? '', ip);
   }
 }
