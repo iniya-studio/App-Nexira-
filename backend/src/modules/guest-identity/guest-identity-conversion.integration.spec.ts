@@ -10,6 +10,7 @@ import { RoundService } from '../match/round.service';
 import { AnswerService } from '../match/answer.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
 import { SessionService } from '../session/session.service';
+import { AccessTokenService } from '../identity/access-token.service';
 import { GuestIdentityService } from './guest-identity.service';
 
 describe('Guest conversion during an active public 1v1 match integration', () => {
@@ -150,6 +151,13 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       ARGON2_MEMORY_COST_KIB: '1024',
       ARGON2_TIME_COST: '2',
       ARGON2_PARALLELISM: '1',
+      JWT_SECRET: Buffer.alloc(32, 7).toString('base64'),
+      JWT_ISSUER: 'https://integration.nexira.test',
+      JWT_AUDIENCE: 'nexira-integration',
+      SESSION_ABSOLUTE_TTL_SECONDS: '3600',
+      REFRESH_TOKEN_TTL_SECONDS: '1800',
+      REFRESH_RETRY_WINDOW_SECONDS: '60',
+      REFRESH_RETRY_ENCRYPTION_KEY: Buffer.alloc(32, 11).toString('base64'),
       GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
       GUEST_CONVERSION_REPLAY_WINDOW_SECONDS: '300',
       ACCESS_TOKEN_TTL_SECONDS: '900',
@@ -168,13 +176,22 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
           data: { userId: owner.principalId, expiresAt: userSessionExpiresAt },
         });
         sessionIds.push(session.id);
+        const userRefreshToken = randomBytes(32).toString('base64url');
+        await tx.refreshToken.create({
+          data: {
+            sessionId: session.id,
+            tokenHash: createHash('sha256').update(userRefreshToken).digest('hex'),
+            expiresAt: userSessionExpiresAt,
+            idempotencyKeyHash: createHash('sha256').update(randomUUID()).digest('hex'),
+          },
+        });
         return {
           principal: owner,
           session: { sessionId: session.id, expiresAt: userSessionExpiresAt.toISOString() },
           tokens: {
             accessToken: 'integration-access-token',
             accessTokenExpiresAt: userSessionExpiresAt.toISOString(),
-            refreshToken: 'integration-refresh-token',
+            refreshToken: userRefreshToken,
             refreshTokenExpiresAt: userSessionExpiresAt.toISOString(),
           },
         };
@@ -224,6 +241,15 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     // Simulate a lost HTTP response: recover using only the original guest refresh token and idempotency key.
     const recovered = await conversion.retryConversion(sourceRefreshToken, idempotencyKey);
     expect(recovered).toEqual(converted);
+    const refreshService = new SessionService(
+      prisma,
+      config as unknown as ConfigService,
+      new AccessTokenService(config as unknown as ConfigService),
+    );
+    const refreshed = await refreshService.refresh(
+      recovered.tokens.refreshToken, randomBytes(32).toString('base64url'),
+    );
+    expect(refreshed.principal).toEqual(converted.principal);
     expect(emailVerification.issueAndSend).toHaveBeenCalledTimes(1);
     expect(await prisma.guestConversionReplay.count({ where: { guestIdentityId: firstGuest.id } })).toBe(1);
     expect(await prisma.user.count({ where: { id: converted.user.id } })).toBe(1);
