@@ -102,13 +102,8 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                 type: 'input_text',
                 text:
                   'Generate exactly one original quiz question using only the supplied settings. ' +
-                  'Use the requested language, category, difficulty, answer type, and time limit. ' +
-                  'For multiple choice, provide 2 to 8 distinct options and an answerKey equal to ' +
-                  'exactly one option ID. For free text, use null options and a concise expected ' +
-                  'answer with a grading rubric containing required concepts. Provide localized ' +
-                  'wording in the requested language. Do not include player data or mention internal ' +
-                  'identifiers. The excluded fingerprints represent prior question content; avoid ' +
-                  'repeating or paraphrasing any of those questions.',
+                  'The language field is the authoritative language selected by the user. Generate every human-readable field directly in that exact language: canonicalPrompt, canonicalOptions text, free-text answerKey, every gradingRubric concept and note, localizedPrompt, and localizedOptions text. Do not draft in English and translate afterward; do not fall back to English unless the requested language is English. Keep canonicalLanguage exactly equal to the requested language, and keep localized wording semantically identical to the canonical wording. ' +
+                  'Use the requested category, difficulty, answer type, and time limit. For multiple choice, provide 2 to 8 distinct options and an answerKey equal to exactly one option ID; option IDs are language-neutral and must remain stable between canonical and localized options. For free text, use null options and a concise expected answer with a grading rubric containing required concepts, all in the requested language. Do not include player data or mention internal identifiers. The excluded fingerprints represent prior question content; avoid repeating or paraphrasing any of those questions.',
               },
             ],
           },
