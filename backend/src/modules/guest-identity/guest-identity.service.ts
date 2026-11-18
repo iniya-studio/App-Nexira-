@@ -301,6 +301,34 @@ export class GuestIdentityService {
           principalType: PrincipalType.USER,
           principalId: user.id,
         });
+        const response: GuestConversionResponse = {
+          user, ...session, emailVerification: { required: true, verified: false },
+        };
+        const replayId = randomUUID();
+        const replayExpiresAt = new Date(Math.min(
+          Date.now() + this.replayCrypto.replayWindowSeconds() * 1000,
+          new Date(session.tokens.accessTokenExpiresAt).getTime(),
+        ));
+        const replayAad: GuestConversionReplayAad = {
+          replayId,
+          guestIdentityId: guest.id,
+          sourceSessionId: principal.sessionId,
+          sourceRefreshTokenHash,
+          targetUserId: user.id,
+          idempotencyKeyHash,
+        };
+        await tx.guestConversionReplay.create({
+          data: {
+            id: replayId,
+            guestIdentityId: guest.id,
+            sourceSessionId: principal.sessionId,
+            sourceRefreshTokenHash,
+            idempotencyKeyHash,
+            targetUserId: user.id,
+            responseCiphertext: this.replayCrypto.encrypt(response, replayAad),
+            expiresAt: replayExpiresAt,
+          },
+        });
         await tx.identityAuditEvent.create({
           data: {
             eventType: 'GUEST_IDENTITY_CONVERTED',
@@ -319,7 +347,7 @@ export class GuestIdentityService {
             },
           },
         });
-        return { user, session };
+        return response;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
@@ -328,12 +356,12 @@ export class GuestIdentityService {
       throw error;
     }
 
-    const delivery = await this.emailVerification.issueAndSend(converted.user.id);
-    return {
-      user: converted.user,
-      ...converted.session,
-      emailVerification: { required: true, verified: false, delivery },
-    };
+    try {
+      await this.emailVerification.issueAndSend(converted.user.id);
+    } catch {
+      // Conversion is committed; email verification can be resent through the account workflow.
+    }
+    return converted;
   }
 
   private enforceStartLimit(clientKey: string): void {
