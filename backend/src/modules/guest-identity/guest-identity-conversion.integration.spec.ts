@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { NotFoundException } from '@nestjs/common';
+import { GoneException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { GuestIdentityStatus, PrincipalType, Prisma } from '@prisma/client';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -220,6 +220,31 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       where: { id: firstSession.id },
     });
     expect(revokedGuestSession.revokedAt).toBeInstanceOf(Date);
+
+    // Simulate a lost HTTP response: recover using only the original guest refresh token and idempotency key.
+    const recovered = await conversion.retryConversion(sourceRefreshToken, idempotencyKey);
+    expect(recovered).toEqual(converted);
+    expect(emailVerification.issueAndSend).toHaveBeenCalledTimes(1);
+    expect(await prisma.guestConversionReplay.count({ where: { guestIdentityId: firstGuest.id } })).toBe(1);
+    expect(await prisma.user.count({ where: { id: converted.user.id } })).toBe(1);
+    expect(await prisma.userSession.count({ where: { userId: converted.user.id } })).toBe(1);
+    expect(await prisma.refreshToken.count({ where: { session: { userId: converted.user.id } } })).toBe(1);
+
+    await expect(conversion.retryConversion(
+      sourceRefreshToken, randomBytes(32).toString('base64url'),
+    )).rejects.toBeInstanceOf(UnauthorizedException);
+
+    await prisma.guestConversionReplay.update({
+      where: { guestIdentityId: firstGuest.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+    await expect(conversion.retryConversion(sourceRefreshToken, idempotencyKey))
+      .rejects.toBeInstanceOf(GoneException);
+    const purgedReplay = await prisma.guestConversionReplay.findUniqueOrThrow({
+      where: { guestIdentityId: firstGuest.id },
+    });
+    expect(purgedReplay.responseCiphertext).toBeNull();
+    expect(purgedReplay.ciphertextPurgedAt).toBeInstanceOf(Date);
 
     const participants = await prisma.matchParticipant.findMany({
       where: { matchId },
