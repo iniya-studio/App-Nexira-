@@ -22,7 +22,7 @@ const INITIAL_QUESTION_SETTINGS = {
   timeLimitSeconds: 30,
 };
 
-type AiMatchOptions = { category?: string; language?: string };
+type AiMatchOptions = { category?: string; language?: string; participantLanguages?: { first: string; second: string } };
 type MatchQuestionSettings = typeof INITIAL_QUESTION_SETTINGS & { language?: string };
 
 @Injectable()
@@ -63,10 +63,15 @@ export class MatchService {
       });
       if (existing) return this.toMatchSummary(existing);
 
+      const preferredLanguage = principal.principalType === PrincipalType.USER
+        ? (await tx.user.findUnique({ where: { id: principal.principalId }, select: { preferredLanguage: true } }))?.preferredLanguage
+        : null;
+      const participantLanguage = preferredLanguage?.trim() || options.language?.trim() || 'en';
+
       return this.createMatchWithInitialQuestion(
         MatchMode.ONE_V_AI,
         [
-          this.humanParticipantData(principal),
+          this.humanParticipantData(principal, participantLanguage),
           { participantKey: 'ai:default-v1', participantType: ParticipantType.AI },
         ],
         principal,
@@ -97,7 +102,10 @@ export class MatchService {
 
     return this.createMatchWithInitialQuestion(
       MatchMode.ONE_V_ONE,
-      [this.humanParticipantData(first), this.humanParticipantData(second)],
+      [
+        this.humanParticipantData(first, options.participantLanguages?.first || options.language || 'en'),
+        this.humanParticipantData(second, options.participantLanguages?.second || options.language || 'en'),
+      ],
       first,
       {
         ...INITIAL_QUESTION_SETTINGS,
@@ -343,8 +351,9 @@ export class MatchService {
     };
   }
 
-  private humanParticipantData(principal: AuthenticatedPrincipal) {
+  private humanParticipantData(principal: AuthenticatedPrincipal, language: string) {
     return {
+      language,
       participantKey: `human:${principal.principalType.toLowerCase()}:${principal.principalId}`,
       participantType: ParticipantType.HUMAN,
       ...(principal.principalType === PrincipalType.USER
