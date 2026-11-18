@@ -53,7 +53,7 @@ It validates the generated question package, locks the Match row, enforces the V
 - **Path:** `/api/v1/matches/:matchId/rounds/:roundId/question?language=fa`
 - **Authentication:** access-token/session guard
 
-Only a participant can read the question. The response contains the canonical question identity, localized prompt/options, stable option IDs, and the shared timing fields. The query does not select `answerKey` or `gradingRubric`. Missing translations fall back to canonical content.
+Only a participant can read the question. The `language` query value must be the participant's persisted NEXIRA language selection; it is not a second match-language preference. The response contains the canonical question identity, localized prompt/options, stable option IDs, and the shared timing fields. The query does not select `answerKey` or `gradingRubric`. Every locale enabled for matchmaking must have complete question content; canonical fallback is compatibility behavior for legacy/unlocalized records only and is not an acceptable substitute for a missing translation in an enabled locale.
 
 ## 4. Answer submission
 
