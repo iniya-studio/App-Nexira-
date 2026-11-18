@@ -420,3 +420,15 @@
 - Tests have been added but not executed in this session; no CI result is claimed.
 - Next: add immutable locale snapshots to MatchParticipant and queue/match creation, then implement category-only pairing and participant-specific localized question delivery/Judge routing.
 
+## R-036 — Immutable participant locale snapshot and category-only 1v1 compatibility
+
+**Date:** 2026-11-19  
+**Status:** Implementation committed; automated execution and integration evidence pending.
+
+- Added required `MatchParticipant.language` with a deterministic additive migration. Historical rows backfill from the user's preferred locale, then the associated matchmaking entry, then the first historical question locale, and finally English for legacy records with no recoverable source.
+- Match creation now writes each human participant's locale snapshot. 1vAI derives the snapshot and initial question request locale from the same resolved participant locale.
+- Public matchmaking now locks and searches by category only. Each queue entry retains its own locale and pairing passes both participant locales into match creation.
+- Registered users' matchmaking locale is resolved from the trusted `User.preferredLanguage`; guest locale remains validated from the guest queue request.
+- Replaced the queue compatibility index with a category/FIFO index that excludes locale.
+- Added a cross-locale regression assertion for pairing an English queue entry with a Persian entrant, and a MatchService assertion for independent participant snapshots.
+- **Not yet verified:** Prisma migration execution, Prisma Client generation, unit/integration test execution, cross-locale question generation and participant-specific delivery/Judge routing. Do not enable cross-locale production matchmaking until those gates pass.
