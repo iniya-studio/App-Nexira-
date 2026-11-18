@@ -137,27 +137,59 @@ export class GuestIdentityService {
           where: { id: principal.principalId },
           select: { id: true, status: true, convertedToUserId: true, displayName: true },
         });
-        if (!guest || guest.status !== GuestIdentityStatus.ACTIVE || guest.convertedToUserId) {
-          throw new UnauthorizedException('Guest identity is no longer active');
+        if (!guest) throw new UnauthorizedException('Guest identity is no longer active');
+
+        // Preserve the contract lock order: GuestIdentity -> source UserSession -> source RefreshToken.
+        await tx.$queryRaw`SELECT "id" FROM "UserSession" WHERE "id" = ${principal.sessionId}::uuid FOR UPDATE`;
+        await tx.$queryRaw`SELECT "id" FROM "RefreshToken" WHERE "tokenHash" = ${sourceRefreshTokenHash} FOR UPDATE`;
+        const [sourceSession, sourceRefreshToken] = await Promise.all([
+          tx.userSession.findFirst({
+            where: { id: principal.sessionId, guestIdentityId: guest.id, userId: null },
+            select: { id: true, revokedAt: true, expiresAt: true },
+          }),
+          tx.refreshToken.findUnique({
+            where: { tokenHash: sourceRefreshTokenHash },
+            select: { id: true, sessionId: true, consumedAt: true, revokedAt: true, expiresAt: true },
+          }),
+        ]);
+        if (!sourceSession || !sourceRefreshToken || sourceRefreshToken.sessionId !== sourceSession.id) {
+          throw new UnauthorizedException('Invalid guest conversion proof');
         }
 
-        // Revalidate the exact access-token session inside the conversion transaction.
-        // Locking the row serializes conversion with a concurrent logout: whichever
-        // acquires this lock first defines the outcome, and a revoked session cannot
-        // create an account after its authenticated request has gone stale.
-        await tx.$queryRaw`SELECT "id" FROM "UserSession" WHERE "id" = ${principal.sessionId}::uuid FOR UPDATE`;
-        const activeGuestSession = await tx.userSession.findFirst({
-          where: {
-            id: principal.sessionId,
-            guestIdentityId: guest.id,
-            userId: null,
-            revokedAt: null,
-            expiresAt: { gt: new Date() },
-          },
-          select: { id: true },
-        });
-        if (!activeGuestSession) {
-          throw new UnauthorizedException('Guest session is no longer active');
+        // A request that passed AccessTokenGuard before another request committed may
+        // recover only with the exact original refresh-token/idempotency-key pair.
+        if (guest.status === GuestIdentityStatus.CONVERTED && guest.convertedToUserId) {
+          const replay = await tx.guestConversionReplay.findUnique({ where: { guestIdentityId: guest.id } });
+          if (!replay || replay.sourceSessionId !== sourceSession.id ||
+              !this.replayCrypto.equalsHash(replay.sourceRefreshTokenHash, sourceRefreshTokenHash) ||
+              !this.replayCrypto.equalsHash(replay.idempotencyKeyHash, idempotencyKeyHash)) {
+            throw new UnauthorizedException('Invalid guest conversion proof');
+          }
+          if (replay.expiresAt <= new Date() || !replay.responseCiphertext) {
+            throw new GoneException({ code: 'CONVERSION_RECOVERY_EXPIRED', message: 'Conversion recovery window has expired' });
+          }
+          const aad: GuestConversionReplayAad = {
+            replayId: replay.id, guestIdentityId: replay.guestIdentityId, sourceSessionId: replay.sourceSessionId,
+            sourceRefreshTokenHash: replay.sourceRefreshTokenHash, targetUserId: replay.targetUserId,
+            idempotencyKeyHash: replay.idempotencyKeyHash,
+          };
+          try {
+            const recovered = this.replayCrypto.decrypt<GuestConversionResponse>(replay.responseCiphertext, aad);
+            await tx.identityAuditEvent.create({
+              data: { eventType: 'GUEST_CONVERSION_RECOVERY_SUCCEEDED', principalType: PrincipalType.GUEST, principalId: guest.id, sessionId: sourceSession.id, result: 'SUCCESS' },
+            });
+            return recovered;
+          } catch {
+            await tx.identityAuditEvent.create({
+              data: { eventType: 'GUEST_CONVERSION_RECOVERY_FAILED', principalType: PrincipalType.GUEST, principalId: guest.id, sessionId: sourceSession.id, result: 'FAILURE', metadata: { reason: 'CIPHERTEXT_INVALID' } },
+            });
+            throw new UnauthorizedException('Invalid guest conversion proof');
+          }
+        }
+        if (guest.status !== GuestIdentityStatus.ACTIVE || guest.convertedToUserId ||
+            sourceSession.revokedAt || sourceSession.expiresAt <= new Date() ||
+            sourceRefreshToken.consumedAt || sourceRefreshToken.revokedAt || sourceRefreshToken.expiresAt <= new Date()) {
+          throw new UnauthorizedException('Guest identity or source refresh token is no longer active');
         }
 
         const user = await tx.user.create({
