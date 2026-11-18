@@ -3,6 +3,7 @@ package com.nexira.prototype.security;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -77,8 +78,8 @@ public class SecureStoragePluginInstrumentedTest {
             ciphertext.contains("abcdefghijklmnopqrstuvwxyz_"));
         assertNotNull("Stored value must be valid Base64 ciphertext",
             Base64.decode(ciphertext, Base64.NO_WRAP));
-        assertEquals("IV plus GCM tag and encrypted payload must be present",
-            true, Base64.decode(ciphertext, Base64.NO_WRAP).length > 12 + 16);
+        assertTrue("IV plus GCM tag and encrypted payload must be present",
+            Base64.decode(ciphertext, Base64.NO_WRAP).length > 12 + 16);
 
         // A fresh plugin instance has no in-memory state; successful decryption
         // therefore proves persistence through Android Keystore + SharedPreferences.
