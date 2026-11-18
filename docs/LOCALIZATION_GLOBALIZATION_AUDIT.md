@@ -102,7 +102,10 @@ A locale is not considered enabled merely because it appears in this table or in
 
 - Product decision: one user-selected locale controls the entire game experience, including UI and match content.
 - UI translations are bundled/local data and must never require an AI or network translation request at runtime.
-- AI question generation must produce question content directly in `settings.language`; AI Judge must use the same language and semantic contract.
+- AI question generation receives the selected locale and is explicitly instructed to author the canonical prompt/options, free-text expected answer, grading rubric, and localized display fields directly in that language; it must not draft in English and translate afterward.
+- AI Judge receives the generated question's authoritative language and is explicitly instructed to interpret the question, expected answer, rubric, and participant response in that language rather than assuming English.
+- Adapter regression tests now cover both English and Persian request-language contracts. These tests are added but remain unexecuted until CI reports a result.
+- Matchmaking and account/profile language validation currently allow only `en` and `fa`; other candidate locales remain disabled until complete UI packs, backend validation, question generation, Judge QA, and locale-specific tests are ready.
 - The temporary independent `settings.matchLanguage` implementation has been removed from profile normalization and match request construction.
 - Existing `settings.language` persistence and initial language-selection completion behavior remain the source of truth.
 - Supported locales remain limited to complete, verified locale packs; the candidate 20-language list is not an activation list.
