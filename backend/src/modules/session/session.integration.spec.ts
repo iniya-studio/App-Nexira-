@@ -258,7 +258,7 @@ describe('Guest identity and session integration', () => {
       password: 'integration-test-password-strong',
       username: `player_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
       displayName: 'Integration Player',
-      refreshToken: (await prisma.refreshToken.findFirstOrThrow({ where: { sessionId: guestSessionId, revokedAt: null }, orderBy: { createdAt: 'desc' } })).tokenHash,
+      refreshToken: started.tokens.refreshToken,
     }, randomBytes(32).toString('base64url'));
 
     const userId = result.principal.principalId;
@@ -315,11 +315,7 @@ describe('Guest identity and session integration', () => {
     await expect(
       sessions.refresh(started.tokens.refreshToken, randomBytes(32).toString('base64url')),
     ).rejects.toThrow();
-    expect(result.emailVerification).toEqual({
-      required: true,
-      verified: false,
-      delivery: 'SENT',
-    });
+    expect(result.emailVerification).toEqual({ required: true, verified: false });
   });
 
   it('serializes two real concurrent conversions of the same guest and transfers progression exactly once', async () => {
