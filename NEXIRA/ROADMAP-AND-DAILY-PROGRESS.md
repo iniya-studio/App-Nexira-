@@ -409,3 +409,14 @@
 - This is contract/documentation progress only. No matchmaking, schema, question delivery or Judge runtime code was changed in this entry. No tests or CI are claimed.
 - Next execution: L10N-02A/02B implementation, beginning with the 20-locale server registry and participant locale snapshot, then category-only queue pairing, generation/rendering and participant-specific question/Judge routing. Keep production matchmaking feature flags disabled until end-to-end gates pass.
 
+### R-035 — 20-locale backend registry foundation
+- Date: 2026-11-19
+- Added the canonical backend target registry for all 20 approved locale IDs, including native/English names, Intl locale tags and text direction.
+- RTL metadata explicitly covers Persian, Arabic and Urdu.
+- Added registry tests for the exact 20-locale set, locale ID validation, enablement separation and RTL metadata.
+- Matchmaking service and enqueue DTO now consume the centralized enabled-locale allowlist instead of duplicated hard-coded `en/fa` checks.
+- Added a regression test proving a target locale such as Arabic remains rejected until its full UI/game-content pack is enabled. This is intentional release gating, not a missing selector option in the final APK.
+- Current enabled backend locales remain `en` and `fa`; the 18 other target locales are registered but not yet enabled. No user-facing selector or cross-locale queue behavior has been activated.
+- Tests have been added but not executed in this session; no CI result is claimed.
+- Next: add immutable locale snapshots to MatchParticipant and queue/match creation, then implement category-only pairing and participant-specific localized question delivery/Judge routing.
+
