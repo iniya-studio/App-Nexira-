@@ -17,6 +17,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isEnabledLocale } from '../../common/localization/locale-registry';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
 import { MatchmakingGateway } from './matchmaking.gateway';
@@ -83,7 +84,7 @@ export class MatchmakingService {
     const category = input.category.trim().toLowerCase();
     const language = input.language.trim().toLowerCase();
     if (!SUPPORTED_CATEGORIES.has(category)) throw new BadRequestException('Unsupported matchmaking category');
-    if (language !== 'en' && language !== 'fa') throw new BadRequestException('Unsupported matchmaking language');
+    if (!isEnabledLocale(language)) throw new BadRequestException('Unsupported matchmaking language');
 
     const outcome = await this.prisma.$transaction(async (tx) => {
       // Stable principal lock comes first so guest conversion and enqueue share one lock order.
