@@ -60,7 +60,7 @@ describe('GuestIdentityService', () => {
     const config = {
       get: (key: string, fallback: string) => key === 'GUEST_START_MAX_ATTEMPTS' ? '1' : fallback,
     } as unknown as ConfigService;
-    const service = new GuestIdentityService(prisma, sessions, config, emailVerification);
+    const service = new GuestIdentityService(prisma, sessions, config, emailVerification, {} as AuthService);
 
     await service.start('127.0.0.2');
     await expect(service.start('127.0.0.2')).rejects.toThrow();
