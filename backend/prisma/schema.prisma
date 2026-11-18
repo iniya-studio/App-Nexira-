@@ -205,10 +205,10 @@ model UserSession {
   revokedAt       DateTime? @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
 
-  user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  guestIdentity GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
-  refreshTokens     RefreshToken[]
-  conversionReplay  GuestConversionReplay?
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestIdentity    GuestIdentity?         @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  refreshTokens    RefreshToken[]
+  conversionReplay GuestConversionReplay?
 
   @@index([userId, expiresAt])
   @@index([guestIdentityId, expiresAt])
@@ -302,7 +302,7 @@ model GuestConversionReplay {
 
   guestIdentity GuestIdentity @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
   sourceSession UserSession   @relation(fields: [sourceSessionId], references: [id], onDelete: Restrict)
-  targetUser    User           @relation(fields: [targetUserId], references: [id], onDelete: Restrict)
+  targetUser    User          @relation(fields: [targetUserId], references: [id], onDelete: Restrict)
 
   @@index([expiresAt, ciphertextPurgedAt])
   @@index([targetUserId, createdAt])
