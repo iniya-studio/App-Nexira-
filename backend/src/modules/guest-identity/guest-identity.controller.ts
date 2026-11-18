@@ -1,7 +1,8 @@
-import { Controller, Post, Req, UseGuards, Body } from '@nestjs/common';
+import { Controller, Post, Req, UseGuards, Body, Headers } from '@nestjs/common';
 import { AccessTokenGuard } from '../identity/access-token.guard';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { GuestConversionDto } from './dto/guest-conversion.dto';
+import { GuestConversionRetryDto } from './dto/guest-conversion-retry.dto';
 import { GuestIdentityService } from './guest-identity.service';
 
 type RequestLike = {
@@ -24,7 +25,19 @@ export class GuestIdentityController {
 
   @UseGuards(AccessTokenGuard)
   @Post('convert')
-  convert(@Req() request: PrincipalRequest, @Body() body: GuestConversionDto) {
-    return this.guests.convert(request.principal, body);
+  convert(
+    @Req() request: PrincipalRequest,
+    @Body() body: GuestConversionDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    return this.guests.convert(request.principal, body, idempotencyKey ?? '');
+  }
+
+  @Post('convert/retry')
+  retryConversion(
+    @Body() body: GuestConversionRetryDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    return this.guests.retryConversion(body.refreshToken, idempotencyKey ?? '');
   }
 }
