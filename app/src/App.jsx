@@ -700,7 +700,7 @@ export default function App() {
         matchmakingRecoveryPrincipalRef.current = null;
       }
     };
-  }, [matchmakingRecoveryRetry, openMatchedOnlineMatch, publicOneVsOneEnabled, screen, sessionState.principal?.principalId, sessionState.status]);
+  }, [language, matchmakingRecoveryRetry, openMatchedOnlineMatch, publicOneVsOneEnabled, screen, sessionState.principal?.principalId, sessionState.status]);
 
   const handleMatchOption = useCallback(async (optionId) => {
     try {
