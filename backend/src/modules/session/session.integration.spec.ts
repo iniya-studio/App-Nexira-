@@ -159,54 +159,124 @@ describe('Guest identity and session integration', () => {
     expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
   });
 
-  it('serializes a concurrent guest logout and conversion without creating an account from a revoked session', async () => {
-    const started = await startGuest();
-    const guestId = started.principal.principalId;
-    const sessionId = started.session.sessionId;
-    const email = `logout-race-${randomUUID()}@example.test`;
-    const principal = {
-      principalType: PrincipalType.GUEST,
-      principalId: guestId,
-      sessionId,
-    };
+  it.each(['conversion-first', 'logout-first'] as const)(
+    'serializes a deterministic PostgreSQL guest %s versus conversion race',
+    async (ordering) => {
+      const started = await startGuest();
+      const guestId = started.principal.principalId;
+      const sessionId = started.session.sessionId;
+      const email = `logout-race-${ordering}-${randomUUID()}@example.test`;
+      const principal = {
+        principalType: PrincipalType.GUEST,
+        principalId: guestId,
+        sessionId,
+      };
 
-    const [conversion, logout] = await Promise.allSettled([
-      guests.convert(principal, {
-        email,
-        password: 'integration-test-password-strong',
-        username: `logout_race_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
-        displayName: 'Logout Race Guest',
-        refreshToken: started.tokens.refreshToken,
-      }, randomBytes(32).toString('base64url')),
-      sessions.logout(principal),
-    ]);
-
-    expect(logout.status).toBe('fulfilled');
-    const [guest, oldSession, createdUser] = await Promise.all([
-      prisma.guestIdentity.findUniqueOrThrow({ where: { id: guestId } }),
-      prisma.userSession.findUniqueOrThrow({ where: { id: sessionId } }),
-      prisma.user.findUnique({ where: { email } }),
-    ]);
-    expect(oldSession.revokedAt).toBeInstanceOf(Date);
-
-    if (conversion.status === 'fulfilled') {
-      convertedUserIds.push(conversion.value.user.id);
-      expect(guest).toMatchObject({
-        status: GuestIdentityStatus.CONVERTED,
-        convertedToUserId: conversion.value.user.id,
+      // Hold the exact source-session row so both production transactions queue
+      // behind the same PostgreSQL lock in a controlled, verifiable order.
+      let releaseBlocker!: () => void;
+      let signalBlockerReady!: () => void;
+      const blockerGate = new Promise<void>((resolve) => { releaseBlocker = resolve; });
+      const blockerReady = new Promise<void>((resolve) => { signalBlockerReady = resolve; });
+      const blockerTransaction = prisma.$transaction(async (tx) => {
+        await tx.$queryRawUnsafe(
+          'SELECT "id" FROM "UserSession" WHERE "id" = $1::uuid FOR UPDATE',
+          sessionId,
+        );
+        signalBlockerReady();
+        await blockerGate;
       });
-      expect(createdUser?.id).toBe(conversion.value.user.id);
-      expect(conversion.value.session.sessionId).not.toBe(sessionId);
-    } else {
-      expect(guest).toMatchObject({
-        status: GuestIdentityStatus.ACTIVE,
-        convertedToUserId: null,
-      });
-      expect(createdUser).toBeNull();
-      const conversionError = conversion.reason as { getStatus?: () => number; code?: string };
-      expect(conversionError.getStatus?.() === 401 || conversionError.code === 'P2034').toBe(true);
-    }
-  });
+
+      const waitForSessionLockWaiters = async (expected: number) => {
+        const deadline = Date.now() + 10_000;
+        while (Date.now() < deadline) {
+          const rows = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+            "SELECT COUNT(*)::bigint AS count FROM pg_stat_activity " +
+            "WHERE datname = current_database() AND wait_event_type = 'Lock' " +
+            "AND query ILIKE '%UserSession%'",
+          );
+          if (Number(rows[0]?.count ?? 0n) >= expected) return;
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        throw new Error('Timed out waiting for ' + expected + ' UserSession row-lock waiter(s)');
+      };
+
+      let conversionPromise: ReturnType<typeof guests.convert> | undefined;
+      let logoutPromise: ReturnType<typeof sessions.logout> | undefined;
+      try {
+        await blockerReady;
+        if (ordering === 'conversion-first') {
+          conversionPromise = guests.convert(principal, {
+            email,
+            password: 'integration-test-password-strong',
+            username: `logout_race_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+            displayName: 'Logout Race Guest',
+            refreshToken: started.tokens.refreshToken,
+          }, randomBytes(32).toString('base64url'));
+          await waitForSessionLockWaiters(1);
+          logoutPromise = sessions.logout(principal);
+          await waitForSessionLockWaiters(2);
+        } else {
+          logoutPromise = sessions.logout(principal);
+          await waitForSessionLockWaiters(1);
+          conversionPromise = guests.convert(principal, {
+            email,
+            password: 'integration-test-password-strong',
+            username: `logout_race_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+            displayName: 'Logout Race Guest',
+            refreshToken: started.tokens.refreshToken,
+          }, randomBytes(32).toString('base64url'));
+          await waitForSessionLockWaiters(2);
+        }
+
+        releaseBlocker();
+        const [conversion, logout] = await Promise.allSettled([conversionPromise, logoutPromise]);
+        await blockerTransaction;
+        expect(logout.status).toBe('fulfilled');
+
+        const [guest, oldSession, createdUser] = await Promise.all([
+          prisma.guestIdentity.findUniqueOrThrow({ where: { id: guestId } }),
+          prisma.userSession.findUniqueOrThrow({ where: { id: sessionId } }),
+          prisma.user.findUnique({ where: { email } }),
+        ]);
+        expect(oldSession.revokedAt).toBeInstanceOf(Date);
+
+        if (ordering === 'conversion-first') {
+          expect(conversion.status).toBe('fulfilled');
+          if (conversion.status !== 'fulfilled') throw conversion.reason;
+          convertedUserIds.push(conversion.value.user.id);
+          expect(guest).toMatchObject({
+            status: GuestIdentityStatus.CONVERTED,
+            convertedToUserId: conversion.value.user.id,
+          });
+          expect(createdUser?.id).toBe(conversion.value.user.id);
+          expect(conversion.value.session.sessionId).not.toBe(sessionId);
+          const newSession = await prisma.userSession.findUniqueOrThrow({
+            where: { id: conversion.value.session.sessionId },
+          });
+          expect(newSession).toMatchObject({ userId: conversion.value.user.id, revokedAt: null });
+        } else {
+          expect(conversion.status).toBe('rejected');
+          expect(guest).toMatchObject({
+            status: GuestIdentityStatus.ACTIVE,
+            convertedToUserId: null,
+          });
+          expect(createdUser).toBeNull();
+          if (conversion.status !== 'rejected') throw new Error('Logout-first race unexpectedly converted the guest');
+          const conversionError = conversion.reason as { getStatus?: () => number; code?: string };
+          expect(conversionError.getStatus?.() === 401 || conversionError.code === 'P2034').toBe(true);
+        }
+      } finally {
+        releaseBlocker();
+        await blockerTransaction.catch(() => undefined);
+        await Promise.all([
+          conversionPromise?.then(() => undefined, () => undefined),
+          logoutPromise?.then(() => undefined, () => undefined),
+        ]);
+      }
+    },
+    30_000,
+  );
 
   it('rejects a guest whose identity is no longer active', async () => {
     const started = await startGuest();
