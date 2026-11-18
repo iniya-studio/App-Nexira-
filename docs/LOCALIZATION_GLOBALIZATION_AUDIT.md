@@ -29,8 +29,8 @@ GitHub Actions run `44394690367` (Build and verify Android debug APK) completed 
 2. **Strict locale validation:** persisted values must be validated against fully supported locale packs. Unknown or malformed values must recover deterministically without corrupting the saved profile.
 3. **Complete translation contract:** every enabled locale must provide every required UI key and nested key. Missing translations must fail tests; silent English fallback must not make an incomplete locale appear supported.
 4. **Feature coverage:** include all visible app surfaces, settings, validation/error states, matchmaking, match flow, rankings, profile, store, dialogs, accessibility labels, and empty/loading states.
-5. **Game-content language:** question prompts, answer options, hints, explanations, and any user-facing generated content must follow an explicit match-language contract. Correct-answer identity/order must remain invariant under translation.
-6. **UI locale versus match locale:** keep interface preference and match language as separate concepts where required. Matchmaking must continue matching players on the selected match language, not accidentally on a mutable UI preference.
+5. **Single user-selected language:** one persisted locale (`settings.language`) controls the complete user experience, including interface copy and match content. A separate match-language preference is not part of the product architecture.
+6. **AI game-content language:** AI question generation must receive the user's selected locale and generate the prompt, options, correct answer, hints, and explanation directly in that language. AI Judge must evaluate against the same language and semantic meaning. Correct-answer identity/order must remain invariant.
 7. **Direction and formatting:** derive document and component direction from locale metadata. Use `Intl.NumberFormat`, `Intl.DateTimeFormat`, and locale-aware plural/message formatting where applicable.
 8. **Accessible selector:** replace the two-card chooser with a searchable/selectable locale control that presents native language names and preserves the selected locale.
 9. **Regression gates:** test registry integrity, translation-key parity, nested structures, question/answer invariants, locale persistence/migration, RTL/LTR behavior, formatting, selector options, and absence of accidental fallback for enabled locales.
@@ -73,11 +73,11 @@ A locale is not considered enabled merely because it appears in this table or in
 - Add migration and invalid-locale tests.
 - **Exit:** existing English/Persian behavior remains intact; locale validation and migration tests pass.
 
-### L10N-02 — Remove two-language assumptions
+### L10N-02 — Single-locale propagation and remove two-language assumptions
+- Use the one persisted `settings.language` value across interface, matchmaking, question generation, match recovery, and AI Judge contracts.
 - Inventory and migrate inline locale branches and feature-local bilingual data to translation namespaces.
-- Keep UI locale independent from match language.
-- Replace the two-card selector with the accessible registry-driven selector.
-- **Exit:** no feature silently treats every non-Persian locale as English; all visible strings are routed through the translation contract.
+- Keep UI translations bundled/local; runtime UI rendering must not depend on AI or network translation.
+- **Exit:** no separate match-language preference exists; all match requests carry the selected user locale; all visible UI strings use the local translation contract.
 
 ### L10N-03 — Complete locale packs
 - Complete every UI namespace and game-content pack for each target locale.
@@ -85,8 +85,8 @@ A locale is not considered enabled merely because it appears in this table or in
 - **Exit:** every target locale passes strict key parity, question coverage, and locale QA; only then can it be enabled.
 
 ### L10N-04 — Release gates
-- Add automated checks that fail if an enabled locale is missing UI or game copy.
-- Verify language switching, persisted selection, matchmaking language behavior, and representative screens for every locale.
+- Add automated checks that fail if an enabled locale is missing UI copy or AI language-contract coverage.
+- Verify language switching, persisted selection, selected-locale propagation to matchmaking and AI generation/Judge, and representative screens for every locale.
 - **Exit:** full frontend test suite and Android build pass on the resulting `main` commit.
 
 ## Non-negotiable acceptance rules
@@ -98,12 +98,12 @@ A locale is not considered enabled merely because it appears in this table or in
 - Do not claim a language or release gate is complete without recorded test/CI evidence.
 
 
-## L10N-02 — UI locale and match language separation (implementation checkpoint)
+## L10N-02 — Single selected language architecture correction
 
-- The persisted profile now has independent `settings.language` (interface locale) and `settings.matchLanguage` (question/match locale).
-- Existing profiles migrate deterministically: when `matchLanguage` is absent, it inherits the previously selected interface language, preserving current matchmaking behavior.
-- Matchmaking queue creation/recovery and active AI match recovery now send the match-language setting rather than the UI locale.
-- Changing the interface locale does not silently change the selected match language.
-- Current supported values remain limited to the complete locale registry (English and Persian); this does not activate additional languages.
-- Automated migration assertions were added. Execution and CI evidence remain pending until a workflow run reports results.
-- Remaining in this stage: expose an explicit match-language preference in settings, localize its labels, verify backend question-language enforcement, and cover queue/recovery flows with tests.
+- Product decision: one user-selected locale controls the entire game experience, including UI and match content.
+- UI translations are bundled/local data and must never require an AI or network translation request at runtime.
+- AI question generation must produce question content directly in `settings.language`; AI Judge must use the same language and semantic contract.
+- The temporary independent `settings.matchLanguage` implementation has been removed from profile normalization and match request construction.
+- Existing `settings.language` persistence and initial language-selection completion behavior remain the source of truth.
+- Supported locales remain limited to complete, verified locale packs; the candidate 20-language list is not an activation list.
+- Corrective code commits have been recorded; test execution and CI evidence remain pending until a workflow run reports results.
