@@ -5,7 +5,14 @@ export function createSessionApi(http) {
 
   return {
     startGuest: (options) => http.post('/guest/start', undefined, options ? { ...options, authenticated: false } : { authenticated: false }),
-    convertGuest: (credentials, options) => options ? http.post('/guest/convert', credentials, options) : http.post('/guest/convert', credentials),
+    convertGuest: (credentials, idempotencyKey, options = {}) => http.post(
+      '/guest/convert', credentials,
+      { ...options, headers: { ...(options.headers ?? {}), 'Idempotency-Key': idempotencyKey } },
+    ),
+    retryGuestConversion: (refreshToken, idempotencyKey, options = {}) => http.post(
+      '/guest/convert/retry', { refreshToken },
+      { ...options, authenticated: false, headers: { ...(options.headers ?? {}), 'Idempotency-Key': idempotencyKey } },
+    ),
     register: (credentials, options) => http.post('/auth/register', credentials, options ? { ...options, authenticated: false } : { authenticated: false }),
     login: (credentials, options) => http.post('/auth/login', credentials, options ? { ...options, authenticated: false } : { authenticated: false }),
     createGoogleChallenge: (options) => http.post('/auth/google/challenge', undefined, options ? { ...options, authenticated: false } : { authenticated: false }),

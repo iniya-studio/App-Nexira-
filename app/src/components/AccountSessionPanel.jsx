@@ -103,12 +103,9 @@ export function AccountSessionPanel({
         password,
       });
       setPassword('');
-      const delivery = next.emailVerification?.delivery;
-      setNotice(delivery === 'SENT'
-        ? (isFa ? 'حساب ساخته شد؛ لینک تأیید به ایمیل شما ارسال شد.' : 'Account created; a verification link was sent to your email.')
-        : delivery === 'NOT_CONFIGURED'
-          ? (isFa ? 'حساب ساخته شد، اما ارسال ایمیل هنوز روی سرور پیکربندی نشده است.' : 'Account created, but email delivery is not configured on the server yet.')
-          : (isFa ? 'حساب ساخته شد، اما ارسال ایمیل ناموفق بود. می‌توانید دوباره درخواست دهید.' : 'Account created, but email delivery failed. You can request another email.'));
+      setNotice(isFa
+        ? 'حساب ساخته شد. ایمیل خود را برای تأیید بررسی کنید؛ در صورت نیاز می‌توانید درخواست ارسال دوباره بدهید.'
+        : 'Your account was created. Check your email to verify it; you can request another verification email if needed.');
       setEmail('');
       setUsername('');
       setDisplayName(next.account?.displayName ?? next.account?.user?.displayName ?? displayName);

@@ -14,6 +14,13 @@ function isPendingAttempt(value, refreshToken) {
   );
 }
 
+function isPendingGuestConversion(value, refreshToken) {
+  return Boolean(value && typeof value === 'object'
+    && value.refreshToken === refreshToken
+    && isRefreshToken(value.refreshToken)
+    && isRefreshToken(value.idempotencyKey));
+}
+
 function isTokenResponse(value) {
   return Boolean(
     value
@@ -42,7 +49,7 @@ export function createTokenStore({ secureStorage = null } = {}) {
   let accessTokenExpiresAt = null;
 
   async function readSessionState() {
-    if (!secureStorage) return { refreshToken: null, pendingRefreshAttempt: null };
+    if (!secureStorage) return { refreshToken: null, pendingRefreshAttempt: null, pendingGuestConversion: null };
     const raw = await secureStorage.get(SESSION_STATE_KEY);
     if (typeof raw === 'string') {
       let parsed;
@@ -54,16 +61,13 @@ export function createTokenStore({ secureStorage = null } = {}) {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)
           && isRefreshToken(parsed.refreshToken)) {
         const pending = parsed.pendingRefreshAttempt;
-        if (pending !== null && pending !== undefined
-            && !isPendingAttempt(pending, parsed.refreshToken)) {
-          throw new Error('Pending refresh metadata is invalid; refusing to rotate the session.');
-        }
-        return {
-          refreshToken: parsed.refreshToken,
-          pendingRefreshAttempt: pending ?? null,
-        };
+        const conversion = parsed.pendingGuestConversion;
+        if (pending != null && !isPendingAttempt(pending, parsed.refreshToken)) throw new Error('Pending refresh metadata is invalid; refusing to rotate the session.');
+        if (conversion != null && !isPendingGuestConversion(conversion, parsed.refreshToken)) throw new Error('Pending guest conversion metadata is invalid; refusing to overwrite the session.');
+        if (pending && conversion) throw new Error('Conflicting pending session operations; refusing to continue.');
+        return { refreshToken: parsed.refreshToken, pendingRefreshAttempt: pending ?? null, pendingGuestConversion: conversion ?? null };
       }
-      if (parsed === null) return { refreshToken: null, pendingRefreshAttempt: null };
+      if (parsed === null) return { refreshToken: null, pendingRefreshAttempt: null, pendingGuestConversion: null };
       throw new Error('Secure session state is invalid; refusing to overwrite it.');
     }
 
@@ -77,18 +81,18 @@ export function createTokenStore({ secureStorage = null } = {}) {
       await secureStorage.remove(LEGACY_REFRESH_TOKEN_KEY);
       return { refreshToken: legacy, pendingRefreshAttempt: null };
     }
-    return { refreshToken: null, pendingRefreshAttempt: null };
+    return { refreshToken: null, pendingRefreshAttempt: null, pendingGuestConversion: null };
   }
 
   async function writeSessionState(state) {
     if (!secureStorage) return false;
     const normalized = {
       refreshToken: isRefreshToken(state?.refreshToken) ? state.refreshToken : null,
-      pendingRefreshAttempt: isPendingAttempt(state?.pendingRefreshAttempt, state?.refreshToken)
-        ? state.pendingRefreshAttempt
-        : null,
+      pendingRefreshAttempt: isPendingAttempt(state?.pendingRefreshAttempt, state?.refreshToken) ? state.pendingRefreshAttempt : null,
+      pendingGuestConversion: isPendingGuestConversion(state?.pendingGuestConversion, state?.refreshToken) ? state.pendingGuestConversion : null,
     };
-    if (!normalized.refreshToken) normalized.pendingRefreshAttempt = null;
+    if (!normalized.refreshToken) { normalized.pendingRefreshAttempt = null; normalized.pendingGuestConversion = null; }
+    if (normalized.pendingRefreshAttempt && normalized.pendingGuestConversion) throw new Error('Conflicting pending session operations; refusing to overwrite the session.');
     await secureStorage.set(SESSION_STATE_KEY, JSON.stringify(normalized));
     return true;
   }
@@ -120,6 +124,17 @@ export function createTokenStore({ secureStorage = null } = {}) {
       await writeSessionState({ ...state, pendingRefreshAttempt: attempt });
     },
 
+    async getPendingGuestConversion() { return (await readSessionState()).pendingGuestConversion; },
+    async savePendingGuestConversion(attempt) {
+      const state = await readSessionState();
+      if (!isPendingGuestConversion(attempt, state.refreshToken)) throw new TypeError('Pending guest conversion does not match the stored refresh token.');
+      if (state.pendingRefreshAttempt) throw new Error('A refresh rotation is already pending.');
+      await writeSessionState({ ...state, pendingGuestConversion: attempt });
+    },
+    async clearPendingGuestConversion() {
+      const state = await readSessionState();
+      if (state.pendingGuestConversion) await writeSessionState({ ...state, pendingGuestConversion: null });
+    },
     async saveTokenResponse(response) {
       if (!isTokenResponse(response)) {
         throw new TypeError('Backend returned an invalid session token response.');

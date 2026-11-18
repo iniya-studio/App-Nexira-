@@ -17,7 +17,8 @@ test('session API uses the backend routes and keeps public auth requests unauthe
   const api = createSessionApi(http);
   await api.startGuest();
   await api.login({ email: 'player@example.test', password: 'password' });
-  await api.convertGuest({ email: 'player@example.test', password: 'password', username: 'player', displayName: 'Player' });
+  await api.convertGuest({ email: 'player@example.test', password: 'password', username: 'player', displayName: 'Player', refreshToken: 'r'.repeat(43) }, 'i'.repeat(43));
+  await api.retryGuestConversion('r'.repeat(43), 'i'.repeat(43));
   await api.refresh('refresh-token', 'idempotency-key');
   await api.logout();
 
@@ -25,12 +26,18 @@ test('session API uses the backend routes and keeps public auth requests unauthe
     ['POST', '/guest/start'],
     ['POST', '/auth/login'],
     ['POST', '/guest/convert'],
+    ['POST', '/guest/convert/retry'],
     ['POST', '/sessions/refresh'],
     ['POST', '/sessions/logout'],
   ]);
   assert.equal(calls[0].options.authenticated, false);
   assert.equal(calls[1].options.authenticated, false);
-  assert.deepEqual(calls[3].body, { refreshToken: 'refresh-token', idempotencyKey: 'idempotency-key' });
+  assert.equal(calls[2].options.headers['Idempotency-Key'], 'i'.repeat(43));
+  assert.equal(calls[2].body.refreshToken, 'r'.repeat(43));
+  assert.equal(calls[3].options.authenticated, false);
+  assert.deepEqual(calls[3].body, { refreshToken: 'r'.repeat(43) });
+  assert.equal(calls[3].options.headers['Idempotency-Key'], 'i'.repeat(43));
+  assert.deepEqual(calls[4].body, { refreshToken: 'refresh-token', idempotencyKey: 'idempotency-key' });
 });
 
 test('match API builds encoded routes and submits the exact backend DTO', async () => {

@@ -75,6 +75,19 @@ export function createSessionCoordinator({
     return acceptSession(response, generation);
   }
 
+  async function recoverPendingGuestConversion(attempt, options = {}, generation = sessionGeneration) {
+    try {
+      const response = await sessionApi.retryGuestConversion(attempt.refreshToken, attempt.idempotencyKey, options);
+      return await acceptSession(response, generation);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'CONVERSION_NOT_COMMITTED') {
+        await tokenStore.clearPendingGuestConversion();
+        return null;
+      }
+      if (error instanceof ApiError && error.code === 'CONVERSION_RECOVERY_EXPIRED') await clearCredentials();
+      throw error;
+    }
+  }
   async function refreshSession(options = {}) {
     if (logoutInFlight) await logoutInFlight.catch(() => {});
     if (clearInFlight) await clearInFlight;
@@ -87,7 +100,12 @@ export function createSessionCoordinator({
         : { refreshToken: await tokenStore.getRefreshToken(), pendingRefreshAttempt: null };
       if (generation !== sessionGeneration) throw supersededError();
 
-      const refreshToken = state.refreshToken;
+      if (state.pendingGuestConversion) {
+        const recovered = await recoverPendingGuestConversion(state.pendingGuestConversion, options, generation);
+        if (recovered) return recovered;
+      }
+      const latestState = state.pendingGuestConversion ? await tokenStore.getSessionState() : state;
+      const refreshToken = latestState.refreshToken;
       if (!refreshToken) {
         await tokenStore.clear();
         currentPrincipal = null;
@@ -95,7 +113,7 @@ export function createSessionCoordinator({
         return null;
       }
 
-      let attempt = state.pendingRefreshAttempt;
+      let attempt = latestState.pendingRefreshAttempt;
       if (!attempt || attempt.refreshToken !== refreshToken) {
         attempt = { refreshToken, idempotencyKey: createIdempotencyKey() };
         if (typeof tokenStore.savePendingRefreshAttempt !== 'function') {
@@ -134,7 +152,40 @@ export function createSessionCoordinator({
     async startGuest(options) { return createSession('startGuest', [], options); },
     async login(credentials, options) { return createSession('login', [credentials], options); },
     async register(credentials, options) { return createSession('register', [credentials], options); },
-    async convertGuest(credentials, options) { return createSession('convertGuest', [credentials], options); },
+    async convertGuest(credentials, options = {}) {
+      if (logoutInFlight) await logoutInFlight.catch(() => {});
+      if (clearInFlight) await clearInFlight;
+      const generation = sessionGeneration;
+      const state = await tokenStore.getSessionState();
+      if (!state.refreshToken) throw new Error('A securely persisted guest refresh token is required for account conversion.');
+      if (state.pendingRefreshAttempt) throw new Error('A refresh rotation is pending; restore the guest session before converting it.');
+      const attempt = state.pendingGuestConversion ?? { refreshToken: state.refreshToken, idempotencyKey: createIdempotencyKey() };
+      if (attempt.refreshToken !== state.refreshToken) throw new Error('Pending guest conversion does not match the active guest session.');
+      if (!state.pendingGuestConversion) {
+        if (typeof tokenStore.savePendingGuestConversion !== 'function') throw new Error('Crash-safe secure guest-conversion storage is required.');
+        await tokenStore.savePendingGuestConversion(attempt);
+      }
+      if (generation !== sessionGeneration) throw supersededError();
+      try {
+        const response = await sessionApi.convertGuest({ ...credentials, refreshToken: attempt.refreshToken }, attempt.idempotencyKey, options);
+        return await acceptSession(response, generation);
+      } catch (initialError) {
+        const uncertain = initialError instanceof ApiError
+          && (initialError.status === 0 || initialError.status === 401 || ['NETWORK_ERROR', 'REQUEST_ABORTED'].includes(initialError.code));
+        if (!uncertain) { await tokenStore.clearPendingGuestConversion(); throw initialError; }
+        try {
+          const recovered = await recoverPendingGuestConversion(attempt, options, generation);
+          if (recovered) return recovered;
+          throw initialError;
+        } catch (recoveryError) {
+          if (recoveryError instanceof ApiError && recoveryError.code === 'CONVERSION_NOT_COMMITTED') {
+            await tokenStore.clearPendingGuestConversion();
+            throw initialError;
+          }
+          throw recoveryError;
+        }
+      }
+    },
     async createGoogleChallenge(options) { return sessionApi.createGoogleChallenge(options); },
     async signInWithGoogle(idToken, options) { return createSession('signInWithGoogle', [idToken], options); },
     async requestPasswordReset(email, options) { return sessionApi.requestPasswordReset(email, options); },
@@ -160,9 +211,12 @@ export function createSessionCoordinator({
     refresh: refreshSession,
 
     async restore(options) {
-      if (tokenStore.getAccessToken()) {
-        return { principal: currentPrincipal, session: currentSession };
+      const state = await tokenStore.getSessionState();
+      if (state.pendingGuestConversion) {
+        const recovered = await recoverPendingGuestConversion(state.pendingGuestConversion, options);
+        if (recovered) return recovered;
       }
+      if (tokenStore.getAccessToken()) return { principal: currentPrincipal, session: currentSession };
       return refreshSession(options);
     },
 

@@ -220,3 +220,63 @@ test('a stale unauthorized refresh cannot clear credentials from a newer login',
   assert.equal(await store.getRefreshToken(), token('n'));
   assert.equal(coordinator.getCurrentPrincipal().principalType, 'USER');
 });
+
+
+test('guest conversion persists proof before sending and recovers after process restart', async () => {
+  const storage = memoryStorage();
+  const firstStore = makeStore(token('r'), storage);
+  await firstStore.initialize();
+  const calls = [];
+  const first = createSessionCoordinator({
+    tokenStore: firstStore, createIdempotencyKey: () => token('i'),
+    sessionApi: {
+      convertGuest: async (credentials, key) => {
+        calls.push(['convert', credentials.refreshToken, key]);
+        assert.deepEqual(JSON.parse(storage.values.get('nexira.session.state.v1')).pendingGuestConversion,
+          { refreshToken: token('r'), idempotencyKey: token('i') });
+        throw new ApiError('response lost', { code: 'NETWORK_ERROR' });
+      },
+      retryGuestConversion: async (refresh, key) => {
+        calls.push(['retry', refresh, key]);
+        throw new ApiError('offline', { code: 'NETWORK_ERROR' });
+      },
+    },
+  });
+  await assert.rejects(first.convertGuest({ email: 'player@example.test', username: 'player', password: 'do-not-persist-this' }), /offline/);
+  assert.equal(JSON.stringify(JSON.parse(storage.values.get('nexira.session.state.v1'))).includes('do-not-persist-this'), false);
+  const restartedStore = createTokenStore({ secureStorage: storage });
+  const converted = sessionResponse('USER', token('u'));
+  const restarted = createSessionCoordinator({
+    tokenStore: restartedStore, createIdempotencyKey: () => { throw new Error('must reuse stored key'); },
+    sessionApi: { retryGuestConversion: async (refresh, key) => {
+      calls.push(['retry-after-restart', refresh, key]); return converted;
+    } },
+  });
+  await restarted.restore();
+  assert.equal(restarted.getCurrentPrincipal().principalType, 'USER');
+  assert.deepEqual(calls, [
+    ['convert', token('r'), token('i')], ['retry', token('r'), token('i')],
+    ['retry-after-restart', token('r'), token('i')],
+  ]);
+  assert.deepEqual(JSON.parse(storage.values.get('nexira.session.state.v1')), {
+    refreshToken: token('u'), pendingRefreshAttempt: null, pendingGuestConversion: null,
+  });
+});
+
+test('CONVERSION_NOT_COMMITTED clears pending proof and preserves guest refresh credentials', async () => {
+  const storage = memoryStorage();
+  const store = makeStore(token('r'), storage);
+  await store.initialize();
+  const coordinator = createSessionCoordinator({
+    tokenStore: store, createIdempotencyKey: () => token('i'),
+    sessionApi: {
+      convertGuest: async () => { throw new ApiError('connection lost', { code: 'NETWORK_ERROR' }); },
+      retryGuestConversion: async () => { throw new ApiError('not committed', { status: 409, code: 'CONVERSION_NOT_COMMITTED' }); },
+    },
+  });
+  await assert.rejects(coordinator.convertGuest({ email: 'player@example.test', username: 'player', password: 'secret' }), /connection lost/);
+  assert.deepEqual(JSON.parse(storage.values.get('nexira.session.state.v1')), {
+    refreshToken: token('r'), pendingRefreshAttempt: null, pendingGuestConversion: null,
+  });
+  assert.equal(store.getAccessToken(), 'access-token');
+});

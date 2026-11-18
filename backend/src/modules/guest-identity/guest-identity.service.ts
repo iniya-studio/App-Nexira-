@@ -408,16 +408,26 @@ export class GuestIdentityService {
       });
       const sourceSession = await tx.userSession.findFirst({
         where: { id: source.sessionId, guestIdentityId: guestId, userId: null },
-        select: { id: true },
+        select: { id: true, revokedAt: true, expiresAt: true },
       });
       const refresh = await tx.refreshToken.findUnique({
         where: { tokenHash: sourceRefreshTokenHash },
-        select: { id: true, sessionId: true },
+        select: { id: true, sessionId: true, consumedAt: true, revokedAt: true, expiresAt: true },
       });
-      if (!guest || guest.status !== GuestIdentityStatus.CONVERTED || !guest.convertedToUserId ||
-          !sourceSession || !refresh || refresh.sessionId !== sourceSession.id) {
-        return { kind: 'invalid' as const };
+      if (!guest || !sourceSession || !refresh || refresh.sessionId !== sourceSession.id) return { kind: 'invalid' as const };
+      if (guest.status === GuestIdentityStatus.ACTIVE && !guest.convertedToUserId) {
+        if (sourceSession.revokedAt || sourceSession.expiresAt <= new Date()
+            || refresh.consumedAt || refresh.revokedAt || refresh.expiresAt <= new Date()) return { kind: 'invalid' as const };
+        await tx.identityAuditEvent.create({
+          data: {
+            eventType: 'GUEST_CONVERSION_RECOVERY_FAILED', principalType: PrincipalType.GUEST,
+            principalId: guestId, sessionId: source.sessionId, result: 'FAILURE',
+            metadata: { reason: 'CONVERSION_NOT_COMMITTED' },
+          },
+        });
+        return { kind: 'not-committed' as const };
       }
+      if (guest.status !== GuestIdentityStatus.CONVERTED || !guest.convertedToUserId) return { kind: 'invalid' as const };
 
       const replay = await tx.guestConversionReplay.findUnique({ where: { guestIdentityId: guestId } });
       if (!replay || replay.targetUserId !== guest.convertedToUserId ||
@@ -467,6 +477,9 @@ export class GuestIdentityService {
 
     if (outcome.kind === 'expired') {
       throw new GoneException({ code: 'CONVERSION_RECOVERY_EXPIRED', message: 'Conversion recovery window has expired' });
+    }
+    if (outcome.kind === 'not-committed') {
+      throw new ConflictException({ code: 'CONVERSION_NOT_COMMITTED', message: 'The guest conversion did not commit; the guest session remains active.' });
     }
     if (outcome.kind !== 'ok') throw new UnauthorizedException('Invalid guest conversion proof');
     return outcome.response;

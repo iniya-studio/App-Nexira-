@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { GoneException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, GoneException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { GuestIdentityStatus, PrincipalType, Prisma } from '@prisma/client';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -198,7 +198,7 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
         };
       }),
     };
-    const emailVerification = { issueAndSend: jest.fn().mockResolvedValue('SENT') };
+    const emailVerification = { issueAndSend: jest.fn().mockRejectedValue(new Error('mail transport unavailable')) };
     const auth = new AuthService(
       prisma,
       sessions as unknown as SessionService,
@@ -213,6 +213,10 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       emailVerification as unknown as EmailVerificationService,
       auth,
     );
+
+    await expect(conversion.retryConversion(sourceRefreshToken, idempotencyKey)).rejects.toBeInstanceOf(ConflictException);
+    expect(await prisma.guestIdentity.findUniqueOrThrow({ where: { id: firstGuest.id } }))
+      .toMatchObject({ status: GuestIdentityStatus.ACTIVE, convertedToUserId: null });
 
     const converted = await conversion.convert(firstPrincipal, {
       email: `guest-${randomUUID()}@example.test`,
@@ -248,12 +252,29 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     expect(revokedGuestSession.revokedAt).toBeInstanceOf(Date);
 
     // Simulate a lost HTTP response: recover using only the original guest refresh token and idempotency key.
-    const recovered = await conversion.retryConversion(sourceRefreshToken, idempotencyKey);
+    const [recovered, concurrentRecovery] = await Promise.all([
+      conversion.retryConversion(sourceRefreshToken, idempotencyKey),
+      conversion.retryConversion(sourceRefreshToken, idempotencyKey),
+    ]);
     expect(recovered).toEqual(converted);
+    expect(concurrentRecovery).toEqual(converted);
     expect(await prisma.guestConversionReplay.count({ where: { guestIdentityId: firstGuest.id } })).toBe(1);
     expect(await prisma.user.count({ where: { id: converted.user.id } })).toBe(1);
     expect(await prisma.userSession.count({ where: { userId: converted.user.id } })).toBe(1);
     expect(await prisma.refreshToken.count({ where: { session: { userId: converted.user.id } } })).toBe(1);
+
+    await expect(conversion.retryConversion(randomBytes(32).toString('base64url'), idempotencyKey))
+      .rejects.toBeInstanceOf(UnauthorizedException);
+    const replayBeforeTamper = await prisma.guestConversionReplay.findUniqueOrThrow({ where: { guestIdentityId: firstGuest.id } });
+    await prisma.guestConversionReplay.update({
+      where: { guestIdentityId: firstGuest.id },
+      data: { responseCiphertext: `${replayBeforeTamper.responseCiphertext}tampered` },
+    });
+    await expect(conversion.retryConversion(sourceRefreshToken, idempotencyKey)).rejects.toBeInstanceOf(UnauthorizedException);
+    await prisma.guestConversionReplay.update({
+      where: { guestIdentityId: firstGuest.id },
+      data: { responseCiphertext: replayBeforeTamper.responseCiphertext },
+    });
 
     const refreshService = new SessionService(
       prisma,

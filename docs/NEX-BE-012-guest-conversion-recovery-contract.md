@@ -270,4 +270,21 @@ No production release is authorized by passing this implementation sequence alon
 
 ---
 
-**End of NEX-BE-012 v1.4**
+## 14. Definitive recovery outcome when conversion did not commit
+
+The unauthenticated recovery endpoint distinguishes a committed conversion from a request that never committed. After acquiring the same guest-principal advisory lock and the GuestIdentity, source UserSession, and source RefreshToken row locks, it may return HTTP 409 with code `CONVERSION_NOT_COMMITTED` only when all of the following are true:
+
+- The guest identity is still ACTIVE and has no converted user.
+- The exact source refresh-token hash resolves to the exact guest session.
+- The source session is not revoked or expired.
+- The source refresh token is not consumed, revoked, or expired.
+
+This response is read-only apart from a redacted failure audit event. It must not rotate or issue credentials, mutate guest state, or repeat conversion. The client clears only the pending-conversion marker, retains the active guest session, and asks the user to submit the conversion form again. The password is never persisted.
+
+If the guest identity is CONVERTED, recovery continues to require the exact source refresh token and idempotency key and returns the encrypted original response. If neither the active-uncommitted nor committed state can be proven, recovery fails closed; expired replay remains `CONVERSION_RECOVERY_EXPIRED`.
+
+The Android client stores the source refresh token and idempotency key together in the native encrypted session record before the first conversion request. On process restoration, pending conversion recovery runs before normal refresh. The original registration password is memory-only and is never included in the pending record. A successful recovered response atomically replaces the guest refresh token with the registered-user refresh token and clears all pending operation metadata.
+
+---
+
+**End of NEX-BE-012 v1.5**

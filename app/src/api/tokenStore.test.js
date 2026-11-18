@@ -35,6 +35,7 @@ test('refresh token and pending retry metadata are atomically stored as one secu
   assert.deepEqual(JSON.parse(raw), {
     refreshToken: token('r'),
     pendingRefreshAttempt: { refreshToken: token('r'), idempotencyKey: token('i') },
+    pendingGuestConversion: null,
   });
   assert.equal(secureStorage.values.has('nexira.session.refresh.v1'), false);
 });
@@ -55,7 +56,7 @@ test('new token response clears pending attempt in the same secure write', async
   await store.savePendingRefreshAttempt({ refreshToken: token('r'), idempotencyKey: token('i') });
   await store.saveTokenResponse(response({ refreshToken: token('n') }));
   assert.deepEqual(JSON.parse(secureStorage.values.get('nexira.session.state.v1')), {
-    refreshToken: token('n'), pendingRefreshAttempt: null,
+    refreshToken: token('n'), pendingRefreshAttempt: null, pendingGuestConversion: null,
   });
 });
 
@@ -105,4 +106,26 @@ test('invalid pending refresh metadata fails closed instead of generating a new 
   const store = createTokenStore({ secureStorage });
   await assert.rejects(store.getSessionState(), /Pending refresh metadata is invalid/);
   assert.equal(JSON.parse(secureStorage.values.get('nexira.session.state.v1')).refreshToken, token('r'));
+});
+
+
+test('pending guest conversion is atomically persisted and restored without password material', async () => {
+  const secureStorage = memoryStorage();
+  const first = createTokenStore({ secureStorage });
+  await first.saveTokenResponse(response());
+  const attempt = { refreshToken: token('r'), idempotencyKey: token('i') };
+  await first.savePendingGuestConversion(attempt);
+  const raw = JSON.parse(secureStorage.values.get('nexira.session.state.v1'));
+  assert.deepEqual(raw, { refreshToken: token('r'), pendingRefreshAttempt: null, pendingGuestConversion: attempt });
+  assert.equal(JSON.stringify(raw).includes('password'), false);
+  const restarted = createTokenStore({ secureStorage });
+  assert.deepEqual(await restarted.getSessionState(), raw);
+});
+
+test('pending refresh and guest conversion cannot overlap', async () => {
+  const secureStorage = memoryStorage();
+  const store = createTokenStore({ secureStorage });
+  await store.saveTokenResponse(response());
+  await store.savePendingRefreshAttempt({ refreshToken: token('r'), idempotencyKey: token('i') });
+  await assert.rejects(store.savePendingGuestConversion({ refreshToken: token('r'), idempotencyKey: token('g') }), /refresh rotation is already pending/);
 });

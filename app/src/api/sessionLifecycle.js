@@ -195,7 +195,9 @@ export function createSessionLifecycle({
       } catch (error) {
         // A failed login or guest conversion must not discard a still-valid guest session.
         if (generation === lifecycleGeneration) {
-          publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
+          if (error?.code === 'CONVERSION_RECOVERY_EXPIRED') {
+            publish({ ...INITIAL_STATE, status: 'signed-out', error: 'The conversion recovery window expired. Sign in with your new account.' });
+          } else publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
         }
         throw error;
       }
