@@ -15,7 +15,7 @@ export const DEFAULT_PROFILE = {
   categoryStats: {},
   recentRuns: [],
   claimedRunIds: [],
-  settings: { language: 'en', reducedMotion: false, sound: false },
+  settings: { language: 'en', matchLanguage: 'en', reducedMotion: false, sound: false },
 };
 
 export const CATEGORIES = [
@@ -118,6 +118,7 @@ export function normalizeProfile(value) {
       ...DEFAULT_PROFILE.settings,
       ...settings,
       language: resolveLocale(settings.language),
+      matchLanguage: resolveLocale(settings.matchLanguage ?? settings.language),
       reducedMotion: Boolean(settings.reducedMotion),
       sound: Boolean(settings.sound),
     },
