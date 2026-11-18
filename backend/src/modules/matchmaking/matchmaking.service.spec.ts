@@ -100,6 +100,12 @@ describe('MatchmakingService', () => {
     }
   });
 
+  it('rejects target locales until their complete content packs are enabled', async () => {
+    const { service, prisma } = setup();
+    await expect(service.enqueue(guest, { ...input, language: 'ar' })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects categories outside the server-supported list before opening a transaction', async () => {
     const { service, prisma } = setup();
     await expect(service.enqueue(guest, { ...input, category: 'not-a-category' })).rejects.toBeInstanceOf(BadRequestException);
