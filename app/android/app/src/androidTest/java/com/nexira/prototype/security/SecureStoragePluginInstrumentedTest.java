@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -66,7 +67,7 @@ public class SecureStoragePluginInstrumentedTest {
         );
 
         firstInstance.set(writeCall);
-        verify(writeHandler).sendResponseMessage(eq(writeCall), isNull(), isNull());
+        verify(writeHandler).sendResponseMessage(eq(writeCall), any(PluginResult.class), isNull());
         verifyNoMoreInteractions(writeHandler);
 
         SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
