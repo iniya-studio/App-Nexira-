@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+      - feature/android-keystore-recovery-proof
+    paths:
+      - 'app/**'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
     paths:
       - 'app/**'
       - '.github/workflows/android-apk.yml'
@@ -47,6 +52,25 @@ jobs:
 
       - name: Run frontend and match-engine tests
         run: npm test
+
+      - name: Sync web assets for instrumentation tests
+        run: npm run android:sync
+
+      - name: Run Android Keystore instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          working-directory: app/android
+          script: ./gradlew connectedDebugAndroidTest
 
       - name: Build web app and Android package
         env:
