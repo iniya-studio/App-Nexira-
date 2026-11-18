@@ -3,6 +3,7 @@ import { GuestIdentityService } from './guest-identity.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService } from '../session/session.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
+import { AuthService } from '../auth/auth.service';
 
 describe('GuestIdentityService', () => {
   const emailVerification = {
@@ -33,7 +34,7 @@ describe('GuestIdentityService', () => {
     const config = {
       get: (key: string, fallback: string) => fallback,
     } as unknown as ConfigService;
-    const service = new GuestIdentityService(prisma, sessions, config, emailVerification);
+    const service = new GuestIdentityService(prisma, sessions, config, emailVerification, {} as AuthService);
 
     await expect(service.start('127.0.0.1')).resolves.toEqual(sessionResponse);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
