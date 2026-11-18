@@ -57,7 +57,10 @@ export const COPY = {
     languageAccent: 'LANGUAGE', languageDescription: 'Game questions remain in English in this phase.',
     englishInterface: 'English interface', persianInterface: 'Persian interface',
     mainNavigation: 'Main navigation', timerLabel: '{label}: {seconds}',
-    operatorDefault: 'OPERATOR', categorySubtitles: {
+    operatorDefault: 'OPERATOR', categoryNames: {
+      memory: 'Memory', logic: 'Logic', mathematics: 'Mathematics', knowledge: 'General Knowledge',
+      reaction: 'Reaction', focus: 'Focus', language: 'Language', science: 'Science',
+    }, categorySubtitles: {
       memory: 'Hold the signal.', logic: 'Find the weak link.', mathematics: 'Numbers do not lie.',
       knowledge: 'Know more. Move fast.', reaction: 'Choose under pressure.', focus: 'Filter the noise.',
       language: 'Read between the lines.', science: 'Decode the natural world.',
@@ -135,7 +138,10 @@ export const COPY = {
     languageAccent: 'زبان', languageDescription: 'پرسش‌های بازی در این نسخه انگلیسی هستند.',
     englishInterface: 'رابط انگلیسی', persianInterface: 'رابط فارسی',
     mainNavigation: 'پیمایش اصلی', timerLabel: '{label}: {seconds}',
-    operatorDefault: 'بازیکن', categorySubtitles: {
+    operatorDefault: 'بازیکن', categoryNames: {
+      memory: 'حافظه', logic: 'منطق', mathematics: 'ریاضیات', knowledge: 'دانش عمومی',
+      reaction: 'سرعت واکنش', focus: 'تمرکز', language: 'زبان', science: 'علوم',
+    }, categorySubtitles: {
       memory: 'الگو را به خاطر بسپار.', logic: 'نقطه‌ضعف را پیدا کن.', mathematics: 'اعداد دروغ نمی‌گویند.',
       knowledge: 'بیشتر بدان، سریع‌تر حرکت کن.', reaction: 'زیر فشار انتخاب کن.', focus: 'نویز را کنار بزن.',
       language: 'معنای پنهان را بخوان.', science: 'جهان طبیعت را رمزگشایی کن.',
@@ -208,6 +214,10 @@ export function getQuestionCopy(language, categoryId, questionIndex, question) {
 
 export function getCopy(language) {
   return COPY[language] ?? COPY.en;
+}
+
+export function getCategoryTitle(language, categoryId, fallback = '') {
+  return getCopy(language).categoryNames[categoryId] ?? fallback;
 }
 
 export function formatCopy(template, values) {
