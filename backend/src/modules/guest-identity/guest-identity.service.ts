@@ -364,6 +364,118 @@ export class GuestIdentityService {
     return converted;
   }
 
+  async retryConversion(rawRefreshToken: string, idempotencyKey: string): Promise<GuestConversionResponse> {
+    if (!/^[A-Za-z0-9_-]{43,128}$/.test(rawRefreshToken) || !/^[A-Za-z0-9_-]{43,128}$/.test(idempotencyKey)) {
+      throw new UnauthorizedException('Invalid guest conversion proof');
+    }
+    const sourceRefreshTokenHash = this.replayCrypto.hash(rawRefreshToken);
+    const idempotencyKeyHash = this.replayCrypto.hash(idempotencyKey);
+    const source = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: sourceRefreshTokenHash },
+      select: { sessionId: true, session: { select: { guestIdentityId: true, userId: true } } },
+    });
+    const guestId = source?.session.guestIdentityId;
+    if (!source || !guestId || source.session.userId) {
+      throw new UnauthorizedException('Invalid guest conversion proof');
+    }
+
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const principalLock = `nexira:1v1:principal:GUEST:${guestId}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
+      await tx.$queryRaw`SELECT "id" FROM "GuestIdentity" WHERE "id" = ${guestId}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT "id" FROM "UserSession" WHERE "id" = ${source.sessionId}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT "id" FROM "RefreshToken" WHERE "tokenHash" = ${sourceRefreshTokenHash} FOR UPDATE`;
+
+      const guest = await tx.guestIdentity.findUnique({
+        where: { id: guestId },
+        select: { id: true, status: true, convertedToUserId: true },
+      });
+      const sourceSession = await tx.userSession.findFirst({
+        where: { id: source.sessionId, guestIdentityId: guestId, userId: null },
+        select: { id: true },
+      });
+      const refresh = await tx.refreshToken.findUnique({
+        where: { tokenHash: sourceRefreshTokenHash },
+        select: { id: true, sessionId: true },
+      });
+      if (!guest || guest.status !== GuestIdentityStatus.CONVERTED || !guest.convertedToUserId ||
+          !sourceSession || !refresh || refresh.sessionId !== sourceSession.id) {
+        return { kind: 'invalid' as const };
+      }
+
+      const replay = await tx.guestConversionReplay.findUnique({ where: { guestIdentityId: guestId } });
+      if (!replay || replay.targetUserId !== guest.convertedToUserId ||
+          replay.sourceSessionId !== source.sessionId ||
+          !this.replayCrypto.equalsHash(replay.sourceRefreshTokenHash, sourceRefreshTokenHash) ||
+          !this.replayCrypto.equalsHash(replay.idempotencyKeyHash, idempotencyKeyHash)) {
+        await tx.identityAuditEvent.create({
+          data: { eventType: 'GUEST_CONVERSION_RECOVERY_FAILED', principalType: PrincipalType.GUEST, principalId: guestId, sessionId: source.sessionId, result: 'FAILURE', metadata: { reason: 'PROOF_MISMATCH' } },
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      if (replay.expiresAt <= new Date() || !replay.responseCiphertext) {
+        if (replay.responseCiphertext) {
+          await tx.guestConversionReplay.update({
+            where: { id: replay.id },
+            data: { responseCiphertext: null, ciphertextPurgedAt: new Date() },
+          });
+        }
+        await tx.identityAuditEvent.create({
+          data: { eventType: 'GUEST_CONVERSION_RECOVERY_EXPIRED', principalType: PrincipalType.GUEST, principalId: guestId, sessionId: source.sessionId, result: 'FAILURE', metadata: { reason: 'REPLAY_EXPIRED' } },
+        });
+        return { kind: 'expired' as const };
+      }
+
+      const aad: GuestConversionReplayAad = {
+        replayId: replay.id,
+        guestIdentityId: replay.guestIdentityId,
+        sourceSessionId: replay.sourceSessionId,
+        sourceRefreshTokenHash: replay.sourceRefreshTokenHash,
+        targetUserId: replay.targetUserId,
+        idempotencyKeyHash: replay.idempotencyKeyHash,
+      };
+      try {
+        const response = this.replayCrypto.decrypt<GuestConversionResponse>(replay.responseCiphertext, aad);
+        await tx.identityAuditEvent.create({
+          data: { eventType: 'GUEST_CONVERSION_RECOVERY_SUCCEEDED', principalType: PrincipalType.GUEST, principalId: guestId, sessionId: source.sessionId, result: 'SUCCESS' },
+        });
+        return { kind: 'ok' as const, response };
+      } catch {
+        await tx.identityAuditEvent.create({
+          data: { eventType: 'GUEST_CONVERSION_RECOVERY_FAILED', principalType: PrincipalType.GUEST, principalId: guestId, sessionId: source.sessionId, result: 'FAILURE', metadata: { reason: 'CIPHERTEXT_INVALID' } },
+        });
+        return { kind: 'invalid' as const };
+      }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+
+    if (outcome.kind === 'expired') {
+      throw new GoneException({ code: 'CONVERSION_RECOVERY_EXPIRED', message: 'Conversion recovery window has expired' });
+    }
+    if (outcome.kind !== 'ok') throw new UnauthorizedException('Invalid guest conversion proof');
+    return outcome.response;
+  }
+
+  async purgeExpiredReplayCiphertexts(batchSize = 500): Promise<number> {
+    if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 5000) {
+      throw new Error('Replay cleanup batch size must be between 1 and 5000');
+    }
+    return this.prisma.$executeRaw`
+      WITH expired AS (
+        SELECT "id"
+        FROM "GuestConversionReplay"
+        WHERE "expiresAt" <= NOW() AND "responseCiphertext" IS NOT NULL
+        ORDER BY "expiresAt" ASC
+        LIMIT ${batchSize}
+        FOR UPDATE SKIP LOCKED
+      )
+      UPDATE "GuestConversionReplay" AS replay
+      SET "responseCiphertext" = NULL, "ciphertextPurgedAt" = NOW()
+      FROM expired
+      WHERE replay."id" = expired."id"
+    `;
+  }
+
   private enforceStartLimit(clientKey: string): void {
     const max = Number(this.config.get<string>('GUEST_START_MAX_ATTEMPTS', '10'));
     const windowMs = Number(this.config.get<string>('GUEST_START_WINDOW_SECONDS', '60')) * 1000;
