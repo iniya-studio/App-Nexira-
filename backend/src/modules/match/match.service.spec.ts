@@ -93,6 +93,8 @@ describe('MatchService', () => {
     await expect(service.createOneVsOne(
       { principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1' },
       { principalType: PrincipalType.GUEST, principalId: 'guest-2', sessionId: 'session-2' },
+      undefined,
+      { language: 'fa', participantLanguages: { first: 'fa', second: 'en' } },
     )).resolves.toMatchObject({ mode: MatchMode.ONE_V_ONE, status: MatchStatus.WAITING });
     expect(tx.match.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
