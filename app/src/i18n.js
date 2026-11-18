@@ -56,7 +56,7 @@ export const COPY = {
     settingsDescription: 'Tune the interface. Your preferences stay on this device.',
     languageOptions: 'English / فارسی', fewerAnimations: 'Use fewer interface animations',
     languageEyebrow: 'INTERFACE PREFERENCES', languageTitle: 'SELECT',
-    languageAccent: 'LANGUAGE', languageDescription: 'Game questions remain in English in this phase.',
+    languageAccent: 'LANGUAGE', languageDescription: 'The entire game, including match questions, uses your selected language.',
     englishInterface: 'English interface', persianInterface: 'Persian interface',
     mainNavigation: 'Main navigation', timerLabel: '{label}: {seconds}',
     operatorDefault: 'OPERATOR', categoryNames: {
@@ -137,7 +137,7 @@ export const COPY = {
     settingsDescription: 'رابط را تنظیم کن. ترجیحاتت روی این دستگاه می‌مانند.',
     languageOptions: 'English / فارسی', fewerAnimations: 'استفاده از انیمیشن‌های کمتر',
     languageEyebrow: 'تنظیمات رابط', languageTitle: 'انتخاب',
-    languageAccent: 'زبان', languageDescription: 'پرسش‌های بازی در این نسخه انگلیسی هستند.',
+    languageAccent: 'زبان', languageDescription: 'تمام بازی، از جمله سؤال‌های مسابقه، به زبان انتخابی تو نمایش داده می‌شود.',
     englishInterface: 'رابط انگلیسی', persianInterface: 'رابط فارسی',
     mainNavigation: 'پیمایش اصلی', timerLabel: '{label}: {seconds}',
     operatorDefault: 'بازیکن', categoryNames: {
