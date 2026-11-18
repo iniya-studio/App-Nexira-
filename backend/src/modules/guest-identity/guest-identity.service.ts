@@ -74,7 +74,7 @@ export class GuestIdentityService {
       parallelism: this.positiveInteger('ARGON2_PARALLELISM', 1),
     });
 
-    let converted: { response: GuestConversionResponse; replayed: boolean };
+    let converted: { response: GuestConversionResponse; replayed: boolean } | { recoveryExpired: true } | { invalidReplay: true };
     try {
       converted = await this.prisma.$transaction(async (tx) => {
         // READ COMMITTED is intentional: after this transaction waits for the GuestIdentity
@@ -166,7 +166,13 @@ export class GuestIdentityService {
             throw new UnauthorizedException('Invalid guest conversion proof');
           }
           if (replay.expiresAt <= new Date() || !replay.responseCiphertext) {
-            throw new GoneException({ code: 'CONVERSION_RECOVERY_EXPIRED', message: 'Conversion recovery window has expired' });
+            if (replay.responseCiphertext) {
+              await tx.guestConversionReplay.update({ where: { id: replay.id }, data: { responseCiphertext: null, ciphertextPurgedAt: new Date() } });
+            }
+            await tx.identityAuditEvent.create({
+              data: { eventType: 'GUEST_CONVERSION_RECOVERY_EXPIRED', principalType: PrincipalType.GUEST, principalId: guest.id, sessionId: sourceSession.id, result: 'FAILURE', metadata: { reason: 'REPLAY_EXPIRED' } },
+            });
+            return { recoveryExpired: true as const };
           }
           const aad: GuestConversionReplayAad = {
             replayId: replay.id, guestIdentityId: replay.guestIdentityId, sourceSessionId: replay.sourceSessionId,
@@ -183,7 +189,7 @@ export class GuestIdentityService {
             await tx.identityAuditEvent.create({
               data: { eventType: 'GUEST_CONVERSION_RECOVERY_FAILED', principalType: PrincipalType.GUEST, principalId: guest.id, sessionId: sourceSession.id, result: 'FAILURE', metadata: { reason: 'CIPHERTEXT_INVALID' } },
             });
-            throw new UnauthorizedException('Invalid guest conversion proof');
+            return { invalidReplay: true as const };
           }
         }
         if (guest.status !== GuestIdentityStatus.ACTIVE || guest.convertedToUserId ||
@@ -356,6 +362,10 @@ export class GuestIdentityService {
       throw error;
     }
 
+    if ('recoveryExpired' in converted) {
+      throw new GoneException({ code: 'CONVERSION_RECOVERY_EXPIRED', message: 'Conversion recovery window has expired' });
+    }
+    if ('invalidReplay' in converted) throw new UnauthorizedException('Invalid guest conversion proof');
     if (!converted.replayed) {
       try {
         await this.emailVerification.issueAndSend(converted.response.user.id);
