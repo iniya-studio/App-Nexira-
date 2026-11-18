@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Document:** NEX-BE-002  
-**Version:** 1.2  
+**Version:** 1.3  
 **Status:** Owner-approved technical contract  
 **Target branch:** `main`  
 **Scope:** Guest Identity, Authentication, Session Management, and Guest-to-User conversion
@@ -32,7 +32,7 @@ The following are treated as approved project constraints:
 - Backend is authoritative for identity, authorization, match state, timing, scoring, and progression.
 - Initial migration exists at `backend/prisma/migrations/00000000000000_init/migration.sql`.
 - The initial migration was generated and tested against a temporary PostgreSQL database in GitHub Actions. No production database is currently claimed to exist.
-- Work continues on `feature/backend-foundation`; no merge to the integration or main branch is implied.
+- All implementation and verification changes are made directly on `main`; no feature or integration branch is used.
 
 ### 2.1 Existing identity-related Prisma models
 
@@ -46,6 +46,7 @@ The current schema already contains the core persistence structures:
 | `GuestIdentity` | Guest principal and conversion state |
 | `UserSession` | One session owned by exactly one User or GuestIdentity |
 | `RefreshToken` | Hashed refresh-token history and rotation metadata |
+| `GuestConversionReplay` | Bounded encrypted response for recovering a committed guest conversion |
 | `EmailVerificationToken` | One-time email verification token |
 | `IdentityAuditEvent` | Security and identity audit event |
 | `PrincipalType` | USER or GUEST |
@@ -269,7 +270,7 @@ Conversion is an explicit authenticated operation, not an account merge based on
 
 The `GuestIdentity.convertedToUserId` relation is the supported link for retrieving the converted guest's eligible history. History aggregation / display is a separate read policy and must not rewrite source match records.
 
-Conversion must be idempotent: retries for the same guest and same target account return a safe consistent result; attempts to convert the same guest to a different account are rejected and audited. Never permit a client to select an arbitrary `convertedToUserId`.
+Guest conversion recovery is governed by NEX-BE-012. The client generates and securely persists one high-entropy `Idempotency-Key` and the current guest refresh token before conversion. It sends both with `POST /api/v1/guest/convert`; after an ambiguous network outcome it calls `POST /api/v1/guest/convert/retry` with the same key and original guest refresh token. The server returns the original encrypted conversion response for the exact proof pair within the five-minute replay window and performs no conversion side effects again. A different key cannot recover the response. After expiry, the client must use normal registered-account login. Never permit a client to select an arbitrary `convertedToUserId`.
 
 ## 6. Initial REST API contract
 
@@ -281,7 +282,8 @@ All routes use the `/api/v1` prefix. Request and response DTOs must be validated
 | POST | `/auth/register` | Auth | Register email/password account |
 | POST | `/auth/login` | Auth | Email/password login |
 | POST | `/auth/google` | Auth | Verify Google ID token and sign in |
-| POST | `/auth/convert-guest` | Auth + Guest Identity | Convert authenticated guest |
+| POST | `/guest/convert` | Guest Identity + Auth | Convert authenticated guest |
+| POST | `/guest/convert/retry` | Guest Identity | Recover a committed conversion response using the original guest refresh token and idempotency key |
 | POST | `/sessions/refresh` | Session | Rotate refresh token |
 | POST | `/sessions/logout` | Session | Revoke current session |
 | POST | `/sessions/logout-all` | Session | Revoke all sessions for current USER |
@@ -470,6 +472,7 @@ Dependency rules:
 - Preserve historical MatchParticipant guest references.
 - Revoke guest session(s) and issue a new USER session.
 - Test duplicate conversion, competing conversion attempts, history preservation, and rollback on failure.
+- Test committed-response-loss recovery through the unauthenticated retry route, wrong proof, expiry, ciphertext tampering, and no repeated XP/session transfer as specified by NEX-BE-012.
 
 ### Phase 4 — full session lifecycle
 - Implement logout-all and owned-session revocation/listing for registered users.
@@ -501,6 +504,7 @@ The Identity & Access implementation is not complete until:
 - User-only endpoints reject guest principals.
 - Audit logs contain no raw credentials or tokens.
 - Automated tests cover concurrency, replay, expiry, account status, and failure rollback.
+- Guest conversion recovery follows NEX-BE-012 and has PostgreSQL-backed response-loss, concurrency, tampering, expiry, and no-duplicate-side-effect coverage.
 
 ## 13. Owner decisions and deferred policy values
 
@@ -520,4 +524,4 @@ No deferred value may be guessed by implementation. If a deferred decision becom
 
 The V1 Android client uses the native Android Credential Manager integration and first obtains a one-time nonce from the backend. The `VITE_GOOGLE_WEB_CLIENT_ID` build value and backend `GOOGLE_CLIENT_ID` must refer to the same Google Web OAuth client ID. The Android OAuth client must separately be configured in the same Google Cloud project for the app package name and signing certificate. No OAuth client secret belongs in the Android app or repository. Email verification and password reset support the custom `nexira://auth/...` scheme for development and verified HTTPS Android App Links for production. `APP_LINK_HOST` / `VITE_APP_LINK_HOST` must match the email-link host, and that domain must publish the Android Digital Asset Links file before production use.
 
-**End of NEX-BE-002 v1.2**
+**End of NEX-BE-002 v1.3**
