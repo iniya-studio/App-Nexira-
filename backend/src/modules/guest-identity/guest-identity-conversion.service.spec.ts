@@ -4,6 +4,7 @@ import { GuestIdentityStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionService } from '../session/session.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
+import { AuthService } from '../auth/auth.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { GuestIdentityService } from './guest-identity.service';
 
@@ -107,11 +108,31 @@ describe('GuestIdentityService conversion', () => {
         ACCESS_TOKEN_TTL_SECONDS: '900',
       })[key]),
     };
+    const auth = {
+      hashGuestConversionPassword: jest.fn().mockResolvedValue('argon2-hash'),
+      createGuestConversionUser: jest.fn((
+        transaction: typeof tx,
+        userInput: { email: string; username: string; displayName: string; passwordHash: string },
+      ) => transaction.user.create({
+        data: {
+          email: userInput.email,
+          username: userInput.username,
+          displayName: userInput.displayName,
+          status: 'ACTIVE',
+          credential: { create: { passwordHash: userInput.passwordHash } },
+        },
+        select: {
+          id: true, email: true, username: true, displayName: true,
+          preferredLanguage: true, emailVerifiedAt: true,
+        },
+      })),
+    };
     service = new GuestIdentityService(
       prisma as unknown as PrismaService,
       sessions as unknown as SessionService,
       config as unknown as ConfigService,
       emailVerification as unknown as EmailVerificationService,
+      auth as unknown as AuthService,
     );
   });
 
