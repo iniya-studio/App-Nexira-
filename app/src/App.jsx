@@ -19,7 +19,7 @@ import { createOnlineMatchmakingAdapter } from './game/onlineMatchmakingAdapter.
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCategoryTitle, getCopy, getQuestionCopy } from './i18n.js';
-import { getLocaleConfig } from './locales.js';
+import { getLocaleConfig, getSupportedLocales } from './locales.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
@@ -1752,10 +1752,27 @@ export default function App() {
       <button className="back-link" onClick={() => navigate('settings')}><ArrowLeft size={15} /> {text.settings}</button>
       <ScreenHeading eyebrow={text.languageEyebrow} title={text.languageTitle} accent={text.languageAccent} description={text.languageDescription} />
       <GlassPanel className="language-options">
-        {[['en', 'English', text.englishInterface], ['fa', 'فارسی', text.persianInterface]].map(([value, name, subtitle]) =>
-          <button className={`language-option${language === value ? ' language-option--selected' : ''}`} key={value} onClick={() => { updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, language: value } })); completeLanguageSelection(); const wasInitialSelection = isInitialLanguageSelection; setIsInitialLanguageSelection(false); navigate(wasInitialSelection ? 'home' : 'settings'); }}>
-            <span><strong>{name}</strong><small>{subtitle}</small></span>{language === value && <Check size={18} />}
-          </button>)}
+        <label className="language-selector-label" htmlFor="nexira-language-select">{text.language}</label>
+        <select
+          id="nexira-language-select"
+          className="language-option"
+          value={language}
+          aria-label={text.language}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (!getSupportedLocales().some((locale) => locale.code === value)) return;
+            updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, language: value } }));
+            completeLanguageSelection();
+            const wasInitialSelection = isInitialLanguageSelection;
+            setIsInitialLanguageSelection(false);
+            navigate(wasInitialSelection ? 'home' : 'settings');
+          }}
+          style={{ display: 'block', width: '100%', minHeight: 58, padding: '0 14px', color: '#e9f2fa', border: '1px solid rgba(0, 197, 255, 0.42)', borderRadius: 9, background: 'rgba(9, 23, 38, 0.9)', font: 'inherit', textAlign: 'start' }}
+        >
+          {getSupportedLocales().map((locale) => (
+            <option key={locale.code} value={locale.code}>{locale.nativeName} · {locale.englishName}</option>
+          ))}
+        </select>
       </GlassPanel>
     </ScreenFrame>}
 
