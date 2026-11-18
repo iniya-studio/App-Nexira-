@@ -38,7 +38,8 @@ describe('GuestIdentityService conversion', () => {
     matchmakingEntry: { updateMany: jest.Mock; findMany: jest.Mock };
     matchParticipant: { updateMany: jest.Mock };
     userSession: { findFirst: jest.Mock; updateMany: jest.Mock };
-    refreshToken: { updateMany: jest.Mock };
+    refreshToken: { updateMany: jest.Mock; findUnique: jest.Mock };
+    guestConversionReplay: { create: jest.Mock; findUnique: jest.Mock };
     identityAuditEvent: { create: jest.Mock };
   };
   let sessions: { createSessionInTransaction: jest.Mock };
@@ -78,7 +79,11 @@ describe('GuestIdentityService conversion', () => {
         findFirst: jest.fn().mockResolvedValue({ id: 'guest-session-1' }),
         updateMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
-      refreshToken: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      refreshToken: {
+        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'refresh-1', sessionId: 'guest-session-1', consumedAt: null, revokedAt: null, expiresAt: new Date(Date.now() + 3600000) }),
+      },
+      guestConversionReplay: { create: jest.fn().mockResolvedValue({}), findUnique: jest.fn().mockResolvedValue(null) },
       identityAuditEvent: { create: jest.fn().mockResolvedValue({}) },
     };
     prisma = {
@@ -87,10 +92,16 @@ describe('GuestIdentityService conversion', () => {
     sessions = { createSessionInTransaction: jest.fn().mockResolvedValue(sessionResponse) };
     emailVerification = { issueAndSend: jest.fn().mockResolvedValue('SENT') };
     const config = {
+      getOrThrow: jest.fn((key: string) => ({
+        ACCESS_TOKEN_TTL_SECONDS: '900',
+      })[key]),
       get: jest.fn((key: string) => ({
         ARGON2_MEMORY_COST_KIB: '1024',
         ARGON2_TIME_COST: '2',
         ARGON2_PARALLELISM: '1',
+        GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+        GUEST_CONVERSION_REPLAY_WINDOW_SECONDS: '300',
+        ACCESS_TOKEN_TTL_SECONDS: '900',
       })[key]),
     };
     service = new GuestIdentityService(
@@ -106,10 +117,11 @@ describe('GuestIdentityService conversion', () => {
     password: 'a-long-and-strong-password',
     username: 'Player_One',
     displayName: ' Player One ',
+    refreshToken: 'A'.repeat(43),
   };
 
   it('transfers the existing Companion profile and creates a fresh USER session atomically', async () => {
-    const result = await service.convert(principal, input);
+    const result = await service.convert(principal, input, 'B'.repeat(43));
 
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: 'ReadCommitted',
@@ -143,7 +155,7 @@ describe('GuestIdentityService conversion', () => {
       principalType: PrincipalType.USER, principalId: 'user-1',
     });
     expect(emailVerification.issueAndSend).toHaveBeenCalledWith('user-1');
-    expect(result.emailVerification).toEqual({ required: true, verified: false, delivery: 'SENT' });
+    expect(result.emailVerification).toEqual({ required: true, verified: false });
   });
 
 
@@ -218,7 +230,7 @@ describe('GuestIdentityService conversion', () => {
 
   it('rejects conversion when the authenticated guest session is no longer active', async () => {
     tx.userSession.findFirst.mockResolvedValue(null);
-    await expect(service.convert(principal, input)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.convert(principal, input, 'B'.repeat(43))).rejects.toBeInstanceOf(UnauthorizedException);
     expect(tx.user.create).not.toHaveBeenCalled();
     expect(sessions.createSessionInTransaction).not.toHaveBeenCalled();
   });
@@ -226,7 +238,7 @@ describe('GuestIdentityService conversion', () => {
   it('rejects conversion from a registered USER principal', async () => {
     await expect(service.convert({
       principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 's1',
-    }, input)).rejects.toBeInstanceOf(ForbiddenException);
+    }, input, 'B'.repeat(43))).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
