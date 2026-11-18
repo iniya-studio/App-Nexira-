@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Document:** NEX-BE-012  
-**Version:** 1.3  
+**Version:** 1.4  
 **Status:** Approved implementation contract — implementation in progress  
 **Target branch:** `main`  
 **Related contracts:** NEX-BE-002 Identity & Access; NEX-BE-003 Guest Session Foundation; NEX-BE-010 Progression & Ranking Settlement
@@ -222,15 +222,16 @@ Conversion success and email delivery are separate outcomes:
 
 ## 11. Rate limiting, abuse controls, and observability
 
-- Apply a distributed rate limit to both initial conversion and recovery endpoints; the existing in-process Map limiter is not sufficient for multi-instance deployment.
-- Rate-limit by a privacy-preserving guest/session key and network risk signal; do not expose raw token values in limiter keys or logs.
+- Apply database-backed fixed-window rate limits to both initial conversion and recovery endpoints using the shared PostgreSQL GuestConversionRateLimit table. The upsert is atomic across API instances.
+- Derive bucket keys with SHA-256 from scoped guest/session or refresh-token hashes and the network risk signal. Never store raw refresh tokens, idempotency keys, or IP addresses in rate-limit rows.
+- Enforce independent guest/token and IP buckets; return HTTP 429 after the configured limit. Expire stale buckets after seven days.
 - Return generic errors for invalid bearer proofs to reduce account/replay enumeration.
 - Emit safe audit events for conversion success, recovery success, recovery mismatch, expired recovery, and cryptographic validation failure. Audit metadata must contain only stable internal IDs and reason codes, never credentials or request contents.
 - Monitor replay attempts, expired replay records, decrypt failures, and duplicate conversion conflicts.
 
 ## 12. Cleanup and key operations
 
-A scheduled cleanup task must clear `responseCiphertext` when `expiresAt <= now()` and set `ciphertextPurgedAt`. It must not delete the replay tombstone as part of routine ciphertext cleanup.
+A Nest lifecycle-managed cleanup worker runs on startup and every 60 seconds on each API instance. It clears `responseCiphertext` when `expiresAt <= now()` and sets `ciphertextPurgedAt`, in bounded batches using `FOR UPDATE SKIP LOCKED` so multiple instances can safely cooperate. It must not delete the replay tombstone. The database-backed rate-limit worker opportunistically removes buckets not updated in the previous seven days.
 
 Encryption and HMAC keys must be independent of JWT signing keys, stored in a secrets manager/environment configuration, and rotated with a documented versioned-key procedure. A key rotation must preserve the ability to decrypt unexpired replay responses during the full replay window. Never rotate away a key while valid ciphertext still depends on it.
 
@@ -257,7 +258,7 @@ CI must run Prisma format/validation/generation, migration checks, Nest build, l
 
 1. Owner review and approval of this contract.
 2. Additive Prisma model, migration, and environment configuration.
-3. Implement source refresh-token validation and exact idempotency proof binding in Guest Identity.
+3. Implement source refresh-token validation, exact idempotency proof binding, and PostgreSQL-backed distributed rate limits in Guest Identity.
 4. Implement atomic replay persistence/encryption inside conversion transaction.
 5. Implement the independent retry endpoint and lock-safe lookup/decryption.
 6. Implement bounded ciphertext cleanup and safe audit events.
