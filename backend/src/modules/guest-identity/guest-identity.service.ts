@@ -1,23 +1,34 @@
-import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, GoneException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GuestIdentityStatus, MatchStatus, PrincipalType, Prisma, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { SessionService } from '../session/session.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
 import { GuestConversionDto } from './dto/guest-conversion.dto';
+import { GuestConversionReplayCrypto, GuestConversionReplayAad } from './guest-conversion-replay-crypto';
+
+type GuestConversionResponse = {
+  user: { id: string; email: string | null; username: string; displayName: string; preferredLanguage: string; emailVerifiedAt: Date | null };
+  principal: { principalType: PrincipalType; principalId: string };
+  session: { sessionId: string; expiresAt: string };
+  tokens: { accessToken: string; accessTokenExpiresAt: string; refreshToken: string; refreshTokenExpiresAt: string };
+  emailVerification: { required: true; verified: false };
+};
 
 @Injectable()
 export class GuestIdentityService {
   private readonly attempts = new Map<string, { count: number; resetAt: number }>();
+  private readonly replayCrypto: GuestConversionReplayCrypto;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly sessions: SessionService,
     private readonly config: ConfigService,
     private readonly emailVerification: EmailVerificationService,
-  ) {}
+  ) { this.replayCrypto = new GuestConversionReplayCrypto(config); }
 
   async start(clientKey: string) {
     this.enforceStartLimit(clientKey);
@@ -42,11 +53,16 @@ export class GuestIdentityService {
     });
   }
 
-  async convert(principal: AuthenticatedPrincipal, input: GuestConversionDto) {
+  async convert(principal: AuthenticatedPrincipal, input: GuestConversionDto, idempotencyKey: string): Promise<GuestConversionResponse> {
     if (principal.principalType !== PrincipalType.GUEST) {
       throw new ForbiddenException('Only an authenticated guest can be converted');
     }
     this.enforceConversionLimit(principal.principalId);
+    if (!/^[A-Za-z0-9_-]{43,128}$/.test(idempotencyKey) || !/^[A-Za-z0-9_-]{43,128}$/.test(input.refreshToken)) {
+      throw new UnauthorizedException('Invalid guest conversion proof');
+    }
+    const sourceRefreshTokenHash = this.replayCrypto.hash(input.refreshToken);
+    const idempotencyKeyHash = this.replayCrypto.hash(idempotencyKey);
 
     const email = input.email.trim().toLowerCase();
     const username = input.username.trim().toLowerCase();
@@ -58,10 +74,7 @@ export class GuestIdentityService {
       parallelism: this.positiveInteger('ARGON2_PARALLELISM', 1),
     });
 
-    let converted: {
-      user: { id: string; email: string | null; username: string; displayName: string; preferredLanguage: string; emailVerifiedAt: Date | null };
-      session: Awaited<ReturnType<SessionService['createSessionInTransaction']>>;
-    };
+    let converted: GuestConversionResponse;
     try {
       converted = await this.prisma.$transaction(async (tx) => {
         // READ COMMITTED is intentional: after this transaction waits for the GuestIdentity
