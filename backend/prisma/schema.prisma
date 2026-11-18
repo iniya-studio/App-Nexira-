@@ -476,6 +476,7 @@ model MatchParticipant {
   matchId         String            @db.Uuid
   userId          String?           @db.Uuid
   guestIdentityId String?           @db.Uuid
+  language        String            @default("en") @db.VarChar(16)
   participantKey  String
   participantType ParticipantType
   status          ParticipantStatus @default(ACTIVE)
