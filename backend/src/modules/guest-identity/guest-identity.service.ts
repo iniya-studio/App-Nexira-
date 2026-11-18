@@ -53,11 +53,16 @@ export class GuestIdentityService {
     });
   }
 
-  async convert(principal: AuthenticatedPrincipal, input: GuestConversionDto, idempotencyKey: string): Promise<GuestConversionResponse> {
+  async convert(principal: AuthenticatedPrincipal, input: GuestConversionDto, idempotencyKey: string, clientIp = 'unknown'): Promise<GuestConversionResponse> {
     if (principal.principalType !== PrincipalType.GUEST) {
       throw new ForbiddenException('Only an authenticated guest can be converted');
     }
-    this.enforceConversionLimit(principal.principalId);
+    await this.enforceDistributedLimit('conversion-guest', principal.principalId,
+      this.positiveInteger('GUEST_CONVERSION_MAX_ATTEMPTS', 5),
+      this.positiveInteger('GUEST_CONVERSION_WINDOW_SECONDS', 3600));
+    await this.enforceDistributedLimit('conversion-ip', clientIp,
+      this.positiveInteger('GUEST_CONVERSION_IP_MAX_ATTEMPTS', 30),
+      this.positiveInteger('GUEST_CONVERSION_WINDOW_SECONDS', 3600));
     if (!/^[A-Za-z0-9_-]{43,128}$/.test(idempotencyKey) || !/^[A-Za-z0-9_-]{43,128}$/.test(input.refreshToken)) {
       throw new UnauthorizedException('Invalid guest conversion proof');
     }
@@ -376,12 +381,18 @@ export class GuestIdentityService {
     return converted.response;
   }
 
-  async retryConversion(rawRefreshToken: string, idempotencyKey: string): Promise<GuestConversionResponse> {
+  async retryConversion(rawRefreshToken: string, idempotencyKey: string, clientIp = 'unknown'): Promise<GuestConversionResponse> {
     if (!/^[A-Za-z0-9_-]{43,128}$/.test(rawRefreshToken) || !/^[A-Za-z0-9_-]{43,128}$/.test(idempotencyKey)) {
       throw new UnauthorizedException('Invalid guest conversion proof');
     }
     const sourceRefreshTokenHash = this.replayCrypto.hash(rawRefreshToken);
     const idempotencyKeyHash = this.replayCrypto.hash(idempotencyKey);
+    await this.enforceDistributedLimit('conversion-retry-token', sourceRefreshTokenHash,
+      this.positiveInteger('GUEST_CONVERSION_RETRY_MAX_ATTEMPTS', 10),
+      this.positiveInteger('GUEST_CONVERSION_WINDOW_SECONDS', 3600));
+    await this.enforceDistributedLimit('conversion-retry-ip', clientIp,
+      this.positiveInteger('GUEST_CONVERSION_RETRY_IP_MAX_ATTEMPTS', 60),
+      this.positiveInteger('GUEST_CONVERSION_WINDOW_SECONDS', 3600));
     const source = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: sourceRefreshTokenHash },
       select: { sessionId: true, session: { select: { guestIdentityId: true, userId: true } } },
@@ -488,6 +499,31 @@ export class GuestIdentityService {
     `;
   }
 
+  private async enforceDistributedLimit(scope: string, subject: string, max: number, windowSeconds: number): Promise<void> {
+    const bucketKey = this.replayCrypto.hash(`${scope}:${subject}`);
+    const windowMs = windowSeconds * 1000;
+    const windowStartedAt = new Date(Math.floor(Date.now() / windowMs) * windowMs);
+    const rows = await this.prisma.$queryRaw<Array<{ attemptCount: number }>>`
+      INSERT INTO "GuestConversionRateLimit" ("bucketKey", "windowStartedAt", "attemptCount", "updatedAt")
+      VALUES (${bucketKey}, ${windowStartedAt}, 1, NOW())
+      ON CONFLICT ("bucketKey") DO UPDATE
+      SET "attemptCount" = CASE
+            WHEN "GuestConversionRateLimit"."windowStartedAt" <> EXCLUDED."windowStartedAt" THEN 1
+            ELSE "GuestConversionRateLimit"."attemptCount" + 1
+          END,
+          "windowStartedAt" = EXCLUDED."windowStartedAt",
+          "updatedAt" = NOW()
+      RETURNING "attemptCount" AS "attemptCount"
+    `;
+    if (!rows[0] || rows[0].attemptCount > max) {
+      throw new HttpException('Too many guest conversion attempts', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    await this.prisma.$executeRaw`
+      DELETE FROM "GuestConversionRateLimit"
+      WHERE "updatedAt" < NOW() - INTERVAL '7 days'
+    `;
+  }
+
   private enforceStartLimit(clientKey: string): void {
     const max = Number(this.config.get<string>('GUEST_START_MAX_ATTEMPTS', '10'));
     const windowMs = Number(this.config.get<string>('GUEST_START_WINDOW_SECONDS', '60')) * 1000;
@@ -495,12 +531,6 @@ export class GuestIdentityService {
       throw new Error('Invalid guest start rate-limit configuration');
     }
     this.enforceLimit(clientKey, max, windowMs, 'Guest start rate limit exceeded');
-  }
-
-  private enforceConversionLimit(guestId: string): void {
-    const max = this.positiveInteger('GUEST_CONVERSION_MAX_ATTEMPTS', 5);
-    const windowMs = this.positiveInteger('GUEST_CONVERSION_WINDOW_SECONDS', 3600) * 1000;
-    this.enforceLimit(guestId, max, windowMs, 'Guest conversion rate limit exceeded');
   }
 
   private enforceLimit(key: string, max: number, windowMs: number, message: string): void {
