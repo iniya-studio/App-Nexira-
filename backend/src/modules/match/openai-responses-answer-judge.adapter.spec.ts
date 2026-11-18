@@ -84,6 +84,42 @@ describe('OpenAiResponsesAnswerJudgeAdapter', () => {
     expect(body.input[0].content[0].text).toContain('untrusted data');
   });
 
+  it('passes the selected Persian language as authoritative judging context', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'completed',
+        output: [{
+          type: 'message',
+          content: [{
+            type: 'output_text',
+            text: JSON.stringify({
+              decision: 'CORRECT',
+              confidence: 0.97,
+              reason_code: 'MEANING_MATCH',
+              rationale: 'پاسخ از نظر معنایی درست است.',
+            }),
+          }],
+        }],
+      }),
+    });
+
+    await expect(adapter.judge({
+      canonicalQuestion: 'بزرگ‌ترین سیاره منظومه شمسی کدام است؟',
+      language: 'fa',
+      expectedAnswer: 'مشتری',
+      gradingRubric: { requiredConcepts: ['مشتری'] },
+      participantResponse: 'سیاره مشتری',
+    })).resolves.toMatchObject({ decision: JudgeDecision.CORRECT });
+
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.input[0].content[0].text).toContain('language field is authoritative');
+    expect(body.input[0].content[0].text).toContain('do not assume English');
+    expect(body.input[1].content[0].text).toContain('"language":"fa"');
+    expect(body.input[1].content[0].text).toContain('مشتری');
+  });
+
   it('returns UNCERTAIN without converting it to INCORRECT', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
