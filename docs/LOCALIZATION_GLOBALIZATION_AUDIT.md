@@ -1,6 +1,6 @@
 # NEXIRA Global Localization Audit
 
-**Status:** Audit baseline — implementation not yet complete  
+**Status:** Approved V1 release scope — 20 locales required; multilingual cross-locale 1v1 approved; implementation not yet complete  
 **Branch:** `main`  
 **Audit basis:** Current `main` source inspected on 2026-11-19  
 **Scope:** Frontend locale selection, translation coverage, persistence, directionality, formatting, game content, and test gates.
@@ -37,7 +37,7 @@ GitHub Actions run `44394690367` (Build and verify Android debug APK) completed 
 
 ## Candidate V1 locale set
 
-The following 20 locales are the proposed global V1 target, subject to complete translation and QA before being marked supported:
+The following 20 locales are the mandatory global V1 release target. All 20 must have complete UI and game-content support, pass automated checks and language QA, and be enabled in the release APK. Partial rollout or silently disabled entries do not satisfy the approved release scope:
 
 | Locale | Native label | Direction |
 |---|---|---|
@@ -62,7 +62,7 @@ The following 20 locales are the proposed global V1 target, subject to complete 
 | th | ไทย | LTR |
 | vi | Tiếng Việt | LTR |
 
-A locale is not considered enabled merely because it appears in this table or in the selector. It becomes selectable only after its complete UI and game-content pack passes the required automated checks and language QA.
+Release requirement: all 20 entries must be selectable in the final APK only after their complete UI and game-content packs pass the required automated checks and language QA. The implementation sequence must deliver the full set before this localization section can be closed.
 
 ## Implementation sequence and exit criteria
 
@@ -111,3 +111,29 @@ A locale is not considered enabled merely because it appears in this table or in
 - Existing `settings.language` persistence and initial language-selection completion behavior remain the source of truth.
 - Supported locales remain limited to complete, verified locale packs; the candidate 20-language list is not an activation list.
 - Corrective code commits have been recorded; test execution and CI evidence remain pending until a workflow run reports results.
+
+
+## Approved release decision — 20 locales and cross-locale 1v1
+
+**Decision status:** APPROVED by product owner on 2026-11-19.
+
+- The complete 20-locale candidate set above is the V1 release requirement, not a future wish list.
+- The final Android APK must expose all 20 native language names in the language selector; every option must actually work across the complete app and game flow.
+- One persisted `settings.language` controls UI, menus, validation, match content, options, answers, explanations, results, and accessibility copy.
+- UI dictionaries remain bundled/local. No runtime network or AI translation is permitted for interface copy.
+- AI-generated match content must preserve one semantic source question and stable answer/option identity while providing participant-specific language renderings. Both players receive identical meaning, difficulty, timing, and answer identity, but text is rendered in each player's selected locale.
+- Free-text answers are judged against the same semantic rubric using the responding participant's selected locale. Judge inputs must include the participant locale and the corresponding localized question/rubric representation; English must not be assumed as an intermediate language.
+- Public 1v1 compatibility is category-based, not locale-based. Each queue entry retains the participant locale for delivery and judging. Locale is not a reason to exclude otherwise compatible players.
+- The match must snapshot the participating locales at match creation so later profile-language changes cannot mutate an active match.
+- Acceptance requires cross-locale integration tests (at minimum all RTL/LTR pairings represented), same semantic question/option IDs/deadlines, correct per-player language delivery, correct per-player Judge locale, reconnect/recovery consistency, and no answer/score leakage.
+- Do not close L10N-03 or L10N-04 until all 20 locales are complete and enabled, the full frontend/backend tests pass, and a release APK has been built and manually checked.
+
+## Revised execution order
+
+1. **L10N-02A — Cross-locale match contract:** define canonical semantic question identity, per-participant locale snapshots, localized question payloads, answer option identity, Judge context, queue compatibility, reconnect and result contracts. No code shortcut that changes the semantic question per player.
+2. **L10N-02B — Backend multilingual delivery:** update matchmaking compatibility, match participant locale snapshots, generation/localization persistence and read APIs, Judge routing, and migrations additively with PostgreSQL integration coverage.
+3. **L10N-02C — Frontend locale propagation:** remove all inline en/fa branches, route all visible copy through namespaces, support all RTL locales (fa/ar/ur) and locale-aware formatting.
+4. **L10N-03 — Complete 20 local UI packs and 20 game-content packs:** translation completeness, terminology, placeholders, pluralization, question quality, and native-language QA.
+5. **L10N-04 — Release gates:** all 20 selector entries enabled, strict tests, cross-locale 1v1 integration, frontend/backend CI, Android APK build, and device acceptance.
+
+No section is DONE merely because its code or documentation was added. Evidence is required for every exit criterion.
