@@ -78,7 +78,7 @@ export class MatchService {
         {
           ...INITIAL_QUESTION_SETTINGS,
           category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
-          language: options.language,
+          language: participantLanguage,
         },
         tx,
       );
