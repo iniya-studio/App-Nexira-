@@ -67,11 +67,13 @@ Multiple-choice adjudication is deterministic and server-side:
 Free-text answers use a provider-independent AI Judge adapter.
 
 The judge receives only the minimum required trusted context:
-- canonical question and language;
+- canonical question and its authoritative selected language;
 - expected answer / answer key;
-- grading rubric and accepted equivalent concepts;
+- grading rubric and accepted equivalent concepts, authored in the same language;
 - participant response;
 - judge policy and version.
+
+The language stored on the generated question is the authoritative language for adjudication. The provider adapter must explicitly instruct the model to interpret the question, answer key, rubric, and response in that language; it must not assume English or translate the task into English as an intermediate requirement. Semantic equivalence, common synonyms, accepted spelling/script variants, and concise correct answers remain valid. A language mismatch or unsupported locale must be handled as a validation/technical issue, never silently reinterpreted as English.
 
 The judge must evaluate meaning, not exact string equality. It must accept valid equivalent wording, synonyms, spelling variations that do not change meaning, and concise answers that satisfy the rubric. It must reject answers that are materially incorrect or omit essential required concepts.
 
