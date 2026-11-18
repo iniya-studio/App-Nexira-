@@ -28,13 +28,11 @@ describe('GuestIdentityController HTTP contract', () => {
   };
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
+    const builder = Test.createTestingModule({
       controllers: [GuestIdentityController],
-      providers: [
-        { provide: GuestIdentityService, useValue: guests },
-        { provide: AccessTokenGuard, useValue: guard },
-      ],
-    }).compile();
+      providers: [{ provide: GuestIdentityService, useValue: guests }],
+    });
+    const moduleRef = await builder.overrideGuard(AccessTokenGuard).useValue(guard).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
@@ -43,7 +41,7 @@ describe('GuestIdentityController HTTP contract', () => {
     baseUrl = `http://127.0.0.1:${address.port}`;
   });
 
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => { if (app) await app.close(); });
 
   beforeEach(() => {
     jest.clearAllMocks();
