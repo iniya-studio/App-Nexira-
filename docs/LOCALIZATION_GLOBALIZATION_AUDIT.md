@@ -106,6 +106,7 @@ A locale is not considered enabled merely because it appears in this table or in
 - AI Judge receives the generated question's authoritative language and is explicitly instructed to interpret the question, expected answer, rubric, and participant response in that language rather than assuming English.
 - Adapter regression tests now cover both English and Persian request-language contracts. These tests are added but remain unexecuted until CI reports a result.
 - Matchmaking and account/profile language validation currently allow only `en` and `fa`; other candidate locales remain disabled until complete UI packs, backend validation, question generation, Judge QA, and locale-specific tests are ready.
+- Current public 1v1 matchmaking uses `(category, language)` as its compatibility bucket, so players with different selected locales are not paired together. This is existing behavior, not a claim that cross-language matchmaking is supported; the product decision whether to introduce participant-specific multilingual question delivery must be made before broadening that queue contract.
 - The temporary independent `settings.matchLanguage` implementation has been removed from profile normalization and match request construction.
 - Existing `settings.language` persistence and initial language-selection completion behavior remain the source of truth.
 - Supported locales remain limited to complete, verified locale packs; the candidate 20-language list is not an activation list.
