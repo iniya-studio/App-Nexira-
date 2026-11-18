@@ -476,7 +476,7 @@ export class GuestIdentityService {
     if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 5000) {
       throw new Error('Replay cleanup batch size must be between 1 and 5000');
     }
-    return this.prisma.$executeRaw`
+    const purged = await this.prisma.$executeRaw`
       WITH expired AS (
         SELECT "id"
         FROM "GuestConversionReplay"
@@ -490,6 +490,11 @@ export class GuestIdentityService {
       FROM expired
       WHERE replay."id" = expired."id"
     `;
+    await this.prisma.$executeRaw`
+      DELETE FROM "GuestConversionRateLimit"
+      WHERE "updatedAt" < NOW() - INTERVAL '7 days'
+    `;
+    return purged;
   }
 
   private async enforceDistributedLimit(scope: string, subject: string, max: number, windowSeconds: number): Promise<void> {
@@ -514,10 +519,6 @@ export class GuestIdentityService {
     if (!rows[0] || rows[0].attemptCount > max) {
       throw new HttpException('Too many guest conversion attempts', HttpStatus.TOO_MANY_REQUESTS);
     }
-    await this.prisma.$executeRaw`
-      DELETE FROM "GuestConversionRateLimit"
-      WHERE "updatedAt" < NOW() - INTERVAL '7 days'
-    `;
   }
 
   private enforceStartLimit(clientKey: string): void {
