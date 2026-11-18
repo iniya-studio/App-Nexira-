@@ -2,7 +2,7 @@
 -- Historical rows are backfilled from trusted user profile or the matched queue entry;
 -- legacy rows without either source retain the deterministic English default.
 ALTER TABLE "MatchParticipant"
-  ADD COLUMN "language" VARCHAR(16) NOT NULL DEFAULT 'en';
+  ADD COLUMN "language" VARCHAR(16);
 
 UPDATE "MatchParticipant" AS participant
 SET "language" = COALESCE(
@@ -38,3 +38,12 @@ SET "language" = COALESCE(
   'en'
 )
 WHERE participant."participantType" = 'HUMAN'::"ParticipantType";
+
+-- AI participants have no user-facing locale; every HUMAN must have a snapshot.
+ALTER TABLE "MatchParticipant"
+  ADD CONSTRAINT "MatchParticipant_language_by_type_check"
+  CHECK (
+    ("participantType" = 'HUMAN'::"ParticipantType" AND "language" IS NOT NULL)
+    OR
+    ("participantType" = 'AI'::"ParticipantType" AND "language" IS NULL)
+  );
