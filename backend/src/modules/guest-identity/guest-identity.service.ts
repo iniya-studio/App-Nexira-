@@ -1,12 +1,12 @@
 import { ConflictException, ForbiddenException, GoneException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GuestIdentityStatus, MatchStatus, PrincipalType, Prisma, UserStatus } from '@prisma/client';
-import * as argon2 from 'argon2';
+import { GuestIdentityStatus, MatchStatus, PrincipalType, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { SessionService } from '../session/session.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
+import { AuthService } from '../auth/auth.service';
 import { GuestConversionDto } from './dto/guest-conversion.dto';
 import { GuestConversionReplayCrypto, GuestConversionReplayAad } from './guest-conversion-replay-crypto';
 
@@ -28,6 +28,7 @@ export class GuestIdentityService {
     private readonly sessions: SessionService,
     private readonly config: ConfigService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly auth: AuthService,
   ) { this.replayCrypto = new GuestConversionReplayCrypto(config); }
 
   async start(clientKey: string) {
@@ -72,12 +73,7 @@ export class GuestIdentityService {
     const email = input.email.trim().toLowerCase();
     const username = input.username.trim().toLowerCase();
     const requestedDisplayName = input.displayName?.normalize('NFC').trim();
-    const passwordHash = await argon2.hash(input.password, {
-      type: argon2.argon2id,
-      memoryCost: this.positiveInteger('ARGON2_MEMORY_COST_KIB', 19456),
-      timeCost: this.positiveInteger('ARGON2_TIME_COST', 2),
-      parallelism: this.positiveInteger('ARGON2_PARALLELISM', 1),
-    });
+    const passwordHash = await this.auth.hashGuestConversionPassword(input.password);
 
     let converted: { response: GuestConversionResponse; replayed: boolean } | { recoveryExpired: true } | { invalidReplay: true };
     try {
@@ -207,18 +203,11 @@ export class GuestIdentityService {
           throw new UnauthorizedException('Guest refresh token is no longer active');
         }
 
-        const user = await tx.user.create({
-          data: {
-            email,
-            username,
-            displayName: requestedDisplayName || guest.displayName || `Player-${guest.id.slice(0, 6)}`,
-            status: UserStatus.ACTIVE,
-            credential: { create: { passwordHash } },
-          },
-          select: {
-            id: true, email: true, username: true, displayName: true,
-            preferredLanguage: true, emailVerifiedAt: true,
-          },
+        const user = await this.auth.createGuestConversionUser(tx, {
+          email,
+          username,
+          displayName: requestedDisplayName || guest.displayName || `Player-${guest.id.slice(0, 6)}`,
+          passwordHash,
         });
 
         const guestProgress = await tx.guestProgress.findUnique({
