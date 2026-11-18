@@ -175,7 +175,6 @@ model User {
   updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
 
   sessions                UserSession[]
-  conversionReplay        GuestConversionReplay?
   credential              AccountCredential?
   externalIdentities      ExternalIdentity[]
   guestConversions        GuestIdentity[]          @relation("GuestConvertedUser")
@@ -254,6 +253,7 @@ model GuestIdentity {
 
   convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: Restrict)
   sessions                UserSession[]
+  conversionReplay        GuestConversionReplay?
   matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
   emailVerificationTokens EmailVerificationToken[]
   companionProfile        CompanionProfile?
