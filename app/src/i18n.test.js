@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { CATEGORIES } from './game/data.js';
-import { COPY, formatCopy, getCopy, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
+import { COPY, formatCopy, getCategoryTitle, getCopy, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
 
 test('English and Persian provide the same complete translation keys', () => {
   assert.deepEqual(Object.keys(COPY.fa).sort(), Object.keys(COPY.en).sort());
@@ -31,6 +31,17 @@ test('all UI translation references and data-backed category labels are present'
       assert.equal(language.modeNames[category.id]?.length, category.modes.length, `Missing ${category.id} mode translations`);
     }
   }
+});
+
+test('all game categories have localized display names in English and Persian', () => {
+  for (const category of CATEGORIES) {
+    assert.ok(COPY.en.categoryNames[category.id], `Missing English category name: ${category.id}`);
+    assert.ok(COPY.fa.categoryNames[category.id], `Missing Persian category name: ${category.id}`);
+    assert.equal(getCategoryTitle('fa', category.id), COPY.fa.categoryNames[category.id]);
+    assert.equal(getCategoryTitle('en', category.id), COPY.en.categoryNames[category.id]);
+  }
+  assert.equal(getCategoryTitle('unknown', 'memory'), 'Memory');
+  assert.equal(getCategoryTitle('fa', 'unknown', 'Fallback'), 'Fallback');
 });
 
 test('unknown languages fall back to English and interpolation avoids undefined text', () => {
