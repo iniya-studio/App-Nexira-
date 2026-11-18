@@ -154,6 +154,10 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     const result = await adapter.generate({ ...input, language: 'fa' });
 
     expect(result.canonicalLanguage).toBe('fa');
+    expect(result.canonicalPrompt).toBe('کدام سیاره کوتاه‌ترین سال را دارد؟');
+    expect(result.gradingRubric).toMatchObject({
+      notes: 'سیاره‌ای را انتخاب کن که دورهٔ گردش مداری کوتاه‌تری دارد.',
+    });
     expect(result.localized).toMatchObject({
       fa: {
         prompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟',
