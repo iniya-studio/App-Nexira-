@@ -250,6 +250,11 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
     // Simulate a lost HTTP response: recover using only the original guest refresh token and idempotency key.
     const recovered = await conversion.retryConversion(sourceRefreshToken, idempotencyKey);
     expect(recovered).toEqual(converted);
+    expect(await prisma.guestConversionReplay.count({ where: { guestIdentityId: firstGuest.id } })).toBe(1);
+    expect(await prisma.user.count({ where: { id: converted.user.id } })).toBe(1);
+    expect(await prisma.userSession.count({ where: { userId: converted.user.id } })).toBe(1);
+    expect(await prisma.refreshToken.count({ where: { session: { userId: converted.user.id } } })).toBe(1);
+
     const refreshService = new SessionService(
       prisma,
       config as unknown as ConfigService,
@@ -259,11 +264,8 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       recovered.tokens.refreshToken, randomBytes(32).toString('base64url'),
     );
     expect(refreshed.principal).toEqual(converted.principal);
+    expect(await prisma.refreshToken.count({ where: { session: { userId: converted.user.id } } })).toBe(2);
     expect(emailVerification.issueAndSend).toHaveBeenCalledTimes(1);
-    expect(await prisma.guestConversionReplay.count({ where: { guestIdentityId: firstGuest.id } })).toBe(1);
-    expect(await prisma.user.count({ where: { id: converted.user.id } })).toBe(1);
-    expect(await prisma.userSession.count({ where: { userId: converted.user.id } })).toBe(1);
-    expect(await prisma.refreshToken.count({ where: { session: { userId: converted.user.id } } })).toBe(1);
 
     await expect(conversion.retryConversion(
       sourceRefreshToken, randomBytes(32).toString('base64url'),
