@@ -19,6 +19,7 @@ import { createOnlineMatchmakingAdapter } from './game/onlineMatchmakingAdapter.
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCategoryTitle, getCopy, getQuestionCopy } from './i18n.js';
+import { getLocaleConfig } from './locales.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
@@ -281,7 +282,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.lang = language;
-    document.documentElement.dir = language === 'fa' ? 'rtl' : 'ltr';
+    document.documentElement.dir = getLocaleConfig(language).direction;
     document.title = text.pageTitle;
     document.querySelector('meta[name="description"]')?.setAttribute('content', text.pageDescription);
   }, [language]);
