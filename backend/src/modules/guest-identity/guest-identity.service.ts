@@ -501,11 +501,14 @@ export class GuestIdentityService {
 
   private async enforceDistributedLimit(scope: string, subject: string, max: number, windowSeconds: number): Promise<void> {
     const bucketKey = this.replayCrypto.hash(`${scope}:${subject}`);
-    const windowMs = windowSeconds * 1000;
-    const windowStartedAt = new Date(Math.floor(Date.now() / windowMs) * windowMs);
     const rows = await this.prisma.$queryRaw<Array<{ attemptCount: number }>>`
       INSERT INTO "GuestConversionRateLimit" ("bucketKey", "windowStartedAt", "attemptCount", "updatedAt")
-      VALUES (${bucketKey}, ${windowStartedAt}, 1, NOW())
+      VALUES (
+        ${bucketKey},
+        to_timestamp(floor(extract(epoch from NOW()) / ${windowSeconds}) * ${windowSeconds}),
+        1,
+        NOW()
+      )
       ON CONFLICT ("bucketKey") DO UPDATE
       SET "attemptCount" = CASE
             WHEN "GuestConversionRateLimit"."windowStartedAt" <> EXCLUDED."windowStartedAt" THEN 1
