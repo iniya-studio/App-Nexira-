@@ -889,3 +889,12 @@ model CompanionProfile {
 
   @@index([activeCharacterStoreItemId])
 }
+
+model GuestConversionRateLimit {
+  bucketKey       String   @id @db.VarChar(64)
+  windowStartedAt DateTime @db.Timestamptz(3)
+  attemptCount    Int
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([updatedAt])
+}
