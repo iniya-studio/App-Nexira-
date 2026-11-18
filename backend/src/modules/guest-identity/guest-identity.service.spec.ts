@@ -33,6 +33,11 @@ describe('GuestIdentityService', () => {
     } as unknown as SessionService;
     const config = {
       get: (key: string, fallback: string) => fallback,
+      getOrThrow: (key: string) => {
+        if (key === 'GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY') return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+        if (key === 'ACCESS_TOKEN_TTL_SECONDS') return '900';
+        throw new Error(key);
+      },
     } as unknown as ConfigService;
     const service = new GuestIdentityService(prisma, sessions, config, emailVerification, {} as AuthService);
 
@@ -59,6 +64,11 @@ describe('GuestIdentityService', () => {
     } as unknown as SessionService;
     const config = {
       get: (key: string, fallback: string) => key === 'GUEST_START_MAX_ATTEMPTS' ? '1' : fallback,
+      getOrThrow: (key: string) => {
+        if (key === 'GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY') return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+        if (key === 'ACCESS_TOKEN_TTL_SECONDS') return '900';
+        throw new Error(key);
+      },
     } as unknown as ConfigService;
     const service = new GuestIdentityService(prisma, sessions, config, emailVerification, {} as AuthService);
 

@@ -58,12 +58,41 @@ describe('GuestConversionReplayCrypto', () => {
     expect(crypto.equalsHash(hash, 'not-a-hash')).toBe(false);
   });
 
-  it('rejects replay windows longer than the access token lifetime', () => {
+  it('fails during construction when the replay window exceeds the access token lifetime', () => {
     const config = {
       getOrThrow: jest.fn((name: string) => name === 'ACCESS_TOKEN_TTL_SECONDS' ? '60' : key),
       get: jest.fn((name: string) => name === 'GUEST_CONVERSION_REPLAY_WINDOW_SECONDS' ? '61' : undefined),
     };
-    const crypto = new GuestConversionReplayCrypto(config as unknown as ConfigService);
-    expect(() => crypto.replayWindowSeconds()).toThrow();
+    expect(() => new GuestConversionReplayCrypto(config as unknown as ConfigService)).toThrow(
+      'GUEST_CONVERSION_REPLAY_WINDOW_SECONDS must be positive and no greater than ACCESS_TOKEN_TTL_SECONDS',
+    );
+  });
+
+  it('fails during construction when the independent encryption key is missing', () => {
+    const config = {
+      getOrThrow: jest.fn((name: string) => {
+        if (name === 'ACCESS_TOKEN_TTL_SECONDS') return '900';
+        throw new Error(name);
+      }),
+      get: jest.fn(() => '300'),
+    };
+    expect(() => new GuestConversionReplayCrypto(config as unknown as ConfigService))
+      .toThrow('GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY');
+  });
+
+  it('rejects non-canonical or incorrectly sized encryption keys during construction', () => {
+    for (const invalidKey of ['', 'not-base64', 'A'.repeat(43), 'A'.repeat(43) + '===']) {
+      const config = {
+        getOrThrow: jest.fn((name: string) => {
+          if (name === 'ACCESS_TOKEN_TTL_SECONDS') return '900';
+          if (name === 'GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY') return invalidKey;
+          throw new Error(name);
+        }),
+        get: jest.fn(() => '300'),
+      };
+      expect(() => new GuestConversionReplayCrypto(config as unknown as ConfigService)).toThrow(
+        'GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY must be canonical base64 for exactly 32 bytes',
+      );
+    }
   });
 });

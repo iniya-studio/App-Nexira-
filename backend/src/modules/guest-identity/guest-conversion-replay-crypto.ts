@@ -11,7 +11,12 @@ export type GuestConversionReplayAad = {
 };
 
 export class GuestConversionReplayCrypto {
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService) {
+    // Validate mandatory cryptographic configuration during application startup,
+    // never on the first conversion/recovery request.
+    this.key();
+    this.replayWindowSeconds();
+  }
 
   hash(value: string): string {
     return createHash('sha256').update(value, 'utf8').digest('hex');
@@ -69,7 +74,7 @@ export class GuestConversionReplayCrypto {
   private key(): Buffer {
     const raw = this.config.getOrThrow<string>('GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY');
     const key = Buffer.from(raw, 'base64');
-    if (key.length !== 32 || key.toString('base64').replace(/=+$/, '') !== raw.replace(/=+$/, '')) {
+    if (!/^[A-Za-z0-9+/]{43}=$/.test(raw) || key.length !== 32 || key.toString('base64') !== raw) {
       throw new Error('GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY must be canonical base64 for exactly 32 bytes');
     }
     return key;

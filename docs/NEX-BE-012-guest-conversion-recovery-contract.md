@@ -270,4 +270,4 @@ No production release is authorized by passing this implementation sequence alon
 
 ---
 
-**End of NEX-BE-012 v1.2**
+**End of NEX-BE-012 v1.4**
