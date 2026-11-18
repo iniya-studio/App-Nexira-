@@ -118,7 +118,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     expect(body.text.format.schema.additionalProperties).toBe(false);
     expect(body.tools).toBeUndefined();
     expect(body.input[0].content[0].text).toContain('authoritative language selected by the user');
-    expect(body.input[0].content[0].text).toContain('Do not draft in English and translate afterward');
+    expect(body.input[0].content[0].text).toContain('must not draft in English and translate afterward');
     expect(body.input[1].content[0].text).toContain('"language":"en"');
     const providerInput = JSON.stringify(body.input);
     expect(providerInput).toContain(excludedFingerprint);
