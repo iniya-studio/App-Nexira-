@@ -486,7 +486,7 @@ export default function App() {
         matchmakingTransitionRef.current = null;
         const queue = await adapter.start({
           category: category?.id ?? 'general',
-          language: profileRef.current.settings.language,
+          language: profileRef.current.settings.matchLanguage,
         });
         setMatchmakingView({
           ...queue,
@@ -510,7 +510,7 @@ export default function App() {
         onlineMatchAdapterRef.current = adapter;
         const next = await adapter.start({
           category: category?.id ?? 'general',
-          language: profileRef.current.settings.language,
+          language: profileRef.current.settings.matchLanguage,
         });
         setMatchView({ ...next, categoryId: category?.id ?? 'general', categoryTitle: category?.title ?? 'General' });
         setOnlineAnswerText('');
@@ -524,7 +524,7 @@ export default function App() {
         category,
         mode,
         matchId: makeRunId(),
-        language: profileRef.current.settings.language,
+        language: profileRef.current.settings.matchLanguage,
       });
       setMatchView({ ...next, categoryId: category?.id ?? 'general', categoryTitle: category?.title ?? 'General' });
       setMatchError('');
@@ -666,7 +666,7 @@ export default function App() {
         onlineMatchAdapterRef.current = matchAdapter;
         const restored = await matchAdapter.resume(activeAiMatch.id, {
           mode: '1vAI',
-          language: profileRef.current.settings.language,
+          language: profileRef.current.settings.matchLanguage,
         });
         if (!active || !['splash', 'home'].includes(screenRef.current)) {
           matchAdapter.reset();
