@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Document:** NEX-BE-012  
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** Proposed technical contract — implementation not yet authorized by this document  
 **Target branch:** `main`  
 **Related contracts:** NEX-BE-002 Identity & Access; NEX-BE-003 Guest Session Foundation; NEX-BE-010 Progression & Ranking Settlement
@@ -58,7 +58,7 @@ Required header:
 Required request field:
 - `refreshToken`: current raw refresh token belonging to the authenticated guest session.
 
-Other fields remain the existing validated `GuestConversionDto` registration fields.
+Other fields remain the existing validated `GuestConversionDto` registration fields. The route is the existing `POST /api/v1/guest/convert`; do not introduce a parallel `/auth/convert-guest` route. Extend the DTO to accept `refreshToken`; the controller reads `Idempotency-Key` from request headers and passes both values to the application service. Redact the refresh token and idempotency key from request logs.
 
 The server must reject the request before account creation if:
 - the principal is not GUEST;
@@ -79,21 +79,22 @@ Required body:
 - `refreshToken`: the original guest refresh token supplied to the conversion request.
 
 The endpoint must:
-1. Hash the presented refresh token and locate the matching RefreshToken record without returning whether an arbitrary token exists.
-2. Resolve the immutable source session and guest identity associated with that record.
-3. Acquire the same guest-principal advisory lock used by conversion, then follow the documented GuestIdentity → UserSession → RefreshToken row-lock order.
-4. Load the unique replay record for that guest and verify source session, source refresh-token hash, idempotency-key hash, expiry, and ciphertext presence.
-5. Decrypt and return the stored response only when every check succeeds.
-6. Return generic authentication failure for unknown/mismatched token or key. Do not reveal guest IDs, user IDs, account email, or whether a different key has a replay record.
-7. Return `CONVERSION_RECOVERY_EXPIRED` when the matching replay record exists but its replay window has expired or its ciphertext has been purged.
+1. Validate token/key encoding and hash the presented refresh token; locate the RefreshToken row without revealing whether an arbitrary token exists.
+2. Resolve the immutable source session and guest identity associated with that row. The source refresh-token row is expected to be revoked after conversion; revocation does not invalidate its use as a narrowly scoped recovery proof.
+3. Acquire the same guest-principal advisory lock as conversion.
+4. Follow the exact established conversion lock order: sorted matchmaking bucket advisory locks, sorted active Match row locks, GuestIdentity row lock, source UserSession row lock, then source RefreshToken row lock. Do not invent a separate order or acquire these rows in reverse.
+5. Load the unique replay record for the guest and verify source session, source refresh-token hash, idempotency-key hash, expiry, and ciphertext presence.
+6. Decrypt and return the stored response only when every check succeeds.
+7. Return generic authentication failure for unknown/mismatched token or key. Do not reveal guest IDs, user IDs, account email, or whether a different key has a replay record.
+8. Return `CONVERSION_RECOVERY_EXPIRED` when the matching replay record exists but its replay window has expired or its ciphertext has been purged.
 
 The recovery endpoint must never create a User, UserSession, RefreshToken, XPTransaction, profile transfer, matchmaking transfer, or conversion audit success event.
 
 ### 4.3 Response
 
-Return the exact original successful conversion response envelope, including the original principal, session, access token, refresh token, expiry fields, and the original email-verification status/delivery result if it was already determined.
+Return the deterministic conversion response envelope persisted in the transaction: principal, session, access token, refresh token, expiry fields, and `emailVerification: { required: true, verified: false }`. Do not include an email-delivery result in this response. This response must be identical on initial success and every successful recovery.
 
-If the first HTTP response was lost before email delivery completed, recovery may return the conversion result with email verification still required and a non-success/unknown delivery state. The client must use the registered-account email-resend flow; it must not repeat conversion.
+Email delivery is a post-commit side effect and cannot be represented truthfully inside a response encrypted before commit. The service may attempt delivery after commit, but its result is not part of the conversion response contract. A delivery failure must not change the committed conversion result; the client can use the registered-account email-resend flow. Recovery must not send another email.
 
 The recovered access token may be close to expiry. The client must use the returned USER refresh token through the normal Session refresh endpoint when required.
 
@@ -110,7 +111,6 @@ model GuestConversionReplay {
   sourceSessionId          String   @unique @db.Uuid
   sourceRefreshTokenHash   String   @unique @db.VarChar(255)
   idempotencyKeyHash       String   @db.VarChar(64)
-  requestFingerprint       String   @db.VarChar(64)
   targetUserId             String   @db.Uuid
   responseCiphertext       String?  @db.Text
   expiresAt                DateTime @db.Timestamptz(3)
@@ -126,7 +126,7 @@ model GuestConversionReplay {
 }
 ```
 
-Required schema relations must be added to GuestIdentity, UserSession, and User. Validate the final names and relation cardinalities against the current Prisma schema before migration generation.
+Required optional inverse relations must be added to GuestIdentity, UserSession, and User (one replay per converted guest; one source session per replay; one target user may have multiple converted guests). Validate final relation names and cardinalities against the current Prisma schema before migration generation.
 
 The unique guest relation guarantees at most one successful conversion replay record per guest. The unique source session and source refresh-token hash bind the replay to the exact credential lineage. Keep a minimal tombstone after ciphertext cleanup so a converted guest cannot be mistaken for an unconverted guest; retention/deletion must follow the approved guest-data retention policy.
 
@@ -140,29 +140,36 @@ The replay record must not store raw refresh tokens, raw idempotency keys, passw
 - Store `SHA-256(idempotencyKey)` in `idempotencyKeyHash`.
 - Compare hashes in constant time after validating their expected encoding and length.
 
-### 6.2 Request fingerprint
+### 6.2 Idempotency binding
 
-Compute an HMAC-SHA-256 over a canonical, versioned representation of the normalized conversion request (normalized email, normalized username, normalized display name, and submitted password). Use a dedicated `GUEST_CONVERSION_FINGERPRINT_KEY` (32 random bytes or stronger, base64 encoded) stored outside source control and distinct from JWT and response-encryption keys.
+The idempotency key and original guest refresh token are the complete recovery proof. The recovery endpoint intentionally does not request the password or registration body again; clients must not persist passwords merely to recover a response. Therefore the first committed request associated with a guest/source session is authoritative for that idempotency key, and recovery always returns its original encrypted response. The client must never reuse an idempotency key for a different operation. A new key after an ambiguous outcome is prohibited.
 
-The HMAC is only a comparison binding; never persist the canonical request or plaintext password. A repeated conversion request with the same guest and key but a different fingerprint must return Conflict and must not reveal which field differs.
+Because the password is not re-submitted to the recovery endpoint, the server cannot safely compare a retry request-body fingerprint during recovery. Do not add a password-derived fingerprint or a misleading `409` guarantee that the recovery endpoint cannot enforce. The source guest/session uniqueness and first-commit-wins semantics prevent duplicate conversion side effects.
 
 ### 6.3 Response encryption
 
 - Use AES-256-GCM with a fresh cryptographically random 96-bit IV for each replay record.
 - Store IV, authentication tag, and ciphertext in a versioned, unambiguous encoding.
-- Use `REFRESH_RETRY_ENCRYPTION_KEY` only if the deployment confirms it is independently generated and managed as a dedicated 32-byte key. Otherwise provision a separate `GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY`.
+- Use a dedicated `GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY` (base64-encoded 32-byte key), independently generated and managed. Do not reuse `JWT_SECRET` or `REFRESH_RETRY_ENCRYPTION_KEY`.
 - Bind immutable replay metadata as AEAD additional authenticated data (AAD): replay record ID, guest ID, source session ID, source refresh-token hash, target user ID, and idempotency-key hash.
 - Include an explicit ciphertext format version to support future key rotation.
 - Never log decrypted response data, tokens, keys, ciphertext, or cryptographic errors containing secrets.
 
 If key material is missing, malformed, or unavailable, fail closed. Do not store plaintext response data.
 
+### 6.4 Required environment configuration
+
+Add `GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY=REPLACE_WITH_INDEPENDENT_BASE64_32_BYTE_SECRET` and `GUEST_CONVERSION_REPLAY_WINDOW_SECONDS=300` to `backend/.env.example` and runtime configuration validation. The replay window must be a positive integer and must not exceed the access-token lifetime used by `AccessTokenService`.
+
 ## 7. Transaction and lock contract
 
-The initial conversion transaction must atomically:
-1. Acquire the existing guest-principal advisory lock and existing matchmaking/match locks in their established order.
-2. Lock and revalidate GuestIdentity and the authenticated UserSession.
-3. Lock and validate the supplied source RefreshToken row; confirm it belongs to the exact guest session and is currently active.
+The initial conversion transaction must atomically follow the established order already implemented in `GuestIdentityService.convert`:
+1. Acquire the guest-principal advisory transaction lock.
+2. Acquire all affected matchmaking bucket advisory locks in sorted order.
+3. Acquire affected active Match row locks in sorted match-ID order.
+4. Lock and revalidate the GuestIdentity row.
+5. Lock and revalidate the exact authenticated guest UserSession row.
+6. Lock and validate the supplied source RefreshToken row; confirm it belongs to that exact session and is unconsumed, unrevoked, and unexpired at conversion start.
 4. Create the User and transfer progression, XP ledger, profile, and eligible queue/match ownership exactly once.
 5. Mark GuestIdentity CONVERTED and revoke guest sessions and refresh tokens.
 6. Create the USER session and its initial refresh-token record.
@@ -180,15 +187,14 @@ Recovery must use the same principal advisory lock and a compatible lock order. 
 | Situation | Required behavior |
 |---|---|
 | First valid conversion request | Execute once; persist encrypted response atomically |
-| Same guest, same source refresh token, same key, same fingerprint, before expiry | Return exact original response |
-| Same guest and key, changed request fingerprint | 409 Conflict; no side effects |
+| Same guest/source token/key retry | Return the original committed response; no side effects, regardless of whether the client still has the original request body |
 | Same guest, different key after successful conversion | Reject; do not create another session or replay response |
 | Different guest using the same key | No cross-guest lookup or response disclosure |
 | Wrong refresh token or wrong key on retry | Generic 401 |
 | Correct pair after expiry | Stable recovery-expired response; no credentials returned |
 | Ciphertext tampered with or authentication tag invalid | Fail closed; audit safe failure code; no credentials returned |
 | Encryption key unavailable | Fail closed; do not downgrade to plaintext |
-| Concurrent duplicate initial conversion | Exactly one transaction succeeds; the loser may recover only with the exact original refresh-token/key pair |
+| Concurrent duplicate initial conversion | Exactly one transaction commits; a concurrent request that already passed the access guard may return the stored response only when it presents the exact original refresh-token/key pair; otherwise reject |
 | Conversion transaction rollback | No replay record exists; original guest session and refresh token remain usable |
 
 A retry must never rotate the already-created USER refresh token. Rotation remains exclusively the normal Session refresh operation.
@@ -208,12 +214,11 @@ Do not persist the guest password in order to support recovery. Do not generate 
 ## 10. Email verification boundary
 
 Conversion success and email delivery are separate outcomes:
-- User creation, guest conversion, data transfer, USER session, and replay response are one database transaction.
-- Email verification token creation/delivery occurs after commit.
+- User creation, guest conversion, data transfer, USER session, and deterministic conversion response are one database transaction.
+- Email verification token creation/delivery occurs after commit and is not included in the encrypted replay response.
 - A delivery failure must not invalidate conversion or delete the replay record.
 - A recovery request must not create another email token or send another email.
 - The registered user can request verification resend through the authenticated email-resend endpoint.
-- Do not return a false claim that email was sent if delivery outcome is unknown.
 
 ## 11. Rate limiting, abuse controls, and observability
 
@@ -264,4 +269,4 @@ No production release is authorized by passing this implementation sequence alon
 
 ---
 
-**End of NEX-BE-012 v1.0**
+**End of NEX-BE-012 v1.1**
