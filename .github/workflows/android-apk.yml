@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/android-keystore-recovery-proof
     paths:
       - 'app/**'
       - '.github/workflows/android-apk.yml'
