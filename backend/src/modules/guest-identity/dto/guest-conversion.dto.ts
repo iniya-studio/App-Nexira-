@@ -1,6 +1,11 @@
 import { IsEmail, IsString, Length, Matches, MaxLength, ValidateIf } from 'class-validator';
 
 export class GuestConversionDto {
+  @IsString()
+  @Length(43, 128)
+  @Matches(/^[A-Za-z0-9_-]+$/)
+  refreshToken!: string;
+
   @IsEmail()
   @MaxLength(254)
   email!: string;
