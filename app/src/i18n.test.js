@@ -89,6 +89,10 @@ test('locale registry is the canonical source for currently supported locales', 
 test('profile locale migration preserves supported locales and safely resets unknown locales', () => {
   assert.equal(normalizeProfile({ settings: { language: 'fa' } }).settings.language, 'fa');
   assert.equal(normalizeProfile({ settings: { language: 'en' } }).settings.language, 'en');
+  assert.equal(normalizeProfile({ settings: { language: 'fa' } }).settings.matchLanguage, 'fa');
+  assert.equal(normalizeProfile({ settings: { language: 'en' } }).settings.matchLanguage, 'en');
+  assert.equal(normalizeProfile({ settings: { language: 'fa', matchLanguage: 'en' } }).settings.matchLanguage, 'en');
+  assert.equal(normalizeProfile({ settings: { language: 'en', matchLanguage: 'fa' } }).settings.matchLanguage, 'fa');
   assert.equal(normalizeProfile({ settings: { language: 'ar' } }).settings.language, DEFAULT_LOCALE);
   assert.equal(normalizeProfile({ settings: { language: '__proto__' } }).settings.language, DEFAULT_LOCALE);
 });
