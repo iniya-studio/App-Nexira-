@@ -2,7 +2,7 @@
 
 **Project:** NEXIRA  
 **Document:** NEX-BE-012  
-**Version:** 1.1  
+**Version:** 1.2  
 **Status:** Proposed technical contract — implementation not yet authorized by this document  
 **Target branch:** `main`  
 **Related contracts:** NEX-BE-002 Identity & Access; NEX-BE-003 Guest Session Foundation; NEX-BE-010 Progression & Ranking Settlement
@@ -82,7 +82,7 @@ The endpoint must:
 1. Validate token/key encoding and hash the presented refresh token; locate the RefreshToken row without revealing whether an arbitrary token exists.
 2. Resolve the immutable source session and guest identity associated with that row. The source refresh-token row is expected to be revoked after conversion; revocation does not invalidate its use as a narrowly scoped recovery proof.
 3. Acquire the same guest-principal advisory lock as conversion.
-4. Follow the exact established conversion lock order: sorted matchmaking bucket advisory locks, sorted active Match row locks, GuestIdentity row lock, source UserSession row lock, then source RefreshToken row lock. Do not invent a separate order or acquire these rows in reverse.
+4. For the read-only recovery path, acquire locks in this order: GuestIdentity row, source UserSession row, then source RefreshToken row. The shared guest-principal advisory lock serializes recovery with conversion. Do not acquire matchmaking bucket or Match row locks in recovery: recovery does not mutate queue/match state, and taking unrelated match locks would add contention without strengthening correctness.
 5. Load the unique replay record for the guest and verify source session, source refresh-token hash, idempotency-key hash, expiry, and ciphertext presence.
 6. Decrypt and return the stored response only when every check succeeds.
 7. Return generic authentication failure for unknown/mismatched token or key. Do not reveal guest IDs, user IDs, account email, or whether a different key has a replay record.
@@ -269,4 +269,4 @@ No production release is authorized by passing this implementation sequence alon
 
 ---
 
-**End of NEX-BE-012 v1.1**
+**End of NEX-BE-012 v1.2**
