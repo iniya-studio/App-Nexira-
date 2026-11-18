@@ -176,6 +176,7 @@ export default function App() {
 
   const language = profile.settings.language;
   const text = getCopy(language);
+  const localeConfig = getLocaleConfig(language);
   const playerName = profile.playerName === 'OPERATOR' ? text.operatorDefault : profile.playerName;
   const prefersReducedMotion = profile.settings.reducedMotion;
   const publicOneVsOneEnabled = import.meta.env.VITE_ENABLE_PUBLIC_1V1 === 'true';
@@ -282,7 +283,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.lang = language;
-    document.documentElement.dir = getLocaleConfig(language).direction;
+    document.documentElement.dir = localeConfig.direction;
     document.title = text.pageTitle;
     document.querySelector('meta[name="description"]')?.setAttribute('content', text.pageDescription);
   }, [language]);
@@ -1000,7 +1001,7 @@ export default function App() {
     className={`app-shell${prefersReducedMotion ? ' reduced-motion' : ''}`}
     data-screen={screen}
     data-session-state={sessionState.status}
-    dir={language === 'fa' ? 'rtl' : 'ltr'}
+    dir={localeConfig.direction}
     style={{ '--page-background-image': `var(--background-${screen}, var(--nexira-background-image))` }}
   >
     <div className="ambient ambient--one" />
@@ -1042,7 +1043,7 @@ export default function App() {
           <span className="reference-level">{text.level} {displayLevel}</span>
           <div className="reference-xp-row">
             <span className="reference-xp-track"><i style={{ width: `${displayProgressPercent}%` }} /></span>
-            <small>{displayXp.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')} / {threshold.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')} XP</small>
+            <small>{displayXp.toLocaleString(localeConfig.intlLocale)} / {threshold.toLocaleString(localeConfig.intlLocale)} XP</small>
           </div>
         </div>
         <button className="reference-settings-button" onClick={() => navigate('settings')} aria-label={text.settings}><Settings size={25} /></button>
@@ -1073,8 +1074,8 @@ export default function App() {
         <div className="reference-stats-panel">
           <div className="reference-stats-heading"><Activity size={28} /><strong>{language === 'fa' ? 'آمار شما' : 'Your Stats'}</strong></div>
           <div className="reference-stats">
-            <div><Trophy size={20} /><strong>{profile.battles.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</strong><small>{language === 'fa' ? 'مسابقات' : 'Matches'}</small></div>
-            <div><Flame size={20} /><strong>{profile.bestScore.toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</strong><small>{language === 'fa' ? 'بهترین امتیاز' : 'Best Score'}</small></div>
+            <div><Trophy size={20} /><strong>{profile.battles.toLocaleString(localeConfig.intlLocale)}</strong><small>{language === 'fa' ? 'مسابقات' : 'Matches'}</small></div>
+            <div><Flame size={20} /><strong>{profile.bestScore.toLocaleString(localeConfig.intlLocale)}</strong><small>{language === 'fa' ? 'بهترین امتیاز' : 'Best Score'}</small></div>
             <div><Target size={20} /><strong>{accuracy}%</strong><small>{language === 'fa' ? 'دقت پاسخ' : 'Accuracy'}</small></div>
           </div>
         </div>
@@ -1488,7 +1489,7 @@ export default function App() {
       </div>
       <ScreenHeading eyebrow={text.operatorDossierEyebrow} title={text.profileTitle} accent={text.profileAccent} />
       <GlassPanel className="profile-panel" data-view={profileView}>
-        <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {displayLevel} · {text.totalXp} {BigInt(displayTotalXp).toLocaleString(language === 'fa' ? 'fa-IR' : 'en-US')}</small></span></div>
+        <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {displayLevel} · {text.totalXp} {BigInt(displayTotalXp).toLocaleString(localeConfig.intlLocale)}</small></span></div>
         <div className="panel-note" role="status" data-session-state={sessionState.status}>
           {language === 'fa'
             ? ({ idle: 'وضعیت حساب: در انتظار اتصال', initializing: 'وضعیت حساب: در حال اتصال امن…', guest: 'حساب مهمان: فعال', authenticated: 'حساب ثبت‌شده: متصل', offline: 'اتصال به سرور برقرار نیست؛ اطلاعات محلی اپ در دسترس است.', error: 'اتصال نشست کامل نشد؛ تنظیمات سرور را بررسی کنید.', unsupported: 'نشست پایدار در این پلتفرم هنوز فعال نیست.', 'signed-out': 'از حساب خارج شده‌اید.' }[sessionState.status] ?? 'وضعیت حساب نامشخص است.')
