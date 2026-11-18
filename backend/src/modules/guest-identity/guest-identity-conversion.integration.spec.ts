@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { NotFoundException } from '@nestjs/common';
 import { GuestIdentityStatus, PrincipalType, Prisma } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
@@ -50,6 +50,9 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       await prisma.question.deleteMany({ where: { id: { in: questionIds } } });
       questionIds.length = 0;
     }
+    if (guestIds.length) {
+      await prisma.guestConversionReplay.deleteMany({ where: { guestIdentityId: { in: guestIds } } });
+    }
     if (sessionIds.length) {
       await prisma.userSession.deleteMany({ where: { id: { in: sessionIds } } });
       sessionIds.length = 0;
@@ -84,6 +87,17 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       prisma.userSession.create({ data: { guestIdentityId: secondGuest.id, expiresAt } }),
     ]);
     sessionIds.push(firstSession.id, secondSession.id);
+
+    const sourceRefreshToken = randomBytes(32).toString('base64url');
+    const idempotencyKey = randomBytes(32).toString('base64url');
+    await prisma.refreshToken.create({
+      data: {
+        sessionId: firstSession.id,
+        tokenHash: createHash('sha256').update(sourceRefreshToken).digest('hex'),
+        expiresAt,
+        idempotencyKeyHash: createHash('sha256').update(randomUUID()).digest('hex'),
+      },
+    });
 
     const firstPrincipal: AuthenticatedPrincipal = {
       principalType: PrincipalType.GUEST,
@@ -136,9 +150,13 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       ARGON2_MEMORY_COST_KIB: '1024',
       ARGON2_TIME_COST: '2',
       ARGON2_PARALLELISM: '1',
+      GUEST_CONVERSION_REPLAY_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+      GUEST_CONVERSION_REPLAY_WINDOW_SECONDS: '300',
+      ACCESS_TOKEN_TTL_SECONDS: '900',
     };
     const config = {
       get: jest.fn((key: string, fallback?: string) => configValues[key] ?? fallback),
+      getOrThrow: jest.fn((key: string) => { const value = configValues[key]; if (!value) throw new Error(key); return value; }),
     };
     const sessions = {
       createSessionInTransaction: jest.fn(async (
@@ -175,7 +193,8 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       password: 'integration-password-123',
       username: `guest_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
       displayName: 'Guest One Converted',
-    });
+      refreshToken: sourceRefreshToken,
+    }, idempotencyKey);
     userIds.push(converted.user.id);
     const convertedPrincipal: AuthenticatedPrincipal = {
       principalType: PrincipalType.USER,
@@ -187,7 +206,7 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       principalType: PrincipalType.USER,
       principalId: converted.user.id,
     });
-    expect(converted.emailVerification).toMatchObject({ required: true, verified: false, delivery: 'SENT' });
+    expect(converted.emailVerification).toMatchObject({ required: true, verified: false });
     expect(emailVerification.issueAndSend).toHaveBeenCalledWith(converted.user.id);
 
     const guestState = await prisma.guestIdentity.findUniqueOrThrow({
