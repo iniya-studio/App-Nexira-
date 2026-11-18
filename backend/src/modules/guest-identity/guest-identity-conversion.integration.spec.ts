@@ -9,6 +9,7 @@ import { MatchmakingService } from '../matchmaking/matchmaking.service';
 import { RoundService } from '../match/round.service';
 import { AnswerService } from '../match/answer.service';
 import { EmailVerificationService } from '../auth/email-verification.service';
+import { AuthService } from '../auth/auth.service';
 import { SessionService } from '../session/session.service';
 import { AccessTokenService } from '../identity/access-token.service';
 import { GuestIdentityService } from './guest-identity.service';
@@ -198,11 +199,19 @@ describe('Guest conversion during an active public 1v1 match integration', () =>
       }),
     };
     const emailVerification = { issueAndSend: jest.fn().mockResolvedValue('SENT') };
+    const auth = new AuthService(
+      prisma,
+      sessions as unknown as SessionService,
+      config as unknown as ConfigService,
+      {} as never,
+      emailVerification as unknown as EmailVerificationService,
+    );
     const conversion = new GuestIdentityService(
       prisma,
       sessions as unknown as SessionService,
       config as unknown as ConfigService,
       emailVerification as unknown as EmailVerificationService,
+      auth,
     );
 
     const converted = await conversion.convert(firstPrincipal, {
