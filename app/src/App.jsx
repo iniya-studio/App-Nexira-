@@ -18,7 +18,7 @@ import { createMatchmakingApi } from './api/matchmakingApi.js';
 import { createOnlineMatchmakingAdapter } from './game/onlineMatchmakingAdapter.js';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { formatCopy, getCopy, getQuestionCopy } from './i18n.js';
+import { formatCopy, getCategoryTitle, getCopy, getQuestionCopy } from './i18n.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
@@ -630,7 +630,7 @@ export default function App() {
         if (next.status === 'WAITING' && publicOneVsOneEnabled) {
           setMatchmakingView({
             ...next,
-            categoryTitle: categoryById(next.category)?.title ?? next.category ?? 'General',
+            categoryTitle: getCategoryTitle(language, next.category, categoryById(next.category)?.title ?? next.category ?? 'General'),
           });
           setScreen('matchmaking');
           recoveryCompleted = true;
@@ -957,7 +957,7 @@ export default function App() {
         if (active && next) {
           setMatchmakingView((previous) => ({
             ...next,
-            categoryTitle: categoryById(next.category)?.title ?? previous?.categoryTitle ?? 'General',
+            categoryTitle: getCategoryTitle(language, next.category, categoryById(next.category)?.title ?? previous?.categoryTitle ?? 'General'),
           }));
           if (next.status === 'MATCHED' && next.matchId) {
             await openMatchedOnlineMatch(next);
@@ -1105,7 +1105,7 @@ export default function App() {
             setScreen('modes');
           }}>
             <span className="tile-top"><span className="tile-icon"><Icon size={20} /></span><span className="tile-index">0{index + 1}</span></span>
-            <strong>{item.title}</strong><span className="tile-subtitle">{text.categorySubtitles[item.id] ?? item.subtitle}</span>
+            <strong>{getCategoryTitle(language, item.id, item.title)}</strong><span className="tile-subtitle">{text.categorySubtitles[item.id] ?? item.subtitle}</span>
             <span className="tile-arrow"><ChevronRight size={16} /></span>
             {savedStats && <span className="tile-progress">{savedStats.battles} {text.battles.toLowerCase()} · {text.bestShort} {savedStats.bestScore}</span>}
           </button>;
@@ -1121,11 +1121,11 @@ export default function App() {
       const Icon = CATEGORY_ICONS[selectedCategory.icon] ?? Activity;
       return <ScreenFrame className="categories-screen">
         <button className="back-link" onClick={() => navigate('categories')}><ArrowLeft size={15} /> {text.back}</button>
-        <ScreenHeading eyebrow={`${selectedCategory.title.toUpperCase()} · ${text.modeEyebrow}`} title={text.modeTitle} accent={text.modeAccent} description={text.modeDescription} />
+        <ScreenHeading eyebrow={`${getCategoryTitle(language, selectedCategory.id, selectedCategory.title).toUpperCase()} · ${text.modeEyebrow}`} title={text.modeTitle} accent={text.modeAccent} description={text.modeDescription} />
         {matchError && <p className="panel-note" role="alert">{matchError}</p>}
         <GlassPanel variant="feature" className="mode-selection-panel">
           <div className={`mode-category-card tone-${selectedCategory.tone}`}>
-            <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{selectedCategory.title}</strong><small>{text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
+            <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{getCategoryTitle(language, selectedCategory.id, selectedCategory.title)}</strong><small>{text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
             <span className="mode-question-count">{selectedCategory.questions.length}<small>{text.rounds}</small></span>
           </div>
           <div className="mode-list">
