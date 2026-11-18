@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { CATEGORIES } from './game/data.js';
+import { CATEGORIES, normalizeProfile } from './game/data.js';
+import { DEFAULT_LOCALE, getLocaleConfig, getSupportedLocales, isSupportedLocale, resolveLocale } from './locales.js';
 import { COPY, formatCopy, getCategoryTitle, getCopy, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
 
 test('English and Persian provide the same complete translation keys', () => {
@@ -70,4 +71,24 @@ test('every question and answer option has Persian display text without changing
 
   assert.deepEqual(PERSIAN_QUESTIONS.language[1].options, CATEGORIES.find(({ id }) => id === 'language').questions[1].options);
   assert.deepEqual(PERSIAN_QUESTIONS.science[1].options, CATEGORIES.find(({ id }) => id === 'science').questions[1].options);
+});
+
+test('locale registry is the canonical source for currently supported locales', () => {
+  assert.deepEqual(getSupportedLocales().map(({ code }) => code).sort(), ['en', 'fa']);
+  assert.equal(DEFAULT_LOCALE, 'en');
+  assert.equal(isSupportedLocale('en'), true);
+  assert.equal(isSupportedLocale('fa'), true);
+  assert.equal(isSupportedLocale('ar'), false);
+  assert.equal(resolveLocale('fa'), 'fa');
+  assert.equal(resolveLocale('ar'), DEFAULT_LOCALE);
+  assert.equal(resolveLocale(null), DEFAULT_LOCALE);
+  assert.equal(getLocaleConfig('fa').direction, 'rtl');
+  assert.equal(getLocaleConfig('en').direction, 'ltr');
+});
+
+test('profile locale migration preserves supported locales and safely resets unknown locales', () => {
+  assert.equal(normalizeProfile({ settings: { language: 'fa' } }).settings.language, 'fa');
+  assert.equal(normalizeProfile({ settings: { language: 'en' } }).settings.language, 'en');
+  assert.equal(normalizeProfile({ settings: { language: 'ar' } }).settings.language, DEFAULT_LOCALE);
+  assert.equal(normalizeProfile({ settings: { language: '__proto__' } }).settings.language, DEFAULT_LOCALE);
 });
