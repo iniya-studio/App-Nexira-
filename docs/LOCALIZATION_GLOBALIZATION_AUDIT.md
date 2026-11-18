@@ -1,0 +1,98 @@
+# NEXIRA Global Localization Audit
+
+**Status:** Audit baseline — implementation not yet complete  
+**Branch:** `main`  
+**Audit basis:** Current `main` source inspected on 2026-11-19  
+**Scope:** Frontend locale selection, translation coverage, persistence, directionality, formatting, game content, and test gates.
+
+## Verified baseline
+
+- `app/src/i18n.js` currently exports only two complete UI dictionaries: `en` and `fa`.
+- `getCopy(language)` silently falls back to English for every unknown locale.
+- `getQuestionCopy(language, ...)` only selects Persian question copy; all other locales receive the original question.
+- `app/src/game/data.js` normalizes persisted language to exactly `fa` or `en`; any other value is rewritten to English.
+- `app/src/App.jsx` reads the selected locale through `getCopy`, but also contains many inline `language === 'fa'` branches. The source audit found 135 locale-sensitive matches, including hard-coded UI copy, number formatting, matchmaking language labels, and direction handling.
+- Document direction is currently RTL only for `fa`; all other values are LTR.
+- The language screen in `app/src/App.jsx` renders two fixed buttons (English and Persian), not a locale selector.
+- Existing tests in `app/src/i18n.test.js` assert parity only between English and Persian. They also verify current Persian question coverage and UI references.
+- The current question dataset has Persian translations for the existing categories; other locales do not have localized question packs.
+- The current English language-selection description explicitly says game questions remain English in this phase; the Persian equivalent says the same.
+- The current language setting is persisted in the profile settings. Initial language selection has a separate completion marker and should remain backward-compatible.
+
+## CI baseline
+
+GitHub Actions run `44394690367` (Build and verify Android debug APK) completed successfully. Its job completed all primary steps successfully, including dependency installation, frontend/match-engine tests, web/Android build, APK verification, and artifact upload. This is a verified baseline only; future commits require their own CI result.
+
+## Required architecture
+
+1. **Single locale registry:** canonical locale ID, native display name, English display name, text direction, Intl locale tag, and availability metadata must live in one source of truth.
+2. **Strict locale validation:** persisted values must be validated against fully supported locale packs. Unknown or malformed values must recover deterministically without corrupting the saved profile.
+3. **Complete translation contract:** every enabled locale must provide every required UI key and nested key. Missing translations must fail tests; silent English fallback must not make an incomplete locale appear supported.
+4. **Feature coverage:** include all visible app surfaces, settings, validation/error states, matchmaking, match flow, rankings, profile, store, dialogs, accessibility labels, and empty/loading states.
+5. **Game-content language:** question prompts, answer options, hints, explanations, and any user-facing generated content must follow an explicit match-language contract. Correct-answer identity/order must remain invariant under translation.
+6. **UI locale versus match locale:** keep interface preference and match language as separate concepts where required. Matchmaking must continue matching players on the selected match language, not accidentally on a mutable UI preference.
+7. **Direction and formatting:** derive document and component direction from locale metadata. Use `Intl.NumberFormat`, `Intl.DateTimeFormat`, and locale-aware plural/message formatting where applicable.
+8. **Accessible selector:** replace the two-card chooser with a searchable/selectable locale control that presents native language names and preserves the selected locale.
+9. **Regression gates:** test registry integrity, translation-key parity, nested structures, question/answer invariants, locale persistence/migration, RTL/LTR behavior, formatting, selector options, and absence of accidental fallback for enabled locales.
+
+## Candidate V1 locale set
+
+The following 20 locales are the proposed global V1 target, subject to complete translation and QA before being marked supported:
+
+| Locale | Native label | Direction |
+|---|---|---|
+| en | English | LTR |
+| fa | فارسی | RTL |
+| ar | العربية | RTL |
+| es | Español | LTR |
+| fr | Français | LTR |
+| de | Deutsch | LTR |
+| pt | Português | LTR |
+| ru | Русский | LTR |
+| tr | Türkçe | LTR |
+| hi | हिन्दी | LTR |
+| id | Bahasa Indonesia | LTR |
+| ja | 日本語 | LTR |
+| ko | 한국어 | LTR |
+| zh-CN | 简体中文 | LTR |
+| bn | বাংলা | LTR |
+| ur | اردو | RTL |
+| it | Italiano | LTR |
+| nl | Nederlands | LTR |
+| th | ไทย | LTR |
+| vi | Tiếng Việt | LTR |
+
+A locale is not considered enabled merely because it appears in this table or in the selector. It becomes selectable only after its complete UI and game-content pack passes the required automated checks and language QA.
+
+## Implementation sequence and exit criteria
+
+### L10N-01 — Locale foundation
+- Add the central locale registry and strict locale helpers.
+- Preserve existing `en`/`fa` user settings and initial-selection behavior.
+- Make direction and Intl formatting derive from locale metadata.
+- Add migration and invalid-locale tests.
+- **Exit:** existing English/Persian behavior remains intact; locale validation and migration tests pass.
+
+### L10N-02 — Remove two-language assumptions
+- Inventory and migrate inline locale branches and feature-local bilingual data to translation namespaces.
+- Keep UI locale independent from match language.
+- Replace the two-card selector with the accessible registry-driven selector.
+- **Exit:** no feature silently treats every non-Persian locale as English; all visible strings are routed through the translation contract.
+
+### L10N-03 — Complete locale packs
+- Complete every UI namespace and game-content pack for each target locale.
+- Validate native labels, terminology, placeholders, pluralization, text expansion, and RTL rendering.
+- **Exit:** every target locale passes strict key parity, question coverage, and locale QA; only then can it be enabled.
+
+### L10N-04 — Release gates
+- Add automated checks that fail if an enabled locale is missing UI or game copy.
+- Verify language switching, persisted selection, matchmaking language behavior, and representative screens for every locale.
+- **Exit:** full frontend test suite and Android build pass on the resulting `main` commit.
+
+## Non-negotiable acceptance rules
+
+- No disabled/placeholder language options in the production selector.
+- No locale may be marked supported while it falls back to English for missing UI or game content.
+- English and Persian must remain backward-compatible.
+- Language changes must not alter score logic, answer identity, match authority, or matchmaking correctness.
+- Do not claim a language or release gate is complete without recorded test/CI evidence.
