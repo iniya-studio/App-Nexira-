@@ -220,7 +220,7 @@ describe('MatchmakingService', () => {
     const { service, tx, matches, entry, gateway } = setup();
     const opponent = {
       id: 'entry-old', userId: 'user-old', guestIdentityId: null,
-      category: 'general', language: 'fa', status: MatchmakingEntryStatus.WAITING,
+      category: 'general', language: 'en', status: MatchmakingEntryStatus.WAITING,
       matchId: null, queuedAt: new Date(queuedAt.getTime() - 1000), matchedAt: null, cancelledAt: null, expiresAt: new Date(queuedAt.getTime() + 300_000),
     };
     tx.$queryRaw.mockImplementation((strings: TemplateStringsArray) => {
@@ -240,7 +240,7 @@ describe('MatchmakingService', () => {
       expect.objectContaining({ principalType: PrincipalType.USER, principalId: 'user-old' }),
       expect.objectContaining({ principalType: PrincipalType.GUEST, principalId: 'guest-new' }),
       tx,
-      { category: 'general', language: 'fa' },
+      { category: 'general', language: 'fa', participantLanguages: { first: 'en', second: 'fa' } },
     );
     expect(gateway.notifyMatchFound).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ matchId: match.id }));
     expect(tx.matchmakingEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({
