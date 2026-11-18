@@ -74,7 +74,7 @@ export class GuestIdentityService {
       parallelism: this.positiveInteger('ARGON2_PARALLELISM', 1),
     });
 
-    let converted: GuestConversionResponse;
+    let converted: { response: GuestConversionResponse; replayed: boolean };
     try {
       converted = await this.prisma.$transaction(async (tx) => {
         // READ COMMITTED is intentional: after this transaction waits for the GuestIdentity
@@ -178,7 +178,7 @@ export class GuestIdentityService {
             await tx.identityAuditEvent.create({
               data: { eventType: 'GUEST_CONVERSION_RECOVERY_SUCCEEDED', principalType: PrincipalType.GUEST, principalId: guest.id, sessionId: sourceSession.id, result: 'SUCCESS' },
             });
-            return recovered;
+            return { response: recovered, replayed: true };
           } catch {
             await tx.identityAuditEvent.create({
               data: { eventType: 'GUEST_CONVERSION_RECOVERY_FAILED', principalType: PrincipalType.GUEST, principalId: guest.id, sessionId: sourceSession.id, result: 'FAILURE', metadata: { reason: 'CIPHERTEXT_INVALID' } },
@@ -347,7 +347,7 @@ export class GuestIdentityService {
             },
           },
         });
-        return response;
+        return { response, replayed: false };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
@@ -356,12 +356,14 @@ export class GuestIdentityService {
       throw error;
     }
 
-    try {
-      await this.emailVerification.issueAndSend(converted.user.id);
-    } catch {
-      // Conversion is committed; email verification can be resent through the account workflow.
+    if (!converted.replayed) {
+      try {
+        await this.emailVerification.issueAndSend(converted.response.user.id);
+      } catch {
+        // Conversion is committed; email verification can be resent through the account workflow.
+      }
     }
-    return converted;
+    return converted.response;
   }
 
   async retryConversion(rawRefreshToken: string, idempotencyKey: string): Promise<GuestConversionResponse> {
