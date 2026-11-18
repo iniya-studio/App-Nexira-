@@ -94,6 +94,14 @@ describe('MatchService', () => {
       { principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1' },
       { principalType: PrincipalType.GUEST, principalId: 'guest-2', sessionId: 'session-2' },
     )).resolves.toMatchObject({ mode: MatchMode.ONE_V_ONE, status: MatchStatus.WAITING });
+    expect(tx.match.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        participants: { create: [
+          expect.objectContaining({ language: 'fa', participantKey: 'human:user:user-1' }),
+          expect.objectContaining({ language: 'en', participantKey: 'human:guest:guest-2' }),
+        ] },
+      }),
+    }));
     expect(tx.questionGenerationJob.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         sourceRoundId: null, triggerReason: 'INITIAL_MATCH',
