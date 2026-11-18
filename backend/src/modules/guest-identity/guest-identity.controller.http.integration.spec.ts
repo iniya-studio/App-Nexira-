@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { ValidationPipe } from '@nestjs/common';
+import { ConflictException, ValidationPipe } from '@nestjs/common';
 import type { INestApplication, ExecutionContext } from '@nestjs/common';
 import type { AddressInfo } from 'node:net';
 import { GuestIdentityController } from './guest-identity.controller';
@@ -73,6 +73,24 @@ describe('GuestIdentityController HTTP contract', () => {
     });
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ recovered: true });
+    expect(guard.canActivate).not.toHaveBeenCalled();
+    expect(guests.retryConversion).toHaveBeenCalledWith('r'.repeat(43), 'i'.repeat(43), expect.any(String));
+  });
+  it('returns the exact HTTP 409 NOT_COMMITTED contract without requiring access-token auth', async () => {
+    const expected = {
+      code: 'CONVERSION_NOT_COMMITTED',
+      message: 'The guest conversion did not commit; the guest session remains active.',
+    };
+    guests.retryConversion.mockRejectedValueOnce(new ConflictException(expected));
+
+    const response = await fetch(`${baseUrl}/api/v1/guest/convert/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'i'.repeat(43) },
+      body: JSON.stringify({ refreshToken: 'r'.repeat(43) }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual(expected);
     expect(guard.canActivate).not.toHaveBeenCalled();
     expect(guests.retryConversion).toHaveBeenCalledWith('r'.repeat(43), 'i'.repeat(43), expect.any(String));
   });
