@@ -314,6 +314,105 @@ describe('Guest identity and session integration', () => {
     });
   });
 
+  it('serializes two real concurrent conversions of the same guest and transfers progression exactly once', async () => {
+    const started = await startGuest();
+    const guestId = started.principal.principalId;
+    const guestSessionId = started.session.sessionId;
+    const suffix = randomUUID();
+    const emails = [
+      `duplicate-conversion-a-${suffix}@example.test`,
+      `duplicate-conversion-b-${suffix}@example.test`,
+    ];
+    const usernames = [
+      `duplicate_a_${suffix.replace(/-/g, '').slice(0, 12)}`,
+      `duplicate_b_${suffix.replace(/-/g, '').slice(0, 12)}`,
+    ];
+
+    const companion = await prisma.companionProfile.create({
+      data: { guestIdentityId: guestId },
+    });
+    await prisma.guestProgress.create({
+      data: {
+        guestIdentityId: guestId,
+        level: 1,
+        currentLevelXp: 17,
+        totalXp: BigInt(17),
+      },
+    });
+    await prisma.guestXPTransaction.create({
+      data: {
+        guestIdentityId: guestId,
+        amount: 17,
+        reason: 'MATCH_REWARD',
+        idempotencyKey: `duplicate-conversion:${guestId}:xp:v1`,
+      },
+    });
+
+    const principal = {
+      principalType: PrincipalType.GUEST,
+      principalId: guestId,
+      sessionId: guestSessionId,
+    };
+    const convert = (index: number) => guests.convert(principal, {
+      email: emails[index],
+      password: 'integration-test-password-strong',
+      username: usernames[index],
+      displayName: `Concurrent Conversion ${index}`,
+    });
+
+    const outcomes = await Promise.allSettled([convert(0), convert(1)]);
+    const successful = outcomes.find((outcome) => outcome.status === 'fulfilled');
+    const rejected = outcomes.find((outcome) => outcome.status === 'rejected');
+
+    expect(successful?.status).toBe('fulfilled');
+    expect(rejected?.status).toBe('rejected');
+    if (!successful || successful.status !== 'fulfilled') {
+      throw new Error('Exactly one concurrent guest conversion must succeed');
+    }
+    if (rejected?.status === 'rejected') {
+      expect(rejected.reason.getStatus?.()).toBe(401);
+    }
+
+    const convertedUserId = successful.value.principal.principalId;
+    convertedUserIds.push(convertedUserId);
+
+    const [guest, users, transferredProfile, oldSession, userSessions, userProgress, userXpEvents, guestProgress, guestXpEvents] = await Promise.all([
+      prisma.guestIdentity.findUniqueOrThrow({ where: { id: guestId } }),
+      prisma.user.findMany({ where: { email: { in: emails } } }),
+      prisma.companionProfile.findUnique({ where: { id: companion.id } }),
+      prisma.userSession.findUniqueOrThrow({ where: { id: guestSessionId } }),
+      prisma.userSession.findMany({ where: { userId: convertedUserId } }),
+      prisma.userProgress.findUnique({ where: { userId: convertedUserId } }),
+      prisma.xPTransaction.findMany({ where: { userId: convertedUserId } }),
+      prisma.guestProgress.findUnique({ where: { guestIdentityId: guestId } }),
+      prisma.guestXPTransaction.findMany({ where: { guestIdentityId: guestId } }),
+    ]);
+
+    expect(guest).toMatchObject({
+      status: GuestIdentityStatus.CONVERTED,
+      convertedToUserId: convertedUserId,
+    });
+    expect(users).toHaveLength(1);
+    expect(users[0].id).toBe(convertedUserId);
+    expect(transferredProfile).toMatchObject({
+      id: companion.id,
+      userId: convertedUserId,
+      guestIdentityId: null,
+    });
+    expect(oldSession.revokedAt).toBeInstanceOf(Date);
+    expect(userSessions).toHaveLength(1);
+    expect(userSessions[0]).toMatchObject({ userId: convertedUserId, revokedAt: null });
+    expect(userProgress?.totalXp).toBe(BigInt(17));
+    expect(userXpEvents).toHaveLength(1);
+    expect(userXpEvents[0]).toMatchObject({
+      amount: 17,
+      reason: 'GUEST_CONVERSION_TRANSFER',
+      idempotencyKey: `guest-conversion:${guestId}:xp:${guestXpEvents[0]?.id}:v1`,
+    });
+    expect(guestProgress?.transferredAt).toBeInstanceOf(Date);
+    expect(guestXpEvents).toHaveLength(1);
+  });
+
   it.each(['settlement-first', 'conversion-first'] as const)('preserves exactly-once XP when guest conversion runs %s relative to completed-match settlement', async (ordering) => {
     const started = await startGuest();
     const guestId = started.principal.principalId;
