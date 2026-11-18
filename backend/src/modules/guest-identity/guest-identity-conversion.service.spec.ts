@@ -173,7 +173,7 @@ describe('GuestIdentityService conversion', () => {
       { id: 'guest-xp-2', matchId: 'match-2', amount: 8, reason: 'MATCH_REWARD', createdAt },
     ]);
 
-    await service.convert(principal, input);
+    await service.convert(principal, input, 'B'.repeat(43));
 
     expect(tx.userProgress.create).toHaveBeenCalledWith({
       data: {
@@ -216,7 +216,7 @@ describe('GuestIdentityService conversion', () => {
     tx.matchParticipant.updateMany.mockResolvedValue({ count: 1 });
     tx.matchmakingEntry.updateMany.mockResolvedValue({ count: 1 });
 
-    await service.convert(principal, input);
+    await service.convert(principal, input, 'B'.repeat(43));
 
     expect(tx.matchParticipant.updateMany).toHaveBeenCalledWith({
       where: { guestIdentityId: 'guest-1', matchId: { in: ['match-1'] } },
@@ -246,20 +246,20 @@ describe('GuestIdentityService conversion', () => {
     tx.guestIdentity.findUnique.mockResolvedValue({
       id: 'guest-1', status: GuestIdentityStatus.CONVERTED, convertedToUserId: 'user-1',
     });
-    await expect(service.convert(principal, input)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.convert(principal, input, 'B'.repeat(43))).rejects.toBeInstanceOf(UnauthorizedException);
     expect(tx.user.create).not.toHaveBeenCalled();
     expect(sessions.createSessionInTransaction).not.toHaveBeenCalled();
   });
 
   it('rolls back if a concurrent conversion wins the conditional guest update', async () => {
     tx.guestIdentity.updateMany.mockResolvedValue({ count: 0 });
-    await expect(service.convert(principal, input)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.convert(principal, input, 'B'.repeat(43))).rejects.toBeInstanceOf(UnauthorizedException);
     expect(sessions.createSessionInTransaction).not.toHaveBeenCalled();
   });
 
   it('does not silently link an existing email or username', async () => {
     prisma.$transaction.mockRejectedValue({ code: 'P2002' });
-    await expect(service.convert(principal, input)).rejects.toThrow(
+    await expect(service.convert(principal, input, 'B'.repeat(43))).rejects.toThrow(
       'An account with this email or username already exists',
     );
     expect(emailVerification.issueAndSend).not.toHaveBeenCalled();
