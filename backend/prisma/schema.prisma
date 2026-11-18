@@ -175,9 +175,11 @@ model User {
   updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
 
   sessions                UserSession[]
+  conversionReplay        GuestConversionReplay?
   credential              AccountCredential?
   externalIdentities      ExternalIdentity[]
   guestConversions        GuestIdentity[]          @relation("GuestConvertedUser")
+  guestConversionReplays  GuestConversionReplay[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
   progress                UserProgress?
@@ -206,7 +208,8 @@ model UserSession {
 
   user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
   guestIdentity GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
-  refreshTokens RefreshToken[]
+  refreshTokens     RefreshToken[]
+  conversionReplay  GuestConversionReplay?
 
   @@index([userId, expiresAt])
   @@index([guestIdentityId, expiresAt])
@@ -283,6 +286,27 @@ model RefreshToken {
   @@index([sessionId, createdAt])
   @@index([expiresAt, revokedAt])
   @@index([retryResponseExpiresAt])
+}
+
+model GuestConversionReplay {
+  id                     String    @id @default(uuid()) @db.Uuid
+  guestIdentityId        String    @unique @db.Uuid
+  sourceSessionId        String    @unique @db.Uuid
+  sourceRefreshTokenHash String    @unique @db.VarChar(255)
+  idempotencyKeyHash     String    @db.VarChar(64)
+  targetUserId           String    @db.Uuid
+  responseCiphertext     String?   @db.Text
+  expiresAt              DateTime  @db.Timestamptz(3)
+  ciphertextPurgedAt     DateTime? @db.Timestamptz(3)
+  createdAt              DateTime  @default(now()) @db.Timestamptz(3)
+
+  guestIdentity GuestIdentity @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  sourceSession UserSession   @relation(fields: [sourceSessionId], references: [id], onDelete: Restrict)
+  targetUser    User           @relation(fields: [targetUserId], references: [id], onDelete: Restrict)
+
+  @@index([expiresAt, ciphertextPurgedAt])
+  @@index([targetUserId, createdAt])
+  @@index([idempotencyKeyHash])
 }
 
 model EmailVerificationToken {
