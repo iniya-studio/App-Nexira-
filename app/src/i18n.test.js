@@ -61,6 +61,10 @@ test('competitive match gameplay copy is centralized and has complete English/Pe
   const matchEnd = appSource.indexOf("{screen === 'results'");
   const matchUi = appSource.slice(matchStart, matchEnd);
   assert.equal(matchUi.includes("language === 'fa'"), false, 'Match gameplay UI must use the centralized locale dictionary.');
+  const matchResultsStart = appSource.indexOf("{screen === 'match-results'");
+  const profileStart = appSource.indexOf("{screen === 'profile'");
+  const matchResultsUi = appSource.slice(matchResultsStart, profileStart);
+  assert.equal(matchResultsUi.includes("language === 'fa'"), false, 'Match results UI must use the centralized locale dictionary.');
 });
 
 test('competitive matchmaking copy is centralized and explicitly locale-independent', () => {
