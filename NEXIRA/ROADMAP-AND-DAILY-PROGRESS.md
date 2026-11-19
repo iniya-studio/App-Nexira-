@@ -845,3 +845,33 @@ This is an explicit required part of the current Account/Session localization ph
 - Earlier intermediate Android runs were triggered by sequential commits; final acceptance must use the workflow for the latest source commit above.
 
 **Acceptance:** Code and regression tests are committed on `main`; frontend/match-engine test step passed on the latest source commit. Full Android workflow acceptance remains pending until build, artifact verification, upload and cleanup complete. Do not claim this change CI-complete before run 44600823559 concludes successfully. The wider error-contract audit and 20-locale Localization remain OPEN.
+
+
+## R-053 — 20-locale localization contract and recursive baseline audit (in progress)
+
+**Date:** 2026-11-19
+
+### Verified source inventory
+- The frontend and backend registries both contain the fixed 20-locale target set; only `en` and `fa` are enabled.
+- `COPY` still contains only the English and Persian UI dictionaries. `getQuestionCopy` still localizes the local question catalogue only for Persian.
+- `App.jsx` contains 13 direct Persian-only conditional branches. The Store still contains 23 bilingual English/Persian data pairs across tabs and item copy; these must move into locale dictionaries.
+- The app shell and document direction already derive from locale metadata. Existing RTL CSS mirrors selected directional icons, so this baseline should be extended rather than rewritten.
+- `AccountSessionPanel.jsx` has no direct Persian-only rendering branch and already consumes the shared dictionary and Intl locale metadata.
+- Current bundled fonts are Inter and Orbitron only. Complex-script font coverage and Android WebView fallback still require explicit validation and, where needed, script-specific font assets.
+
+### Implemented
+- Added `NEXIRA/LOCALIZATION-20-LOCALE-PLAN.md` as the acceptance contract: complete UI and game-content scope, registry/dictionary parity, placeholder integrity, RTL/formatting/font checks, Android QA, strict enablement, and definition of done.
+- Extended `app/src/i18n.test.js` with recursive dictionary-tree parity, non-empty leaf validation, interpolation placeholder parity, and static nested UI translation-path coverage for the existing English/Persian baseline.
+- Kept all 18 incomplete locales disabled. No placeholder translations or silent locale activation were introduced.
+
+### CI evidence
+- Android workflow [44613602371](https://github.com/iniya-studio/App-Nexira-/actions/runs/44613602371) completed successfully against commit `e0fdd7d766031c83ccab78f65d4f6bd56ab1486b`.
+- Frontend/Match Engine tests: **182/182 passed**.
+- Web production build, Android package build, APK verification and artifact upload: **success**.
+- Uploaded artifact: `NEXIRA-Android-debug`, 7,214,391 bytes; artifact ID `14574001710`.
+
+### Commits
+- Localization acceptance contract: `9f5997970cf2023e76985ca9d96294cee29014a1`
+- Recursive dictionary/UI audit tests and matcher correction: `bc0854ccca17a4f8de32709b02623fef7a76af03`, `217274eca5a5204f41ec10a2c7ac65c6a6716740`, `e0fdd7d766031c83ccab78f65d4f6bd56ab1486b`
+
+**Acceptance:** The localization contract and stronger English/Persian baseline audit are committed and have successful Android CI evidence. This does not complete multi-locale translation. L10N remains OPEN until all 20 UI dictionaries and question packs are complete, all locale assumptions are removed, complex-script/RTL QA passes, and all 20 locales are enabled together with matching backend support.
