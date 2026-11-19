@@ -36,7 +36,7 @@ export function resolveLocale(locale) {
 }
 
 export function getLocaleConfig(locale) {
-  return LOCALE_REGISTRY[resolveLocale(locale)];
+  return LOCALE_REGISTRY[isTargetLocale(locale) ? locale : DEFAULT_LOCALE];
 }
 
 export function getTargetLocales() {
