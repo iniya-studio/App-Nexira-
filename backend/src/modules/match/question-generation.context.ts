@@ -22,10 +22,14 @@ export async function questionGenerationInputForMatch(
     (participant) => participant.participantKey,
   );
   const humanParticipants = match.participants.filter((participant) => participant.participantType === 'HUMAN');
-  const requiredLocales = [...new Set(humanParticipants.map((participant) => participant.language).filter((locale): locale is string => Boolean(locale)))].sort();
-  if (requiredLocales.length === 0 || requiredLocales.length !== humanParticipants.length || requiredLocales.some((locale) => !locale.trim())) {
+  const participantLocales = humanParticipants.map((participant) => participant.language);
+  if (
+    participantLocales.length === 0 ||
+    participantLocales.some((locale) => typeof locale !== 'string' || !locale.trim())
+  ) {
     throw new Error('Human participant locale snapshots are unavailable');
   }
+  const requiredLocales = [...new Set(participantLocales)].sort();
   const possibleRematches = await tx.match.findMany({
     where: {
       id: { not: matchId },
