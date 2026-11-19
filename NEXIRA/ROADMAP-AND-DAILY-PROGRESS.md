@@ -748,3 +748,32 @@ This is an explicit required part of the current Account/Session localization ph
 - The verified main HEAD immediately before this Roadmap update was 75298176b05a3fdb6e501b40e73dc9257f89eb90. Its only change after the tested code SHA was the Roadmap documentation update; no application/backend source code changed after the tested SHA.
 
 **Current acceptance state:** The R-048 HTTP error-envelope implementation and real HTTP integration coverage have successful full CI evidence. R-048 remains open for the separately listed domain-code refinement and frontend raw-error consumer audit. Account/Session and full 20-locale Localization acceptance remain OPEN.
+
+## R-049 — Frontend error-boundary hardening and AI recovery-code sanitization (in progress)
+
+**Date:** 2026-11-19
+
+### Audit findings
+- The current frontend UI error surfaces were re-audited: AccountSessionPanel uses the shared localized mapper; App match/matchmaking errors use `getLocalizedApiError`; progression/ranking renders a fixed localized fallback; session lifecycle stores machine-readable `{ code, status }` descriptors. No direct UI rendering of backend `error.message` or response payload text was found in these paths.
+- `app/src/api/httpClient.js` previously copied the server-provided `message` and full error payload into `ApiError.message/details`. Although current UI mapping ignored those fields, retaining untrusted server text in a client-facing error object created an avoidable future exposure risk.
+- `AiOpponentAnswerWorker` previously persisted `error.message.slice(0, 64)` as `AiAnswerJob.lastErrorCode`. The recovery endpoint returns that field to the client, so an arbitrary provider/adapter error message could cross the API boundary as a purported machine code.
+
+### Implemented
+- HTTP client now retains only response status and code for non-2xx responses; it assigns a fixed local error message and does not retain the server payload in `ApiError.details`.
+- Updated HTTP client regression coverage with hostile message, stack and token-like diagnostic fields; asserts only stable status/code survive and the raw values do not enter the error object.
+- AI opponent answer worker now accepts only an explicit allowlist of provider error codes, maps provider HTTP statuses to the stable `AI_OPPONENT_PROVIDER_HTTP_ERROR`, and maps arbitrary/unknown errors to `AI_ANSWER_INTERNAL_ERROR`.
+- Extended PostgreSQL integration coverage to prove a mocked raw provider message is not persisted as `lastErrorCode`.
+- The broader scan found no other direct frontend rendering of raw backend message/payload values. Backend worker logs that use exception messages remain server-side diagnostics and are not API response fields.
+
+### Commits
+- HTTP error payload minimization: 4a0740f4eeb5d1ae9793505062997eb174061fbf
+- HTTP client regression test: 412479ca2c38f72f2a7b3f44c1e74d610eeb2293
+- AI opponent error-code allowlist: 1290a8cc1d01ed535d79d7788792745f8a0b6328
+- AI opponent recovery-code integration test: d5c4a7861ee71a9c647adaadab061e30649a8b75
+- Provider HTTP status matcher correction: dbdc35b77008d5e5032562e7ca7e0f9dec4548ae
+
+### CI evidence
+- Android workflow [44596362607](https://github.com/iniya-studio/App-Nexira-/actions/runs/44596362607) completed successfully for frontend error-boundary changes at commit 412479ca2c38f72f2a7b3f44c1e74d610eeb2293; frontend and match-engine tests passed.
+- Backend workflow [44596841554](https://github.com/iniya-studio/App-Nexira-/actions/runs/44596841554) is running against the latest backend commit dbdc35b77008d5e5032562e7ca7e0f9dec4548ae. At this entry it has completed setup and checkout and is installing dependencies; no backend test/build/lint result is claimed yet.
+
+**Acceptance:** The frontend transport hardening and AI recovery-code sanitization are implemented. Final acceptance remains pending successful full backend CI. Continue auditing endpoint-specific codes only where client behavior materially differs; do not create one code per free-form exception message. Localization and full 20-locale acceptance remain OPEN.
