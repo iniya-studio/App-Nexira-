@@ -36,11 +36,16 @@ test('HTTP client sends JSON and attaches the in-memory access token', async () 
   assert.equal(captured.options.body, JSON.stringify({ username: 'player' }));
 });
 
-test('HTTP client normalizes backend errors without losing status or payload', async () => {
+test('HTTP client preserves status and stable code but discards untrusted response messages and payloads', async () => {
   const client = createHttpClient({
     baseUrl: 'https://api.example.test/api/v1',
     authenticated: false,
-    fetchImpl: async () => new Response(JSON.stringify({ message: 'Invalid credentials', code: 'AUTH_INVALID' }), { status: 401 }),
+    fetchImpl: async () => new Response(JSON.stringify({
+      message: 'private database detail must never enter the client error',
+      code: 'AUTH_INVALID',
+      stack: 'private stack trace',
+      diagnostics: { token: 'private-token' },
+    }), { status: 401 }),
   });
 
   await assert.rejects(
@@ -48,7 +53,10 @@ test('HTTP client normalizes backend errors without losing status or payload', a
     (error) => error instanceof ApiError
       && error.status === 401
       && error.code === 'AUTH_INVALID'
-      && error.message === 'Invalid credentials',
+      && error.message === 'The API request failed.'
+      && error.details === null
+      && !error.message.includes('private')
+      && !JSON.stringify(error).includes('private-token'),
   );
 });
 
