@@ -7,12 +7,12 @@ export async function questionGenerationInputForMatch(
   matchId: string,
   settings: Pick<
     QuestionGenerationInput,
-    'category' | 'difficulty' | 'language' | 'answerType' | 'timeLimitSeconds'
+    'category' | 'difficulty' | 'language' | 'requiredLocales' | 'answerType' | 'timeLimitSeconds'
   >,
 ): Promise<QuestionGenerationInput> {
   const match = await tx.match.findUnique({
     where: { id: matchId },
-    select: { participants: { select: { participantKey: true } } },
+    select: { participants: { where: { participantType: 'HUMAN' }, select: { participantKey: true, language: true } } },
   });
   if (!match || match.participants.length === 0) {
     throw new Error('Question generation match participants are unavailable');
@@ -21,6 +21,10 @@ export async function questionGenerationInputForMatch(
   const participantKeys = match.participants.map(
     (participant) => participant.participantKey,
   );
+  const requiredLocales = [...new Set(match.participants.map((participant) => participant.language).filter((locale): locale is string => Boolean(locale)))].sort();
+  if (requiredLocales.length === 0 || requiredLocales.some((locale) => !locale.trim())) {
+    throw new Error('Human participant locale snapshots are unavailable');
+  }
   const possibleRematches = await tx.match.findMany({
     where: {
       id: { not: matchId },
@@ -70,6 +74,7 @@ export async function questionGenerationInputForMatch(
 
   return {
     ...settings,
+    requiredLocales,
     excludedQuestionIds: [...excludedQuestionIds],
     excludedQuestionFingerprints: [...excludedQuestionFingerprints],
   };
@@ -84,6 +89,9 @@ export function parseQuestionGenerationInput(
     typeof context.category !== 'string' ||
     typeof context.difficulty !== 'string' ||
     typeof context.language !== 'string' ||
+    !Array.isArray(context.requiredLocales) ||
+    context.requiredLocales.length === 0 ||
+    !context.requiredLocales.every((locale) => typeof locale === 'string' && locale.trim().length > 0) ||
     (context.answerType !== 'MULTIPLE_CHOICE' &&
       context.answerType !== 'FREE_TEXT') ||
     typeof context.timeLimitSeconds !== 'number' ||
@@ -101,6 +109,7 @@ export function parseQuestionGenerationInput(
     category: context.category,
     difficulty: context.difficulty,
     language: context.language,
+    requiredLocales: [...new Set(context.requiredLocales as string[])].sort(),
     answerType: context.answerType,
     timeLimitSeconds: context.timeLimitSeconds,
     excludedQuestionIds: context.excludedQuestionIds,
