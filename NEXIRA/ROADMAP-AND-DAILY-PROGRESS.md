@@ -611,3 +611,33 @@ This is an explicit required part of the current Account/Session localization ph
 - Audit Backend error contracts and stable error codes/statuses; ensure no sensitive diagnostics or tokens enter client-facing error messages.
 - Repeat the same localized-safe-fallback contract for all 20 target locales, plus integration and device acceptance.
 - Keep Localization OPEN; this change is a bounded safety/localization improvement, not completion or release acceptance.
+
+## R-046 — Online match error-state hardening (in progress)
+
+**Date:** 2026-11-19  
+**Status:** Online match adapter no longer places raw exception messages in its public view-state error field. Regression tests and localized UI guards are committed. The latest frontend/match-engine test step passed; complete workflow verification is still pending. Localization remains OPEN.
+
+### Findings and changes
+- app/src/game/onlineMatchAdapter.js previously copied Error.message into view.error for answer-submission and synchronization failures. This exposed untrusted backend/network text to every consumer of the adapter view.
+- The adapter now stores only { code, status } descriptors for submission and synchronization failures. Question-generation failure and backend-cancelled match states are also represented by machine-readable codes; no raw server text is copied into the view model.
+- app/src/i18n.js maps question-generation failure and cancelled-match codes to safe localized server-error copy.
+- app/src/App.jsx had one additional match-startup branch that rendered matchError directly. It now routes the error through the shared localized mapper.
+- Added adapter regression coverage proving raw diagnostic text is absent from view state, and i18n coverage for the new match error codes and startup fallback.
+- Re-audit of the adapter source found no remaining error.message reads or raw message assignment in the view-state error path.
+
+### Commits and CI evidence
+- Adapter hardening: a75af52108611d430fff55e1aace55ed0381960c
+- Localized match error mapping: fdc887801f3d95e81e3e2855881f80eed6111847
+- Match startup UI fallback: 9d050730cc7be0d19b3238c29f0a684f5655f8af
+- Adapter regression tests: 6412c10b83706b72a3042be268d285394d0992dd
+- i18n regression tests: ba8c91b17fb0dec268331c280ae8894cee019c5a
+- Workflow runs: [44589855627](https://github.com/iniya-studio/App-Nexira-/actions/runs/44589855627), [44589865623](https://github.com/iniya-studio/App-Nexira-/actions/runs/44589865623), [44589876230](https://github.com/iniya-studio/App-Nexira-/actions/runs/44589876230), [44589909941](https://github.com/iniya-studio/App-Nexira-/actions/runs/44589909941), [44589919021](https://github.com/iniya-studio/App-Nexira-/actions/runs/44589919021). At the time of this entry, the latest run's frontend/match-engine test step was successful; Android packaging/verification had not yet completed. Do not treat this as full workflow acceptance.
+
+### Remaining work
+- Audit sessionLifecycle.js: its internal state still retains raw exception messages in error and accountDataError; although current App JSX does not render those fields directly, migrate these state fields to safe descriptors or prove a strict internal-only boundary with tests.
+- Audit all frontend error state and API adapters, including progression, account recovery, email verification, session revocation, and notification/accessibility surfaces.
+- Backend has no dedicated global exception filter in the current source tree. Audit NestJS default exception serialization and endpoint exception contracts; establish stable machine-readable error codes and ensure diagnostics never enter public API responses.
+- Extend integration tests for actual session transitions, expired/revoked sessions, abort/network/timeout and malformed API payloads.
+- Maintain parity across all 20 target locales and complete UI/game content, RTL, and real-device acceptance.
+
+**Acceptance:** This is a bounded hardening change only. Account/Session localization and overall Localization remain OPEN.
