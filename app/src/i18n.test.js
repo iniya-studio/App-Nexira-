@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { CATEGORIES, normalizeProfile } from './game/data.js';
 import { DEFAULT_LOCALE, formatLocaleNumber, getLocaleConfig, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, resolveLocale } from './locales.js';
-import { COPY, formatCopy, getCategoryTitle, getCopy, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
+import { COPY, formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
 
 test('English and Persian provide the same complete translation keys', () => {
   assert.deepEqual(Object.keys(COPY.fa).sort(), Object.keys(COPY.en).sort());
@@ -232,3 +232,35 @@ test('account and session UI copy is centralized with complete English/Persian p
   assert.equal(/\bisFa\b|language\s*===\s*['"]fa['"]/.test(component), false, 'Account/session UI must not branch directly on locale.');
   assert.equal(component.includes("'fa-IR'") || component.includes("'en-US'"), false, 'Account/session date formatting must use locale metadata.');
 });
+
+test('server-originated API errors always resolve to safe localized copy', () => {
+  for (const locale of ['en', 'fa']) {
+    const copy = COPY[locale].account;
+    assert.equal(getLocalizedApiError({ code: 'NETWORK_ERROR', message: 'raw server secret' }, copy), copy.network_error);
+    assert.equal(getLocalizedApiError({ code: 'REQUEST_ABORTED' }, copy), copy.request_aborted);
+    assert.equal(getLocalizedApiError({ code: 'SESSION_SUPERSEDED' }, copy), copy.session_changed);
+    assert.equal(getLocalizedApiError({ code: 'CONVERSION_RECOVERY_EXPIRED' }, copy), copy.recovery_window_expired);
+    assert.equal(getLocalizedApiError({ status: 401 }, copy), copy.authorization_failed);
+    assert.equal(getLocalizedApiError({ status: 403 }, copy), copy.authorization_failed);
+    assert.equal(getLocalizedApiError({ status: 409 }, copy), copy.conflict);
+    assert.equal(getLocalizedApiError({ status: 400 }, copy), copy.invalid_input);
+    assert.equal(getLocalizedApiError({ status: 422 }, copy), copy.invalid_input);
+    assert.equal(getLocalizedApiError({ status: 429 }, copy), copy.rate_limited);
+    assert.equal(getLocalizedApiError({ status: 503 }, copy), copy.server_error);
+    assert.equal(getLocalizedApiError({ code: 'UNRECOGNIZED_BACKEND_CODE', message: 'raw payload' }, copy), copy.generic_error);
+    assert.equal(getLocalizedApiError('UNRECOGNIZED_BACKEND_CODE', copy), copy.generic_error);
+    assert.equal(getLocalizedApiError({ message: 'untrusted raw message' }, copy), copy.generic_error);
+    assert.equal(getLocalizedApiError(null, copy), copy.generic_error);
+  }
+});
+
+test('progression and online-match UI never render raw API error messages', async () => {
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.match(appSource, /getLocalizedApiError\(progressionError, text\.account\)/);
+  assert.match(appSource, /getLocalizedApiError\(matchError \|\| matchView\.error, text\.account\)/);
+  assert.equal(appSource.includes('{progressionError}</div>'), false);
+  assert.equal(appSource.includes('{matchError}</p>'), false);
+  assert.equal(appSource.includes('{matchError || matchView.error}'), false);
+  assert.equal(/setMatchError\(error\.message\)/.test(appSource), false);
+});
+
