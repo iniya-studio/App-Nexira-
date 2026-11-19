@@ -1,6 +1,14 @@
 import { Capacitor } from '@capacitor/core';
 import { createSessionServices } from './sessionServices.js';
 
+function toSessionErrorDescriptor(error, fallbackCode) {
+  const code = typeof error?.code === 'string' && error.code.trim()
+    ? error.code
+    : fallbackCode;
+  const status = Number.isInteger(error?.status) ? error.status : 0;
+  return { code, status };
+}
+
 const INITIAL_STATE = Object.freeze({
   status: 'idle',
   principal: null,
@@ -141,7 +149,7 @@ export function createSessionLifecycle({
       status,
       principal: null,
       session: null,
-      error: error instanceof Error ? error.message : 'Session initialization failed.',
+      error: toSessionErrorDescriptor(error, 'SESSION_INITIALIZATION_FAILED'),
     });
     return state;
   }
@@ -153,7 +161,7 @@ export function createSessionLifecycle({
     publish({
       ...INITIAL_STATE,
       status: 'signed-out',
-      error: 'Your session has expired. Please sign in again.',
+      error: { code: 'SESSION_EXPIRED', status: 401 },
     });
   }
 
@@ -196,7 +204,7 @@ export function createSessionLifecycle({
         // A failed login or guest conversion must not discard a still-valid guest session.
         if (generation === lifecycleGeneration) {
           if (error?.code === 'CONVERSION_RECOVERY_EXPIRED') {
-            publish({ ...INITIAL_STATE, status: 'signed-out', error: 'The conversion recovery window expired. Sign in with your new account.' });
+            publish({ ...INITIAL_STATE, status: 'signed-out', error: { code: 'CONVERSION_RECOVERY_EXPIRED', status: 0 } });
           } else publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
         }
         throw error;
@@ -239,7 +247,7 @@ export function createSessionLifecycle({
         if (generation !== lifecycleGeneration || !['guest', 'authenticated'].includes(state.status)) return state;
         return publish({
           ...state,
-          accountDataError: error instanceof Error ? error.message : 'Unable to load account data.',
+          accountDataError: toSessionErrorDescriptor(error, 'ACCOUNT_DATA_LOAD_FAILED'),
         });
       }
     });
@@ -376,7 +384,7 @@ export function createSessionLifecycle({
           return publish({ ...state, profile, accountDataError: null });
         } catch (error) {
           if (generation === lifecycleGeneration && ['guest', 'authenticated'].includes(state.status)) {
-            publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Unable to update profile.' });
+            publish({ ...state, accountDataError: toSessionErrorDescriptor(error, 'PROFILE_UPDATE_FAILED') });
           }
           throw error;
         }
@@ -404,7 +412,7 @@ export function createSessionLifecycle({
         if (generation === lifecycleGeneration) publish({ ...INITIAL_STATE, status: 'signed-out' });
         return result;
       } catch (error) {
-        if (generation === lifecycleGeneration) publish({ ...INITIAL_STATE, status: 'signed-out', error: error instanceof Error ? error.message : 'Unable to revoke sessions.' });
+        if (generation === lifecycleGeneration) publish({ ...INITIAL_STATE, status: 'signed-out', error: toSessionErrorDescriptor(error, 'SESSION_REVOCATION_FAILED') });
         throw error;
       }
     },
@@ -423,7 +431,7 @@ export function createSessionLifecycle({
         return result;
       } catch (error) {
         if (generation === lifecycleGeneration && ['guest', 'authenticated'].includes(state.status)) {
-          publish({ ...state, accountDataError: error instanceof Error ? error.message : 'Email verification failed.' });
+          publish({ ...state, accountDataError: toSessionErrorDescriptor(error, 'EMAIL_VERIFICATION_FAILED') });
         }
         throw error;
       }
@@ -448,7 +456,7 @@ export function createSessionLifecycle({
         return state;
       } catch (error) {
         if (generation === lifecycleGeneration) {
-          publish({ ...INITIAL_STATE, status: 'signed-out', error: error instanceof Error ? error.message : 'Unable to complete sign out.' });
+          publish({ ...INITIAL_STATE, status: 'signed-out', error: toSessionErrorDescriptor(error, 'SIGN_OUT_FAILED') });
         }
         throw error;
       }
