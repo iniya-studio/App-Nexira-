@@ -42,9 +42,24 @@ describe('Round finalization integration', () => {
   const freeText: GeneratedQuestion = {
     ...mcq,
     answerType: 'FREE_TEXT',
+    canonicalPrompt: 'What is the capital of France?',
     canonicalOptions: null,
     answerKey: 'Paris',
-    gradingRubric: { requiredConcepts: ['Paris'] },
+    gradingRubric: {
+      requiredConcepts: ['Paris'],
+      acceptEquivalentWording: true,
+    },
+    localized: {
+      en: {
+        prompt: 'What is the capital of France?',
+        expectedAnswer: 'Paris',
+        gradingRubric: {
+          requiredConcepts: ['Paris'],
+          acceptEquivalentWording: true,
+          notes: 'The answer must identify Paris.',
+        },
+      },
+    },
   };
 
   beforeAll(async () => {
