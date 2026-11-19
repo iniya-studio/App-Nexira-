@@ -72,7 +72,7 @@ describe('Round persistence integration', () => {
       principalType: PrincipalType.GUEST,
       principalId: guest.id,
       sessionId: randomUUID(),
-    });
+    }, { language: 'fa' });
     matchIds.push(match.id);
 
     const started = await rounds.startNextRound(match.id, question);
