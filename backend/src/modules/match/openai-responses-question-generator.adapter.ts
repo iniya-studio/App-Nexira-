@@ -39,8 +39,16 @@ type StructuredQuestion = {
     acceptEquivalentWording: boolean;
     notes: string;
   };
-  localizedPrompt: string;
-  localizedOptions: Array<{ id: string; text: string }>;
+  localized: Array<{
+    language: string;
+    prompt: string;
+    options: Array<{ id: string; text: string }>;
+    gradingRubric: {
+      requiredConcepts: string[];
+      acceptEquivalentWording: boolean;
+      notes: string;
+    };
+  }>;
   timeLimitSeconds: number;
 };
 
@@ -102,7 +110,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                 type: 'input_text',
                 text:
                   'Generate exactly one original quiz question using only the supplied settings. ' +
-                  'The language field is the authoritative language selected by the user. Generate every human-readable field directly in that exact language: canonicalPrompt, canonicalOptions text, free-text answerKey, every gradingRubric concept and note, localizedPrompt, and localizedOptions text. Do not draft in English and translate afterward; do not fall back to English unless the requested language is English. Keep canonicalLanguage exactly equal to the requested language, and keep localized wording semantically identical to the canonical wording. ' +
+                  'The language field is the canonical locale for shared semantic content. required_locales lists every human participant locale. Generate exactly one semantic question and a localized rendering for every required locale, directly authored in that locale; never translate through English and never omit a requested locale. canonicalPrompt, canonicalOptions, answerKey and gradingRubric must be authored in the canonical language. Each localized entry must contain its own prompt, option text keyed by stable option IDs, and localized grading rubric. Preserve identical meaning, answer identity, difficulty, option IDs and option order across all locales. ' +
                   'Use the requested category, difficulty, answer type, and time limit. For multiple choice, provide 2 to 8 distinct options and an answerKey equal to exactly one option ID; option IDs are language-neutral and must remain stable between canonical and localized options. For free text, use null options and a concise expected answer with a grading rubric containing required concepts, all in the requested language. Do not include player data or mention internal identifiers. The excluded fingerprints represent prior question content; avoid repeating or paraphrasing any of those questions.',
               },
             ],
@@ -116,6 +124,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                   category: input.category,
                   difficulty: input.difficulty,
                   language: input.language,
+                  required_locales: input.requiredLocales,
                   answer_type: input.answerType,
                   time_limit_seconds: input.timeLimitSeconds,
                   excluded_content_fingerprints:
@@ -234,9 +243,25 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       );
     }
 
-    const localizedOptions = Object.fromEntries(
-      structured.localizedOptions.map((option) => [option.id, option.text]),
+    const localized = Object.fromEntries(
+      structured.localized.map((rendering) => [rendering.language, {
+        prompt: rendering.prompt,
+        options: Object.fromEntries(rendering.options.map((option) => [option.id, option.text])),
+        gradingRubric: rendering.gradingRubric,
+      }]),
     );
+    const expectedLocales = [...new Set(input.requiredLocales)].sort();
+    const actualLocales = Object.keys(localized).sort();
+    if (
+      expectedLocales.length !== actualLocales.length ||
+      expectedLocales.some((locale, index) => locale !== actualLocales[index]) ||
+      !expectedLocales.includes(input.language)
+    ) {
+      throw new QuestionGenerationError(
+        'GENERATOR_LOCALE_COVERAGE_INVALID',
+        'Generated question does not contain exactly the required participant locales',
+      );
+    }
     const candidate = validateGeneratedQuestion({
       category: structured.category,
       difficulty: structured.difficulty,
@@ -246,12 +271,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       canonicalOptions: structured.canonicalOptions,
       answerKey: structured.answerKey,
       gradingRubric: structured.gradingRubric,
-      localized: {
-        [structured.canonicalLanguage]: {
-          prompt: structured.localizedPrompt,
-          options: localizedOptions,
-        },
-      },
+      localized,
       timeLimitSeconds: structured.timeLimitSeconds,
       contentVersion: 'question-content-v1',
       generatorVersion: GENERATOR_VERSION,
@@ -285,6 +305,11 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       typeof input.language !== 'string' ||
       !input.language.trim() ||
       input.language.length > 35 ||
+      !Array.isArray(input.requiredLocales) ||
+      input.requiredLocales.length === 0 ||
+      !input.requiredLocales.every((locale) => typeof locale === 'string' && locale.trim().length > 0 && locale.length <= 35) ||
+      new Set(input.requiredLocales).size !== input.requiredLocales.length ||
+      !input.requiredLocales.includes(input.language) ||
       !Number.isSafeInteger(input.timeLimitSeconds) ||
       input.timeLimitSeconds < 1 ||
       input.timeLimitSeconds > 300 ||
@@ -320,8 +345,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       'canonicalOptions',
       'answerKey',
       'gradingRubric',
-      'localizedPrompt',
-      'localizedOptions',
+      'localized',
       'timeLimitSeconds',
     ];
     if (
@@ -333,9 +357,8 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       typeof output.answerType !== 'string' ||
       typeof output.canonicalPrompt !== 'string' ||
       typeof output.answerKey !== 'string' ||
-      typeof output.localizedPrompt !== 'string' ||
       !Number.isSafeInteger(output.timeLimitSeconds) ||
-      !Array.isArray(output.localizedOptions) ||
+      !Array.isArray(output.localized) ||
       typeof output.gradingRubric !== 'object' ||
       output.gradingRubric === null ||
       Array.isArray(output.gradingRubric)
@@ -373,35 +396,49 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
     }
 
     const canonicalOptions = this.readOptions(output.canonicalOptions);
-    const localizedOptions = this.readOptions(output.localizedOptions);
-    if (
-      canonicalOptions.length !== localizedOptions.length ||
-      canonicalOptions.some(
-        (option, index) => option.id !== localizedOptions[index]?.id,
-      )
-    ) {
-      throw new QuestionGenerationError(
-        'GENERATOR_OPTIONS_INVALID',
-        'Localized options do not match canonical options',
-      );
-    }
-
+    const localized = (output.localized as unknown[]).map((value) => {
+      const item = asRecord(value);
+      if (!item || typeof item.language !== 'string' || typeof item.prompt !== 'string' ||
+          !Array.isArray(item.options) || typeof item.gradingRubric !== 'object' ||
+          item.gradingRubric === null || Array.isArray(item.gradingRubric)) {
+        throw new QuestionGenerationError('GENERATOR_LOCALIZATION_INVALID', 'A localized question rendering is invalid');
+      }
+      const rubric = item.gradingRubric as Record<string, unknown>;
+      if (!Array.isArray(rubric.requiredConcepts) ||
+          !rubric.requiredConcepts.every((concept) => typeof concept === 'string') ||
+          typeof rubric.acceptEquivalentWording !== 'boolean' || typeof rubric.notes !== 'string') {
+        throw new QuestionGenerationError('GENERATOR_LOCALIZATION_INVALID', 'A localized grading rubric is invalid');
+      }
+      const options = this.readOptions(item.options);
+      if (canonicalOptions.length !== options.length ||
+          canonicalOptions.some((option, index) => option.id !== options[index]?.id)) {
+        throw new QuestionGenerationError('GENERATOR_OPTIONS_INVALID', 'Localized option IDs/order do not match canonical options');
+      }
+      return {
+        language: item.language,
+        prompt: item.prompt,
+        options,
+        gradingRubric: {
+          requiredConcepts: rubric.requiredConcepts as string[],
+          acceptEquivalentWording: rubric.acceptEquivalentWording,
+          notes: rubric.notes,
+        },
+      };
+    });
     return {
       category: output.category,
       difficulty: output.difficulty,
       canonicalLanguage: output.canonicalLanguage,
       answerType: output.answerType,
       canonicalPrompt: output.canonicalPrompt,
-      canonicalOptions:
-        output.canonicalOptions === null ? null : canonicalOptions,
+      canonicalOptions: output.canonicalOptions === null ? null : canonicalOptions,
       answerKey: output.answerKey,
       gradingRubric: {
         requiredConcepts: rubric.requiredConcepts as string[],
         acceptEquivalentWording: rubric.acceptEquivalentWording,
         notes: rubric.notes,
       },
-      localizedPrompt: output.localizedPrompt,
-      localizedOptions,
+      localized,
       timeLimitSeconds: output.timeLimitSeconds as number,
     };
   }
@@ -465,8 +502,31 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
           required: ['requiredConcepts', 'acceptEquivalentWording', 'notes'],
           additionalProperties: false,
         },
-        localizedPrompt: { type: 'string' },
-        localizedOptions: { type: 'array', items: option, maxItems: 8 },
+        localized: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 20,
+          items: {
+            type: 'object',
+            properties: {
+              language: { type: 'string' },
+              prompt: { type: 'string' },
+              options: { type: 'array', items: option, maxItems: 8 },
+              gradingRubric: {
+                type: 'object',
+                properties: {
+                  requiredConcepts: { type: 'array', items: { type: 'string' } },
+                  acceptEquivalentWording: { type: 'boolean' },
+                  notes: { type: 'string' },
+                },
+                required: ['requiredConcepts', 'acceptEquivalentWording', 'notes'],
+                additionalProperties: false,
+              },
+            },
+            required: ['language', 'prompt', 'options', 'gradingRubric'],
+            additionalProperties: false,
+          },
+        },
         timeLimitSeconds: { type: 'integer' },
       },
       required: [
@@ -478,8 +538,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
         'canonicalOptions',
         'answerKey',
         'gradingRubric',
-        'localizedPrompt',
-        'localizedOptions',
+        'localized',
         'timeLimitSeconds',
       ],
       additionalProperties: false,
