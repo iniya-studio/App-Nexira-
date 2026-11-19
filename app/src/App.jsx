@@ -966,9 +966,7 @@ export default function App() {
           } else if (['CANCELLED', 'EXPIRED', 'NOT_QUEUED'].includes(next.status)) {
             adapter.reset();
             onlineMatchmakingAdapterRef.current = null;
-            setMatchError(language === 'fa'
-              ? 'جست‌وجوی مسابقه پایان یافته است؛ دوباره تلاش کن.'
-              : 'The matchmaking search has ended. Start a new search.');
+            setMatchError(text.match.matchmakingEnded);
             setScreen('modes');
           }
         }
@@ -1280,36 +1278,34 @@ export default function App() {
 
     {screen === 'match-game' && <ScreenFrame className="challenge-screen">
       {!matchView ? <GlassPanel variant="feature" role="alert">
-        <p>{matchError || (language === 'fa' ? 'مسابقه در دسترس نیست.' : 'The match is unavailable.')}</p>
+        <p>{matchError || (text.match.unavailable)}</p>
         <button className="secondary-action" onClick={() => {
           const selectedCategory = categoryById(run?.categoryId);
           if (selectedCategory) void beginMatch(selectedCategory, '1vAI');
           else leaveMatch('categories');
-        }}>{language === 'fa' ? 'تلاش دوباره' : 'Try again'}</button>
+        }}>{text.match.retry}</button>
         <button className="secondary-action" onClick={leaveMatch}>{text.back}</button>
       </GlassPanel> : <>
         <div className="challenge-head">
           <button className="back-link" onClick={() => setShowExitConfirm(true)}><ArrowLeft size={15} /> {text.backToChallenges}</button>
-          <p>{matchView.isOnline ? `${matchView.mode === '1v1' ? '1vs1' : '1vsAI'} · ONLINE` : matchView.mode === '1v1' ? '1vs1 · LOCAL PREVIEW' : '1vsAI · LOCAL PREVIEW'} <span>·</span> {matchView.isOnline ? (language === 'fa' ? 'مسابقه سروری' : 'SERVER MATCH') : text.localOnly}</p>
+          <p>{matchView.isOnline ? `${matchView.mode === '1v1' ? '1vs1' : '1vsAI'} · ONLINE` : matchView.mode === '1v1' ? '1vs1 · ' + text.match.localPreview : '1vsAI · ' + text.match.localPreview} <span>·</span> {matchView.isOnline ? (text.match.serverMatch) : text.localOnly}</p>
         </div>
         {matchError && <p className="empty-state" role="alert">{matchError}</p>}
         {['waiting-question', 'waiting-result', 'submitting'].includes(matchView.phase) && <GlassPanel variant="feature" className="question-panel" role="status">
           <span className="eyebrow"><span className="live-dot" /> {matchView.phase === 'submitting'
-            ? (language === 'fa' ? 'در حال ارسال پاسخ' : 'SUBMITTING ANSWER')
+            ? (text.match.submittingAnswer)
             : matchView.phase === 'waiting-result'
-              ? (language === 'fa' ? 'در انتظار داوری سرور' : 'WAITING FOR SERVER JUDGING')
-              : (language === 'fa' ? 'در حال آماده‌سازی سؤال' : 'PREPARING QUESTION')}</span>
+              ? (text.match.waitingForJudge)
+              : (text.match.preparingQuestion)}</span>
           <h2>{matchView.phase === 'waiting-result'
-            ? (language === 'fa' ? 'پاسخ‌ها در حال بررسی هستند…' : 'Your answers are being judged…')
+            ? (text.match.answersBeingJudged)
             : matchView.phase === 'submitting'
-              ? (language === 'fa' ? 'پاسخت با امنیت در حال ارسال است…' : 'Your answer is being sent securely…')
-              : (language === 'fa' ? 'هوش مصنوعی در حال آماده‌سازی مسابقه است…' : 'AI is preparing your match…')}</h2>
-          <p className="panel-note">{language === 'fa'
-            ? 'وضعیت مسابقه و زمان‌بندی فقط از سرور دریافت می‌شود.'
-            : 'Match state and timing are controlled by the backend.'}</p>
+              ? (text.match.answerSendingSecurely)
+              : (text.match.aiPreparingMatch)}</h2>
+          <p className="panel-note">{text.match.matchStateBackend}</p>
         </GlassPanel>}
         {matchView.phase === 'submission-error' && <GlassPanel variant="feature" className="question-panel" role="alert">
-          <h2>{language === 'fa' ? 'ارسال پاسخ تأیید نشد' : 'Answer submission needs a retry'}</h2>
+          <h2>{text.match.submissionNeedsRetry}</h2>
           <p>{matchError || matchView.error}</p>
           <button className="primary-button" disabled={matchBusy} onClick={() => {
             setMatchBusy(true);
@@ -1317,29 +1313,29 @@ export default function App() {
               .then(setMatchView)
               .catch((error) => setMatchError(error.message))
               .finally(() => setMatchBusy(false));
-          }}><span className="primary-label">{language === 'fa' ? 'ارسال دوباره همان پاسخ' : 'Retry the same answer'}</span></button>
+          }}><span className="primary-label">{text.match.retrySameAnswer}</span></button>
           <button className="secondary-action" disabled={matchBusy} onClick={() => { void onlineMatchAdapterRef.current?.refresh().then(setMatchView).catch((error) => setMatchError(error.message)); }}>
-            {language === 'fa' ? 'بررسی وضعیت سرور' : 'Check server status'}
+            {text.match.checkServerStatus}
           </button>
         </GlassPanel>}
         {matchView.phase === 'error' && <GlassPanel variant="feature" className="question-panel" role="alert">
-          <h2>{language === 'fa' ? 'ارتباط مسابقه قطع شد' : 'Match synchronization paused'}</h2>
+          <h2>{text.match.syncPaused}</h2>
           <p>{matchError || matchView.error}</p>
           <button className="primary-button" onClick={() => {
             void onlineMatchAdapterRef.current?.refresh()
               .then((next) => { setMatchView(next); if (next?.phase === 'complete') setScreen('match-results'); })
               .catch((error) => setMatchError(error.message));
-          }}><span className="primary-label">{language === 'fa' ? 'تلاش دوباره برای همگام‌سازی' : 'Retry synchronization'}</span></button>
+          }}><span className="primary-label">{text.match.retrySynchronization}</span></button>
         </GlassPanel>}
         {matchView.phase === 'handoff' && <GlassPanel variant="feature" className="question-panel">
-          <span className="eyebrow">{language === 'fa' ? 'نوبت بعدی' : 'NEXT TURN'}</span>
-          <h2>{language === 'fa' ? 'دستگاه را به بازیکن بعدی بدهید' : 'Pass the device to the next player'}</h2>
+          <span className="eyebrow">{text.match.nextTurn}</span>
+          <h2>{text.match.passDevice}</h2>
           <p>{matchView.participants.find(({ id }) => id === matchView.activeParticipantId)?.displayName}</p>
-          <button className="primary-button" onClick={continueMatch}><span className="primary-label">{language === 'fa' ? 'آماده‌ام' : 'Ready'}</span><ArrowRight className="primary-arrow" size={18} /></button>
+          <button className="primary-button" onClick={continueMatch}><span className="primary-label">{text.match.ready}</span><ArrowRight className="primary-arrow" size={18} /></button>
         </GlassPanel>}
         {matchView.phase === 'round-summary' && <GlassPanel variant="feature" className="question-panel">
           <span className="eyebrow">{text.round} {matchView.roundIndex} / {matchView.totalRounds}</span>
-          <h2>{language === 'fa' ? 'نتیجه دور' : 'Round results'}</h2>
+          <h2>{text.match.roundResults}</h2>
           <div className="results-stats">
             {matchView.roundSummary.map((result) => {
               const participant = matchView.participants.find(({ id }) => id === result.participantId);
@@ -1348,7 +1344,7 @@ export default function App() {
                 tone={result.decision === 'correct' ? 'green' : 'cyan'} />;
             })}
           </div>
-          <p className="panel-note">{matchView.isOnline ? (language === 'fa' ? 'نتیجه این دور پس از داوری سرور نمایش داده می‌شود.' : 'This round is settled by the backend before results are shown.') : (language === 'fa' ? 'حریف این حالت اسکریپت‌شده است؛ داوری و بازی آنلاین در دسترس نیست.' : 'The opponent is scripted; real AI judging and online play are not available.')}</p>
+          <p className="panel-note">{matchView.isOnline ? (text.match.onlineRoundSettled) : (text.match.scriptedOpponentNoAI)}</p>
           <button className="primary-button" onClick={continueMatch}><span className="primary-label">{text.continue}</span><ArrowRight className="primary-arrow" size={18} /></button>
         </GlassPanel>}
         {matchView.phase === 'question' && matchView.question && <>
@@ -1362,9 +1358,9 @@ export default function App() {
               {matchView.participants.map((participant) => <GlassPanel key={participant.id} variant="feature" className="combatant-card">
                 <span className="combatant-avatar">{participant.type === 'ai' ? <Activity size={18} /> : <UserRound size={18} />}</span>
                 <span className="combatant-copy"><small>{matchView.isOnline
-                  ? (participant.isSelf ? (language === 'fa' ? 'شما' : 'YOU') : (language === 'fa' ? 'حریف' : 'OPPONENT'))
+                  ? (participant.isSelf ? (text.match.you) : (text.match.opponent))
                   : participant.id === matchView.activeParticipantId
-                    ? (language === 'fa' ? 'نوبت شما' : 'ACTIVE TURN')
+                    ? (text.match.activeTurn)
                     : text.localSession}</small><strong>{participant.displayName}</strong></span>
                 <span className="combatant-score"><small>{text.score}</small><strong>{participant.score ?? '—'}</strong></span>
               </GlassPanel>)}
@@ -1380,12 +1376,12 @@ export default function App() {
                 maxLength={2000}
                 value={onlineAnswerText}
                 disabled={matchBusy || matchRemaining <= 0}
-                placeholder={language === 'fa' ? 'پاسخ خود را بنویسید…' : 'Type your answer…'}
+                placeholder={text.match.typeAnswer}
                 onChange={(event) => setOnlineAnswerText(event.target.value)}
                 onKeyDown={(event) => { if (event.key === 'Enter' && onlineAnswerText.trim()) void handleOnlineAnswer(); }}
               />
               <button className="primary-button" disabled={matchBusy || matchRemaining <= 0 || !onlineAnswerText.trim()} onClick={() => void handleOnlineAnswer()}>
-                <span className="primary-label">{language === 'fa' ? 'ثبت پاسخ' : 'Submit answer'}</span>
+                <span className="primary-label">{text.match.submitAnswer}</span>
                 <ArrowRight className="primary-arrow" size={18} />
               </button>
             </div> : <div className="answer-list">
@@ -1394,8 +1390,8 @@ export default function App() {
               </button>)}
             </div>}
             <p className="panel-note">{matchView.isOnline
-              ? (language === 'fa' ? 'پاسخ و امتیاز توسط سرور و داور هوش مصنوعی تعیین می‌شود.' : 'The backend and AI Judge determine accepted answers and scores.')
-              : (language === 'fa' ? 'حالت پیش‌نمایش محلی؛ حریف اسکریپت‌شده است و AI واقعی نیست.' : 'Local preview only: the opponent is scripted, not real AI.')}</p>
+              ? (text.match.backendAiJudge)
+              : (text.match.localPreviewNotAI)}</p>
           </GlassPanel>
         </>}
       </>}
@@ -1445,18 +1441,18 @@ export default function App() {
     {screen === 'match-results' && matchView && <ScreenFrame className="results-screen">
       <div className="results-heading">
         <span className="results-medal"><Trophy size={25} /></span>
-        <span className="eyebrow">{matchView.mode} · {matchView.categoryTitle ?? categoryById(matchView.categoryId)?.title ?? ''} · {matchView.isOnline ? (language === 'fa' ? 'نتیجه رسمی سرور' : 'SERVER MATCH RESULT') : (language === 'fa' ? 'نتیجه مسابقه محلی' : 'LOCAL MATCH RESULT')}</span>
+        <span className="eyebrow">{matchView.mode} · {matchView.categoryTitle ?? categoryById(matchView.categoryId)?.title ?? ''} · {matchView.isOnline ? (text.match.serverResult) : (text.match.localResult)}</span>
         <h1>{matchView.winnerId === 'human-1'
-          ? (language === 'fa' ? 'شما برنده شدید' : 'You win')
+          ? (text.match.youWin)
           : matchView.winnerId === 'human-2'
             ? (matchView.isOnline
-              ? (language === 'fa' ? 'حریف برنده شد' : 'Opponent wins')
-              : (language === 'fa' ? 'بازیکن ۲ برنده شد' : 'Player 2 wins'))
+              ? (text.match.opponentWins)
+              : (text.match.playerTwoWins))
             : matchView.winnerId === 'scripted-opponent'
               ? (matchView.isOnline
-                ? (language === 'fa' ? 'هوش مصنوعی نکسیرا برنده شد' : 'NEXIRA AI wins')
-                : (language === 'fa' ? 'حریف اسکریپت‌شده برنده شد' : 'Scripted opponent wins'))
-              : (language === 'fa' ? 'مساوی' : 'It’s a draw')}</h1>
+                ? (text.match.nexiraAiWins)
+                : (text.match.scriptedOpponentWins))
+              : (text.match.draw)}</h1>
       </div>
       <GlassPanel variant="feature" className="results-panel">
         <div className="results-stats">
@@ -1464,10 +1460,9 @@ export default function App() {
             label={participant.displayName} value={participant.score} tone={participant.id === matchView.winnerId ? 'green' : 'cyan'} />)}
         </div>
         <p className="panel-note">{matchView.isOnline
-          ? (language === 'fa' ? 'امتیاز نهایی و برنده از نتیجه ثبت‌شده در Backend دریافت شده است.' : 'Final scores and winner were retrieved from the authoritative backend result.')
+          ? (text.match.authoritativeResult)
           : (language === 'fa'
-            ? 'این مسابقه پیش‌نمایش محلی است؛ نتیجه در پروفایل ذخیره نشده و AI یا سرویس آنلاین استفاده نشده است.'
-            : 'Local preview only. This result is not saved to your profile; no real AI or online service was used.')}</p>
+            ? text.match.localResultNotSaved)}</p>
       </GlassPanel>
       <div className="results-actions">
         <button className="primary-button" onClick={() => {
