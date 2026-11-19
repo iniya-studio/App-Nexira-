@@ -36,7 +36,7 @@ function toAiOpponentAnswerErrorCode(error: unknown): string {
   if (!(error instanceof Error)) return 'AI_ANSWER_INTERNAL_ERROR';
   if (error.message === 'AI_ANSWER_PROVIDER_RESULT_INVALID') return error.message;
   if (AI_OPPONENT_ERROR_CODES.has(error.message)) return error.message;
-  if (/^AI_OPPONENT_PROVIDER_HTTP_\\d{3}$/.test(error.message)) {
+  if (/^AI_OPPONENT_PROVIDER_HTTP_\d{3}$/.test(error.message)) {
     return 'AI_OPPONENT_PROVIDER_HTTP_ERROR';
   }
   return 'AI_ANSWER_INTERNAL_ERROR';
