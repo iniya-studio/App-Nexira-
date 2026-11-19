@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Check, KeyRound, Link2, LogIn, LogOut, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { googleAuth } from '../api/googleAuth.js';
+import { formatCopy, getCopy } from '../i18n.js';
+import { getLocaleConfig } from '../locales.js';
 
 export function AccountSessionPanel({
   lifecycle,
@@ -9,7 +11,7 @@ export function AccountSessionPanel({
   resetToken = null,
   onResetTokenConsumed = () => {},
 }) {
-  const isFa = language === 'fa';
+  const copy = getCopy(language);
   const [mode, setMode] = useState(resetToken ? 'reset' : sessionState.status === 'signed-out' ? 'login' : 'convert');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -59,9 +61,9 @@ export function AccountSessionPanel({
     try {
       await lifecycle.login({ email: email.trim(), password });
       setPassword('');
-      setNotice(isFa ? 'با موفقیت وارد حساب نکسیرا شدید.' : 'You are now signed in to NEXIRA.');
+      setNotice(copy.account.you_are_now_signed_in_to_nexira);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'ورود انجام نشد.' : 'Sign in failed.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.sign_in_failed));
     } finally {
       setBusy(false);
     }
@@ -80,12 +82,12 @@ export function AccountSessionPanel({
       });
       setPassword('');
       setNotice(next.emailVerification?.delivery === 'SENT'
-        ? (isFa ? 'حساب ساخته شد؛ لینک تأیید به ایمیل شما ارسال شد.' : 'Account created; a verification email was sent.')
+        ? (copy.account.account_created_a_verification_email_was_sent)
         : next.emailVerification?.delivery === 'NOT_CONFIGURED'
-          ? (isFa ? 'حساب ساخته شد؛ ارسال ایمیل هنوز روی سرور پیکربندی نشده است.' : 'Account created; email delivery is not configured yet.')
-          : (isFa ? 'حساب ساخته شد؛ وضعیت ارسال ایمیل را بررسی کنید.' : 'Account created; check the email delivery status.'));
+          ? (copy.account.account_created_email_delivery_is_not_configured)
+          : (copy.account.account_created_check_the_email_delivery_status));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'ثبت‌نام انجام نشد.' : 'Registration failed.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.registration_failed));
     } finally {
       setBusy(false);
     }
@@ -103,14 +105,12 @@ export function AccountSessionPanel({
         password,
       });
       setPassword('');
-      setNotice(isFa
-        ? 'حساب ساخته شد. ایمیل خود را برای تأیید بررسی کنید؛ در صورت نیاز می‌توانید درخواست ارسال دوباره بدهید.'
-        : 'Your account was created. Check your email to verify it; you can request another verification email if needed.');
+      setNotice(copy.account.your_account_was_created_check_your_email_to_ver);
       setEmail('');
       setUsername('');
       setDisplayName(next.account?.displayName ?? next.account?.user?.displayName ?? displayName);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'تبدیل حساب انجام نشد.' : 'Account conversion failed.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.account_conversion_failed));
     } finally {
       setBusy(false);
     }
@@ -123,9 +123,9 @@ export function AccountSessionPanel({
       const challenge = await lifecycle.createGoogleChallenge();
       const identity = await googleAuth.getIdentity(challenge.nonce);
       await lifecycle.signInWithGoogle(identity);
-      setNotice(isFa ? 'ورود با حساب Google موفق بود.' : 'You are signed in with Google.');
+      setNotice(copy.account.you_are_signed_in_with_google);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'ورود با Google انجام نشد.' : 'Google sign-in failed.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.google_sign_in_failed));
     } finally {
       setGoogleBusy(false);
     }
@@ -139,10 +139,10 @@ export function AccountSessionPanel({
       const identity = await googleAuth.getIdentity(challenge.nonce);
       const result = await lifecycle.linkGoogleIdentity(identity);
       setNotice(result.alreadyLinked
-        ? (isFa ? 'این حساب Google از قبل متصل است.' : 'This Google account is already linked.')
-        : (isFa ? 'حساب Google با موفقیت متصل شد.' : 'Google account linked successfully.'));
+        ? (copy.account.this_google_account_is_already_linked)
+        : (copy.account.google_account_linked_successfully));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'اتصال Google انجام نشد.' : 'Could not link Google.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.could_not_link_google));
     } finally {
       setGoogleBusy(false);
     }
@@ -154,11 +154,9 @@ export function AccountSessionPanel({
     setBusy(true);
     try {
       await lifecycle.requestPasswordReset(email.trim());
-      setNotice(isFa
-        ? 'اگر حساب واجد شرایطی با این ایمیل وجود داشته باشد، دستور بازیابی ارسال می‌شود.'
-        : 'If an eligible account exists for this email, password recovery instructions will be sent.');
+      setNotice(copy.account.if_an_eligible_account_exists_for_this_email_pas);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'درخواست بازیابی ثبت نشد.' : 'Could not submit the recovery request.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.could_not_submit_the_recovery_request));
     } finally {
       setBusy(false);
     }
@@ -172,12 +170,10 @@ export function AccountSessionPanel({
       await lifecycle.resetPassword(resetToken, password);
       setPassword('');
       setMode('login');
-      setNotice(isFa
-        ? 'رمز عبور تغییر کرد. نشست‌های قبلی بسته شدند؛ اکنون با رمز جدید وارد شوید.'
-        : 'Password updated. Previous sessions were revoked; sign in with your new password.');
+      setNotice(copy.account.password_updated_previous_sessions_were_revoked_);
       onResetTokenConsumed();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'بازنشانی رمز انجام نشد.' : 'Password reset failed.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.password_reset_failed));
     } finally {
       setBusy(false);
     }
@@ -188,11 +184,9 @@ export function AccountSessionPanel({
     setBusy(true);
     try {
       await lifecycle.requestPasswordReset(sessionState.account?.email ?? '');
-      setNotice(isFa
-        ? 'اگر ایمیل حساب واجد شرایط باشد، لینک تنظیم رمز ارسال می‌شود.'
-        : 'If this account is eligible, a password setup link will be sent to its email.');
+      setNotice(copy.account.if_this_account_is_eligible_a_password_setup_lin);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'درخواست تنظیم رمز انجام نشد.' : 'Could not request password setup.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.could_not_request_password_setup));
     } finally {
       setBusy(false);
     }
@@ -207,11 +201,9 @@ export function AccountSessionPanel({
       setCurrentPassword('');
       setNewPassword('');
       setPasswordChangeOpen(false);
-      setNotice(isFa
-        ? `رمز عبور تغییر کرد و ${result.sessionsRevoked} نشست دیگر بسته شد.`
-        : `Password changed; ${result.sessionsRevoked} other session(s) revoked.`);
+      setNotice(formatCopy(copy.account.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: result.sessionsRevoked, revokedSessions: result.revokedSessions }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'تغییر رمز انجام نشد.' : 'Password change failed.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.password_change_failed));
     } finally {
       setBusy(false);
     }
@@ -223,10 +215,10 @@ export function AccountSessionPanel({
     try {
       const result = await lifecycle.resendVerification();
       setNotice(result.emailVerification?.delivery === 'SENT'
-        ? (isFa ? 'ایمیل تأیید دوباره ارسال شد.' : 'Verification email sent again.')
-        : (isFa ? 'ارسال ایمیل فعلاً در دسترس نیست.' : 'Email delivery is currently unavailable.'));
+        ? (copy.account.verification_email_sent_again)
+        : (copy.account.email_delivery_is_currently_unavailable));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'ارسال ایمیل ناموفق بود.' : 'Could not resend verification email.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.could_not_resend_verification_email));
     } finally {
       setResending(false);
     }
@@ -237,9 +229,9 @@ export function AccountSessionPanel({
     setSessionBusy(sessionId);
     try {
       await lifecycle.revokeSession(sessionId);
-      setNotice(isFa ? 'نشست انتخاب‌شده باطل شد.' : 'The selected session was revoked.');
+      setNotice(copy.account.the_selected_session_was_revoked);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'ابطال نشست ناموفق بود.' : 'Could not revoke the session.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.could_not_revoke_the_session));
     } finally {
       setSessionBusy('');
     }
@@ -247,18 +239,14 @@ export function AccountSessionPanel({
 
   async function logoutAll() {
     clearFeedback();
-    if (!globalThis.confirm(isFa
-      ? 'همه نشست‌ها، از جمله این دستگاه، خارج شوند؟'
-      : 'Sign out all sessions, including this device?')) return;
+    if (!globalThis.confirm(copy.account.sign_out_all_sessions_including_this_device)) return;
     setSessionBusy('all');
     try {
       const result = await lifecycle.logoutAll();
       setMode('login');
-      setNotice(isFa
-        ? `همه نشست‌ها باطل شدند (${result.revokedSessions}).`
-        : `All sessions were revoked (${result.revokedSessions}).`);
+      setNotice(formatCopy(copy.account.all_sessions_were_revoked_result_revokedsessions, { sessionsRevoked: result.sessionsRevoked, revokedSessions: result.revokedSessions }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'خروج از همه دستگاه‌ها ناموفق بود.' : 'Could not sign out all devices.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.could_not_sign_out_all_devices));
     } finally {
       setSessionBusy('');
     }
@@ -270,9 +258,9 @@ export function AccountSessionPanel({
     try {
       await lifecycle.logout();
       setMode('login');
-      setNotice(isFa ? 'از حساب خارج شدید.' : 'You have signed out.');
+      setNotice(copy.account.you_have_signed_out);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (isFa ? 'خروج انجام نشد.' : 'Sign out failed.'));
+      setError(cause instanceof Error ? cause.message : (copy.account.sign_out_failed));
     } finally {
       setBusy(false);
     }
@@ -284,178 +272,174 @@ export function AccountSessionPanel({
     <div className="account-session-heading">
       <span className="operator-mark"><ShieldCheck size={18} /></span>
       <span>
-        <strong id="account-session-title">{isFa ? 'مدیریت حساب' : 'Account management'}</strong>
+        <strong id="account-session-title">{copy.account.account_management}</strong>
         <small>{authenticated
-          ? (isFa ? 'حساب دائمی نکسیرا متصل است.' : 'Your registered NEXIRA account is connected.')
+          ? (copy.account.your_registered_nexira_account_is_connected)
           : guest
-            ? (isFa ? 'حساب مهمان فعال است؛ می‌توانی وارد حساب موجود شوی یا آن را دائمی کنی.' : 'Guest account active; sign in or make it permanent.')
-            : (isFa ? 'برای ادامه با حساب نکسیرا وارد شوید.' : 'Sign in to your NEXIRA account.')}</small>
+            ? (copy.account.guest_account_active_sign_in_or_make_it_permanen)
+            : (copy.account.sign_in_to_your_nexira_account)}</small>
       </span>
     </div>
 
     {authenticated && <div className="account-signed-in">
-      <p className="panel-note"><Check size={14} /> {isFa ? 'حساب دائمی متصل است.' : 'Permanent account connected.'}</p>
+      <p className="panel-note"><Check size={14} /> {copy.account.permanent_account_connected}</p>
       {sessionState.account?.email && <p className="account-email">{sessionState.account.email}</p>}
       {sessionState.authentication && <p className="panel-note account-auth-methods">
-        {isFa ? 'روش‌های ورود:' : 'Sign-in methods:'} {[
-          ...(sessionState.authentication.passwordEnabled ? [isFa ? 'رمز عبور' : 'Password'] : []),
+        {copy.account.sign_in_methods} {[
+          ...(sessionState.authentication.passwordEnabled ? [copy.account.password] : []),
           ...(sessionState.authentication.providers ?? []),
-        ].join(' · ') || (isFa ? 'نامشخص' : 'Not available')}
+        ].join(' · ') || (copy.account.not_available)}
       </p>}
       {!googleLinked && sessionState.emailVerification?.verified && <button type="button" className="secondary-action" disabled={googleBusy} onClick={linkGoogle}>
-        <Link2 size={15} /> {googleBusy ? (isFa ? 'در حال اتصال…' : 'Linking…') : (isFa ? 'اتصال حساب Google' : 'Link Google account')}
+        <Link2 size={15} /> {googleBusy ? (copy.account.linking) : (copy.account.link_google_account)}
       </button>}
       {!googleLinked && !sessionState.emailVerification?.verified && <p className="panel-note account-warning">
-        {isFa ? 'برای اتصال Google ابتدا ایمیل حساب نکسیرا را تأیید کنید.' : 'Verify your NEXIRA account email before linking Google.'}
+        {copy.account.verify_your_nexira_account_email_before_linking_}
       </p>}
       {!sessionState.authentication?.passwordEnabled && sessionState.account?.email && <button type="button" className="secondary-action" disabled={busy} onClick={requestPasswordSetup}>
-        <Mail size={15} /> {isFa ? 'تنظیم رمز با ایمیل' : 'Set a password by email'}
+        <Mail size={15} /> {copy.account.set_a_password_by_email}
       </button>}
       <div className="account-password-management">
         <button type="button" className="secondary-action" onClick={() => setPasswordChangeOpen((open) => !open)}>
           <KeyRound size={15} /> {passwordChangeOpen
-            ? (isFa ? 'بستن تغییر رمز' : 'Close password change')
-            : (isFa ? 'تغییر رمز عبور' : 'Change password')}
+            ? (copy.account.close_password_change)
+            : (copy.account.change_password)}
         </button>
         {passwordChangeOpen && <form className="account-conversion-form" onSubmit={changePassword}>
-          <label className="field-label" htmlFor="account-current-password">{isFa ? 'رمز فعلی' : 'Current password'}</label>
+          <label className="field-label" htmlFor="account-current-password">{copy.account.current_password}</label>
           <input id="account-current-password" className="text-input" type="password" autoComplete="current-password" maxLength={128} required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
-          <label className="field-label" htmlFor="account-new-password">{isFa ? 'رمز جدید (حداقل ۱۲ کاراکتر)' : 'New password (12 characters minimum)'}</label>
+          <label className="field-label" htmlFor="account-new-password">{copy.account.new_password_12_characters_minimum}</label>
           <input id="account-new-password" className="text-input" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
           <button className="primary-button account-submit" type="submit" disabled={busy}>
             <span className="play-mark"><KeyRound size={15} /></span>
-            <span className="primary-label">{busy ? (isFa ? 'در حال تغییر…' : 'Updating…') : (isFa ? 'ثبت رمز جدید' : 'Update password')}</span>
+            <span className="primary-label">{busy ? (copy.account.updating) : (copy.account.update_password)}</span>
           </button>
         </form>}
       </div>
       <div className="account-session-list">
-        <strong>{isFa ? 'نشست‌های فعال و اخیر' : 'Active and recent sessions'}</strong>
+        <strong>{copy.account.active_and_recent_sessions}</strong>
         {sessionState.sessions?.length
           ? sessionState.sessions.map((item) => <div className="account-session-row" key={item.sessionId}>
               <span>
-                <b>{item.isCurrent ? (isFa ? 'این دستگاه' : 'This device') : (isFa ? 'دستگاه دیگر' : 'Another device')}</b>
-                <small>{new Date(item.createdAt).toLocaleString(isFa ? 'fa-IR' : 'en-US')} · {item.status}</small>
+                <b>{item.isCurrent ? (copy.account.this_device) : (copy.account.another_device)}</b>
+                <small>{new Date(item.createdAt).toLocaleString(getLocaleConfig(language).intlLocale)} · {item.status}</small>
               </span>
               {item.status === 'ACTIVE' && !item.isCurrent && <button type="button" className="text-action" disabled={Boolean(sessionBusy)} onClick={() => revokeSession(item.sessionId)}>
-                {sessionBusy === item.sessionId ? (isFa ? 'در حال ابطال…' : 'Revoking…') : (isFa ? 'ابطال نشست' : 'Revoke session')}
+                {sessionBusy === item.sessionId ? (copy.account.revoking) : (copy.account.revoke_session)}
               </button>}
             </div>)
-          : <p className="panel-note">{sessionState.accountDataError || (isFa ? 'نشستی برای نمایش وجود ندارد.' : 'No sessions to display.')}</p>}
+          : <p className="panel-note">{sessionState.accountDataError || (copy.account.no_sessions_to_display)}</p>}
         {sessionState.accountDataError && <p className="account-feedback account-feedback--error" role="status">{sessionState.accountDataError}</p>}
         <button type="button" className="secondary-action" disabled={Boolean(sessionBusy)} onClick={logoutAll}>
-          {sessionBusy === 'all' ? (isFa ? 'در حال خروج…' : 'Signing out…') : (isFa ? 'خروج از همه دستگاه‌ها' : 'Sign out all devices')}
+          {sessionBusy === 'all' ? (copy.account.signing_out) : (copy.account.sign_out_all_devices)}
         </button>
       </div>
       {sessionState.emailVerification?.required && !sessionState.emailVerification?.verified && <div className="account-verification">
-        <p className="panel-note">{isFa ? 'برای تکمیل امنیت حساب، ایمیل خود را تأیید کنید.' : 'Verify your email to complete account security.'}</p>
+        <p className="panel-note">{copy.account.verify_your_email_to_complete_account_security}</p>
         <button type="button" className="secondary-action" disabled={busy || resending} onClick={resendVerification}>
-          {resending ? (isFa ? 'در حال ارسال…' : 'Sending…') : (isFa ? 'ارسال دوباره ایمیل تأیید' : 'Resend verification email')}
+          {resending ? (copy.account.sending) : (copy.account.resend_verification_email)}
         </button>
       </div>}
       <button type="button" className="secondary-action" disabled={busy} onClick={logout}>
-        <LogOut size={15} /> {isFa ? 'خروج از حساب' : 'Sign out'}
+        <LogOut size={15} /> {copy.account.sign_out}
       </button>
     </div>}
 
     {(guest || signedOut) && <>
-      {guest && mode !== 'reset' && <div className="account-mode-switch" role="group" aria-label={isFa ? 'روش ورود یا ثبت‌نام' : 'Account action'}>
+      {guest && mode !== 'reset' && <div className="account-mode-switch" role="group" aria-label={copy.account.account_action}>
         <button type="button" className={mode === 'convert' ? 'is-selected' : ''} aria-pressed={mode === 'convert'} onClick={() => { setMode('convert'); clearFeedback(); }}>
-          {isFa ? 'ساخت حساب دائمی' : 'Create account'}
+          {copy.account.create_account}
         </button>
         <button type="button" className={mode === 'login' ? 'is-selected' : ''} aria-pressed={mode === 'login'} onClick={() => { setMode('login'); clearFeedback(); }}>
-          {isFa ? 'ورود به حساب' : 'Sign in'}
+          {copy.account.sign_in}
         </button>
       </div>}
       {signedOut && !['reset', 'forgot'].includes(mode) && <>
-        {['offline', 'error'].includes(sessionState.status) && <p className="panel-note account-warning">{isFa ? 'اتصال حساب هنوز برقرار نشده است. برای ارسال فرم، اتصال سرور لازم است.' : 'Account connection is unavailable. A server connection is required to submit this form.'}</p>}
-        <div className="account-mode-switch" role="group" aria-label={isFa ? 'ورود یا ثبت‌نام مستقل' : 'Sign in or create account'}>
-          <button type="button" className={mode === 'login' ? 'is-selected' : ''} aria-pressed={mode === 'login'} onClick={() => { setMode('login'); clearFeedback(); }}>{isFa ? 'ورود' : 'Sign in'}</button>
-          <button type="button" className={mode === 'register' ? 'is-selected' : ''} aria-pressed={mode === 'register'} onClick={() => { setMode('register'); clearFeedback(); }}>{isFa ? 'ساخت حساب جدید' : 'Create account'}</button>
+        {['offline', 'error'].includes(sessionState.status) && <p className="panel-note account-warning">{copy.account.account_connection_is_unavailable_a_server_conne}</p>}
+        <div className="account-mode-switch" role="group" aria-label={copy.account.sign_in_or_create_account}>
+          <button type="button" className={mode === 'login' ? 'is-selected' : ''} aria-pressed={mode === 'login'} onClick={() => { setMode('login'); clearFeedback(); }}>{copy.account.sign_in_2}</button>
+          <button type="button" className={mode === 'register' ? 'is-selected' : ''} aria-pressed={mode === 'register'} onClick={() => { setMode('register'); clearFeedback(); }}>{copy.account.create_account_2}</button>
         </div>
       </>}
 
       {mode === 'login' && <form className="account-conversion-form" onSubmit={login}>
-        {guest && <p className="panel-note account-warning">{isFa
-          ? 'با ورود به حساب موجود، نشست مهمان این دستگاه جایگزین می‌شود؛ پیشرفت مهمان به حساب دیگر منتقل نخواهد شد.'
-          : 'Signing in replaces this device’s guest session. Guest progress is not transferred to the other account.'}</p>}
-        <label className="field-label" htmlFor="account-login-email">{isFa ? 'ایمیل' : 'Email'}</label>
+        {guest && <p className="panel-note account-warning">{copy.account.signing_in_replaces_this_device_s_guest_session_}</p>}
+        <label className="field-label" htmlFor="account-login-email">{copy.account.email}</label>
         <input id="account-login-email" className="text-input" type="email" autoComplete="username" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} />
-        <label className="field-label" htmlFor="account-login-password">{isFa ? 'رمز عبور' : 'Password'}</label>
+        <label className="field-label" htmlFor="account-login-password">{copy.account.password}</label>
         <input id="account-login-password" className="text-input" type="password" autoComplete="current-password" maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} />
         <button className="primary-button account-submit" type="submit" disabled={busy}>
           <span className="play-mark"><LogIn size={15} /></span>
-          <span className="primary-label">{busy ? (isFa ? 'در حال ورود…' : 'Signing in…') : (isFa ? 'ورود به نکسیرا' : 'Sign in to NEXIRA')}</span>
+          <span className="primary-label">{busy ? (copy.account.signing_in) : (copy.account.sign_in_to_nexira)}</span>
         </button>
         <button type="button" className="text-action account-forgot-link" onClick={() => { setMode('forgot'); clearFeedback(); }}>
-          <Mail size={14} /> {isFa ? 'رمز عبور را فراموش کرده‌اید؟' : 'Forgot password?'}
+          <Mail size={14} /> {copy.account.forgot_password}
         </button>
       </form>}
 
       {mode === 'register' && signedOut && <form className="account-conversion-form" onSubmit={register}>
-        <p className="panel-note">{isFa ? 'یک حساب مستقل بساز؛ برای ثبت‌نام نیازی به حساب مهمان نیست.' : 'Create an independent account. A guest account is not required.'}</p>
-        <label className="field-label" htmlFor="account-register-email">{isFa ? 'ایمیل' : 'Email'}</label>
+        <p className="panel-note">{copy.account.create_an_independent_account_a_guest_account_is}</p>
+        <label className="field-label" htmlFor="account-register-email">{copy.account.email}</label>
         <input id="account-register-email" className="text-input" type="email" autoComplete="email" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} />
-        <label className="field-label" htmlFor="account-register-username">{isFa ? 'نام کاربری' : 'Username'}</label>
+        <label className="field-label" htmlFor="account-register-username">{copy.account.username}</label>
         <input id="account-register-username" className="text-input" autoComplete="username" minLength={3} maxLength={20} pattern="[a-zA-Z0-9_]{3,20}" required value={username} onChange={(event) => setUsername(event.target.value)} />
-        <label className="field-label" htmlFor="account-register-display-name">{isFa ? 'نام نمایشی' : 'Display name'}</label>
+        <label className="field-label" htmlFor="account-register-display-name">{copy.account.display_name}</label>
         <input id="account-register-display-name" className="text-input" minLength={1} maxLength={40} required value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-        <label className="field-label" htmlFor="account-register-password">{isFa ? 'رمز عبور (حداقل ۱۲ کاراکتر)' : 'Password (12 characters minimum)'}</label>
+        <label className="field-label" htmlFor="account-register-password">{copy.account.password_12_characters_minimum}</label>
         <input id="account-register-password" className="text-input" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} />
         <button className="primary-button account-submit" type="submit" disabled={busy}>
           <span className="play-mark"><UserRound size={15} /></span>
-          <span className="primary-label">{busy ? (isFa ? 'در حال ثبت‌نام…' : 'Creating account…') : (isFa ? 'ساخت حساب نکسیرا' : 'Create NEXIRA account')}</span>
+          <span className="primary-label">{busy ? (copy.account.creating_account) : (copy.account.create_nexira_account)}</span>
         </button>
       </form>}
 
       {mode === 'convert' && guest && <form className="account-conversion-form" onSubmit={convert}>
-        <p className="panel-note">{isFa
-          ? 'برای ذخیره امن پیشرفت و استفاده از حسابت روی دستگاه‌های دیگر، حساب مهمان را به حساب دائمی تبدیل کن.'
-          : 'Convert your guest identity to a permanent account to protect progress and use it across devices.'}</p>
-        <label className="field-label" htmlFor="account-email">{isFa ? 'ایمیل' : 'Email'}</label>
+        <p className="panel-note">{copy.account.convert_your_guest_identity_to_a_permanent_accou}</p>
+        <label className="field-label" htmlFor="account-email">{copy.account.email}</label>
         <input id="account-email" className="text-input" type="email" autoComplete="email" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} />
-        <label className="field-label" htmlFor="account-username">{isFa ? 'نام کاربری' : 'Username'}</label>
+        <label className="field-label" htmlFor="account-username">{copy.account.username}</label>
         <input id="account-username" className="text-input" autoComplete="username" minLength={3} maxLength={20} pattern="[a-zA-Z0-9_]{3,20}" required value={username} onChange={(event) => setUsername(event.target.value)} />
-        <label className="field-label" htmlFor="account-display-name">{isFa ? 'نام نمایشی' : 'Display name'}</label>
+        <label className="field-label" htmlFor="account-display-name">{copy.account.display_name}</label>
         <input id="account-display-name" className="text-input" minLength={1} maxLength={40} required value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-        <label className="field-label" htmlFor="account-password">{isFa ? 'رمز عبور (حداقل ۱۲ کاراکتر)' : 'Password (12 characters minimum)'}</label>
+        <label className="field-label" htmlFor="account-password">{copy.account.password_12_characters_minimum}</label>
         <input id="account-password" className="text-input" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} />
         <button className="primary-button account-submit" type="submit" disabled={busy}>
           <span className="play-mark"><UserRound size={15} /></span>
-          <span className="primary-label">{busy ? (isFa ? 'در حال ساخت…' : 'Creating…') : (isFa ? 'تبدیل به حساب دائمی' : 'Create permanent account')}</span>
+          <span className="primary-label">{busy ? (copy.account.creating) : (copy.account.create_permanent_account)}</span>
         </button>
       </form>}
 
       {mode === 'forgot' && signedOut && <form className="account-conversion-form" onSubmit={requestPasswordReset}>
-        <p className="panel-note">{isFa ? 'ایمیل حساب را وارد کنید تا در صورت وجود حساب واجد شرایط، لینک بازیابی ارسال شود.' : 'Enter your account email. If an eligible account exists, a recovery link will be sent.'}</p>
-        <label className="field-label" htmlFor="account-forgot-email">{isFa ? 'ایمیل' : 'Email'}</label>
+        <p className="panel-note">{copy.account.enter_your_account_email_if_an_eligible_account_}</p>
+        <label className="field-label" htmlFor="account-forgot-email">{copy.account.email}</label>
         <input id="account-forgot-email" className="text-input" type="email" autoComplete="email" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} />
         <button className="primary-button account-submit" type="submit" disabled={busy}>
           <span className="play-mark"><Mail size={15} /></span>
-          <span className="primary-label">{busy ? (isFa ? 'در حال ارسال…' : 'Sending…') : (isFa ? 'ارسال لینک بازیابی' : 'Send recovery link')}</span>
+          <span className="primary-label">{busy ? (copy.account.sending) : (copy.account.send_recovery_link)}</span>
         </button>
-        <button type="button" className="text-action" onClick={() => { setMode('login'); clearFeedback(); }}>{isFa ? 'بازگشت به ورود' : 'Back to sign in'}</button>
+        <button type="button" className="text-action" onClick={() => { setMode('login'); clearFeedback(); }}>{copy.account.back_to_sign_in}</button>
       </form>}
 
       {mode === 'reset' && resetToken && <form className="account-conversion-form" onSubmit={resetPassword}>
-        <p className="panel-note">{isFa ? 'رمز جدیدی با حداقل ۱۲ کاراکتر انتخاب کنید.' : 'Choose a new password with at least 12 characters.'}</p>
-        <label className="field-label" htmlFor="account-reset-password">{isFa ? 'رمز عبور جدید' : 'New password'}</label>
+        <p className="panel-note">{copy.account.choose_a_new_password_with_at_least_12_character}</p>
+        <label className="field-label" htmlFor="account-reset-password">{copy.account.new_password}</label>
         <input id="account-reset-password" className="text-input" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} />
         <button className="primary-button account-submit" type="submit" disabled={busy}>
           <span className="play-mark"><KeyRound size={15} /></span>
-          <span className="primary-label">{busy ? (isFa ? 'در حال بازنشانی…' : 'Resetting…') : (isFa ? 'ثبت رمز جدید' : 'Set new password')}</span>
+          <span className="primary-label">{busy ? (copy.account.resetting) : (copy.account.set_new_password)}</span>
         </button>
       </form>}
     </>}
 
     {(guest || signedOut) && mode !== 'reset' && <div className="account-google-entry">
-      {guest && <p className="panel-note account-warning">{isFa ? 'ورود با Google نشست مهمان را با حساب Google جایگزین می‌کند و پیشرفت مهمان منتقل نمی‌شود.' : 'Google sign-in replaces this guest session; guest progress is not transferred.'}</p>}
+      {guest && <p className="panel-note account-warning">{copy.account.google_sign_in_replaces_this_guest_session_guest}</p>}
       <button type="button" className="secondary-action account-google-button" disabled={googleBusy} onClick={signInWithGoogle}>
         <span className="google-mark" aria-hidden="true">G</span>
-        {googleBusy ? (isFa ? 'در حال اتصال به Google…' : 'Connecting to Google…') : (isFa ? 'ادامه با Google' : 'Continue with Google')}
+        {googleBusy ? (copy.account.connecting_to_google) : (copy.account.continue_with_google)}
       </button>
     </div>}
 
-    {sessionState.emailVerification?.verified && authenticated && <p className="account-feedback" role="status">{isFa ? 'ایمیل حساب تأیید شده است.' : 'Account email is verified.'}</p>}
+    {sessionState.emailVerification?.verified && authenticated && <p className="account-feedback" role="status">{copy.account.account_email_is_verified}</p>}
     {sessionState.accountDataError && !authenticated && <p className="account-feedback account-feedback--error" role="status">{sessionState.accountDataError}</p>}
     {error && <p className="account-feedback account-feedback--error" role="alert">{error}</p>}
     {notice && <p className="account-feedback" role="status">{notice}</p>}
