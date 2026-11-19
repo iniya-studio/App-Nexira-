@@ -246,6 +246,8 @@ describe('AI opponent answer worker integration', () => {
     });
     expect(job.status).toBe('FAILED');
     expect(job.attempts).toBe(3);
+    expect(job.lastErrorCode).toBe('AI_ANSWER_INTERNAL_ERROR');
+    expect(job.lastErrorCode).not.toContain('provider unavailable');
     expect(opponent.generateAnswer).toHaveBeenCalledTimes(3);
     expect(
       await prisma.answer.count({
