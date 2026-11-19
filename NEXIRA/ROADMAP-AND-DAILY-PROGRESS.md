@@ -446,3 +446,19 @@
 - Free-text Judge now receives the participant-locale prompt, expected answer and rubric from the persisted rendering. Canonical fallback is permitted only for historical same-canonical-locale questions; cross-locale judging fails closed when localized judge context is absent.
 - Added regression coverage for exact multi-locale generator output, missing locale rejection, caller-locale override resistance, cross-locale shared question delivery, and Persian Judge routing.
 - **Not yet verified:** TypeScript compilation, Prisma Client generation, backend unit/integration execution, database migration execution, and GitHub Actions result. No CI pass is claimed.
+
+
+## R-038 — Centralized competitive matchmaking UI copy
+
+**Date:** 2026-11-19  
+**Status:** UI copy migration committed on `main`; automated verification pending.
+
+- Added matching English/Persian `match` namespaces for competitive mode selection and matchmaking status copy.
+- Migrated the 1v1 and 1vAI mode labels, competitive section heading, and matchmaking screen text from inline locale ternaries to the centralized dictionary.
+- Corrected the public 1v1 player-facing description: matchmaking compatibility is category-only; selected language does not restrict opponent pairing.
+- Added regression assertions for complete English/Persian match-copy keys and explicit locale-independent matchmaking wording.
+- Corrected the 1vAI online status badge to use the centralized translation key.
+- Changes are on `main`; no branch was created.
+- **Not verified:** frontend test execution, Android build, and GitHub Actions. The commit status endpoint returned an empty status list and the workflow lookup returned no runs; this is unknown/unavailable evidence, not a passing CI result.
+- The frontend still contains 74 direct `language === 'fa'` conditionals elsewhere in `App.jsx`. Localization is therefore not complete and APK acceptance remains blocked.
+- Next bounded work: migrate the remaining active competitive match-state/error/result copy into a dedicated namespace, add coverage, and then assess remaining non-match screens before closing the UI localization audit.
