@@ -63,7 +63,7 @@ export function AccountSessionPanel({
       setPassword('');
       setNotice(copy.account.you_are_now_signed_in_to_nexira);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.sign_in_failed));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setBusy(false);
     }
@@ -87,7 +87,7 @@ export function AccountSessionPanel({
           ? (copy.account.account_created_email_delivery_is_not_configured)
           : (copy.account.account_created_check_the_email_delivery_status));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.registration_failed));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setBusy(false);
     }
@@ -110,7 +110,7 @@ export function AccountSessionPanel({
       setUsername('');
       setDisplayName(next.account?.displayName ?? next.account?.user?.displayName ?? displayName);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.account_conversion_failed));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setBusy(false);
     }
@@ -125,7 +125,7 @@ export function AccountSessionPanel({
       await lifecycle.signInWithGoogle(identity);
       setNotice(copy.account.you_are_signed_in_with_google);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.google_sign_in_failed));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setGoogleBusy(false);
     }
@@ -142,7 +142,7 @@ export function AccountSessionPanel({
         ? (copy.account.this_google_account_is_already_linked)
         : (copy.account.google_account_linked_successfully));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.could_not_link_google));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setGoogleBusy(false);
     }
@@ -156,7 +156,7 @@ export function AccountSessionPanel({
       await lifecycle.requestPasswordReset(email.trim());
       setNotice(copy.account.if_an_eligible_account_exists_for_this_email_pas);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.could_not_submit_the_recovery_request));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setBusy(false);
     }
@@ -173,7 +173,7 @@ export function AccountSessionPanel({
       setNotice(copy.account.password_updated_previous_sessions_were_revoked_);
       onResetTokenConsumed();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.password_reset_failed));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setBusy(false);
     }
@@ -186,7 +186,7 @@ export function AccountSessionPanel({
       await lifecycle.requestPasswordReset(sessionState.account?.email ?? '');
       setNotice(copy.account.if_this_account_is_eligible_a_password_setup_lin);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.could_not_request_password_setup));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setBusy(false);
     }
@@ -203,7 +203,7 @@ export function AccountSessionPanel({
       setPasswordChangeOpen(false);
       setNotice(formatCopy(copy.account.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: result.sessionsRevoked, revokedSessions: result.revokedSessions }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.password_change_failed));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setBusy(false);
     }
@@ -218,7 +218,7 @@ export function AccountSessionPanel({
         ? (copy.account.verification_email_sent_again)
         : (copy.account.email_delivery_is_currently_unavailable));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.could_not_resend_verification_email));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setResending(false);
     }
@@ -231,7 +231,7 @@ export function AccountSessionPanel({
       await lifecycle.revokeSession(sessionId);
       setNotice(copy.account.the_selected_session_was_revoked);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.could_not_revoke_the_session));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setSessionBusy('');
     }
@@ -246,7 +246,7 @@ export function AccountSessionPanel({
       setMode('login');
       setNotice(formatCopy(copy.account.all_sessions_were_revoked_result_revokedsessions, { sessionsRevoked: result.sessionsRevoked, revokedSessions: result.revokedSessions }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.could_not_sign_out_all_devices));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setSessionBusy('');
     }
@@ -260,7 +260,7 @@ export function AccountSessionPanel({
       setMode('login');
       setNotice(copy.account.you_have_signed_out);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (copy.account.sign_out_failed));
+      setError(getLocalizedAccountError(cause, copy.account));
     } finally {
       setBusy(false);
     }
@@ -322,14 +322,14 @@ export function AccountSessionPanel({
           ? sessionState.sessions.map((item) => <div className="account-session-row" key={item.sessionId}>
               <span>
                 <b>{item.isCurrent ? (copy.account.this_device) : (copy.account.another_device)}</b>
-                <small>{new Date(item.createdAt).toLocaleString(getLocaleConfig(language).intlLocale)} · {item.status}</small>
+                <small>{new Date(item.createdAt).toLocaleString(getLocaleConfig(language).intlLocale)} · {(item.status === 'ACTIVE' ? copy.account.session_active : item.status === 'REVOKED' ? copy.account.session_revoked : item.status === 'EXPIRED' ? copy.account.session_expired : copy.account.session_unknown)}</small>
               </span>
               {item.status === 'ACTIVE' && !item.isCurrent && <button type="button" className="text-action" disabled={Boolean(sessionBusy)} onClick={() => revokeSession(item.sessionId)}>
                 {sessionBusy === item.sessionId ? (copy.account.revoking) : (copy.account.revoke_session)}
               </button>}
             </div>)
-          : <p className="panel-note">{sessionState.accountDataError || (copy.account.no_sessions_to_display)}</p>}
-        {sessionState.accountDataError && <p className="account-feedback account-feedback--error" role="status">{sessionState.accountDataError}</p>}
+          : <p className="panel-note">{sessionState.accountDataError ? copy.account.account_data_unavailable : copy.account.no_sessions_to_display}</p>}
+        {sessionState.accountDataError && <p className="account-feedback account-feedback--error" role="status">{copy.account.account_data_unavailable}</p>}
         <button type="button" className="secondary-action" disabled={Boolean(sessionBusy)} onClick={logoutAll}>
           {sessionBusy === 'all' ? (copy.account.signing_out) : (copy.account.sign_out_all_devices)}
         </button>
@@ -440,7 +440,7 @@ export function AccountSessionPanel({
     </div>}
 
     {sessionState.emailVerification?.verified && authenticated && <p className="account-feedback" role="status">{copy.account.account_email_is_verified}</p>}
-    {sessionState.accountDataError && !authenticated && <p className="account-feedback account-feedback--error" role="status">{sessionState.accountDataError}</p>}
+    {sessionState.accountDataError && !authenticated && <p className="account-feedback account-feedback--error" role="status">{copy.account.account_data_unavailable}</p>}
     {error && <p className="account-feedback account-feedback--error" role="alert">{error}</p>}
     {notice && <p className="account-feedback" role="status">{notice}</p>}
   </section>;
