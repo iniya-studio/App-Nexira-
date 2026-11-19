@@ -82,7 +82,16 @@ describe('Complete 1vAI match lifecycle integration', () => {
         requiredConcepts: ['Mars'],
         acceptEquivalentWording: true,
       },
-      localized: { [input.language]: { prompt } },
+      localized: {
+        [input.language]: {
+          prompt,
+          expectedAnswer: 'Mars',
+          gradingRubric: {
+            requiredConcepts: ['Mars'],
+            acceptEquivalentWording: true,
+          },
+        },
+      },
       timeLimitSeconds: input.timeLimitSeconds,
       contentVersion: `one-v-ai-lifecycle-v1-${sequence}`,
       judgeVersion: 'one-v-ai-lifecycle-judge-v1',
