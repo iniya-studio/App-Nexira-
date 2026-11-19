@@ -276,7 +276,7 @@ export class RoundService {
     matchId: string,
     roundId: string,
     principal: AuthenticatedPrincipal,
-    language: string,
+    _language: string,
   ): Promise<PublicRoundQuestion> {
     const ownership =
       principal.principalType === PrincipalType.USER
@@ -297,6 +297,15 @@ export class RoundService {
         voidedAt: true,
         startedAt: true,
         deadlineAt: true,
+        match: {
+          select: {
+            participants: {
+              where: ownership,
+              select: { language: true },
+              take: 1,
+            },
+          },
+        },
         question: {
           select: {
             id: true,
@@ -329,9 +338,16 @@ export class RoundService {
     const canonicalOptions = this.readCanonicalOptions(
       question.canonicalOptions,
     );
+    const participantLanguage = round.match.participants[0]?.language;
+    if (!participantLanguage) throw new NotFoundException('Round not found');
     const localizedRoot = this.asRecord(question.localized);
-    const localized = this.asRecord(localizedRoot?.[language]);
+    const localized = this.asRecord(localizedRoot?.[participantLanguage]);
     const localizedOptions = this.asRecord(localized?.options);
+    if (!localized || typeof localized.prompt !== 'string' ||
+        (question.answerType === 'MULTIPLE_CHOICE' &&
+          (!localizedOptions || !canonicalOptions.every((option) => typeof localizedOptions[option.id] === 'string')))) {
+      throw new NotFoundException('Round not found');
+    }
 
     return {
       matchId,
@@ -339,16 +355,10 @@ export class RoundService {
       roundNumber: round.roundNumber,
       questionId: question.id,
       answerType: question.answerType,
-      prompt:
-        typeof localized?.prompt === 'string'
-          ? localized.prompt
-          : question.canonicalPrompt,
+      prompt: localized.prompt,
       options: canonicalOptions.map((option) => ({
         id: option.id,
-        text:
-          typeof localizedOptions?.[option.id] === 'string'
-            ? (localizedOptions[option.id] as string)
-            : option.text,
+        text: localizedOptions?.[option.id] as string,
       })),
       timeLimitSeconds: question.timeLimitSeconds,
       startedAt: round.startedAt,
