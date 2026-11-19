@@ -92,6 +92,8 @@ export function parseQuestionGenerationInput(
     !Array.isArray(context.requiredLocales) ||
     context.requiredLocales.length === 0 ||
     !context.requiredLocales.every((locale) => typeof locale === 'string' && locale.trim().length > 0) ||
+    new Set(context.requiredLocales).size !== context.requiredLocales.length ||
+    !context.requiredLocales.includes(context.language) ||
     (context.answerType !== 'MULTIPLE_CHOICE' &&
       context.answerType !== 'FREE_TEXT') ||
     typeof context.timeLimitSeconds !== 'number' ||
