@@ -4,8 +4,8 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
-import { Observable, throwError } from 'rxjs';
 
 type HttpResponse = {
   status(code: number): { json(body: ApiErrorResponse): void };
@@ -59,13 +59,20 @@ function definitionForStatus(status: number, exception: unknown): ApiErrorDefini
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost): Observable<never> | void {
-    if (host.getType() !== 'http') return throwError(() => exception);
+  private readonly logger = new Logger(ApiExceptionFilter.name);
+
+  catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<HttpResponse>();
     const status = exception instanceof HttpException
       ? exception.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
     const definition = definitionForStatus(status, exception);
+    if (!(exception instanceof HttpException)) {
+      this.logger.error(
+        'Unhandled HTTP exception',
+        exception instanceof Error ? exception.stack : undefined,
+      );
+    }
 
     response.status(status).json({
       statusCode: status,
