@@ -630,6 +630,7 @@ export function getLocalizedApiError(error, copy) {
   if (code === 'NETWORK_ERROR') return copy.network_error;
   if (code === 'REQUEST_ABORTED') return copy.request_aborted;
   if (code === 'SESSION_SUPERSEDED') return copy.session_changed;
+  if (code === 'SESSION_EXPIRED' || code === 'SESSION_REVOKED') return copy.session_expired;
   if (code === 'CONVERSION_RECOVERY_EXPIRED') return copy.recovery_window_expired;
   if (code === 'QUESTION_GENERATION_FAILED' || code === 'MATCH_CANCELLED') return copy.server_error;
   if (status === 401 || status === 403) return copy.authorization_failed;
