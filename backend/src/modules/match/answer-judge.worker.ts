@@ -81,7 +81,12 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
         await this.releaseClaim(claim, 'JUDGE_PARTICIPANT_LOCALE_RENDERING_MISSING');
         return true;
       }
-      const localizedRubric = localized.gradingRubric ?? question.gradingRubric;
+      const localizedRubric = localized.gradingRubric ??
+        (participantLanguage === question.canonicalLanguage ? question.gradingRubric : null);
+      if (!localizedRubric) {
+        await this.releaseClaim(claim, 'JUDGE_PARTICIPANT_LOCALE_RUBRIC_MISSING');
+        return true;
+      }
       const result = await this.judge.judge({
         canonicalQuestion: localized.prompt,
         language: participantLanguage,
