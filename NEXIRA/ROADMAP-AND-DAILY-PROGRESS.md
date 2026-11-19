@@ -561,3 +561,18 @@
 - No new locale has been enabled. The 18 incomplete target locales, complete 20-locale UI and game-content packs, RTL/LTR acceptance, accessibility, API/error coverage and cross-locale device acceptance remain open. No APK/release acceptance is claimed.
 
 **Next implementation:** migrate the complete Store catalog and tab labels into the translation dictionaries, remove the Store locale ternaries, add parity/content/source-regression tests, then migrate Settings language names, bottom navigation and exit-confirmation copy. Keep Localization OPEN until all 20 locale packs and end-to-end acceptance criteria are satisfied.
+
+
+### R-044 scope addition — server errors and session-state localization (mandatory)
+
+This is an explicit required part of the current Account/Session localization phase, not optional follow-up work:
+
+- Audit every server/API error path reaching user-visible UI, including raw response bodies, backend `message` / `error` fields, nested causes, unknown error codes, network failures, timeouts, aborted requests, authorization failures, conflicts, validation errors, rate limits, and 5xx responses.
+- Never render raw server text, stack traces, internal exception names, request diagnostics, or untrusted backend messages directly to users. Convert known machine-readable error codes/statuses into locale dictionary keys; use a safe localized generic fallback for unknown or malformed payloads.
+- Localize every user-visible session state and transition, including loading/initializing, authenticated/active, guest, expired, revoked, superseded/replaced, reconnecting/recovery, conversion/recovery-window expiry, unauthorized, unavailable, and unknown states wherever applicable in the actual session lifecycle.
+- Audit session banners, account panels, retry/reconnect actions, expiry/revocation notices, account conversion outcomes, session lists/status badges, dialogs, accessibility labels, and notifications/toasts—not only the Account/Session form.
+- Preserve diagnostic detail only in controlled developer/server logs; do not expose secrets, tokens, raw payloads, or sensitive session identifiers in UI or logs.
+- Add tests for English/Persian parity, every mapped error and session state, unknown/malformed backend payload fallback, absence of raw server-message rendering, interpolation safety, and all user-visible lifecycle paths. Extend the same contract to all 20 target locales before release.
+- Verify server/API error mapping and session-state localization with integration/regression tests and device acceptance, including expired/revoked sessions and network/server failure scenarios.
+
+**Acceptance gate:** Account/Session localization cannot be marked complete until both ordinary UI copy and server-originated errors/session states are localized, safe-fallback behavior is proven, and tests cover the relevant lifecycle paths. Current implementation of `getLocalizedAccountError` is a starting point only; it does not by itself prove exhaustive coverage.
