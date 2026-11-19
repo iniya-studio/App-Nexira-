@@ -1303,16 +1303,18 @@ export default function App() {
           <p className="panel-note">{text.match.matchStateBackend}</p>
         </GlassPanel>}
         {matchView.phase === 'submission-error' && <GlassPanel variant="feature" className="question-panel" role="alert">
-          <h2>{text.match.submissionNeedsRetry}</h2>
+          <h2>{matchView.error?.status === 409 || matchError?.status === 409
+            ? text.match.submissionNeedsSync
+            : text.match.submissionNeedsRetry}</h2>
           <p>{getLocalizedApiError(matchError || matchView.error, text.account)}</p>
-          <button className="primary-button" disabled={matchBusy} onClick={() => {
+          {matchView.error?.status !== 409 && matchError?.status !== 409 && <button className="primary-button" disabled={matchBusy} onClick={() => {
             setMatchBusy(true);
             void onlineMatchAdapterRef.current?.retrySubmission()
               .then(setMatchView)
-              .catch((error) => setMatchError(error))
+              .catch((error) => { setMatchView(onlineMatchAdapterRef.current?.getView() ?? null); setMatchError(error); })
               .finally(() => setMatchBusy(false));
-          }}><span className="primary-label">{text.match.retrySameAnswer}</span></button>
-          <button className="secondary-action" disabled={matchBusy} onClick={() => { void onlineMatchAdapterRef.current?.refresh().then(setMatchView).catch((error) => setMatchError(error)); }}>
+          }}><span className="primary-label">{text.match.retrySameAnswer}</span></button>}
+          <button className={matchView.error?.status === 409 || matchError?.status === 409 ? "primary-button" : "secondary-action"} disabled={matchBusy} onClick={() => { void onlineMatchAdapterRef.current?.refresh().then(setMatchView).catch((error) => { setMatchView(onlineMatchAdapterRef.current?.getView() ?? null); setMatchError(error); }); }}>
             {text.match.checkServerStatus}
           </button>
         </GlassPanel>}
