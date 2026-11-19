@@ -195,6 +195,21 @@ test('profile and account status UI copy has complete English/Persian parity', a
   assert.equal(profileUi.includes("language === 'fa'"), false, 'Profile UI must use centralized locale dictionaries.');
 });
 
+test('all lifecycle session states have localized labels and raw lifecycle errors are never rendered', async () => {
+  const requiredStates = ['idle', 'initializing', 'guest', 'authenticated', 'offline', 'error', 'unsupported', 'signed-out', 'unknown'];
+  for (const locale of ['en', 'fa']) {
+    const labels = COPY[locale].profile.sessionStatus;
+    for (const state of requiredStates) {
+      assert.equal(typeof labels[state], 'string', `Missing ${locale} session state: ${state}`);
+      assert.ok(labels[state].trim(), `Empty ${locale} session state: ${state}`);
+    }
+  }
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.match(appSource, /text\.profile\.sessionStatus\[sessionState\.status\]/);
+  assert.equal(appSource.includes('{sessionState.error}'), false);
+  assert.equal(appSource.includes('{sessionState.accountDataError}'), false);
+});
+
 test('account and session UI copy is centralized with complete English/Persian parity', async () => {
   const english = COPY.en.account;
   const persian = COPY.fa.account;
