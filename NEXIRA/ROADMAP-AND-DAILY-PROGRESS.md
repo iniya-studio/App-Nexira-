@@ -462,3 +462,19 @@
 - **Not verified:** frontend test execution, Android build, and GitHub Actions. The commit status endpoint returned an empty status list and the workflow lookup returned no runs; this is unknown/unavailable evidence, not a passing CI result.
 - The frontend still contains 74 direct `language === 'fa'` conditionals elsewhere in `App.jsx`. Localization is therefore not complete and APK acceptance remains blocked.
 - Next bounded work: migrate the remaining active competitive match-state/error/result copy into a dedicated namespace, add coverage, and then assess remaining non-match screens before closing the UI localization audit.
+
+## R-039 — هم‌ترازسازی رجیستری ۲۰ زبان در Frontend
+
+**تاریخ:** 2026-11-19  
+**وضعیت:** رجیستری هدف ۲۰ زبان در Frontend ثبت شد؛ فعال‌سازی زبان‌های ناقص عمداً مسدود است؛ اجرای تست و CI هنوز تأیید نشده است.
+
+- رجیستری مرکزی Frontend اکنون تمام ۲۰ زبان مصوب V1 را با نام بومی، نام انگلیسی، تگ استاندارد Intl، جهت نوشتار و وضعیت فعال‌سازی نگه می‌دارد.
+- فقط انگلیسی و فارسی فعال هستند؛ ۱۸ زبان دیگر تا تکمیل بستهٔ رابط، محتوای بازی، QA زبانی و آزمون‌های مربوطه در انتخاب‌گر قابل انتخاب نیستند.
+- جهت RTL برای فارسی، عربی و اردو در metadata ثبت شد؛ سایر زبان‌ها LTR هستند.
+- توابع مرکزی تشخیص زبان هدف، زبان فعال، بازیابی امن زبان و قالب‌بندی عدد/تاریخ بر پایهٔ Intl اضافه شدند.
+- آزمون Frontend اکنون فهرست ۲۰ زبان را با رجیستری Backend تطبیق می‌دهد و برابری فهرست زبان‌های فعال در دو سمت را نیز کنترل می‌کند؛ این مانع فعال‌سازی ناخواسته یا ناسازگار یک زبان در فقط یکی از دو سمت می‌شود.
+- رفتار قبلی انتخاب و ذخیرهٔ زبان انگلیسی/فارسی حفظ شده است؛ زبان ناقص به‌صورت خودکار به‌عنوان زبان پشتیبانی‌شده پذیرفته نمی‌شود.
+- Commitها روی `main`: `9cb4633` (رجیستری Frontend)، `633355e` و `35fb54b` (آزمون‌های رجیستری و هم‌ترازی).
+- **مدرک اجرایی:** وضعیت check برای آخرین commit در زمان بررسی خالی بود و ابزار مربوطه اجرای Workflow را برنگرداند؛ بنابراین نتیجهٔ تست/CI نامشخص است و PASS اعلام نمی‌شود.
+
+**گام بعد:** ادامهٔ L10N-02C با مهاجرت متن‌های باقی‌ماندهٔ مسابقه و سپس سایر صفحات از شرط‌های مستقیم زبان به فرهنگ ترجمه؛ هم‌زمان، تکمیل بسته‌های ۲۰ زبان و قرارداد محتوای بازی طبق ترتیب مصوب.
