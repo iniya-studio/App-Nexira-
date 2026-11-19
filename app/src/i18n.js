@@ -152,7 +152,6 @@ export const COPY = {
       language: ['Word Sprint', 'Word Link', 'Quick Read'],
       science: ['Science Signals', 'Element Scan', 'Discovery'],
     },
-  },
     account: {
       you_are_now_signed_in_to_nexira: "You are now signed in to NEXIRA.",
       sign_in_failed: "Sign in failed.",
@@ -248,7 +247,7 @@ export const COPY = {
       password_changed_result_sessionsrevoked_other_se: "Password changed; ${result.sessionsRevoked} other session(s) revoked.",
       all_sessions_were_revoked_result_revokedsessions: "All sessions were revoked (${result.revokedSessions}).",
     },
-
+  },
   fa: {
     match: {
       competitiveOnline: 'مسابقه رقابتی آنلاین',
@@ -400,7 +399,6 @@ export const COPY = {
       language: ['شتاب واژه', 'پیوند واژه', 'خواندن سریع'],
       science: ['نشانه‌های علم', 'بررسی عناصر', 'اکتشاف'],
     },
-  },
     account: {
       you_are_now_signed_in_to_nexira: "با موفقیت وارد حساب نکسیرا شدید.",
       sign_in_failed: "ورود انجام نشد.",
@@ -496,7 +494,7 @@ export const COPY = {
       password_changed_result_sessionsrevoked_other_se: "رمز عبور تغییر کرد و ${result.sessionsRevoked} نشست دیگر بسته شد.",
       all_sessions_were_revoked_result_revokedsessions: "همه نشست‌ها باطل شدند (${result.revokedSessions}).",
     },
-
+  },
 };
 
 export const PERSIAN_QUESTIONS = {
