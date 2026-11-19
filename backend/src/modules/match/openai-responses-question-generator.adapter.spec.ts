@@ -38,6 +38,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     localized: [{
       language: 'en',
       prompt: 'Which planet has the shortest year?',
+      expectedAnswer: 'Mercury',
       options: [
         { id: 'A', text: 'Mercury' },
         { id: 'B', text: 'Neptune' },
@@ -154,6 +155,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
       localized: [{
         language: 'fa',
         prompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟',
+        expectedAnswer: 'عطارد',
         options: [
           { id: 'A', text: 'عطارد' },
           { id: 'B', text: 'نپتون' },
@@ -301,6 +303,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
       localized: [{
         language: 'en',
         prompt: 'What is the largest planet in our solar system?',
+        expectedAnswer: 'Jupiter',
         options: [],
         gradingRubric: {
           requiredConcepts: ['Jupiter'],
@@ -345,6 +348,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
       localized: [{
         language: 'en',
         prompt: 'Which planet has the shortest year?',
+        expectedAnswer: 'Mercury',
         options: [
           { id: 'A', text: 'Mercury' },
           { id: 'X', text: 'Neptune' },
