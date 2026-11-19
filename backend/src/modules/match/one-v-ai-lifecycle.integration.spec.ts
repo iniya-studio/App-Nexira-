@@ -232,8 +232,8 @@ describe('Complete 1vAI match lifecycle integration', () => {
       );
       expect(humanReceipt.status).toBe('ACCEPTED');
 
-      await expect(judgeWorker.runOnce()).resolves.toBe(true);
-      await expect(judgeWorker.runOnce()).resolves.toBe(true);
+      await expect(judgeWorker.runOnce(match.id)).resolves.toBe(true);
+      await expect(judgeWorker.runOnce(match.id)).resolves.toBe(true);
       expect(judge.judge).toHaveBeenCalledTimes(roundNumber * 2);
 
       const persistedAnswers = await prisma.answer.findMany({
