@@ -73,7 +73,8 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
       const participantLanguage = answer.participant.language;
       const localizedRoot = this.asRecord(question.localized);
       const localized = this.asRecord(localizedRoot?.[participantLanguage]);
-      if (!participantLanguage || !localized || typeof localized.prompt !== 'string') {
+      if (!participantLanguage || !localized || typeof localized.prompt !== 'string' ||
+          typeof localized.expectedAnswer !== 'string' || !localized.expectedAnswer.trim()) {
         await this.releaseClaim(claim, 'JUDGE_PARTICIPANT_LOCALE_RENDERING_MISSING');
         return true;
       }
@@ -81,7 +82,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
       const result = await this.judge.judge({
         canonicalQuestion: localized.prompt,
         language: participantLanguage,
-        expectedAnswer: question.answerKey,
+        expectedAnswer: localized.expectedAnswer,
         gradingRubric: localizedRubric as Prisma.JsonValue,
         participantResponse: answer.responseText ?? '',
       });
