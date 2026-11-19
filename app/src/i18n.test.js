@@ -320,7 +320,7 @@ function collectTranslationLeaves(value, prefix = '') {
 }
 
 function readStaticPath(root, path) {
-  return path.split('.').reduce((value, key) => value?.[key], root);
+  return path.replace(/\[(\d+)\]/g, '.$1').replace(/^\./, '').split('.').reduce((value, key) => value?.[key], root);
 }
 
 test('English and Persian translation trees have recursive shape, non-empty leaves, and placeholder parity', () => {
