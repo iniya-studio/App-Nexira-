@@ -656,7 +656,7 @@ This is an explicit required part of the current Account/Session localization ph
 ### Commits and CI evidence
 - Lifecycle descriptor migration: c9bd93b92f0b5130c1210e68374cc06296c0b7ec
 - Session expiry localization: c339cde3458fede3a69851f753fc52824e0ea7d6
-- Lifecycle regression expectation: 761f8da71fb23eeeb5f4e983f5cade2ad2ea36d7
+- Lifecycle regression expectation: 761f8da71fb0dec268331c280ae8894cee019c5a
 - Remaining raw-assignment removal: dd2f002c84f074ef3195716d87903c5ba19368da
 - Effective raw-state guard and session error mapping tests: 01aa3924541f583709bf27f8e16ea5b7c6b50437 and dc8cd5744ca8427cb9c10d7745dc7aeabdae598c
 - Runs 44590139140 and 44590151454 failed because they executed before the updated lifecycle assertion commit and still expected the former string-valued state.error. The expectation was updated to the descriptor shape in 761f8da; its frontend/match-engine test step subsequently passed. Run [44590326009](https://github.com/iniya-studio/App-Nexira-/actions/runs/44590326009) includes the final strengthened raw-error guard and its frontend/match-engine test step has passed; Android packaging/verification is pending.
