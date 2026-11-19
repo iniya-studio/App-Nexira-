@@ -1434,7 +1434,7 @@ export default function App() {
         <button className="primary-button" onClick={() => { const again = categoryById(run.categoryId); if (again) beginChallenge(again, run.mode, run.modeIndex); }}>
           <span className="play-mark"><RotateCcw size={16} /></span><span className="primary-label">{text.replay}</span><ArrowRight className="primary-arrow" size={18} />
         </button>
-        <button className="secondary-action" onClick={() => navigate('home')}>{text.home}</button>
+        <button className="secondary-action" onClick={() => navigate('home')}>{text.homeLabel}</button>
       </div>
     </ScreenFrame>}
 
@@ -1468,7 +1468,7 @@ export default function App() {
           const selectedCategory = categoryById(matchView.categoryId ?? run?.categoryId);
           if (selectedCategory) void beginMatch(selectedCategory, matchView.mode);
         }}><span className="play-mark"><RotateCcw size={16} /></span><span className="primary-label">{text.replay}</span><ArrowRight className="primary-arrow" size={18} /></button>
-        <button className="secondary-action" onClick={() => leaveMatch('home')}>{text.home}</button>
+        <button className="secondary-action" onClick={() => leaveMatch('home')}>{text.homeLabel}</button>
       </div>
     </ScreenFrame>}
 
