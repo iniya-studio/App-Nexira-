@@ -187,6 +187,50 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     expect(body.input[1].content[0].text).toContain('"language":"fa"');
   });
 
+  it('generates one semantic question with exact English and Persian renderings', async () => {
+    respond({
+      ...structuredQuestion,
+      localized: [
+        structuredQuestion.localized[0],
+        {
+          language: 'fa',
+          prompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟',
+          expectedAnswer: 'عطارد',
+          options: [
+            { id: 'A', text: 'عطارد' },
+            { id: 'B', text: 'نپتون' },
+            { id: 'C', text: 'مریخ' },
+          ],
+          gradingRubric: {
+            requiredConcepts: [],
+            acceptEquivalentWording: false,
+            notes: 'سیاره‌ای با کوتاه‌ترین دورهٔ مداری.',
+          },
+        },
+      ],
+    });
+
+    const result = await adapter.generate({
+      ...input,
+      requiredLocales: ['en', 'fa'],
+    });
+    expect(Object.keys(result.localized as Record<string, unknown>).sort()).toEqual(['en', 'fa']);
+    expect(result.localized).toMatchObject({
+      en: { prompt: 'Which planet has the shortest year?', expectedAnswer: 'Mercury' },
+      fa: { prompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟', expectedAnswer: 'عطارد' },
+    });
+    const request = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(request.input[1].content[0].text).toContain('"required_locales":["en","fa"]');
+  });
+
+  it('rejects a missing requested locale instead of silently falling back', async () => {
+    respond(structuredQuestion);
+    await expect(adapter.generate({
+      ...input,
+      requiredLocales: ['en', 'fa'],
+    })).rejects.toMatchObject({ code: 'GENERATOR_LOCALE_COVERAGE_INVALID' });
+  });
+
   it('rejects incomplete provider output', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
