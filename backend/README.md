@@ -68,3 +68,23 @@ Backend CI runs these checks against a temporary PostgreSQL 16 service and appli
 ## Implementation
 
 The current backend includes identity and guest-session foundations, authentication and email verification, match lifecycle and synchronized rounds, AI judging and question generation adapters/workers, room and ranking foundations, companion profile support, health checks and Prisma integration. See `../docs` and `backend/docs` for the detailed contracts and architecture decisions.
+## HTTP error response contract
+
+All REST endpoints are covered by the global `ApiExceptionFilter` registered in `src/main.ts`. The public response is deliberately stable and contains only:
+
+```json
+{
+  "statusCode": 409,
+  "code": "CONFLICT",
+  "message": "The request conflicts with the current resource state.",
+  "timestamp": "2026-11-19T18:00:00.000Z"
+}
+```
+
+- Clients must branch on the machine-readable `code` and HTTP `statusCode`; `message` is generic fallback text and must not be used as a localization key.
+- Exception messages, validation arrays, custom exception response bodies, stack traces, database details, and request diagnostics are never copied into the public response.
+- Generic codes are stable by HTTP status: `INVALID_REQUEST`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RESOURCE_EXPIRED`, `RATE_LIMITED`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `REQUEST_FAILED`, and `INTERNAL_SERVER_ERROR`.
+- Only explicitly allowlisted domain codes may override the generic status code. Current allowlist: `CONVERSION_RECOVERY_EXPIRED` (410) and `CONVERSION_NOT_COMMITTED` (409). Adding a domain code requires a backend filter test and a matching frontend localization mapping/test.
+- Unexpected non-`HttpException` failures are logged server-side; their details are not returned to clients.
+- The global HTTP filter does not apply to WebSocket gateways. Gateway authentication, matchmaking events, and WebSocket exception payloads remain governed by their gateway/transport-specific handlers. Do not register the REST filter as a gateway filter.
+
