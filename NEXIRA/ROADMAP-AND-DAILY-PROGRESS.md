@@ -521,3 +521,22 @@
 - This closes only the Ranking screen's English/Persian copy-centralization slice. It does not complete Profile, Account/Session, Store, Settings, API error mapping, the remaining inline locale branches, or any of the 18 missing locale packs. Localization remains OPEN and the 20-locale release requirement is unchanged.
 - GitHub Actions runs 44562048724 and 44562085308 were triggered for the first two commits; their final results must be checked before claiming this slice verified. The test commit also requires its own workflow evidence.
 - Next implementation: migrate Profile and the remaining account/session UI into the same locale-neutral contract, then Store/Settings/dialog/accessibility surfaces. After the entire UI surface is centralized, populate and QA all 20 static UI packs and game-content packs; do not enable incomplete locales.
+
+
+## R-043 — مدرک CI مهاجرت Ranking و تعیین گام Account/Profile
+
+**تاریخ:** 2026-11-19  
+**وضعیت:** شواهد CI مرحله Ranking ثبت شد؛ Localization همچنان OPEN است.
+
+- سه اجرای متوالی Workflow مربوط به تغییرات Ranking بررسی شدند:
+  - Run [44562048724](https://github.com/iniya-studio/App-Nexira-/actions/runs/44562048724)، commit `70b80e8`: موفق؛ 167/167 تست، صفر شکست.
+  - Run [44562085308](https://github.com/iniya-studio/App-Nexira-/actions/runs/44562085308)، commit `66de80b`: موفق؛ 167/167 تست، صفر شکست.
+  - Run [44562111785](https://github.com/iniya-studio/App-Nexira-/actions/runs/44562111785)، commit `f4ac2b7`: موفق؛ 168/168 تست، صفر شکست و artifact آپلودشده.
+- در هر سه اجرا Job ساخت و اعتبارسنجی Android debug APK با تمام مراحل موفق پایان یافت؛ این صرفاً مدرک صحت build/test همان commitهاست و به معنی تکمیل Localization یا پذیرش APK نیست.
+- پس از آخرین اجرای کد، فقط commit مستنداتی `d40eae6` ثبت شده است؛ بنابراین کد Ranking تأییدشده همان کد جاری است.
+- هشدار غیرمسدودکنندهٔ GitHub Actions درباره انتقال runnerهای مبتنی بر Node.js 20 به Node.js 24 به‌عنوان بدهی فنی ثبت می‌شود؛ در این مرحله علت شکست یا مانع اجرا نیست.
+- مهاجرت Ranking فقط برای دو فرهنگ فعال فعلی (en/fa) انجام شده است. پوشش ۲۰ زبان، کل سایر صفحات، محتوای بازی، API error mapping، RTL/LTR و پذیرش نهایی همچنان باز هستند.
+- ممیزی مجدد AccountSessionPanel نشان می‌دهد این مؤلفه هنوز متن‌های دو‌زبانهٔ inline و وابستگی مستقیم به `isFa` دارد؛ بنابراین گام بعدی، استخراج کامل پیام‌ها/labelها/statusها و تاریخ‌نمایی Account/Session به قرارداد ترجمهٔ مرکزی است. این کار باید همراه تست رندر هر دو زبان و guard ضد بازگشت شرط‌های locale انجام شود.
+- هیچ زبان جدیدی فعال نشده و هیچ APK به‌عنوان milestone انتشار Localization اعلام نمی‌شود.
+
+**گام بعد:** L10N-02C — مهاجرت کامل Account/Session و سپس Profile UI؛ پس از آن Store، Settings، Dialogها، خطاهای API و accessibility. بسته‌های کامل ۲۰ زبان و QA محتوای بازی همچنان جزء معیار بستن کل Localization هستند.
