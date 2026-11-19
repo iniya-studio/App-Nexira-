@@ -14,7 +14,7 @@ describe('MatchService', () => {
       match: {
         create: jest.fn().mockResolvedValue(matchRecord),
         findFirst: jest.fn().mockResolvedValue(null),
-        findUnique: jest.fn().mockResolvedValue({ participants: participants.map((p) => ({ participantKey: p.participantKey })) }),
+        findUnique: jest.fn().mockResolvedValue({ participants: participants.map((p) => ({ participantKey: p.participantKey, participantType: p.participantType, language: p.participantType === ParticipantType.HUMAN ? (p.participantKey.includes('user:') ? 'fa' : 'en') : null })) }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       questionGenerationJob: { create: jest.fn().mockResolvedValue({}) },
@@ -78,6 +78,7 @@ describe('MatchService', () => {
           requestContext: expect.objectContaining({
             category: 'general', difficulty: 'medium',
             language: principalType === PrincipalType.USER ? 'fa' : 'en',
+            requiredLocales: principalType === PrincipalType.USER ? ['fa'] : ['en'],
             answerType: 'FREE_TEXT', timeLimitSeconds: 30,
           }),
         }),
@@ -107,7 +108,7 @@ describe('MatchService', () => {
     expect(tx.questionGenerationJob.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         sourceRoundId: null, triggerReason: 'INITIAL_MATCH',
-        requestContext: expect.objectContaining({ language: 'fa' }),
+        requestContext: expect.objectContaining({ language: 'fa', requiredLocales: ['en', 'fa'] }),
       }),
     });
   });
