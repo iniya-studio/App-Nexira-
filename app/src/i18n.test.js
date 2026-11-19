@@ -34,6 +34,14 @@ test('all UI translation references and data-backed category labels are present'
   }
 });
 
+
+test('home screen copy is centralized and complete for every active locale', () => {
+  const keys = ['matchModes', 'duelDescription', 'aiDescription', 'quickBattle', 'quickBattleNote', 'yourStats', 'matches', 'bestScore', 'accuracy', 'store'];
+  for (const locale of ['en', 'fa']) {
+    for (const key of keys) assert.ok(COPY[locale].home[key]?.trim(), `Missing ${locale} home copy: ${key}`);
+  }
+});
+
 test('all game categories have localized display names in English and Persian', () => {
   for (const category of CATEGORIES) {
     assert.ok(COPY.en.categoryNames[category.id], `Missing English category name: ${category.id}`);
