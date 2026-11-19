@@ -777,3 +777,26 @@ This is an explicit required part of the current Account/Session localization ph
 - Backend workflow [44596841554](https://github.com/iniya-studio/App-Nexira-/actions/runs/44596841554) completed with conclusion **success** against backend commit dbdc35b77008d5e5032562e7ca7e0f9dec4548ae. All steps passed: dependency install, Prisma formatting/schema validation/client generation, CI PostgreSQL migrations, NestJS production build, unit and PostgreSQL integration tests, ESLint, staging Compose validation, staging backend image build, and cleanup.
 
 **Acceptance:** Frontend transport hardening and AI recovery-code sanitization have successful full CI evidence (Android workflow for frontend changes and full Backend CI for backend changes). This closes the CI gate for these changes, not the wider error-contract audit. Continue auditing endpoint-specific codes only where client behavior materially differs; do not create one code per free-form exception message. Continue auditing endpoint-specific codes only where client behavior materially differs; do not create one code per free-form exception message. Localization and full 20-locale acceptance remain OPEN.
+
+## R-050 — Context-neutral API error copy and domain-code classification (in progress)
+
+**Date:** 2026-11-19
+
+### Audit finding
+- The shared `getLocalizedApiError` mapper is used by both AccountSessionPanel and gameplay/matchmaking surfaces in `App.jsx`.
+- It receives `text.account` at both call sites. Several shared fallback strings were account-specific (for example, conflict referred to existing account information, invalid input referred to account details, and generic failure referred to an account request). This made valid gameplay/matchmaking errors display misleading account-oriented wording.
+- Backend status/code review confirms that most current Auth, Session, Guest Identity, Account, Matchmaking, Match, Answer and Round exceptions can safely use the stable HTTP status envelope. Existing status-based frontend mapping covers 400/401/403/409/429/5xx. Guest conversion remains the justified explicit domain-code exception because recovery-expired and not-committed outcomes require different user actions.
+- No broad per-exception code expansion is warranted from the current audit: add domain codes only when the client must take a materially different action or show a materially different localized explanation.
+
+### Implemented
+- Changed shared English/Persian API error copy to be context-neutral across account and gameplay surfaces: authorization, conflict, invalid input, rate limiting and generic failure.
+- Added a regression test asserting the shared fallback messages do not assume an account-only context in either active locale.
+
+### Commits
+- Context-neutral shared error copy: 1b6249a29e1bfe5cfcc139ad38c997d0f8ccca25
+- Regression test: 4b6b2795d0c10dcb6339f69ac70e12d307285fe9
+
+### CI
+- Android workflow [44599016452](https://github.com/iniya-studio/App-Nexira-/actions/runs/44599016452) is running against commit 4b6b2795d0c10dcb6339f69ac70e12d307285fe9. At this entry, source checkout and runtime setup have passed; Android SDK setup is in progress. Frontend tests/build have not yet run, so no CI acceptance is claimed.
+
+**Acceptance:** Pending the full Android workflow. Continue endpoint-to-UI behavior review, especially guest-only/registered-only authorization, idempotency conflicts, active-match conflicts, and retryable session states. Keep WebSocket errors on their independent transport contract. Localization and full 20-locale acceptance remain OPEN.
