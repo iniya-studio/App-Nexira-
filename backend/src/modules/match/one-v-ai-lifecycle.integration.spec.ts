@@ -89,6 +89,7 @@ describe('Complete 1vAI match lifecycle integration', () => {
           gradingRubric: {
             requiredConcepts: ['Mars'],
             acceptEquivalentWording: true,
+            notes: 'The answer must identify the planet Mars.',
           },
         },
       },
