@@ -31,6 +31,11 @@ describe('Free-text AI Judge worker integration', () => {
     },
     localized: {
       en: { prompt: 'Which planet is known as the Red Planet?' },
+      fa: {
+        prompt: 'کدام سیاره به سیاره سرخ معروف است؟',
+        expectedAnswer: 'مریخ',
+        gradingRubric: { requiredConcepts: ['مریخ'], acceptEquivalentWording: true, notes: 'نام سیاره مریخ را بپذیر.' },
+      },
     },
     timeLimitSeconds: 30,
     contentVersion: 'free-text-judge-integration-v1',
@@ -63,14 +68,14 @@ describe('Free-text AI Judge worker integration', () => {
     await prisma.$disconnect();
   });
 
-  async function createPendingAnswer(responseText: string) {
+  async function createPendingAnswer(responseText: string, language = 'en') {
     const guest = await prisma.guestIdentity.create({ data: {} });
     guestIds.push(guest.id);
     const match = await matches.createAiMatch({
       principalType: PrincipalType.GUEST,
       principalId: guest.id,
       sessionId: randomUUID(),
-    });
+    }, { language });
     matchIds.push(match.id);
 
     const started = await rounds.startNextRound(match.id, question);
@@ -155,6 +160,25 @@ describe('Free-text AI Judge worker integration', () => {
       prisma.matchScoreEntry.count({ where: { answerId } }),
     ).resolves.toBe(1);
     expect(judge.judge).toHaveBeenCalledTimes(1);
+  });
+
+  it('judges a free-text answer using the immutable Persian participant rendering', async () => {
+    const { answerId } = await createPendingAnswer('مریخ', 'fa');
+    const judge: FreeTextAnswerJudge = {
+      judge: jest.fn().mockResolvedValue(judgeResult(JudgeDecision.CORRECT)),
+    };
+    const worker = new AnswerJudgeWorker(prisma, judge);
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+    expect(judge.judge).toHaveBeenCalledWith(expect.objectContaining({
+      canonicalQuestion: 'کدام سیاره به سیاره سرخ معروف است؟',
+      language: 'fa',
+      expectedAnswer: 'مریخ',
+      gradingRubric: expect.objectContaining({ requiredConcepts: ['مریخ'] }),
+      participantResponse: 'مریخ',
+    }));
+    await expect(prisma.answer.findUniqueOrThrow({ where: { id: answerId } }))
+      .resolves.toMatchObject({ judgeStatus: 'COMPLETED', decision: 'CORRECT' });
   });
 
   it('keeps UNCERTAIN unresolved and retries without awarding points', async () => {
