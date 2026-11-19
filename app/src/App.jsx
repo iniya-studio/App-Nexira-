@@ -1460,9 +1460,8 @@ export default function App() {
             label={participant.displayName} value={participant.score} tone={participant.id === matchView.winnerId ? 'green' : 'cyan'} />)}
         </div>
         <p className="panel-note">{matchView.isOnline
-          ? (text.match.authoritativeResult)
-          : (language === 'fa'
-            ? text.match.localResultNotSaved)}</p>
+          ? text.match.authoritativeResult
+          : text.match.localResultNotSaved}</p>
       </GlassPanel>
       <div className="results-actions">
         <button className="primary-button" onClick={() => {
