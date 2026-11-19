@@ -126,6 +126,7 @@ test('locale registry contains the complete 20-locale target set without enablin
   assert.equal(formatLocaleNumber(1234.5, 'fa'), new Intl.NumberFormat('fa-IR').format(1234.5));
 
   const backendRegistry = await readFile(new URL('../../backend/src/common/localization/locale-registry.ts', import.meta.url), 'utf8');
+  assert.match(backendRegistry, /ENABLED_LOCALES\\s*=\\s*Object\\.freeze\\(\\['en', 'fa'\\] as const\\)/);
   for (const locale of expectedTargets) {
     assert.match(backendRegistry, new RegExp(`(^|\\n)\\s*${locale === 'zh-CN' ? `['"]zh-CN['"]` : locale}:`, 'm'), `Backend target registry is missing ${locale}`);
   }
