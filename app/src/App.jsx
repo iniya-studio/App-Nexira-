@@ -1139,40 +1139,40 @@ export default function App() {
           </div>
           <div className="mode-list">
             <p className="eyebrow">{publicOneVsOneEnabled
-              ? (language === 'fa' ? 'مسابقه رقابتی آنلاین' : 'ONLINE COMPETITIVE MATCH')
+              ? text.match.competitiveOnline
               : import.meta.env.PROD
-                ? (language === 'fa' ? 'مسابقه رقابتی · در حال آزمون' : 'COMPETITIVE MATCH · ACCEPTANCE TESTING')
-                : (language === 'fa' ? 'مسابقه رقابتی · پیش‌نمایش محلی' : 'COMPETITIVE MATCH · LOCAL PREVIEW')}</p>
+                ? text.match.competitiveTesting
+                : text.match.competitivePreview}</p>
             <button className="mode-option" disabled={matchBusy || (import.meta.env.PROD && !publicOneVsOneEnabled)} onClick={() => beginMatch(selectedCategory, '1v1')}>
               <span className="mode-number">P1</span>
               <span className="mode-label">{publicOneVsOneEnabled
-                ? (language === 'fa' ? '۱ در برابر ۱ · رقابت آنلاین' : '1vs1 · Online matchmaking')
+                ? text.match.onlineOneVsOne
                 : import.meta.env.PROD
-                  ? (language === 'fa' ? '۱ در برابر ۱ · در حال آزمون' : '1vs1 · Acceptance testing')
-                  : (language === 'fa' ? 'دو نفره (۱ در برابر ۱)' : '1vs1 · Two local players')}
+                  ? text.match.testingOneVsOne
+                  : text.match.localOneVsOne}
                 <small>{publicOneVsOneEnabled
-                  ? (language === 'fa' ? 'جست‌وجوی حریف با موضوع و زبان یکسان' : 'Find an opponent with matching category and language')
+                  ? text.match.onlineOpponent
                   : import.meta.env.PROD
-                    ? (language === 'fa' ? 'پس از تأیید آزمون‌های نهایی فعال می‌شود' : 'Enables after final acceptance gates pass')
-                    : (language === 'fa' ? 'نوبتی روی همین دستگاه' : 'Pass-and-play on this device')}</small></span>
+                    ? text.match.acceptanceGate
+                    : text.match.passAndPlay}</small></span>
               <span className="difficulty-badge">{publicOneVsOneEnabled
-                ? (language === 'fa' ? 'آنلاین' : 'ONLINE')
+                ? text.match.online
                 : import.meta.env.PROD
-                  ? (language === 'fa' ? 'آزمون' : 'TESTING')
-                  : (language === 'fa' ? 'محلی' : 'LOCAL')}</span>
+                  ? text.match.testing
+                  : text.match.local}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
             <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1vAI')}>
               <span className="mode-number">AI</span>
               <span className="mode-label">{import.meta.env.PROD
-                ? (language === 'fa' ? '۱ در برابر AI · آنلاین' : '1vsAI · Online AI match')
-                : (language === 'fa' ? '۱ در برابر AI · پیش‌نمایش' : '1vsAI · Scripted preview')}
+                ? text.match.onlineOneVsAi
+                : text.match.previewOneVsAi}
                 <small>{import.meta.env.PROD
-                  ? (language === 'fa' ? 'حریف و داوری از طریق سرور' : 'Server-based AI opponent and judging')
-                  : (language === 'fa' ? 'حریف اسکریپت‌شده؛ نه AI واقعی' : 'Scripted opponent; not real AI')}</small></span>
+                  ? text.match.serverAi
+                  : text.match.scriptedAi}</small></span>
               <span className="difficulty-badge">{import.meta.env.PROD
                 ? (language === 'fa' ? 'آنلاین' : 'ONLINE')
-                : (language === 'fa' ? 'آفلاین' : 'OFFLINE')}</span>
+                : text.match.offline}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
             {matchError && <p className="empty-state" role="alert">{matchError}</p>}
@@ -1183,29 +1183,25 @@ export default function App() {
 
     {screen === 'matchmaking' && <ScreenFrame className="categories-screen matchmaking-screen">
       <ScreenHeading
-        eyebrow={language === 'fa' ? 'مسابقه آنلاین' : 'ONLINE COMPETITIVE MATCH'}
-        title={language === 'fa' ? 'در حال یافتن حریف' : 'Finding your opponent'}
+        eyebrow={text.match.competitiveOnline}
+        title={text.match.findingOpponent}
         accent="1vs1"
-        description={language === 'fa'
-          ? 'در حال جست‌وجوی بازیکنی با موضوع و زبان یکسان هستیم.'
-          : 'Searching for a player with the same category and language.'}
+        description={text.match.matchmakingDescription}
       />
       <GlassPanel variant="feature" className="matchmaking-panel">
         <div className="matchmaking-search-state" role="status" aria-live="polite">
           <span className="live-dot" />
-          <strong>{language === 'fa' ? 'جست‌وجو ادامه دارد…' : 'Search is active…'}</strong>
+          <strong>{text.match.searchActive}</strong>
           <small>
-            {matchmakingView?.categoryTitle ?? (language === 'fa' ? 'موضوع انتخاب‌شده' : 'Selected category')}
+            {matchmakingView?.categoryTitle ?? (text.match.selectedCategory)}
             {' · '}
-            {language === 'fa' ? 'زبان' : 'Language'}: {(matchmakingView?.language ?? language) === 'fa' ? 'فارسی' : 'English'}
+            {text.match.language}: {(matchmakingView?.language ?? language) === 'fa' ? 'فارسی' : 'English'}
           </small>
-          <p>{language === 'fa'
-            ? 'اگر اتصال قطع شود، وضعیت صف و مسابقه از سرور بازیابی می‌شود.'
-            : 'If your connection drops, queue and match state can be recovered from the server.'}</p>
+          <p>{text.match.queueRecovery}</p>
         </div>
         {matchError && <p className="empty-state" role="alert">{matchError}</p>}
         <button className="secondary-action" disabled={matchBusy} onClick={() => { void cancelMatchmaking(); }}>
-          {language === 'fa' ? 'لغو جست‌وجو' : 'Cancel search'}
+          {text.match.cancelSearch}
         </button>
       </GlassPanel>
     </ScreenFrame>}
