@@ -576,3 +576,38 @@ This is an explicit required part of the current Account/Session localization ph
 - Verify server/API error mapping and session-state localization with integration/regression tests and device acceptance, including expired/revoked sessions and network/server failure scenarios.
 
 **Acceptance gate:** Account/Session localization cannot be marked complete until both ordinary UI copy and server-originated errors/session states are localized, safe-fallback behavior is proven, and tests cover the relevant lifecycle paths. Current implementation of `getLocalizedAccountError` is a starting point only; it does not by itself prove exhaustive coverage.
+
+
+## R-045 — Shared API error localization and session-state safeguards (in progress)
+
+**Date:** 2026-11-19  
+**Status:** Partial implementation committed; frontend test step passed on latest run; full workflow still running at the time of this entry. Account/Session localization and overall Localization remain OPEN.
+
+### Source audit findings
+- `httpClient.js` converts non-2xx responses into `ApiError` and retains backend `message` / payload details. These values are diagnostic inputs and must not be rendered directly.
+- `AccountSessionPanel.jsx` already mapped account-operation errors to localized copy, but its mapping was component-local and did not cover the rest of the app.
+- `App.jsx` had direct user-visible paths for match synchronization/submission and matchmaking failures that stored/rendered `error.message`. This was a real raw-server-message exposure.
+- Progression/ranking failure UI already uses a fixed localized fallback (`text.ranking.loadError`), rather than rendering the raw error.
+- Lifecycle `state.error` may still retain internal diagnostic text, but no direct `sessionState.error` render was found in `App.jsx`; AccountSessionPanel uses safe localized connection/account-data copy. Retaining diagnostic state internally is not proof of complete coverage across all screens and must remain under audit.
+
+### Implemented changes
+- Added shared `getLocalizedApiError(error, copy)` in `app/src/i18n.js`. It maps network, aborted request, superseded session, expired conversion recovery, HTTP 400/401/403/409/422/429/5xx, and unknown/malformed errors to safe localized English/Persian copy. Raw `message` and payload text are never used as display output.
+- `AccountSessionPanel.jsx` now delegates its exported account error mapper to the shared helper.
+- `App.jsx` now routes match, matchmaking, submission, retry and synchronization error UI through the shared mapper. Progression/ranking keeps its existing localized generic fallback. Direct `error.message` reads in App's UI error handlers were removed.
+- Added regression tests for both active locales, known codes/statuses, unknown codes, untrusted raw messages, malformed/null errors, session lifecycle labels and UI guards against direct raw error rendering.
+
+### Commits and CI evidence
+- Shared mapper: `86bd5c4ea38406998f7dd4a5f7e607675deeb122`.
+- Account component integration: `8774878eafd4bbfe8c28797a36accbfdc855b35b`; workflow [44588493129](https://github.com/iniya-studio/App-Nexira-/actions/runs/44588493129) succeeded.
+- App error-display integration: `098ca06dee0421689b068e62069d728991167d13`; workflow [44588555446](https://github.com/iniya-studio/App-Nexira-/actions/runs/44588555446) succeeded.
+- Initial regression-test commit `d1dc3e095d959e082473fb04d332112e59629205` failed because its assertion expected the progression error to use the API mapper, although the actual UI intentionally displays the existing localized ranking fallback. This was a test expectation defect, not a product-code failure.
+- Session-state test commit `423a3c1406cde5bb8c08c0ec6ffa95907740cd13` inherited that same stale assertion and failed for the same reason.
+- Corrected test commit: `a35cec4978a585c06babf2402679072f650e6f07`. Its workflow [44588798299](https://github.com/iniya-studio/App-Nexira-/actions/runs/44588798299) had completed the **frontend and match-engine test step successfully**; Android build/verification was still in progress when this entry was written. Do not claim the entire workflow passed until its final conclusion is checked.
+
+### Remaining acceptance work
+- Inspect every remaining frontend screen/component for raw `Error.message`, backend `message`, API payload, machine error code, and session lifecycle error rendering; include matchmaking, ranking, progression, account recovery, email verification, session revocation, and accessibility/notification surfaces.
+- Review `onlineMatchAdapter` and other adapters to decide whether raw server messages should be removed from view state entirely (not merely safely mapped at render time).
+- Expand session-state tests to cover actual lifecycle transitions and user-visible UI for idle, initializing/retrying, guest, authenticated, offline, error, unsupported, signed-out, revoked/expired and unknown states where applicable.
+- Audit Backend error contracts and stable error codes/statuses; ensure no sensitive diagnostics or tokens enter client-facing error messages.
+- Repeat the same localized-safe-fallback contract for all 20 target locales, plus integration and device acceptance.
+- Keep Localization OPEN; this change is a bounded safety/localization improvement, not completion or release acceptance.
