@@ -51,6 +51,13 @@ test('store screen copy is centralized and complete for every active locale', ()
 });
 
 
+test('competitive match gameplay copy is centralized and has complete English/Persian coverage', () => {
+  const keys = ['unavailable', 'retry', 'serverMatch', 'localPreview', 'submittingAnswer', 'waitingForJudge', 'preparingQuestion', 'answersBeingJudged', 'answerSendingSecurely', 'aiPreparingMatch', 'matchStateBackend', 'submissionNeedsRetry', 'retrySameAnswer', 'checkServerStatus', 'syncPaused', 'retrySynchronization', 'nextTurn', 'passDevice', 'ready', 'roundResults', 'onlineRoundSettled', 'scriptedOpponentNoAI', 'you', 'opponent', 'activeTurn', 'typeAnswer', 'submitAnswer', 'backendAiJudge', 'localPreviewNotAI', 'serverResult', 'localResult', 'youWin', 'opponentWins', 'playerTwoWins', 'nexiraAiWins', 'scriptedOpponentWins', 'draw', 'authoritativeResult', 'localResultNotSaved', 'matchmakingEnded'];
+  for (const locale of ['en', 'fa']) {
+    for (const key of keys) assert.ok(COPY[locale].match[key]?.trim(), `Missing ${locale} match gameplay copy: ${key}`);
+  }
+});
+
 test('competitive matchmaking copy is centralized and explicitly locale-independent', () => {
   const keys = ['competitiveOnline', 'competitiveTesting', 'competitivePreview', 'onlineOneVsOne', 'testingOneVsOne', 'localOneVsOne', 'onlineOpponent', 'acceptanceGate', 'passAndPlay', 'online', 'testing', 'local', 'onlineOneVsAi', 'previewOneVsAi', 'serverAi', 'scriptedAi', 'offline', 'findingOpponent', 'matchmakingDescription', 'searchActive', 'selectedCategory', 'language', 'queueRecovery', 'cancelSearch'];
   for (const locale of ['en', 'fa']) {
