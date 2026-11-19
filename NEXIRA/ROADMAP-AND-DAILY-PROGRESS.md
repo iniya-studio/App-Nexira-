@@ -641,3 +641,31 @@ This is an explicit required part of the current Account/Session localization ph
 - Maintain parity across all 20 target locales and complete UI/game content, RTL, and real-device acceptance.
 
 **Acceptance:** This is a bounded hardening change only. Account/Session localization and overall Localization remain OPEN.
+## R-047 — Session lifecycle error-state containment (in progress)
+
+**Date:** 2026-11-19  
+**Status:** Session lifecycle state now stores machine-readable error descriptors instead of raw exception messages. The latest frontend/match-engine test step passed on run 44590326009; full Android workflow is still running. Account/Session localization and overall Localization remain OPEN.
+
+### Changes
+- Added toSessionErrorDescriptor in app/src/api/sessionLifecycle.js and migrated initialization, account actions, guest-conversion recovery expiry, profile/account-data, email-verification, logout-all and sign-out state errors to { code, status } descriptors.
+- Session invalidation now records SESSION_EXPIRED rather than a display sentence; the shared localization mapper resolves SESSION_EXPIRED and SESSION_REVOKED to the localized session-expired copy.
+- AccountSessionPanel uses accountDataError as a presence flag and a fixed localized message; no raw descriptor is rendered.
+- Updated lifecycle and localization regression tests to verify descriptor shape, safe mapping, and absence of raw Error.message assignments.
+- Source re-audit of sessionLifecycle.js found no remaining error.message reads used for lifecycle state.
+
+### Commits and CI evidence
+- Lifecycle descriptor migration: c9bd93b92f0b5130c1210e68374cc06296c0b7ec
+- Session expiry localization: c339cde3458fede3a69851f753fc52824e0ea7d6
+- Lifecycle regression expectation: 761f8da71fb23eeeb5f4e983f5cade2ad2ea36d7
+- Remaining raw-assignment removal: dd2f002c84f074ef3195716d87903c5ba19368da
+- Effective raw-state guard and session error mapping tests: 01aa3924541f583709bf27f8e16ea5b7c6b50437 and dc8cd5744ca8427cb9c10d7745dc7aeabdae598c
+- Runs 44590139140 and 44590151454 failed because they executed before the updated lifecycle assertion commit and still expected the former string-valued state.error. The expectation was updated to the descriptor shape in 761f8da; its frontend/match-engine test step subsequently passed. Run [44590326009](https://github.com/iniya-studio/App-Nexira-/actions/runs/44590326009) includes the final strengthened raw-error guard and its frontend/match-engine test step has passed; Android packaging/verification is pending.
+
+### Remaining acceptance work
+- Complete the final workflow and verify the latest main HEAD has successful CI evidence.
+- Audit every frontend adapter and all account recovery, email verification, session revocation, notification/accessibility and remaining API error paths.
+- Define and test stable backend error codes/statuses. The current backend source tree has no dedicated global exception filter; NestJS default exception serialization and all thrown HttpException messages still require a contract/security audit.
+- Add integration coverage for actual expired/revoked session transitions, abort/network/timeout, malformed payloads and cross-locale error presentation.
+- Maintain full coverage across all 20 target locales and complete UI/game content, RTL and real-device acceptance.
+
+**Acceptance:** R-046/R-047 are bounded hardening steps, not completion. Localization remains OPEN.
