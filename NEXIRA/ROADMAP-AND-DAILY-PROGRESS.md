@@ -824,3 +824,24 @@ This is an explicit required part of the current Account/Session localization ph
 - The Android workflow [44599016452](https://github.com/iniya-studio/App-Nexira-/actions/runs/44599016452) also verifies the preceding context-neutral API copy change.
 
 **Acceptance:** The question-generation recovery-code boundary, HTTP transport error normalization and context-neutral shared API copy have successful relevant CI evidence. The broader endpoint-to-UI behavior review is still open; do not treat the entire error-contract audit as closed. Localization and full 20-locale acceptance remain OPEN.
+
+## R-052 — Non-retryable answer conflicts must reconcile server state
+
+**Date:** 2026-11-19
+
+### Audit finding
+- `AnswerService.submitAnswer` uses HTTP 409 for non-retryable conditions including an already-used idempotency key with a different payload, a round that is no longer accepting answers, a prior participant answer, and an expired answer deadline.
+- The online match UI previously presented “Retry the same answer” as the primary action for every submission failure. Replaying the same answer is safe for uncertain transport failures, but repeating a definitive 409 cannot resolve these terminal state conflicts; the client must first reconcile with authoritative match state.
+
+### Implemented
+- Added active-locale copy in English and Persian explaining that a 409 answer conflict requires checking server match state.
+- The submission-error panel now hides the retry action when either the adapter's safe error descriptor or the caught API error reports HTTP 409. “Check server status” becomes the primary action.
+- For retryable failures, the same-answer retry remains available and server-status reconciliation remains secondary.
+- Both retry and reconciliation handlers now refresh the React view from the adapter after failure and clear stale error state after successful reconciliation.
+- Added frontend regression assertions for the 409-specific branch and both locale strings.
+
+### CI evidence
+- Android workflow [44600823559](https://github.com/iniya-studio/App-Nexira-/actions/runs/44600823559) is running against source commit `47c8d7d45c0ab6d80808862281d38b2b744626d1`. At this entry, dependency installation and frontend/match-engine tests have completed successfully; web/Android package build is in progress, with artifact verification and upload pending.
+- Earlier intermediate Android runs were triggered by sequential commits; final acceptance must use the workflow for the latest source commit above.
+
+**Acceptance:** Code and regression tests are committed on `main`; frontend/match-engine test step passed on the latest source commit. Full Android workflow acceptance remains pending until build, artifact verification, upload and cleanup complete. Do not claim this change CI-complete before run 44600823559 concludes successfully. The wider error-contract audit and 20-locale Localization remain OPEN.
