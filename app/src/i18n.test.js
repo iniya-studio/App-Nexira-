@@ -299,5 +299,12 @@ test('progression and online-match UI never render raw API error messages', asyn
   assert.equal(appSource.includes('{matchError}</p>'), false);
   assert.equal(appSource.includes('{matchError || matchView.error}'), false);
   assert.equal(/setMatchError\(error\.message\)/.test(appSource), false);
+  assert.match(appSource, /matchView\.error\?\.status === 409 \|\| matchError\?\.status === 409/);
+  assert.match(appSource, /matchView\.error\?\.status !== 409 && matchError\?\.status !== 409/);
+  assert.match(appSource, /text\.match\.submissionNeedsSync/);
+  assert.match(appSource, /text\.match\.checkServerStatus/);
+  for (const locale of ['en', 'fa']) {
+    assert.ok(COPY[locale].match.submissionNeedsSync.trim(), `Missing ${locale} non-retryable submission copy`);
+  }
 });
 
