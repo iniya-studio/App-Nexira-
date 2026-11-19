@@ -247,6 +247,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
     const localized = Object.fromEntries(
       structured.localized.map((rendering) => [rendering.language, {
         prompt: rendering.prompt,
+        expectedAnswer: rendering.expectedAnswer,
         options: Object.fromEntries(rendering.options.map((option) => [option.id, option.text])),
         gradingRubric: rendering.gradingRubric,
       }]),
