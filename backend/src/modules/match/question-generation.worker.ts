@@ -34,6 +34,59 @@ const READINESS_TIMEOUT_SECONDS = 120;
 const POLL_INTERVAL_MS = 1_000;
 const MAX_JOBS_PER_POLL = 5;
 
+const QUESTION_GENERATION_ERROR_CODES = new Set([
+  'GENERATOR_AI_PARTICIPANT_INVALID',
+  'GENERATOR_CONFIGURATION_INVALID',
+  'GENERATOR_DUPLICATE_QUESTION',
+  'GENERATOR_FINGERPRINT_INVALID',
+  'GENERATOR_INPUT_INVALID',
+  'GENERATOR_INTERNAL_ERROR',
+  'GENERATOR_LEASE_EXPIRED',
+  'GENERATOR_LOCALE_COVERAGE_INVALID',
+  'GENERATOR_LOCALIZATION_INVALID',
+  'GENERATOR_MATCH_PARTICIPANTS_INVALID',
+  'GENERATOR_MATCH_STATE_CHANGED',
+  'GENERATOR_OPTIONS_INVALID',
+  'GENERATOR_OUTPUT_INVALID',
+  'GENERATOR_PROVIDER_EMPTY_OUTPUT',
+  'GENERATOR_PROVIDER_INCOMPLETE',
+  'GENERATOR_PROVIDER_INVALID_JSON',
+  'GENERATOR_PROVIDER_INVALID_RESPONSE',
+  'GENERATOR_PROVIDER_NETWORK_ERROR',
+  'GENERATOR_PROVIDER_NOT_CONFIGURED',
+  'GENERATOR_PROVIDER_REFUSAL',
+  'GENERATOR_PROVIDER_TIMEOUT',
+  'GENERATOR_RUBRIC_INVALID',
+  'GENERATOR_SETTINGS_MISMATCH',
+  'GENERATOR_VERSION_INVALID',
+  'QUESTION_ANSWER_KEY_INVALID',
+  'QUESTION_FINGERPRINT_INVALID',
+  'QUESTION_LOCALIZATION_INVALID',
+  'QUESTION_OPTIONS_INVALID',
+  'QUESTION_OUTPUT_INVALID',
+  'QUESTION_RUBRIC_INVALID',
+  'QUESTION_VERSION_INVALID',
+]);
+
+function toQuestionGenerationErrorCode(error: unknown): string {
+  if (
+    error instanceof QuestionGenerationError &&
+    /^GENERATOR_PROVIDER_HTTP_\\d{3}$/.test(error.code)
+  ) {
+    return 'GENERATOR_PROVIDER_HTTP_ERROR';
+  }
+
+  if (
+    (error instanceof QuestionGenerationError ||
+      error instanceof GeneratedQuestionValidationError) &&
+    QUESTION_GENERATION_ERROR_CODES.has(error.code)
+  ) {
+    return error.code;
+  }
+
+  return 'GENERATOR_INTERNAL_ERROR';
+}
+
 type GenerationClaim = {
   id: string;
   matchId: string;
@@ -78,11 +131,7 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
       this.validateAgainstRequest(generated, input);
       await this.persistGeneratedQuestion(claim, generated, input);
     } catch (error) {
-      const code =
-        error instanceof QuestionGenerationError ||
-        error instanceof GeneratedQuestionValidationError
-          ? error.code
-          : 'GENERATOR_INTERNAL_ERROR';
+      const code = toQuestionGenerationErrorCode(error);
       await this.releaseClaim(claim, code);
     }
 
