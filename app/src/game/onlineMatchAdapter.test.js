@@ -129,6 +129,22 @@ test('does not reopen an already accepted answer after a cold 1v1 match recovery
   assert.equal(submitCalls, 0);
 });
 
+test('stores only machine-readable error descriptors in the online match view', async () => {
+  const { api } = makeApi({
+    getMatch: async () => {
+      const error = new Error('private backend diagnostic text');
+      error.code = 'NETWORK_ERROR';
+      error.status = 503;
+      throw error;
+    },
+  });
+  const adapter = createOnlineMatchAdapter(api);
+  await assert.rejects(adapter.start({ category: 'science', language: 'en' }));
+  const viewError = adapter.getView().error;
+  assert.deepEqual(viewError, { code: 'NETWORK_ERROR', status: 503 });
+  assert.equal(JSON.stringify(viewError).includes('private backend diagnostic text'), false);
+});
+
 test('keeps a waiting match recoverable after a transient synchronization failure', async () => {
   let shouldFail = true;
   const { api } = makeApi({
@@ -143,6 +159,7 @@ test('keeps a waiting match recoverable after a transient synchronization failur
   const adapter = createOnlineMatchAdapter(api);
   await assert.rejects(adapter.start({ category: 'science', language: 'en' }), /temporary network failure/);
   assert.equal(adapter.getView().phase, 'waiting-question');
+  assert.deepEqual(adapter.getView().error, { code: 'MATCH_SYNC_FAILED', status: 0 });
   const recovered = await adapter.refresh();
   assert.equal(recovered.phase, 'waiting-question');
 });
