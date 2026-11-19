@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 let vite;
 let AccountSessionPanel;
+let getLocalizedAccountError;
 
 before(async () => {
   vite = await createServer({
@@ -14,7 +15,7 @@ before(async () => {
     server: { middlewareMode: true },
     appType: 'custom',
   });
-  ({ AccountSessionPanel } = await vite.ssrLoadModule('/src/components/AccountSessionPanel.jsx'));
+  ({ AccountSessionPanel, getLocalizedAccountError } = await vite.ssrLoadModule('/src/components/AccountSessionPanel.jsx'));
 });
 
 after(async () => {
@@ -126,4 +127,34 @@ test('account and session panel uses centralized copy in both active locales', (
   assert.match(persian, /مدیریت حساب/);
   assert.match(persian, /حساب مهمان فعال است/);
   assert.match(persian, /ساخت حساب دائمی/);
+});
+
+
+test('account API errors map to safe localized messages instead of raw backend text', async () => {
+  const { getCopy } = await import('../i18n.js');
+  const copy = getCopy('fa').account;
+
+  assert.equal(getLocalizedAccountError({ code: 'NETWORK_ERROR', message: 'raw backend detail' }, copy), copy.network_error);
+  assert.equal(getLocalizedAccountError({ code: 'REQUEST_ABORTED' }, copy), copy.request_aborted);
+  assert.equal(getLocalizedAccountError({ status: 401 }, copy), copy.authorization_failed);
+  assert.equal(getLocalizedAccountError({ status: 409 }, copy), copy.conflict);
+  assert.equal(getLocalizedAccountError({ status: 422 }, copy), copy.invalid_input);
+  assert.equal(getLocalizedAccountError({ status: 429 }, copy), copy.rate_limited);
+  assert.equal(getLocalizedAccountError({ status: 503 }, copy), copy.server_error);
+  assert.equal(getLocalizedAccountError({ message: 'untrusted raw message' }, copy), copy.generic_error);
+});
+
+test('session status labels render in the selected language', () => {
+  const state = {
+    status: 'authenticated',
+    account: { email: 'player@example.com' },
+    authentication: { passwordEnabled: true, providers: [] },
+    emailVerification: { required: false, verified: true },
+    sessions: [{ sessionId: 'active', isCurrent: false, status: 'ACTIVE', createdAt: '2026-01-01T00:00:00.000Z' }],
+  };
+  const english = renderPanel(state, { language: 'en' });
+  const persian = renderPanel(state, { language: 'fa' });
+
+  assert.match(english, /Active/);
+  assert.match(persian, /فعال/);
 });
