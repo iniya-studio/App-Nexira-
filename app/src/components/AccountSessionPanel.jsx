@@ -1,20 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Check, KeyRound, Link2, LogIn, LogOut, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { googleAuth } from '../api/googleAuth.js';
-import { formatCopy, getCopy } from '../i18n.js';
+import { formatCopy, getCopy, getLocalizedApiError } from '../i18n.js';
 import { formatLocaleNumber, getLocaleConfig } from '../locales.js';
 
 export function getLocalizedAccountError(error, copy) {
-  if (error?.code === 'NETWORK_ERROR') return copy.network_error;
-  if (error?.code === 'REQUEST_ABORTED') return copy.request_aborted;
-  if (error?.code === 'SESSION_SUPERSEDED') return copy.session_changed;
-  if (error?.code === 'CONVERSION_RECOVERY_EXPIRED') return copy.recovery_window_expired;
-  if (error?.status === 401 || error?.status === 403) return copy.authorization_failed;
-  if (error?.status === 409) return copy.conflict;
-  if (error?.status === 400 || error?.status === 422) return copy.invalid_input;
-  if (error?.status === 429) return copy.rate_limited;
-  if (Number(error?.status) >= 500) return copy.server_error;
-  return copy.generic_error;
+  return getLocalizedApiError(error, copy);
 }
 
 
