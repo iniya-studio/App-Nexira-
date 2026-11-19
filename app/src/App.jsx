@@ -34,45 +34,15 @@ const CATEGORY_ICONS = {
   languages: Languages,
   atom: Atom,
 };
-const STORE_TABS = [
-  { id: 'featured', en: 'Featured', fa: 'ویژه' },
-  { id: 'frames', en: 'Frames', fa: 'قاب‌ها' },
-  { id: 'profile', en: 'Profile style', fa: 'سبک پروفایل' },
-  { id: 'effects', en: 'Match effects', fa: 'افکت مسابقه' },
-  { id: 'inventory', en: 'My collection', fa: 'مجموعه من' },
-];
+const STORE_TABS = ['featured', 'frames', 'profile', 'effects', 'inventory'].map((id) => ({ id }));
 
 const STORE_ITEMS = [
-  {
-    id: 'prism-frame', group: 'frames', title: { en: 'Prism Frame', fa: 'قاب منشوری' },
-    description: { en: 'A spectral edge for your player identity.', fa: 'قابی رنگین برای هویت بازیکن شما.' },
-    type: { en: 'PROFILE FRAME', fa: 'قاب پروفایل' }, tone: 'prism', Icon: Sparkles,
-  },
-  {
-    id: 'ion-frame', group: 'frames', title: { en: 'Ion Circuit', fa: 'مدار یونی' },
-    description: { en: 'A precise, electric profile outline.', fa: 'خطی الکتریکی و دقیق برای پروفایل.' },
-    type: { en: 'PROFILE FRAME', fa: 'قاب پروفایل' }, tone: 'ion', Icon: Cpu,
-  },
-  {
-    id: 'signal-plate', group: 'profile', title: { en: 'Signal Plate', fa: 'پلاک سیگنال' },
-    description: { en: 'A clean nameplate with a bright signal accent.', fa: 'پلاک نام مینیمال با تأکید نوری.' },
-    type: { en: 'NAMEPLATE', fa: 'پلاک نام' }, tone: 'signal', Icon: Scan,
-  },
-  {
-    id: 'orbit-plate', group: 'profile', title: { en: 'Orbit Line', fa: 'خط مدار' },
-    description: { en: 'A subtle orbital treatment for your profile.', fa: 'جلوه‌ای ظریف با الهام از مدارها.' },
-    type: { en: 'NAMEPLATE', fa: 'پلاک نام' }, tone: 'orbit', Icon: Globe2,
-  },
-  {
-    id: 'pulse-entry', group: 'effects', title: { en: 'Pulse Entry', fa: 'ورود تپشی' },
-    description: { en: 'A visual-only entrance effect for match intros.', fa: 'افکت بصری ورود به مسابقه.' },
-    type: { en: 'MATCH EFFECT', fa: 'افکت مسابقه' }, tone: 'pulse', Icon: Zap,
-  },
-  {
-    id: 'nova-response', group: 'effects', title: { en: 'Nova Response', fa: 'پاسخ نوا' },
-    description: { en: 'A cosmetic answer-feedback style.', fa: 'سبک ظاهری برای بازخورد پاسخ.' },
-    type: { en: 'ANSWER EFFECT', fa: 'افکت پاسخ' }, tone: 'nova', Icon: Target,
-  },
+  { id: 'prism-frame', group: 'frames', tone: 'prism', Icon: Sparkles },
+  { id: 'ion-frame', group: 'frames', tone: 'ion', Icon: Cpu },
+  { id: 'signal-plate', group: 'profile', tone: 'signal', Icon: Scan },
+  { id: 'orbit-plate', group: 'profile', tone: 'orbit', Icon: Globe2 },
+  { id: 'pulse-entry', group: 'effects', tone: 'pulse', Icon: Zap },
+  { id: 'nova-response', group: 'effects', tone: 'nova', Icon: Target },
 ];
 
 
@@ -192,6 +162,7 @@ export default function App() {
     ? STORE_ITEMS.slice(0, 4)
     : STORE_ITEMS.filter((item) => item.group === storeTab);
   const storePreviewItem = STORE_ITEMS.find((item) => item.id === storePreviewId) ?? null;
+  const storePreviewCopy = storePreviewItem ? text.store.items[storePreviewItem.id] : null;
   const StorePreviewIcon = storePreviewItem?.Icon ?? Sparkles;
   const accuracy = profile.totalAnswers ? Math.round(profile.correctAnswers / profile.totalAnswers * 100) : 0;
   const playableRun = isPlayableChallenge(run);
@@ -1647,7 +1618,7 @@ export default function App() {
               aria-selected={storeTab === tab.id}
               className={`store-tab${storeTab === tab.id ? ' is-active' : ''}`}
               onClick={() => setStoreTab(tab.id)}
-            >{language === 'fa' ? tab.fa : tab.en}</button>
+            >{text.store.tabs[tab.id]}</button>
           ))}
         </div>
         <span className="store-payment-state">{text.store.paymentsOff}</span>
@@ -1666,6 +1637,7 @@ export default function App() {
         <div className="store-grid">
           {storeVisibleItems.map((item) => {
             const ItemIcon = item.Icon;
+            const itemCopy = text.store.items[item.id];
             return (
               <article className="store-item-card" key={item.id}>
                 <div className={`store-item-art store-item-art--${item.tone}`}>
@@ -1674,11 +1646,11 @@ export default function App() {
                   <span className="store-art-orbit" />
                 </div>
                 <div className="store-item-meta">
-                  <span>{language === 'fa' ? item.type.fa : item.type.en}</span>
+                  <span>{itemCopy.type}</span>
                   <b>{text.store.preview}</b>
                 </div>
-                <h3>{language === 'fa' ? item.title.fa : item.title.en}</h3>
-                <p>{language === 'fa' ? item.description.fa : item.description.en}</p>
+                <h3>{itemCopy.title}</h3>
+                <p>{itemCopy.description}</p>
                 <button type="button" className="store-preview-action" onClick={() => setStorePreviewId(item.id)}>
                   {text.store.viewStyle} <ChevronRight size={15} />
                 </button>
@@ -1701,8 +1673,8 @@ export default function App() {
             <StorePreviewIcon size={38} strokeWidth={1.6} />
           </div>
           <span className="store-kicker">{text.store.cosmeticPreview}</span>
-          <h2 id="store-preview-title">{language === 'fa' ? storePreviewItem.title.fa : storePreviewItem.title.en}</h2>
-          <p>{language === 'fa' ? storePreviewItem.description.fa : storePreviewItem.description.en}</p>
+          <h2 id="store-preview-title">{storePreviewCopy.title}</h2>
+          <p>{storePreviewCopy.description}</p>
           <div className="store-modal-notice">
             {text.store.modalNotice}
           </div>
@@ -1715,12 +1687,12 @@ export default function App() {
       <ScreenHeading eyebrow={text.settingsEyebrow} title={text.settingsTitle} accent={text.settingsAccent} description={text.settingsDescription} />
       <GlassPanel className="settings-panel">
         <div className="setting-row"><span><Languages size={17} /><span><strong>{text.language}</strong><small>{text.languageOptions}</small></span></span>
-          <button className="setting-action" onClick={() => navigate('language')}>{language === 'fa' ? 'فارسی' : 'English'} <ChevronRight size={16} /></button></div>
+          <button className="setting-action" onClick={() => navigate('language')}>{localeConfig.nativeName} <ChevronRight size={16} /></button></div>
         <div className="setting-row"><span><Sparkles size={17} /><span><strong>{text.reducedMotion}</strong><small>{text.fewerAnimations}</small></span></span>
           <button className={`toggle-control${profile.settings.reducedMotion ? ' is-on' : ''}`} role="switch" aria-checked={profile.settings.reducedMotion} aria-label={text.reducedMotion} onClick={() => updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, reducedMotion: !saved.settings.reducedMotion } }))}><i /></button>
         </div>
         <p className="panel-note"><Check size={13} /> {storageFailed ? text.saveNotice : text.saved}</p>
-        <button className="secondary-action settings-language-link" onClick={() => navigate('language')}>{text.language} · {language === 'fa' ? 'فارسی' : 'English'}</button>
+        <button className="secondary-action settings-language-link" onClick={() => navigate('language')}>{text.language} · {localeConfig.nativeName}</button>
       </GlassPanel>
     </ScreenFrame>}
 
@@ -1756,7 +1728,7 @@ export default function App() {
       {[
         ['home', text.navHome, Home],
         ['rankings', text.navRanks, Trophy],
-        ['store', language === 'fa' ? 'فروشگاه' : 'Store', ShoppingCart],
+        ['store', text.navStore, ShoppingCart],
         ['profile', text.navProfile, UserRound],
       ].map(([destination, label, Icon]) => <button key={destination} className={`nav-item${screen === destination ? ' nav-item--active' : ''}`} onClick={() => navigate(destination)}>
         <Icon className="nav-icon" size={17} /><span>{label}</span>
@@ -1765,10 +1737,10 @@ export default function App() {
     {(screen === 'game' || screen === 'match-game') && showExitConfirm && <div className="overlay overlay--center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowExitConfirm(false); }}>
       <section className="confirm-panel glass-panel" role="dialog" aria-modal="true" aria-labelledby="exit-game-title">
         <span className="confirm-icon"><Activity size={22} /></span>
-        <h2 id="exit-game-title">{language === 'fa' ? 'آیا می‌خواهید از مسابقه خارج شوید؟' : screen === 'match-game' ? 'Leave this match?' : 'Leave this challenge?'}</h2>
-        <p>{language === 'fa' ? 'پیشرفت این مسابقه ثبت نخواهد شد.' : 'Your current challenge will not be saved.'}</p>
+        <h2 id="exit-game-title">{screen === 'match-game' ? text.exitConfirmation.matchTitle : text.exitConfirmation.challengeTitle}</h2>
+        <p>{text.exitConfirmation.description}</p>
         <div className="confirm-actions">
-          <button className="stay-button" onClick={() => setShowExitConfirm(false)}>{language === 'fa' ? 'خیر، ادامه بازی' : 'No, keep playing'}</button>
+          <button className="stay-button" onClick={() => setShowExitConfirm(false)}>{text.exitConfirmation.stay}</button>
           <button className="leave-button" onClick={() => {
             if (screen === 'match-game') {
               leaveMatch();
@@ -1778,7 +1750,7 @@ export default function App() {
               setRun(null);
               navigate('categories');
             }
-          }}>{language === 'fa' ? 'بله، خروج' : 'Yes, leave'}</button>
+          }}>{text.exitConfirmation.leave}</button>
         </div>
       </section>
     </div>}

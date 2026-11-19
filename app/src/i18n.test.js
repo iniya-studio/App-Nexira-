@@ -353,3 +353,21 @@ test('all statically referenced nested UI translation paths exist in both baseli
     assert.ok(readStaticPath(COPY.fa, path) !== undefined, `Missing Persian UI translation path: ${path}`);
   }
 });
+
+test('Store catalog, navigation, and exit confirmation copy are fully dictionary-backed', async () => {
+  const tabs = ['featured', 'frames', 'profile', 'effects', 'inventory'];
+  const items = ['prism-frame', 'ion-frame', 'signal-plate', 'orbit-plate', 'pulse-entry', 'nova-response'];
+  for (const locale of ['en', 'fa']) {
+    for (const tab of tabs) assert.ok(COPY[locale].store.tabs[tab]?.trim(), `Missing ${locale} Store tab: ${tab}`);
+    for (const item of items) {
+      for (const key of ['title', 'description', 'type']) assert.ok(COPY[locale].store.items[item][key]?.trim(), `Missing ${locale} Store item copy: ${item}.${key}`);
+    }
+    assert.ok(COPY[locale].navStore?.trim());
+    for (const key of ['matchTitle', 'challengeTitle', 'description', 'stay', 'leave']) assert.ok(COPY[locale].exitConfirmation[key]?.trim());
+  }
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.equal(appSource.includes("language === 'fa'"), false, 'App UI must not contain Persian-only rendering branches.');
+  for (const marker of ['tab.en', 'tab.fa', 'item.title.en', 'item.title.fa', 'storePreviewItem.title.en', 'storePreviewItem.title.fa']) {
+    assert.equal(appSource.includes(marker), false, `Store display copy must not be hardcoded: ${marker}`);
+  }
+});
