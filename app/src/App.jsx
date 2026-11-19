@@ -1171,7 +1171,7 @@ export default function App() {
                   ? text.match.serverAi
                   : text.match.scriptedAi}</small></span>
               <span className="difficulty-badge">{import.meta.env.PROD
-                ? (language === 'fa' ? 'آنلاین' : 'ONLINE')
+                ? text.match.online
                 : text.match.offline}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
