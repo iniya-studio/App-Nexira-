@@ -244,8 +244,8 @@ export const COPY = {
       connecting_to_google: "Connecting to Google…",
       continue_with_google: "Continue with Google",
       account_email_is_verified: "Account email is verified.",
-      password_changed_result_sessionsrevoked_other_se: "Password changed; ${result.sessionsRevoked} other session(s) revoked.",
-      all_sessions_were_revoked_result_revokedsessions: "All sessions were revoked (${result.revokedSessions}).",
+      password_changed_result_sessionsrevoked_other_se: "Password changed; {sessionsRevoked} other session(s) revoked.",
+      all_sessions_were_revoked_result_revokedsessions: "All sessions were revoked ({revokedSessions}).",
     },
   },
   fa: {
@@ -491,8 +491,8 @@ export const COPY = {
       connecting_to_google: "در حال اتصال به Google…",
       continue_with_google: "ادامه با Google",
       account_email_is_verified: "ایمیل حساب تأیید شده است.",
-      password_changed_result_sessionsrevoked_other_se: "رمز عبور تغییر کرد و ${result.sessionsRevoked} نشست دیگر بسته شد.",
-      all_sessions_were_revoked_result_revokedsessions: "همه نشست‌ها باطل شدند (${result.revokedSessions}).",
+      password_changed_result_sessionsrevoked_other_se: "رمز عبور تغییر کرد و {sessionsRevoked} نشست دیگر بسته شد.",
+      all_sessions_were_revoked_result_revokedsessions: "همه نشست‌ها باطل شدند ({revokedSessions}).",
     },
   },
 };
