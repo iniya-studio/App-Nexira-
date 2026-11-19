@@ -540,3 +540,24 @@
 - هیچ زبان جدیدی فعال نشده و هیچ APK به‌عنوان milestone انتشار Localization اعلام نمی‌شود.
 
 **گام بعد:** L10N-02C — مهاجرت کامل Account/Session و سپس Profile UI؛ پس از آن Store، Settings، Dialogها، خطاهای API و accessibility. بسته‌های کامل ۲۰ زبان و QA محتوای بازی همچنان جزء معیار بستن کل Localization هستند.
+
+
+## R-044 — Account/Session + Profile localization: source and CI reconciliation
+
+**Date:** 2026-11-19  
+**Status:** Account/Session and Profile English/Persian code slices are present on main; CI verified for latest test commit. Overall Localization remains OPEN.
+
+- Re-read current main source and confirmed the latest localization commits:
+  - `02c574e0`: profile/account status translation namespace.
+  - `f0d523b7`: Profile status/retry/server-record UI migration.
+  - `6fb17176`: Profile locale parity regression test.
+- Latest workflow run [44565157179](https://github.com/iniya-studio/App-Nexira-/actions/runs/44565157179), commit `6fb17176f7fddb81ba2d21624e1c1fedd417e1f1`, completed successfully. The immediately preceding run [44565146080](https://github.com/iniya-studio/App-Nexira-/actions/runs/44565146080), commit `f0d523b7154319417e371ca5ed87ca53c1c87ccf`, also completed successfully.
+- Historical failed runs [44564718597](https://github.com/iniya-studio/App-Nexira-/actions/runs/44564718597), [44564762957](https://github.com/iniya-studio/App-Nexira-/actions/runs/44564762957) and [44564796241](https://github.com/iniya-studio/App-Nexira-/actions/runs/44564796241) were traced to test invocation of `getLocalizedAccountError` before it was exported/available from the component module. Current `AccountSessionPanel.jsx` exports the helper and the current test imports it through Vite SSR; the latest workflow passes the account error mapping test.
+- Run [44565135953](https://github.com/iniya-studio/App-Nexira-/actions/runs/44565135953), commit `02c574e0`, passed frontend/match-engine tests (including the account API error mapping test) but Android packaging failed because Gradle could not resolve `com.google.errorprone:error_prone_annotations:2.3.1` from Google Maven or Maven Central. This is an external dependency-resolution/build failure, not evidence of a localization test regression. The next commit's Android build passed.
+- Current source confirms `AccountSessionPanel.jsx` has zero direct `isFa` / `language === 'fa'` branches. The panel tests cover English/Persian rendering, safe API error mapping and localized session status labels. The translation test suite checks English/Persian dictionary parity and account/profile namespace coverage.
+- Current `App.jsx` still has 13 direct `language === 'fa'` branches: Store category/item labels and descriptions, Settings language display, bottom navigation Store label, and exit-confirmation copy/actions. These remain open implementation work.
+- Current `i18n.js` already has English/Persian `store` screen copy, but the six catalog entries and five Store tab labels remain embedded as inline `en/fa` pairs in `App.jsx`; they must move into the central translation contract with parity and regression tests.
+- The latest source SHAs reviewed: `i18n.js` 71449df5ff7831e21ddab44dddfaadf94e417ce6; `App.jsx` 7f2962d669ca7948e8682ec2f09f1c23c3964e3d; `i18n.test.js` a2c37bada9eadf19af310e9621e88d20448a4182; `AccountSessionPanel.jsx` 4e25c083586910f7138d204713700b3baf4407e0; `AccountSessionPanel.test.js` 00af4e3707902edebacb014e088e904f406a3248.
+- No new locale has been enabled. The 18 incomplete target locales, complete 20-locale UI and game-content packs, RTL/LTR acceptance, accessibility, API/error coverage and cross-locale device acceptance remain open. No APK/release acceptance is claimed.
+
+**Next implementation:** migrate the complete Store catalog and tab labels into the translation dictionaries, remove the Store locale ternaries, add parity/content/source-regression tests, then migrate Settings language names, bottom navigation and exit-confirmation copy. Keep Localization OPEN until all 20 locale packs and end-to-end acceptance criteria are satisfied.
