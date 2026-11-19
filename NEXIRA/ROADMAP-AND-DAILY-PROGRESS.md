@@ -432,3 +432,17 @@
 - Replaced the queue compatibility index with a category/FIFO index that excludes locale.
 - Added a cross-locale regression assertion for pairing an English queue entry with a Persian entrant, and a MatchService assertion for independent participant snapshots.
 - **Not yet verified:** Prisma migration execution, Prisma Client generation, unit/integration test execution, cross-locale question generation and participant-specific delivery/Judge routing. Do not enable cross-locale production matchmaking until those gates pass.
+
+## R-037 — Shared semantic question with participant-locale renderings
+
+**Date:** 2026-11-19  
+**Status:** Implementation and regression tests committed on `main`; CI and PostgreSQL execution evidence pending.
+
+- Question generation context now derives the exact distinct locale set from immutable HUMAN `MatchParticipant.language` snapshots. It fails closed if any human participant lacks a locale.
+- The generator contract now requests one semantic question and a rendering for every required locale. Each rendering contains a localized prompt, expected answer, option text keyed by stable option IDs, and localized grading rubric.
+- The Responses schema and adapter reject duplicate/missing/extra locales, incomplete localized fields, and option-ID/order drift. Generator input is restricted to the registered 20 target locale IDs; production queue enablement remains governed separately by complete-pack gates.
+- Question worker validates exact required-locale coverage before persisting the question.
+- Match question delivery ignores caller-selected language and resolves the immutable participant locale snapshot. A missing participant rendering blocks delivery; no canonical-language fallback is exposed.
+- Free-text Judge now receives the participant-locale prompt, expected answer and rubric from the persisted rendering. Canonical fallback is permitted only for historical same-canonical-locale questions; cross-locale judging fails closed when localized judge context is absent.
+- Added regression coverage for exact multi-locale generator output, missing locale rejection, caller-locale override resistance, cross-locale shared question delivery, and Persian Judge routing.
+- **Not yet verified:** TypeScript compilation, Prisma Client generation, backend unit/integration execution, database migration execution, and GitHub Actions result. No CI pass is claimed.
