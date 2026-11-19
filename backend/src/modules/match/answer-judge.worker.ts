@@ -55,6 +55,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
           round: {
             include: { question: true },
           },
+          participant: { select: { language: true } },
         },
       });
 
@@ -69,11 +70,19 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
         return true;
       }
 
+      const participantLanguage = answer.participant.language;
+      const localizedRoot = this.asRecord(question.localized);
+      const localized = this.asRecord(localizedRoot?.[participantLanguage]);
+      if (!participantLanguage || !localized || typeof localized.prompt !== 'string') {
+        await this.releaseClaim(claim, 'JUDGE_PARTICIPANT_LOCALE_RENDERING_MISSING');
+        return true;
+      }
+      const localizedRubric = localized.gradingRubric ?? question.gradingRubric;
       const result = await this.judge.judge({
-        canonicalQuestion: question.canonicalPrompt,
-        language: question.canonicalLanguage,
+        canonicalQuestion: localized.prompt,
+        language: participantLanguage,
         expectedAnswer: question.answerKey,
-        gradingRubric: question.gradingRubric,
+        gradingRubric: localizedRubric as Prisma.JsonValue,
         participantResponse: answer.responseText ?? '',
       });
 
@@ -88,6 +97,11 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
     }
 
     return true;
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+    return value as Record<string, unknown>;
   }
 
   private async poll(): Promise<void> {
