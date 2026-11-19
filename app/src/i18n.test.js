@@ -175,3 +175,26 @@ test('ranking screen copy is centralized and complete for every active locale', 
   assert.ok(rankingsStart >= 0 && storeStart > rankingsStart, 'Ranking screen boundaries must exist');
   assert.equal(rankingsUi.includes("language === 'fa'"), false, 'Ranking UI must use the centralized locale dictionary.');
 });
+
+
+test('account and session UI copy is centralized with complete English/Persian parity', async () => {
+  const english = COPY.en.account;
+  const persian = COPY.fa.account;
+  assert.deepEqual(Object.keys(persian).sort(), Object.keys(english).sort());
+
+  for (const key of Object.keys(english)) {
+    assert.equal(typeof english[key], 'string', `Invalid English account copy: ${key}`);
+    assert.equal(typeof persian[key], 'string', `Invalid Persian account copy: ${key}`);
+    assert.ok(english[key].trim(), `Empty English account copy: ${key}`);
+    assert.ok(persian[key].trim(), `Empty Persian account copy: ${key}`);
+    const placeholders = (value) => [...value.matchAll(/\\{(\\w+)\\}/g)].map((match) => match[1]).sort();
+    assert.deepEqual(placeholders(persian[key]), placeholders(english[key]), `Placeholder mismatch: ${key}`);
+  }
+
+  const component = await readFile(new URL('./components/AccountSessionPanel.jsx', import.meta.url), 'utf8');
+  const references = [...component.matchAll(/copy\\.account\\.([A-Za-z]\\w*)/g)].map((match) => match[1]);
+  assert.ok(references.length >= 80, 'Account/session component must use the centralized account namespace.');
+  for (const key of references) assert.ok(key in english && key in persian, `Missing account translation: ${key}`);
+  assert.equal(/\\bisFa\\b|language\\s*===\\s*['"]fa['"]/.test(component), false, 'Account/session UI must not branch directly on locale.');
+  assert.equal(component.includes("'fa-IR'") || component.includes("'en-US'"), false, 'Account/session date formatting must use locale metadata.');
+});
