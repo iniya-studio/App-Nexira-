@@ -308,3 +308,48 @@ test('progression and online-match UI never render raw API error messages', asyn
   }
 });
 
+
+function collectTranslationLeaves(value, prefix = '') {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectTranslationLeaves(item, prefix ? `${prefix}[${index}]` : `[${index}]`));
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value).flatMap(([key, item]) => collectTranslationLeaves(item, prefix ? `${prefix}.${key}` : key));
+  }
+  return [{ key: prefix, value }];
+}
+
+function readStaticPath(root, path) {
+  return path.split('.').reduce((value, key) => value?.[key], root);
+}
+
+test('English and Persian translation trees have recursive shape, non-empty leaves, and placeholder parity', () => {
+  const englishLeaves = collectTranslationLeaves(COPY.en);
+  const persianLeaves = collectTranslationLeaves(COPY.fa);
+  assert.deepEqual(
+    persianLeaves.map(({ key }) => key).sort(),
+    englishLeaves.map(({ key }) => key).sort(),
+    'Every nested translation key and array position must exist in both baseline locales',
+  );
+
+  const placeholders = (value) => [...value.matchAll(/\\{([A-Za-z][A-Za-z0-9_]*)\\}/g)].map((match) => match[1]).sort();
+  for (const { key, value: englishValue } of englishLeaves) {
+    const persianValue = readStaticPath(COPY.fa, key.replace(/\\[(\\d+)\\]/g, '.$1'));
+    assert.equal(typeof englishValue, 'string', `English translation leaf must be a string: ${key}`);
+    assert.equal(typeof persianValue, 'string', `Persian translation leaf must be a string: ${key}`);
+    assert.ok(englishValue.trim(), `Empty English translation: ${key}`);
+    assert.ok(persianValue.trim(), `Empty Persian translation: ${key}`);
+    assert.deepEqual(placeholders(persianValue), placeholders(englishValue), `Interpolation placeholder mismatch: ${key}`);
+  }
+});
+
+test('all statically referenced nested UI translation paths exist in both baseline locales', async () => {
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  const paths = [...appSource.matchAll(/\\btext((?:\\.[A-Za-z][A-Za-z0-9_]*){1,4})/g)]
+    .map((match) => match[1].slice(1))
+    .filter((path) => !path.includes('['));
+  for (const path of new Set(paths)) {
+    assert.ok(readStaticPath(COPY.en, path) !== undefined, `Missing English UI translation path: ${path}`);
+    assert.ok(readStaticPath(COPY.fa, path) !== undefined, `Missing Persian UI translation path: ${path}`);
+  }
+});
