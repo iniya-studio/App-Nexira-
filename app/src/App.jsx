@@ -1474,7 +1474,7 @@ export default function App() {
 
     {screen === 'profile' && <ScreenFrame className="info-screen profile-screen">
       <div className="profile-screen-actions">
-        <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+        <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.homeLabel}</button>
         <button className="profile-settings-link" onClick={() => navigate('settings')}><Settings size={15} /> {text.settings}</button>
       </div>
       <ScreenHeading eyebrow={text.operatorDossierEyebrow} title={text.profileTitle} accent={text.profileAccent} />
@@ -1549,7 +1549,7 @@ export default function App() {
     </ScreenFrame>}
 
     {screen === 'rankings' && <ScreenFrame className="info-screen">
-      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.homeLabel}</button>
       <ScreenHeading
         eyebrow={text.rankingsEyebrow}
         title={text.rankingsTitle}
@@ -1620,7 +1620,7 @@ export default function App() {
     </ScreenFrame>}
 
     {screen === 'store' && <ScreenFrame className="info-screen store-screen">
-      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.homeLabel}</button>
       <ScreenHeading
         eyebrow={text.store.eyebrow}
         title={text.store.title}
@@ -1715,7 +1715,7 @@ export default function App() {
     </ScreenFrame>}
 
     {screen === 'settings' && <ScreenFrame className="info-screen">
-      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
+      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.homeLabel}</button>
       <ScreenHeading eyebrow={text.settingsEyebrow} title={text.settingsTitle} accent={text.settingsAccent} description={text.settingsDescription} />
       <GlassPanel className="settings-panel">
         <div className="setting-row"><span><Languages size={17} /><span><strong>{text.language}</strong><small>{text.languageOptions}</small></span></span>
