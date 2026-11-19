@@ -71,7 +71,7 @@ const QUESTION_GENERATION_ERROR_CODES = new Set([
 function toQuestionGenerationErrorCode(error: unknown): string {
   if (
     error instanceof QuestionGenerationError &&
-    /^GENERATOR_PROVIDER_HTTP_\\d{3}$/.test(error.code)
+    /^GENERATOR_PROVIDER_HTTP_\d{3}$/.test(error.code)
   ) {
     return 'GENERATOR_PROVIDER_HTTP_ERROR';
   }
