@@ -332,9 +332,9 @@ test('English and Persian translation trees have recursive shape, non-empty leav
     'Every nested translation key and array position must exist in both baseline locales',
   );
 
-  const placeholders = (value) => [...value.matchAll(/\\{([A-Za-z][A-Za-z0-9_]*)\\}/g)].map((match) => match[1]).sort();
+  const placeholders = (value) => [...value.matchAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/g)].map((match) => match[1]).sort();
   for (const { key, value: englishValue } of englishLeaves) {
-    const persianValue = readStaticPath(COPY.fa, key.replace(/\\[(\\d+)\\]/g, '.$1'));
+    const persianValue = readStaticPath(COPY.fa, key.replace(/\[(\d+)\]/g, '.$1'));
     assert.equal(typeof englishValue, 'string', `English translation leaf must be a string: ${key}`);
     assert.equal(typeof persianValue, 'string', `Persian translation leaf must be a string: ${key}`);
     assert.ok(englishValue.trim(), `Empty English translation: ${key}`);
@@ -345,7 +345,7 @@ test('English and Persian translation trees have recursive shape, non-empty leav
 
 test('all statically referenced nested UI translation paths exist in both baseline locales', async () => {
   const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
-  const paths = [...appSource.matchAll(/\\btext((?:\\.[A-Za-z][A-Za-z0-9_]*){1,4})/g)]
+  const paths = [...appSource.matchAll(/\btext((?:\.[A-Za-z][A-Za-z0-9_]*){1,4})/g)]
     .map((match) => match[1].slice(1))
     .filter((path) => !path.includes('['));
   for (const path of new Set(paths)) {
