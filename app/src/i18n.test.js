@@ -198,8 +198,8 @@ test('profile and account status UI copy has complete English/Persian parity', a
 test('session lifecycle state stores machine-readable errors instead of raw exception messages', async () => {
   const lifecycleSource = await readFile(new URL('./api/sessionLifecycle.js', import.meta.url), 'utf8');
   assert.match(lifecycleSource, /function toSessionErrorDescriptor/);
-  assert.equal(/error:\\s*error instanceof Error \\? error\\.message/.test(lifecycleSource), false);
-  assert.equal(/accountDataError:\\s*error instanceof Error \\? error\\.message/.test(lifecycleSource), false);
+  assert.equal(/error:\s*error instanceof Error \? error\.message/.test(lifecycleSource), false);
+  assert.equal(/accountDataError:\s*error instanceof Error \? error\.message/.test(lifecycleSource), false);
 });
 
 test('all lifecycle session states have localized labels and raw lifecycle errors are never rendered', async () => {
