@@ -82,27 +82,43 @@ export function validateGeneratedQuestion(value: unknown): GeneratedQuestion {
   }
 
   const localized = question.localized as Record<string, unknown>;
-  const canonicalLocalized = asRecord(
-    localized[question.canonicalLanguage as string],
-  );
-  if (
-    !canonicalLocalized ||
-    !isNonEmptyString(canonicalLocalized.prompt, MAX_PROMPT_LENGTH)
-  ) {
+  const localeEntries = Object.entries(localized);
+  if (localeEntries.length === 0) {
     throw new GeneratedQuestionValidationError('QUESTION_LOCALIZATION_INVALID');
   }
-  if (answerType === 'MULTIPLE_CHOICE') {
-    const localizedOptions = asRecord(canonicalLocalized.options);
-    if (
-      !localizedOptions ||
-      !canonicalOptions?.every((option) =>
-        isNonEmptyString(localizedOptions[option.id], MAX_PROMPT_LENGTH),
-      )
-    ) {
-      throw new GeneratedQuestionValidationError(
-        'QUESTION_LOCALIZATION_INVALID',
-      );
+  for (const [, value] of localeEntries) {
+    const rendering = asRecord(value);
+    if (!rendering || !isNonEmptyString(rendering.prompt, MAX_PROMPT_LENGTH)) {
+      throw new GeneratedQuestionValidationError('QUESTION_LOCALIZATION_INVALID');
     }
+    if (answerType === 'MULTIPLE_CHOICE') {
+      const localizedOptions = asRecord(rendering.options);
+      if (
+        !localizedOptions ||
+        !canonicalOptions?.every((option) =>
+          isNonEmptyString(localizedOptions[option.id], MAX_PROMPT_LENGTH),
+        ) ||
+        Object.keys(localizedOptions).length !== canonicalOptions.length
+      ) {
+        throw new GeneratedQuestionValidationError('QUESTION_LOCALIZATION_INVALID');
+      }
+    } else if (rendering.options !== undefined && rendering.options !== null &&
+      Object.keys(asRecord(rendering.options) ?? {}).length > 0) {
+      throw new GeneratedQuestionValidationError('QUESTION_LOCALIZATION_INVALID');
+    }
+    if (rendering.gradingRubric !== undefined) {
+      const localizedRubric = asRecord(rendering.gradingRubric);
+      if (!localizedRubric ||
+          !Array.isArray(localizedRubric.requiredConcepts) ||
+          !localizedRubric.requiredConcepts.every((concept) => isNonEmptyString(concept, 200)) ||
+          typeof localizedRubric.acceptEquivalentWording !== 'boolean' ||
+          !isNonEmptyString(localizedRubric.notes, MAX_PROMPT_LENGTH)) {
+        throw new GeneratedQuestionValidationError('QUESTION_RUBRIC_INVALID');
+      }
+    }
+  }
+  if (!asRecord(localized[question.canonicalLanguage as string])) {
+    throw new GeneratedQuestionValidationError('QUESTION_LOCALIZATION_INVALID');
   }
 
   const validated: GeneratedQuestion = {
