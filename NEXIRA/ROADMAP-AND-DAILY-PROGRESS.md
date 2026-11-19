@@ -700,3 +700,42 @@ This is an explicit required part of the current Account/Session localization ph
 - Keep Localization and Account/Session localization OPEN until all 20 locales, user-visible states, and device acceptance are complete.
 
 **Acceptance:** This is the first shared HTTP error-envelope layer, not the final backend error-contract closure. Localization remains OPEN.
+## R-048 — Global HTTP error response contract (in progress)
+
+**Date:** 2026-11-19  
+**Status:** A global HTTP exception response contract is implemented and documented. The latest backend CI run for the current implementation/docs HEAD is pending; do not treat this step as accepted until the run completes successfully and the final HEAD is verified.
+
+### Audit findings
+- Backend REST services/controllers use NestJS HTTP exceptions across auth, session, guest conversion, account/profile, match/round/answer, matchmaking and companion flows. Many exceptions carry free-form messages; these must remain internal and must not become the client contract.
+- The frontend ApiError already retains HTTP status and response code, and getLocalizedApiError selects safe localized copy from code/status rather than rendering backend message text. The client HTTP contract tests verify status/code preservation.
+- Two existing domain codes were already being thrown in guest conversion: CONVERSION_RECOVERY_EXPIRED (410) and CONVERSION_NOT_COMMITTED (409). A status-only filter would have erased the recovery code and broken the existing localized recovery behavior.
+- NestJS documentation confirms global filters registered with app.useGlobalFilters do not apply to WebSocket gateways; gateway-specific exception behavior remains separate. REST changes must not add a gateway-scoped filter.
+
+### Implemented
+- Added ApiExceptionFilter and registered it globally for HTTP in backend/src/main.ts.
+- Public error response is limited to statusCode, stable code, generic message and timestamp. Validation arrays, custom response bodies, exception messages, stack traces and database/request diagnostics are excluded.
+- Added generic status mappings: INVALID_REQUEST, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, CONFLICT, RESOURCE_EXPIRED, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, REQUEST_FAILED and INTERNAL_SERVER_ERROR.
+- Added a strict status-bound allowlist for CONVERSION_RECOVERY_EXPIRED (410) and CONVERSION_NOT_COMMITTED (409); arbitrary codes supplied in custom exception bodies are ignored.
+- Unexpected non-HttpException failures are logged server-side while the response remains generic.
+- Added tests for standard status mappings, unknown exceptions, validation/custom-body suppression, domain-code allowlisting and rejection of arbitrary codes.
+- Added frontend mappings and tests for the preserved guest-conversion domain codes.
+- Documented the response contract and WebSocket boundary in backend/README.md.
+
+### Commits and CI evidence
+- Global HTTP filter: 5e0f54ec50edaa226652ca2e6a2bbcb3935b5386 (followed by HTTP-only cleanup in the commits below)
+- Domain-code allowlist and filter tests: 43750e7608b873cbf9c556c623039a924187cb94; 64fe009fd0fc8e2bb9b4eb62ec6c3d8d9bc7d2e4
+- Frontend domain-code mappings/tests: a538aee3deef23497babc02b72895ddb0c6b09f3; 2695f04f6eb7436f19c11fc99915ba9ce928559a
+- HTTP-only filter cleanup and test cleanup: de2b5aa407339d7d30a931ca270af1d2ea72842e; a8488a29d50530cee94be472adece8c15c36f88d
+- API contract documentation: 1303cc14a1897564a2c265ab8a233d6ef3fc8e8b
+- Prior workflow 44591740939 completed successfully for the initial HTTP filter, Nest build, unit/PostgreSQL integration tests, lint, Compose validation and staging backend image build. A later Lint failure in run 44591425417 was caused by unused imports in the not-yet-completed WebSocket test; the follow-up run 44591740939 passed after the test was corrected.
+- Latest workflow [44593903976](https://github.com/iniya-studio/App-Nexira-/actions/runs/44593903976) is running against the current HEAD and must be checked before acceptance.
+
+### Remaining work
+- Verify the current CI run to completion, including Nest production build, unit/PostgreSQL integration tests, ESLint, staging Compose validation and backend image build.
+- Add real HTTP-level integration coverage proving main.ts global registration produces the exact public response schema, not only direct filter unit tests.
+- Continue replacing high-value domain failures with explicit stable codes where the UI needs distinct localized behavior; every new code requires status-bound allowlisting plus backend/frontend tests.
+- Audit all remaining frontend consumers for direct error.message/raw payload rendering, including session recovery, email verification, session revocation, notifications and accessibility.
+- Expand tests for malformed/non-JSON error payloads and 5xx/unknown status handling.
+- Keep WebSocket authentication, matchmaking events and gateway-specific error payloads on their separate transport contract.
+
+**Acceptance:** This is a backend contract foundation, not completion of Account/Session or Localization. The full 20-locale rollout and end-to-end/device acceptance remain OPEN.
