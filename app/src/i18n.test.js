@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { CATEGORIES, normalizeProfile } from './game/data.js';
-import { DEFAULT_LOCALE, getLocaleConfig, getSupportedLocales, isSupportedLocale, resolveLocale } from './locales.js';
+import { DEFAULT_LOCALE, formatLocaleNumber, getLocaleConfig, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, resolveLocale } from './locales.js';
 import { COPY, formatCopy, getCategoryTitle, getCopy, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
 
 test('English and Persian provide the same complete translation keys', () => {
@@ -101,17 +101,34 @@ test('every question and answer option has Persian display text without changing
   assert.deepEqual(PERSIAN_QUESTIONS.science[1].options, CATEGORIES.find(({ id }) => id === 'science').questions[1].options);
 });
 
-test('locale registry is the canonical source for currently supported locales', () => {
-  assert.deepEqual(getSupportedLocales().map(({ code }) => code).sort(), ['en', 'fa']);
+test('locale registry contains the complete 20-locale target set without enabling incomplete packs', async () => {
+  const expectedTargets = ['en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi', 'id', 'ja', 'ko', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi'];
+  assert.deepEqual(getTargetLocales().map(({ code }) => code), expectedTargets);
+  assert.deepEqual(getSupportedLocales().map(({ code }) => code), ['en', 'fa']);
   assert.equal(DEFAULT_LOCALE, 'en');
-  assert.equal(isSupportedLocale('en'), true);
-  assert.equal(isSupportedLocale('fa'), true);
+
+  for (const locale of expectedTargets) assert.equal(isTargetLocale(locale), true);
+  for (const locale of ['en', 'fa']) assert.equal(isSupportedLocale(locale), true);
+  for (const locale of expectedTargets.filter((locale) => !['en', 'fa'].includes(locale))) {
+    assert.equal(isSupportedLocale(locale), false, `Incomplete locale must remain disabled: ${locale}`);
+    assert.equal(resolveLocale(locale), DEFAULT_LOCALE);
+  }
+
+  assert.equal(isTargetLocale('unknown'), false);
   assert.equal(isSupportedLocale('ar'), false);
   assert.equal(resolveLocale('fa'), 'fa');
-  assert.equal(resolveLocale('ar'), DEFAULT_LOCALE);
   assert.equal(resolveLocale(null), DEFAULT_LOCALE);
   assert.equal(getLocaleConfig('fa').direction, 'rtl');
+  assert.equal(getLocaleConfig('ar').direction, 'rtl');
+  assert.equal(getLocaleConfig('ur').direction, 'rtl');
   assert.equal(getLocaleConfig('en').direction, 'ltr');
+  assert.equal(getLocaleConfig('zh-CN').intlLocale, 'zh-CN');
+  assert.equal(formatLocaleNumber(1234.5, 'fa'), new Intl.NumberFormat('fa-IR').format(1234.5));
+
+  const backendRegistry = await readFile(new URL('../../backend/src/common/localization/locale-registry.ts', import.meta.url), 'utf8');
+  for (const locale of expectedTargets) {
+    assert.match(backendRegistry, new RegExp(`(^|\\n)\\s*${locale === 'zh-CN' ? `['"]zh-CN['"]` : locale}:`, 'm'), `Backend target registry is missing ${locale}`);
+  }
 });
 
 test('profile locale migration preserves supported locales and safely resets unknown locales', () => {
