@@ -23,13 +23,17 @@ export async function questionGenerationInputForMatch(
   );
   const humanParticipants = match.participants.filter((participant) => participant.participantType === 'HUMAN');
   const participantLocales = humanParticipants.map((participant) => participant.language);
+  const validParticipantLocales = participantLocales.filter(
+    (locale): locale is string =>
+      typeof locale === 'string' && locale.trim().length > 0,
+  );
   if (
     participantLocales.length === 0 ||
-    participantLocales.some((locale) => typeof locale !== 'string' || !locale.trim())
+    validParticipantLocales.length !== participantLocales.length
   ) {
     throw new Error('Human participant locale snapshots are unavailable');
   }
-  const requiredLocales = [...new Set(participantLocales)].sort();
+  const requiredLocales = [...new Set(validParticipantLocales)].sort();
   const possibleRematches = await tx.match.findMany({
     where: {
       id: { not: matchId },
