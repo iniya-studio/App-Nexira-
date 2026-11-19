@@ -12,8 +12,8 @@ import {
   validateGeneratedQuestion,
 } from './question-validation';
 
-const GENERATOR_VERSION = 'question-generator-v1';
-const GENERATION_POLICY_VERSION = 'replacement-question-v1';
+const GENERATOR_VERSION = 'question-generator-v2';
+const GENERATION_POLICY_VERSION = 'shared-semantic-multilocale-v1';
 
 type ResponsesApiPayload = {
   status?: string;
@@ -279,7 +279,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       gradingRubric: structured.gradingRubric,
       localized,
       timeLimitSeconds: structured.timeLimitSeconds,
-      contentVersion: 'question-content-v1',
+      contentVersion: 'question-content-v2',
       generatorVersion: GENERATOR_VERSION,
       modelVersion: model,
       generationPolicyVersion: GENERATION_POLICY_VERSION,
