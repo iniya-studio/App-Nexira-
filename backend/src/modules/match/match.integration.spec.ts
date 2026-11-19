@@ -230,6 +230,12 @@ describe('Match and round persistence integration', () => {
     const { matchId, firstGuestId, secondGuestId } =
       await createGuestOneVsOne();
 
+    // Locale is immutable match-participant state; the request query is not authoritative.
+    await prisma.matchParticipant.updateMany({
+      where: { matchId, guestIdentityId: secondGuestId },
+      data: { language: 'fa' },
+    });
+
     const started = await rounds.startNextRound(matchId, generatedQuestion);
     questionIds.push(started.questionId);
 
