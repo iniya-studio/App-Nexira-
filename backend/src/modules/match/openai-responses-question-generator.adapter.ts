@@ -244,6 +244,9 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       );
     }
 
+    if (new Set(structured.localized.map((rendering) => rendering.language)).size !== structured.localized.length) {
+      throw new QuestionGenerationError('GENERATOR_LOCALE_COVERAGE_INVALID', 'Generated question contains duplicate locale renderings');
+    }
     const localized = Object.fromEntries(
       structured.localized.map((rendering) => [rendering.language, {
         prompt: rendering.prompt,
