@@ -114,3 +114,16 @@ test('Persian account view renders localized sign-in and Google actions', () => 
   assert.match(html, /ورود به نکسیرا/);
   assert.match(html, /ادامه با Google/);
 });
+
+
+test('account and session panel uses centralized copy in both active locales', () => {
+  const english = renderPanel({ status: 'guest' }, { language: 'en' });
+  const persian = renderPanel({ status: 'guest' }, { language: 'fa' });
+
+  assert.match(english, /Account management/);
+  assert.match(english, /Guest account active/);
+  assert.match(english, /Create account/);
+  assert.match(persian, /مدیریت حساب/);
+  assert.match(persian, /حساب مهمان فعال است/);
+  assert.match(persian, /ساخت حساب دائمی/);
+});
