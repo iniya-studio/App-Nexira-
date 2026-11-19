@@ -18,6 +18,30 @@ type AiAnswerClaim = {
 };
 type StoredOption = { id: string; text: string };
 
+const AI_OPPONENT_ERROR_CODES = new Set([
+  'AI_OPPONENT_PROVIDER_NOT_CONFIGURED',
+  'AI_OPPONENT_CONFIGURATION_INVALID',
+  'AI_OPPONENT_PROVIDER_TIMEOUT',
+  'AI_OPPONENT_PROVIDER_NETWORK_ERROR',
+  'AI_OPPONENT_PROVIDER_INCOMPLETE',
+  'AI_OPPONENT_PROVIDER_REFUSAL',
+  'AI_OPPONENT_PROVIDER_EMPTY_OUTPUT',
+  'AI_OPPONENT_PROVIDER_INVALID_JSON',
+  'AI_OPPONENT_PROVIDER_INVALID_RESULT',
+  'AI_OPPONENT_PROVIDER_INVALID_ANSWER',
+  'AI_OPPONENT_INPUT_INVALID',
+]);
+
+function toAiOpponentAnswerErrorCode(error: unknown): string {
+  if (!(error instanceof Error)) return 'AI_ANSWER_INTERNAL_ERROR';
+  if (error.message === 'AI_ANSWER_PROVIDER_RESULT_INVALID') return error.message;
+  if (AI_OPPONENT_ERROR_CODES.has(error.message)) return error.message;
+  if (/^AI_OPPONENT_PROVIDER_HTTP_\\d{3}$/.test(error.message)) {
+    return 'AI_OPPONENT_PROVIDER_HTTP_ERROR';
+  }
+  return 'AI_ANSWER_INTERNAL_ERROR';
+}
+
 @Injectable()
 export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiOpponentAnswerWorker.name);
@@ -87,9 +111,7 @@ export class AiOpponentAnswerWorker implements OnModuleInit, OnModuleDestroy {
 
       await this.persistAnswer(claim, responseText.trim(), answerType);
     } catch (error) {
-      const code = error instanceof Error
-        ? error.message.slice(0, 64)
-        : 'AI_ANSWER_INTERNAL_ERROR';
+      const code = toAiOpponentAnswerErrorCode(error);
       await this.releaseClaim(claim, code);
       this.logger.warn(`AI opponent answer attempt failed: ${code}`);
     }
