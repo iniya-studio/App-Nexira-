@@ -110,10 +110,10 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
       answerType: 'MULTIPLE_CHOICE',
       answerKey: 'A',
       timeLimitSeconds: 30,
-      contentVersion: 'question-content-v1',
-      generatorVersion: 'question-generator-v1',
+      contentVersion: 'question-content-v2',
+      generatorVersion: 'question-generator-v2',
       modelVersion: 'test-generator-model',
-      generationPolicyVersion: 'replacement-question-v1',
+      generationPolicyVersion: 'shared-semantic-multilocale-v1',
     });
     expect(result.contentFingerprint).toMatch(/^[a-f0-9]{64}$/);
 
