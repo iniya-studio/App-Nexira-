@@ -6,6 +6,7 @@ import {
   QuestionGenerator,
 } from './question-generator.port';
 import { GeneratedQuestion } from './question.types';
+import { isTargetLocale } from '../../common/localization/locale-registry';
 import {
   normalizedQuestionFingerprint,
   validateGeneratedQuestion,
@@ -312,9 +313,11 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       input.language.length > 35 ||
       !Array.isArray(input.requiredLocales) ||
       input.requiredLocales.length === 0 ||
-      !input.requiredLocales.every((locale) => typeof locale === 'string' && locale.trim().length > 0 && locale.length <= 35) ||
+      input.requiredLocales.length > 20 ||
+      !input.requiredLocales.every((locale) => typeof locale === 'string' && locale.trim().length > 0 && locale.length <= 35 && isTargetLocale(locale)) ||
       new Set(input.requiredLocales).size !== input.requiredLocales.length ||
       !input.requiredLocales.includes(input.language) ||
+      !isTargetLocale(input.language) ||
       !Number.isSafeInteger(input.timeLimitSeconds) ||
       input.timeLimitSeconds < 1 ||
       input.timeLimitSeconds > 300 ||
