@@ -1,6 +1,6 @@
 # NEX-BE-010 — Cross-Locale 1v1 Question Delivery Contract
 
-**Status:** Approved product architecture; implementation not started
+**Status:** Approved architecture; implementation in progress (participant snapshots, category-only pairing, locale-complete generation, participant-specific delivery and Judge routing committed; execution evidence pending)
 **Target branch:** `main`
 **Scope:** Participant locale snapshots, shared semantic questions, localized delivery, answer identity, AI Judge context, matchmaking compatibility, reconnect and recovery.
 **Depends on:** NEX-BE-006 Match Core, NEX-BE-007 Match Entry API, NEX-BE-008 AI Judge, NEX-BE-009 Public 1v1 Matchmaking, L10N-02A.
@@ -80,9 +80,9 @@ Locale is a presentation and evaluation context, never a matchmaking advantage o
 - 02A.1 — Implement and test server locale registry (20 target IDs) and trusted principal locale resolution.
 - 02A.2 — Add MatchParticipant locale snapshot and additive migration/backfill.
 - 02A.3 — Make matchmaking category-only while retaining per-entry locale.
-- 02A.4 — Expand generation context to all participant locales and validate locale renderings.
-- 02A.5 — Resolve participant locale in question delivery, recovery and Judge processing.
-- 02A.6 — Add cross-locale PostgreSQL integration and security regression tests.
+- 02A.4 — Expand generation context to all HUMAN participant locales; generate one semantic question with locale-specific prompt, expected answer, option text and grading rubric; reject duplicate/missing locales and option-ID/order mismatches. (Implementation committed; CI evidence pending)
+- 02A.5 — Resolve participant locale in question delivery and free-text Judge processing from the immutable participant snapshot; ignore caller locale for match question reads and reject missing cross-locale renderings. (Implementation committed; integration evidence pending)
+- 02A.6 — Add cross-locale PostgreSQL integration and security regression tests for same semantic question delivery, stable option IDs, server-authoritative locale and localized Judge input. (Regression tests committed; execution pending)
 - 02A.7 — Enable only after CI and release gates are evidenced.
 
 No implementation item is DONE solely because this contract exists.
