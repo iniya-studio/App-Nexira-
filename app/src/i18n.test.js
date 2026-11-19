@@ -195,6 +195,13 @@ test('profile and account status UI copy has complete English/Persian parity', a
   assert.equal(profileUi.includes("language === 'fa'"), false, 'Profile UI must use centralized locale dictionaries.');
 });
 
+test('session lifecycle state stores machine-readable errors instead of raw exception messages', async () => {
+  const lifecycleSource = await readFile(new URL('./api/sessionLifecycle.js', import.meta.url), 'utf8');
+  assert.match(lifecycleSource, /function toSessionErrorDescriptor/);
+  assert.equal(/error:\\s*error instanceof Error \\? error\\.message/.test(lifecycleSource), false);
+  assert.equal(/accountDataError:\\s*error instanceof Error \\? error\\.message/.test(lifecycleSource), false);
+});
+
 test('all lifecycle session states have localized labels and raw lifecycle errors are never rendered', async () => {
   const requiredStates = ['idle', 'initializing', 'guest', 'authenticated', 'offline', 'error', 'unsupported', 'signed-out', 'unknown'];
   for (const locale of ['en', 'fa']) {
@@ -254,6 +261,8 @@ test('server-originated API errors always resolve to safe localized copy', () =>
     assert.equal(getLocalizedApiError({ code: 'NETWORK_ERROR', message: 'raw server secret' }, copy), copy.network_error);
     assert.equal(getLocalizedApiError({ code: 'REQUEST_ABORTED' }, copy), copy.request_aborted);
     assert.equal(getLocalizedApiError({ code: 'SESSION_SUPERSEDED' }, copy), copy.session_changed);
+    assert.equal(getLocalizedApiError({ code: 'SESSION_EXPIRED' }, copy), copy.session_expired);
+    assert.equal(getLocalizedApiError({ code: 'SESSION_REVOKED' }, copy), copy.session_expired);
     assert.equal(getLocalizedApiError({ code: 'CONVERSION_RECOVERY_EXPIRED' }, copy), copy.recovery_window_expired);
     assert.equal(getLocalizedApiError({ code: 'QUESTION_GENERATION_FAILED' }, copy), copy.server_error);
     assert.equal(getLocalizedApiError({ code: 'MATCH_CANCELLED' }, copy), copy.server_error);
