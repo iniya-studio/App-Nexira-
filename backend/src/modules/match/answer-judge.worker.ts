@@ -72,7 +72,9 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
 
       const participantLanguage = answer.participant.language;
       const localizedRoot = this.asRecord(question.localized);
-      const localized = this.asRecord(localizedRoot?.[participantLanguage]);
+      const localized = participantLanguage
+        ? this.asRecord(localizedRoot?.[participantLanguage])
+        : null;
       const expectedAnswer = typeof localized?.expectedAnswer === 'string'
         ? localized.expectedAnswer
         : participantLanguage === question.canonicalLanguage ? question.answerKey : null;
