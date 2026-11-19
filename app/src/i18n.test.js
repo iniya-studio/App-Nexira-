@@ -263,6 +263,8 @@ test('server-originated API errors always resolve to safe localized copy', () =>
     assert.equal(getLocalizedApiError({ code: 'SESSION_SUPERSEDED' }, copy), copy.session_changed);
     assert.equal(getLocalizedApiError({ code: 'SESSION_EXPIRED' }, copy), copy.session_expired);
     assert.equal(getLocalizedApiError({ code: 'SESSION_REVOKED' }, copy), copy.session_expired);
+    assert.equal(getLocalizedApiError({ code: 'CONVERSION_RECOVERY_EXPIRED', status: 410 }, copy), copy.recovery_window_expired);
+    assert.equal(getLocalizedApiError({ code: 'CONVERSION_NOT_COMMITTED', status: 409 }, copy), copy.conflict);
     assert.equal(getLocalizedApiError({ code: 'CONVERSION_RECOVERY_EXPIRED' }, copy), copy.recovery_window_expired);
     assert.equal(getLocalizedApiError({ code: 'QUESTION_GENERATION_FAILED' }, copy), copy.server_error);
     assert.equal(getLocalizedApiError({ code: 'MATCH_CANCELLED' }, copy), copy.server_error);
