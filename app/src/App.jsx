@@ -18,7 +18,7 @@ import { createMatchmakingApi } from './api/matchmakingApi.js';
 import { createOnlineMatchmakingAdapter } from './game/onlineMatchmakingAdapter.js';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { formatCopy, getCategoryTitle, getCopy, getQuestionCopy } from './i18n.js';
+import { formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy } from './i18n.js';
 import { getLocaleConfig, getSupportedLocales } from './locales.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
@@ -378,13 +378,11 @@ export default function App() {
         : seasonalResult.status === 'rejected'
           ? seasonalResult.reason
           : null;
-      setProgressionError(rankingFailure
-        ? (rankingFailure instanceof Error ? rankingFailure.message : 'Unable to load rankings.')
-        : '');
+      setProgressionError(rankingFailure || '');
       return progressResult.value;
     } catch (error) {
       if (error?.code === 'SESSION_SUPERSEDED') return null;
-      setProgressionError(error instanceof Error ? error.message : 'Unable to load progression.');
+      setProgressionError(error);
       return null;
     } finally {
       if (requestId === progressionRequestRef.current) setProgressionLoading(false);
@@ -463,7 +461,7 @@ export default function App() {
       setScreen(next.phase === 'complete' ? 'match-results' : 'match-game');
     } catch (error) {
       matchmakingTransitionRef.current = null;
-      setMatchError(error instanceof Error ? error.message : 'Unable to restore the matched game.');
+      setMatchError(error);
     } finally {
       setMatchBusy(false);
     }
@@ -555,7 +553,7 @@ export default function App() {
         }
       }
       setMatchView(onlineMatchAdapterRef.current?.getView() ?? null);
-      setMatchError(error instanceof Error ? error.message : 'Unable to start the match.');
+      setMatchError(error);
       setScreen(mode === '1v1' ? 'modes' : 'match-game');
     } finally {
       setMatchBusy(false);
@@ -580,7 +578,7 @@ export default function App() {
         setScreen('modes');
       }
     } catch (error) {
-      setMatchError(error instanceof Error ? error.message : 'Unable to cancel matchmaking.');
+      setMatchError(error);
     } finally {
       setMatchBusy(false);
     }
@@ -724,7 +722,7 @@ export default function App() {
       if (next.status === 'complete') setScreen('match-results');
     } catch (error) {
       setMatchView(onlineMatchAdapterRef.current?.getView() ?? matchAdapterRef.current.getView());
-      setMatchError(error instanceof Error ? error.message : 'Unable to submit the match answer.');
+      setMatchError(error);
     } finally {
       setMatchBusy(false);
     }
@@ -742,7 +740,7 @@ export default function App() {
       if (next.phase === 'complete') setScreen('match-results');
     } catch (error) {
       setMatchView(adapter.getView());
-      setMatchError(error instanceof Error ? error.message : 'Unable to submit the answer.');
+      setMatchError(error);
     } finally {
       setMatchBusy(false);
     }
@@ -761,7 +759,7 @@ export default function App() {
       if (next.status === 'complete') setScreen('match-results');
     } catch (error) {
       setMatchView(onlineMatchAdapterRef.current?.getView() ?? matchAdapterRef.current.getView());
-      setMatchError(error instanceof Error ? error.message : 'Unable to synchronize the match timeout.');
+      setMatchError(error);
     }
   }, []);
 
@@ -774,7 +772,7 @@ export default function App() {
       setMatchError('');
       if (next?.phase === 'complete') setScreen('match-results');
     } catch (error) {
-      setMatchError(error instanceof Error ? error.message : 'Unable to continue the match.');
+      setMatchError(error);
     }
   }, []);
 
@@ -932,7 +930,7 @@ export default function App() {
       } catch (error) {
         if (active) {
           setMatchView(adapter.getView());
-          setMatchError(error instanceof Error ? error.message : 'Unable to synchronize the online match.');
+          setMatchError(error);
         }
       } finally {
         inFlight = false;
@@ -971,7 +969,7 @@ export default function App() {
           }
         }
       } catch (error) {
-        if (active) setMatchError(error instanceof Error ? error.message : 'Unable to synchronize matchmaking.');
+        if (active) setMatchError(error);
       } finally {
         inFlight = false;
       }
@@ -1122,7 +1120,7 @@ export default function App() {
       return <ScreenFrame className="categories-screen">
         <button className="back-link" onClick={() => navigate('categories')}><ArrowLeft size={15} /> {text.back}</button>
         <ScreenHeading eyebrow={`${getCategoryTitle(language, selectedCategory.id, selectedCategory.title).toUpperCase()} · ${text.modeEyebrow}`} title={text.modeTitle} accent={text.modeAccent} description={text.modeDescription} />
-        {matchError && <p className="panel-note" role="alert">{matchError}</p>}
+        {matchError && <p className="panel-note" role="alert">{getLocalizedApiError(matchError, text.account)}</p>}
         <GlassPanel variant="feature" className="mode-selection-panel">
           <div className={`mode-category-card tone-${selectedCategory.tone}`}>
             <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{getCategoryTitle(language, selectedCategory.id, selectedCategory.title)}</strong><small>{text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
@@ -1173,7 +1171,7 @@ export default function App() {
                 : text.match.offline}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>
-            {matchError && <p className="empty-state" role="alert">{matchError}</p>}
+            {matchError && <p className="empty-state" role="alert">{getLocalizedApiError(matchError, text.account)}</p>}
           </div>
         </GlassPanel>
       </ScreenFrame>;
@@ -1197,7 +1195,7 @@ export default function App() {
           </small>
           <p>{text.match.queueRecovery}</p>
         </div>
-        {matchError && <p className="empty-state" role="alert">{matchError}</p>}
+        {matchError && <p className="empty-state" role="alert">{getLocalizedApiError(matchError, text.account)}</p>}
         <button className="secondary-action" disabled={matchBusy} onClick={() => { void cancelMatchmaking(); }}>
           {text.match.cancelSearch}
         </button>
@@ -1290,7 +1288,7 @@ export default function App() {
           <button className="back-link" onClick={() => setShowExitConfirm(true)}><ArrowLeft size={15} /> {text.backToChallenges}</button>
           <p>{matchView.isOnline ? `${matchView.mode === '1v1' ? '1vs1' : '1vsAI'} · ONLINE` : matchView.mode === '1v1' ? '1vs1 · ' + text.match.localPreview : '1vsAI · ' + text.match.localPreview} <span>·</span> {matchView.isOnline ? (text.match.serverMatch) : text.localOnly}</p>
         </div>
-        {matchError && <p className="empty-state" role="alert">{matchError}</p>}
+        {matchError && <p className="empty-state" role="alert">{getLocalizedApiError(matchError, text.account)}</p>}
         {['waiting-question', 'waiting-result', 'submitting'].includes(matchView.phase) && <GlassPanel variant="feature" className="question-panel" role="status">
           <span className="eyebrow"><span className="live-dot" /> {matchView.phase === 'submitting'
             ? (text.match.submittingAnswer)
@@ -1306,25 +1304,25 @@ export default function App() {
         </GlassPanel>}
         {matchView.phase === 'submission-error' && <GlassPanel variant="feature" className="question-panel" role="alert">
           <h2>{text.match.submissionNeedsRetry}</h2>
-          <p>{matchError || matchView.error}</p>
+          <p>{getLocalizedApiError(matchError || matchView.error, text.account)}</p>
           <button className="primary-button" disabled={matchBusy} onClick={() => {
             setMatchBusy(true);
             void onlineMatchAdapterRef.current?.retrySubmission()
               .then(setMatchView)
-              .catch((error) => setMatchError(error.message))
+              .catch((error) => setMatchError(error))
               .finally(() => setMatchBusy(false));
           }}><span className="primary-label">{text.match.retrySameAnswer}</span></button>
-          <button className="secondary-action" disabled={matchBusy} onClick={() => { void onlineMatchAdapterRef.current?.refresh().then(setMatchView).catch((error) => setMatchError(error.message)); }}>
+          <button className="secondary-action" disabled={matchBusy} onClick={() => { void onlineMatchAdapterRef.current?.refresh().then(setMatchView).catch((error) => setMatchError(error)); }}>
             {text.match.checkServerStatus}
           </button>
         </GlassPanel>}
         {matchView.phase === 'error' && <GlassPanel variant="feature" className="question-panel" role="alert">
           <h2>{text.match.syncPaused}</h2>
-          <p>{matchError || matchView.error}</p>
+          <p>{getLocalizedApiError(matchError || matchView.error, text.account)}</p>
           <button className="primary-button" onClick={() => {
             void onlineMatchAdapterRef.current?.refresh()
               .then((next) => { setMatchView(next); if (next?.phase === 'complete') setScreen('match-results'); })
-              .catch((error) => setMatchError(error.message));
+              .catch((error) => setMatchError(error));
           }}><span className="primary-label">{text.match.retrySynchronization}</span></button>
         </GlassPanel>}
         {matchView.phase === 'handoff' && <GlassPanel variant="feature" className="question-panel">
