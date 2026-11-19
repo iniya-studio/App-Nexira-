@@ -20,13 +20,13 @@ function throwIfAborted(signal) {
 
 function awaitWithAbort(value, signal) {
   if (!signal) return Promise.resolve(value);
-  if (signal.aborted) return Promise.reject(createRequestAbortedError(signal.reason));
+  if (signal.aborted) return Promise.reject(createRequestAbortedError());
 
   return new Promise((resolve, reject) => {
     const cleanup = () => signal.removeEventListener('abort', onAbort);
     const onAbort = () => {
       cleanup();
-      reject(createRequestAbortedError(signal.reason));
+      reject(createRequestAbortedError());
     };
     signal.addEventListener('abort', onAbort, { once: true });
     Promise.resolve(value).then(
