@@ -8,15 +8,14 @@ export class ApiError extends Error {
   }
 }
 
-function createRequestAbortedError(reason = null) {
+function createRequestAbortedError() {
   return new ApiError('The API request was aborted.', {
     code: 'REQUEST_ABORTED',
-    details: reason,
   });
 }
 
 function throwIfAborted(signal) {
-  if (signal?.aborted) throw createRequestAbortedError(signal.reason);
+  if (signal?.aborted) throw createRequestAbortedError();
 }
 
 function awaitWithAbort(value, signal) {
@@ -138,14 +137,12 @@ export function createHttpClient({
           return {
             error: new ApiError('The API request was aborted or timed out.', {
               code: 'REQUEST_ABORTED',
-              details: error,
             }),
           };
         }
         return {
           error: new ApiError('Unable to reach the NEXIRA API.', {
             code: 'NETWORK_ERROR',
-            details: error,
           }),
         };
       } finally {
