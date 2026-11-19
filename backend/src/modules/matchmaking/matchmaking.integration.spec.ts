@@ -93,16 +93,29 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     });
   });
 
-  it('never pairs entries with different category or language', async () => {
-    const a = await createGuest();
-    const b = await createGuest();
-    const c = await createGuest();
-    const qa = await matchmaking.enqueue(a, request('general', 'fa'));
-    const qb = await matchmaking.enqueue(b, request('math', 'fa'));
-    const qc = await matchmaking.enqueue(c, request('general', 'en'));
+  it('pairs different locales in the same category but never pairs different categories', async () => {
+    const persian = await createGuest();
+    const english = await createGuest();
+    const differentCategory = await createGuest();
+    const qa = await matchmaking.enqueue(persian, request('general', 'fa'));
+    const qb = await matchmaking.enqueue(english, request('general', 'en'));
+    const qc = await matchmaking.enqueue(differentCategory, request('math', 'fa'));
     queueIds.push(qa.queueId, qb.queueId, qc.queueId);
-    expect([qa.status, qb.status, qc.status]).toEqual(['WAITING', 'WAITING', 'WAITING']);
-    expect([qa.matchId, qb.matchId, qc.matchId]).toEqual([null, null, null]);
+    expect(qa.status).toBe('WAITING');
+    expect(qb.status).toBe('MATCHED');
+    expect(qb.matchId).toBeTruthy();
+    expect(qc.status).toBe('WAITING');
+    expect(qc.matchId).toBeNull();
+
+    const participants = await prisma.matchParticipant.findMany({
+      where: { matchId: qb.matchId! },
+      orderBy: { language: 'asc' },
+      select: { participantType: true, language: true },
+    });
+    expect(participants).toEqual([
+      { participantType: 'HUMAN', language: 'en' },
+      { participantType: 'HUMAN', language: 'fa' },
+    ]);
   });
 
   it('makes enqueue idempotent and prevents one principal from occupying two waiting slots', async () => {
