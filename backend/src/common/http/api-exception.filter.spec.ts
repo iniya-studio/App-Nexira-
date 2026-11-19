@@ -36,6 +36,30 @@ describe('ApiExceptionFilter', () => {
     expect(result.body?.timestamp).toEqual(expect.any(String));
   });
 
+  it('preserves allowlisted domain codes without exposing their custom messages', () => {
+    const { host, result } = createHost();
+    filter.catch(new HttpException({
+      code: 'CONVERSION_RECOVERY_EXPIRED',
+      message: 'Conversion recovery window has expired',
+    }, HttpStatus.GONE), host);
+    expect(result.body).toMatchObject({
+      statusCode: HttpStatus.GONE,
+      code: 'CONVERSION_RECOVERY_EXPIRED',
+      message: 'The requested resource is no longer available.',
+    });
+    expect(JSON.stringify(result.body)).not.toContain('Conversion recovery window has expired');
+  });
+
+  it('does not trust arbitrary exception response codes', () => {
+    const { host, result } = createHost();
+    filter.catch(new HttpException({
+      code: 'DATABASE_PASSWORD',
+      message: 'private detail',
+    }, HttpStatus.CONFLICT), host);
+    expect(result.body?.code).toBe('CONFLICT');
+    expect(JSON.stringify(result.body)).not.toContain('DATABASE_PASSWORD');
+  });
+
   it('normalizes unknown exceptions to a safe generic 500 response', () => {
     const { host, result } = createHost();
     filter.catch(new Error('database password leaked in exception'), host);
