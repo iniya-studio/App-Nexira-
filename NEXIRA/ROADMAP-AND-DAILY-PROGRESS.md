@@ -509,3 +509,15 @@
 - No new APK should be built as a Localization milestone until the 20 complete UI packs, 20 game-content packs, full locale propagation, API error mapping, RTL/LTR behavior, QA and release gates are actually complete.
 - Remaining implementation scope: finish all UI surfaces and remove two-language assumptions; complete all 20 static UI dictionaries and game-content/localized question support; enable all 20 locales consistently in frontend/backend only after pack validation; complete language QA and cross-locale integration/device acceptance.
 - Next execution: continue L10N-02C with complete migration of remaining account/session, ranking/profile, store, settings, dialogs and accessibility copy into a locale-neutral translation contract. Do not close a sub-area merely because its tests pass; all visible copy and behavior for the complete 20-locale release scope remain in the same open Localization workstream.
+## R-042 — Ranking UI locale migration
+
+**Date:** 2026-11-19  
+**Status:** Code and regression guard committed on main; CI evidence pending.
+
+- Added a dedicated ranking translation namespace to the English and Persian dictionaries, covering screen description, scope tabs, leaderboard headings, loading/error/retry states, guest eligibility, empty states, position, points, wins/losses and ranking policy copy.
+- Migrated the Ranking screen in app/src/App.jsx from inline English/Persian ternaries to the shared translation namespace.
+- Added translation-key coverage and a source-level regression assertion that prevents direct language === 'fa' branches from returning to the Ranking screen.
+- Commits: 70b80e866dbc925d0c8c4d25d6b8b096d0417f0d (dictionary), 66de80b620e53edb4232afa1bbc9453bb8bfe98b (screen migration), f4ac2b788e58976d09a1ee94c19b1cc73dbbb754 (tests).
+- This closes only the Ranking screen's English/Persian copy-centralization slice. It does not complete Profile, Account/Session, Store, Settings, API error mapping, the remaining inline locale branches, or any of the 18 missing locale packs. Localization remains OPEN and the 20-locale release requirement is unchanged.
+- GitHub Actions runs 44562048724 and 44562085308 were triggered for the first two commits; their final results must be checked before claiming this slice verified. The test commit also requires its own workflow evidence.
+- Next implementation: migrate Profile and the remaining account/session UI into the same locale-neutral contract, then Store/Settings/dialog/accessibility surfaces. After the entire UI surface is centralized, populate and QA all 20 static UI packs and game-content packs; do not enable incomplete locales.
