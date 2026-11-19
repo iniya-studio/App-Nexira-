@@ -2,6 +2,7 @@ import { resolveLocale } from './locales.js';
 
 export const COPY = {
   en: {
+    home: {"matchModes":"Match modes","duelDescription":"Challenge a player from around the world!","aiDescription":"Test your skills against AI!","quickBattle":"Quick Battle","quickBattleNote":"Choose a category to start a local preview","yourStats":"Your Stats","matches":"Matches","bestScore":"Best Score","accuracy":"Accuracy","store":"Store"},
     navHome: 'HOME', navRanks: 'RANKINGS', navProfile: 'PROFILE', navSettings: 'SETTINGS',
     welcome: 'YOUR MIND IS YOUR WEAPON', homeTitle: 'ENTER THE', homeAccent: 'ARENA',
     homeDescription: 'Your mind is your weapon. Your speed is your power. Every battle tells a story.',
@@ -83,6 +84,7 @@ export const COPY = {
     },
   },
   fa: {
+    home: {"matchModes":"حالت مسابقه","duelDescription":"با بازیکنان دیگر رقابت کن","aiDescription":"مهارتت را مقابل هوش مصنوعی بسنج","quickBattle":"Quick Battle","quickBattleNote":"برای شروع، موضوع مسابقه را انتخاب کن","yourStats":"آمار شما","matches":"مسابقات","bestScore":"بهترین امتیاز","accuracy":"دقت پاسخ","store":"فروشگاه"},
     navHome: 'خانه', navRanks: 'رتبه‌بندی', navProfile: 'پروفایل', navSettings: 'تنظیمات',
     welcome: 'ذهن تو سلاح توست', homeTitle: 'ورود به', homeAccent: 'میدان',
     homeDescription: 'ذهن تو سلاح توست. سرعت تو قدرت توست. هر نبرد داستانی دارد.',
