@@ -295,6 +295,7 @@ describe('RoundService', () => {
       questionId: 'question-1',
       startedAt,
       deadlineAt,
+      match: { participants: [{ language: 'fa' }] },
       question: {
         id: 'question-1',
         answerType: 'MULTIPLE_CHOICE',
@@ -322,7 +323,7 @@ describe('RoundService', () => {
       'match-1',
       'round-1',
       principal,
-      'fa',
+      'en',
     );
 
     expect(prisma.round.findFirst).toHaveBeenCalledWith({
@@ -339,6 +340,15 @@ describe('RoundService', () => {
         voidedAt: true,
         startedAt: true,
         deadlineAt: true,
+        match: {
+          select: {
+            participants: {
+              where: { guestIdentityId: 'guest-1' },
+              select: { language: true },
+              take: 1,
+            },
+          },
+        },
         question: {
           select: {
             id: true,
@@ -366,7 +376,7 @@ describe('RoundService', () => {
     expect(result).not.toHaveProperty('gradingRubric');
   });
 
-  it('falls back to canonical text when the requested language is unavailable', async () => {
+  it('rejects a missing participant-locale rendering instead of falling back to canonical text', async () => {
     prisma.round.findFirst.mockResolvedValue({
       id: 'round-1',
       matchId: 'match-1',
@@ -374,6 +384,7 @@ describe('RoundService', () => {
       questionId: 'question-1',
       startedAt,
       deadlineAt: new Date(startedAt.getTime() + 20_000),
+      match: { participants: [{ language: 'fr' }] },
       question: {
         id: 'question-1',
         answerType: 'MULTIPLE_CHOICE',
@@ -388,16 +399,9 @@ describe('RoundService', () => {
       answers: [],
     });
 
-    const result = await service.getRoundQuestion(
-      'match-1',
-      'round-1',
-      principal,
-      'fr',
-    );
-
-    expect(result.prompt).toBe('Canonical prompt');
-    expect(result.hasSubmitted).toBe(false);
-    expect(result.options[0].text).toBe('Canonical A');
+    await expect(
+      service.getRoundQuestion('match-1', 'round-1', principal, 'en'),
+    ).rejects.toThrow('Round not found');
   });
 
   it('rejects malformed generated multiple-choice options', async () => {
