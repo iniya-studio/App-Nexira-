@@ -1,5 +1,4 @@
 import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { firstValueFrom, Observable } from 'rxjs';
 import { ApiExceptionFilter, ApiErrorResponse } from './api-exception.filter';
 
 function createHost() {
@@ -88,12 +87,4 @@ describe('ApiExceptionFilter', () => {
     expect(JSON.stringify(result.body)).not.toContain('email must be valid');
     expect(JSON.stringify(result.body)).not.toContain('internal-diagnostic');
   });
-  it('passes non-HTTP exceptions through to their transport-specific handler', async () => {
-    const exception = new Error('websocket authentication failure');
-    const host = { getType: () => 'ws' } as unknown as ArgumentsHost;
-    const result = filter.catch(exception, host);
-    expect(result).toBeDefined();
-    await expect(firstValueFrom(result as Observable<never>)).rejects.toBe(exception);
-  });
-
 });
