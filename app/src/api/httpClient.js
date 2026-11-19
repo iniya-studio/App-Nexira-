@@ -124,14 +124,10 @@ export function createHttpClient({
         }
 
         if (!response.ok) {
-          const message = typeof payload?.message === 'string'
-            ? payload.message
-            : `API request failed with status ${response.status}.`;
           return {
-            error: new ApiError(message, {
+            error: new ApiError('The API request failed.', {
               status: response.status,
               code: typeof payload?.code === 'string' ? payload.code : 'HTTP_ERROR',
-              details: payload,
             }),
           };
         }
