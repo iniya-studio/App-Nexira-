@@ -622,6 +622,23 @@ export function getCategoryTitle(language, categoryId, fallback = '') {
   return getCopy(language).categoryNames[categoryId] ?? fallback;
 }
 
+export function getLocalizedApiError(error, copy) {
+  const normalized = typeof error === 'string' ? { code: error } : (error ?? {});
+  const code = typeof normalized.code === 'string' ? normalized.code : '';
+  const status = Number(normalized.status);
+
+  if (code === 'NETWORK_ERROR') return copy.network_error;
+  if (code === 'REQUEST_ABORTED') return copy.request_aborted;
+  if (code === 'SESSION_SUPERSEDED') return copy.session_changed;
+  if (code === 'CONVERSION_RECOVERY_EXPIRED') return copy.recovery_window_expired;
+  if (status === 401 || status === 403) return copy.authorization_failed;
+  if (status === 409) return copy.conflict;
+  if (status === 400 || status === 422) return copy.invalid_input;
+  if (status === 429) return copy.rate_limited;
+  if (status >= 500) return copy.server_error;
+  return copy.generic_error;
+}
+
 export function formatCopy(template, values) {
   return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
 }
