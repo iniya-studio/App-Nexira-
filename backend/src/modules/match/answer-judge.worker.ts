@@ -44,8 +44,8 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
    * Claims and processes at most one free-text answer.
    * Public for deterministic integration testing; production polling calls it internally.
    */
-  async runOnce(): Promise<boolean> {
-    const claim = await this.claimNextAnswer();
+  async runOnce(matchId?: string): Promise<boolean> {
+    const claim = await this.claimNextAnswer(matchId);
     if (!claim) return false;
 
     try {
@@ -132,7 +132,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async claimNextAnswer(): Promise<JudgeClaim | null> {
+  private async claimNextAnswer(matchId?: string): Promise<JudgeClaim | null> {
     return this.prisma.$transaction(async (tx) => {
       // A crashed worker's lease is recoverable after a bounded stale interval.
       await tx.$executeRaw`
@@ -162,6 +162,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
           WHERE a."status" = 'ANSWERED'
             AND r."voidedAt" IS NULL
             AND q."answerType" = 'FREE_TEXT'
+            AND (${matchId ?? null}::uuid IS NULL OR a."matchId" = ${matchId ?? null}::uuid)
             AND a."judgeAttempts" < ${MAX_ATTEMPTS}
             AND (
               (a."judgeStatus" = 'PENDING' AND a."judgeAvailableAt" <= clock_timestamp())
