@@ -429,6 +429,27 @@ describe('Question generation recovery integration', () => {
     ).toEqual({ status: MatchStatus.ACTIVE, currentRound: 2 });
   });
 
+  it('does not persist untrusted question-provider messages as recovery codes', async () => {
+    const recovery = await createRecovery();
+    const generator: QuestionGenerator = {
+      generate: jest.fn().mockRejectedValue(
+        new QuestionGenerationError(
+          'PRIVATE_PROVIDER_DIAGNOSTIC',
+          'private provider diagnostic must not be persisted',
+        ),
+      ),
+    };
+    const worker = new QuestionGenerationWorker(prisma, generator);
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    const job = await prisma.questionGenerationJob.findUniqueOrThrow({
+      where: { sourceRoundId: recovery.sourceRoundId },
+    });
+    expect(job.lastErrorCode).toBe('GENERATOR_INTERNAL_ERROR');
+    expect(job.lastErrorCode).not.toContain('PRIVATE_PROVIDER_DIAGNOSTIC');
+  });
+
   it('backs off exponentially and cancels after three failures without leaving scores or a replacement', async () => {
     const recovery = await createRecovery();
     const generator: QuestionGenerator = {
