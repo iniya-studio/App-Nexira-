@@ -1554,37 +1554,35 @@ export default function App() {
         eyebrow={text.rankingsEyebrow}
         title={text.rankingsTitle}
         accent={text.rankingsAccent}
-        description={language === 'fa' ? 'رتبه‌بندی رسمی بر اساس نتایج قطعی مسابقات ۱v۱.' : 'Official rankings based on finalized 1v1 match results.'}
+        description={text.ranking.description}
       />
       <GlassPanel className="ranking-panel">
-        <div className="screen-tabs" role="group" aria-label={language === 'fa' ? 'بازه رتبه‌بندی' : 'Ranking scope'}>
-          <button type="button" className={rankingView === 'global' ? 'is-selected' : ''} aria-pressed={rankingView === 'global'} onClick={() => setRankingView('global')}>{language === 'fa' ? 'جهانی' : 'Global'}</button>
-          <button type="button" className={rankingView === 'season' ? 'is-selected' : ''} aria-pressed={rankingView === 'season'} onClick={() => setRankingView('season')}>{language === 'fa' ? 'فصلی' : 'Seasonal'}</button>
+        <div className="screen-tabs" role="group" aria-label={text.ranking.scopeLabel}>
+          <button type="button" className={rankingView === 'global' ? 'is-selected' : ''} aria-pressed={rankingView === 'global'} onClick={() => setRankingView('global')}>{text.ranking.global}</button>
+          <button type="button" className={rankingView === 'season' ? 'is-selected' : ''} aria-pressed={rankingView === 'season'} onClick={() => setRankingView('season')}>{text.ranking.seasonal}</button>
         </div>
         <div className="ranking-title">
-          <span><Medal size={18} /> {rankingView === 'global' ? (language === 'fa' ? 'جدول جهانی' : 'Global leaderboard') : (activeRanking?.season?.name ?? (language === 'fa' ? 'جدول فصلی' : 'Season leaderboard'))}</span>
-          <small>{language === 'fa' ? '۵۰ نفر برتر' : 'Top 50'}</small>
+          <span><Medal size={18} /> {rankingView === 'global' ? text.ranking.globalLeaderboard : (activeRanking?.season?.name ?? text.ranking.seasonLeaderboard)}</span>
+          <small>{text.ranking.top50}</small>
         </div>
-        {progressionLoading && <p className="panel-note" role="status">{language === 'fa' ? 'در حال دریافت رتبه‌بندی…' : 'Loading verified rankings…'}</p>}
+        {progressionLoading && <p className="panel-note" role="status">{text.ranking.loading}</p>}
         {progressionError && <div className="panel-note" role="alert">
-          {language === 'fa' ? 'دریافت اطلاعات رتبه‌بندی ناموفق بود.' : 'Unable to load ranking data.'}
-          <button type="button" className="text-action" onClick={() => { void refreshServerProgression(); }}>{language === 'fa' ? 'تلاش دوباره' : 'Retry'}</button>
+          {text.ranking.loadError}
+          <button type="button" className="text-action" onClick={() => { void refreshServerProgression(); }}>{text.ranking.retry}</button>
         </div>}
         {!activeRanking && !progressionLoading && !progressionError && <p className="empty-state">
-          {language === 'fa' ? 'برای دریافت رتبه‌بندی، ابتدا اتصال امن حساب را برقرار کن.' : 'Connect your secure account session to load verified rankings.'}
+          {text.ranking.connectAccount}
         </p>}
         {activeRanking?.eligible === false && <p className="panel-note">
-          {language === 'fa'
-            ? 'می‌توانی بدون ثبت‌نام بازی کنی و XP بگیری؛ برای حضور در رتبه‌بندی رقابتی باید حساب کاربری بسازی.'
-            : 'You can play and earn XP as a guest. Create an account when you want to appear in competitive rankings.'}
+          {text.ranking.guestEligibility}
         </p>}
         {rankingView === 'season' && activeRanking?.season === null && !progressionLoading && <p className="empty-state">
-          {language === 'fa' ? 'در حال حاضر فصل فعالی وجود ندارد؛ رتبه‌بندی جهانی همچنان در دسترس است.' : 'There is no active season right now. Global ranking remains available.'}
+          {text.ranking.noActiveSeason}
         </p>}
         {activeRanking?.me && <div className="ranking-my-summary">
-          <span>{language === 'fa' ? 'جایگاه شما' : 'Your position'}</span>
+          <span>{text.ranking.yourPosition}</span>
           <strong>{activeRanking.me.position ? `#${activeRanking.me.position}` : '—'}</strong>
-          <small>{activeRanking.me.rankingPoints} {language === 'fa' ? 'امتیاز رتبه‌بندی' : 'ranking points'} · {activeRanking.me.wins} {language === 'fa' ? 'برد' : 'wins'}</small>
+          <small>{activeRanking.me.rankingPoints} {text.ranking.rankingPoints} · {activeRanking.me.wins} {text.ranking.wins}</small>
         </div>}
         {rankingEntries.length > 0 && <>
           <div className="podium-grid">
@@ -1594,7 +1592,7 @@ export default function App() {
                 <span className="podium-avatar"><UserRound size={18} /></span>
                 <strong>{entry.displayName || entry.username}</strong>
                 <small>{text.levelAbbr} {entry.level}</small>
-                <b>{entry.rankingPoints}<i> {language === 'fa' ? 'امتیاز' : 'PTS'}</i></b>
+                <b>{entry.rankingPoints}<i> {text.ranking.pointsAbbr}</i></b>
               </div>
             ))}
           </div>
@@ -1605,7 +1603,7 @@ export default function App() {
                 <span className="leader-avatar"><UserRound size={16} /></span>
                 <span className="leader-player">
                   <strong>{entry.displayName || entry.username}</strong>
-                  <small>{text.levelAbbr} {entry.level} · {entry.wins} {language === 'fa' ? 'برد' : 'wins'} · {entry.losses} {language === 'fa' ? 'باخت' : 'losses'}</small>
+                  <small>{text.levelAbbr} {entry.level} · {entry.wins} {text.ranking.wins} · {entry.losses} {text.ranking.losses}</small>
                 </span>
                 <strong className="leader-score">{entry.rankingPoints}</strong>
               </div>
@@ -1613,9 +1611,9 @@ export default function App() {
           </div>
         </>}
         {activeRanking && activeRanking.eligible && rankingEntries.length === 0 && !(rankingView === 'season' && activeRanking.season === null) && !progressionLoading && <p className="empty-state">
-          {language === 'fa' ? 'هنوز نتیجه‌ای برای رتبه‌بندی ثبت نشده است.' : 'No ranked matches have been completed yet.'}
+          {text.ranking.noResults}
         </p>}
-        <p className="panel-note"><Globe2 size={13} /> {language === 'fa' ? 'امتیاز رتبه‌بندی مستقل از XP است و فقط از نتایج معتبر ۱v۱ به دست می‌آید.' : 'Ranking points are separate from XP and come only from valid 1v1 results.'}</p>
+        <p className="panel-note"><Globe2 size={13} /> {text.ranking.pointsPolicy}</p>
       </GlassPanel>
     </ScreenFrame>}
 
