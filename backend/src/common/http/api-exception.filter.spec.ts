@@ -27,7 +27,7 @@ describe('ApiExceptionFilter', () => {
     [HttpStatus.NOT_FOUND, 'NOT_FOUND'],
     [HttpStatus.CONFLICT, 'CONFLICT'],
     [HttpStatus.TOO_MANY_REQUESTS, 'RATE_LIMITED'],
-  ])('maps HTTP %i to stable code %s', (status, code) => {
+  ] as const)('maps HTTP %i to stable code %s', (status, code) => {
     const { host, result } = createHost();
     filter.catch(new HttpException('private internal detail', status), host);
     expect(result.status).toBe(status);
