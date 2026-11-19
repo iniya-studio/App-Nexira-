@@ -739,3 +739,11 @@ This is an explicit required part of the current Account/Session localization ph
 - Keep WebSocket authentication, matchmaking events and gateway-specific error payloads on their separate transport contract.
 
 **Acceptance:** This is a backend contract foundation, not completion of Account/Session or Localization. The full 20-locale rollout and end-to-end/device acceptance remain OPEN.
+### R-048 follow-up — HTTP integration coverage and CI status
+- Added backend/src/common/http/api-exception.filter.integration.spec.ts. It boots a real Nest HTTP application on an ephemeral local port and verifies the actual response schema, suppression of validation/custom internal fields, and preservation of CONVERSION_RECOVERY_EXPIRED over HTTP.
+- Integration-test commit: 72c83764bc6f2d9d6bcb361c92f85ee8928c8f97.
+- Workflow 44593903976 was superseded/cancelled before dependency installation completed; it is not evidence of a pass or failure.
+- The current code-test workflow is [44594072191](https://github.com/iniya-studio/App-Nexira-/actions/runs/44594072191), for code commit 72c83764bc6f2d9d6bcb361c92f85ee8928c8f97. At the latest inspection it remained in progress at Install dependencies; build, tests, lint and staging image steps had not yet run.
+- The Roadmap-only HEAD update after the code commit is 8a50694153e7e502ca89be49dbd4bd4a85654552. No source code changed after the CI run's tested code SHA.
+
+**Current acceptance state:** Pending. Do not report the current implementation as CI-verified until run 44594072191 completes successfully.
