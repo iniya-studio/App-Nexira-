@@ -137,4 +137,41 @@ describe('Round persistence integration', () => {
     questionIds.push(fulfilled[0].value.questionId);
     expect(await prisma.round.count({ where: { matchId: match.id } })).toBe(1);
   });
+  it('delivers one shared question in each immutable participant locale', async () => {
+    const firstGuest = await prisma.guestIdentity.create({ data: {} });
+    const secondGuest = await prisma.guestIdentity.create({ data: {} });
+    guestIds.push(firstGuest.id, secondGuest.id);
+    const first = { principalType: PrincipalType.GUEST, principalId: firstGuest.id, sessionId: randomUUID() };
+    const second = { principalType: PrincipalType.GUEST, principalId: secondGuest.id, sessionId: randomUUID() };
+    const match = await matches.createOneVsOne(
+      first,
+      second,
+      undefined,
+      { language: 'en', participantLanguages: { first: 'en', second: 'fa' } },
+    );
+    matchIds.push(match.id);
+    const started = await rounds.startNextRound(match.id, question);
+    questionIds.push(started.questionId);
+
+    const [englishView, persianView] = await Promise.all([
+      rounds.getRoundQuestion(match.id, started.roundId, first, 'fa'),
+      rounds.getRoundQuestion(match.id, started.roundId, second, 'en'),
+    ]);
+
+    expect(englishView).toMatchObject({
+      questionId: persianView.questionId,
+      roundId: persianView.roundId,
+      deadlineAt: persianView.deadlineAt,
+      prompt: 'Which option is correct?',
+      options: [{ id: 'A', text: 'Option A' }, { id: 'B', text: 'Option B' }],
+    });
+    expect(persianView).toMatchObject({
+      questionId: englishView.questionId,
+      roundId: englishView.roundId,
+      deadlineAt: englishView.deadlineAt,
+      prompt: 'کدام گزینه درست است؟',
+      options: [{ id: 'A', text: 'گزینه الف' }, { id: 'B', text: 'گزینه ب' }],
+    });
+  });
+
 });
