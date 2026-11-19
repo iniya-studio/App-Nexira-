@@ -743,7 +743,8 @@ This is an explicit required part of the current Account/Session localization ph
 - Added backend/src/common/http/api-exception.filter.integration.spec.ts. It boots a real Nest HTTP application on an ephemeral local port and verifies the actual response schema, suppression of validation/custom internal fields, and preservation of CONVERSION_RECOVERY_EXPIRED over HTTP.
 - Integration-test commit: 72c83764bc6f2d9d6bcb361c92f85ee8928c8f97.
 - Workflow 44593903976 was superseded/cancelled before dependency installation completed; it is not evidence of a pass or failure.
-- The current code-test workflow is [44594072191](https://github.com/iniya-studio/App-Nexira-/actions/runs/44594072191), for code commit 72c83764bc6f2d9d6bcb361c92f85ee8928c8f97. At the latest inspection it remained in progress at Install dependencies; build, tests, lint and staging image steps had not yet run.
-- The Roadmap-only HEAD update after the code commit is 8a50694153e7e502ca89be49dbd4bd4a85654552. No source code changed after the CI run's tested code SHA.
+- Workflow [44594072191](https://github.com/iniya-studio/App-Nexira-/actions/runs/44594072191) completed with conclusion **success** for code commit 72c83764bc6f2d9d6bcb361c92f85ee8928c8f97.
+- Verified successful steps: dependency installation, Prisma formatting/schema validation/client generation, CI PostgreSQL migrations, NestJS production build, unit and PostgreSQL integration tests, ESLint, staging Compose validation, staging backend image build, and cleanup/post steps.
+- The verified main HEAD immediately before this Roadmap update was 75298176b05a3fdb6e501b40e73dc9257f89eb90. Its only change after the tested code SHA was the Roadmap documentation update; no application/backend source code changed after the tested SHA.
 
-**Current acceptance state:** Pending. Do not report the current implementation as CI-verified until run 44594072191 completes successfully.
+**Current acceptance state:** The R-048 HTTP error-envelope implementation and real HTTP integration coverage have successful full CI evidence. R-048 remains open for the separately listed domain-code refinement and frontend raw-error consumer audit. Account/Session and full 20-locale Localization acceptance remain OPEN.
