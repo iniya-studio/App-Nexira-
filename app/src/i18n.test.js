@@ -271,7 +271,7 @@ test('server-originated API errors always resolve to safe localized copy', () =>
 
 test('progression and online-match UI never render raw API error messages', async () => {
   const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
-  assert.match(appSource, /getLocalizedApiError\(progressionError, text\.account\)/);
+  assert.match(appSource, /\{text\.ranking\.loadError\}/);
   assert.match(appSource, /getLocalizedApiError\(matchError \|\| matchView\.error, text\.account\)/);
   assert.equal(appSource.includes('{progressionError}</div>'), false);
   assert.equal(appSource.includes('{matchError}</p>'), false);
