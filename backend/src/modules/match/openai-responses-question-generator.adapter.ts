@@ -42,6 +42,7 @@ type StructuredQuestion = {
   localized: Array<{
     language: string;
     prompt: string;
+    expectedAnswer: string;
     options: Array<{ id: string; text: string }>;
     gradingRubric: {
       requiredConcepts: string[];
@@ -110,7 +111,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                 type: 'input_text',
                 text:
                   'Generate exactly one original quiz question using only the supplied settings. ' +
-                  'The language field is the canonical locale for shared semantic content. required_locales lists every human participant locale. Generate exactly one semantic question and a localized rendering for every required locale, directly authored in that locale; never translate through English and never omit a requested locale. canonicalPrompt, canonicalOptions, answerKey and gradingRubric must be authored in the canonical language. Each localized entry must contain its own prompt, option text keyed by stable option IDs, and localized grading rubric. Preserve identical meaning, answer identity, difficulty, option IDs and option order across all locales. ' +
+                  'The language field is the canonical locale for shared semantic content. required_locales lists every human participant locale. Generate exactly one semantic question and a localized rendering for every required locale, directly authored in that locale; never translate through English and never omit a requested locale. canonicalPrompt, canonicalOptions, answerKey and gradingRubric must be authored in the canonical language. Each localized entry must contain its own prompt, expected answer, option text keyed by stable option IDs, and localized grading rubric. Preserve identical meaning, answer identity, difficulty, option IDs and option order across all locales. ' +
                   'Use the requested category, difficulty, answer type, and time limit. For multiple choice, provide 2 to 8 distinct options and an answerKey equal to exactly one option ID; option IDs are language-neutral and must remain stable between canonical and localized options. For free text, use null options and a concise expected answer with a grading rubric containing required concepts, all in the requested language. Do not include player data or mention internal identifiers. The excluded fingerprints represent prior question content; avoid repeating or paraphrasing any of those questions.',
               },
             ],
@@ -399,6 +400,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
     const localized = (output.localized as unknown[]).map((value) => {
       const item = asRecord(value);
       if (!item || typeof item.language !== 'string' || typeof item.prompt !== 'string' ||
+          typeof item.expectedAnswer !== 'string' || !item.expectedAnswer.trim() ||
           !Array.isArray(item.options) || typeof item.gradingRubric !== 'object' ||
           item.gradingRubric === null || Array.isArray(item.gradingRubric)) {
         throw new QuestionGenerationError('GENERATOR_LOCALIZATION_INVALID', 'A localized question rendering is invalid');
@@ -417,6 +419,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       return {
         language: item.language,
         prompt: item.prompt,
+        expectedAnswer: item.expectedAnswer,
         options,
         gradingRubric: {
           requiredConcepts: rubric.requiredConcepts as string[],
@@ -511,6 +514,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
             properties: {
               language: { type: 'string' },
               prompt: { type: 'string' },
+              expectedAnswer: { type: 'string' },
               options: { type: 'array', items: option, maxItems: 8 },
               gradingRubric: {
                 type: 'object',
@@ -523,7 +527,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                 additionalProperties: false,
               },
             },
-            required: ['language', 'prompt', 'options', 'gradingRubric'],
+            required: ['language', 'prompt', 'expectedAnswer', 'options', 'gradingRubric'],
             additionalProperties: false,
           },
         },
