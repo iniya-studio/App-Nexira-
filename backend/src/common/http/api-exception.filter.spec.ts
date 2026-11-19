@@ -10,6 +10,7 @@ function createHost() {
     },
   };
   const host = {
+    getType: () => 'http',
     switchToHttp: () => ({ getResponse: () => response }),
   } as unknown as ArgumentsHost;
   return { host, result };
