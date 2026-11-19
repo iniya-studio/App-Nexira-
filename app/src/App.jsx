@@ -1481,12 +1481,10 @@ export default function App() {
       <GlassPanel className="profile-panel" data-view={profileView}>
         <div className="profile-identity"><span className="operator-mark"><UserRound size={25} /></span><span><strong>{playerName}</strong><small>{text.level} {displayLevel} · {text.totalXp} {BigInt(displayTotalXp).toLocaleString(localeConfig.intlLocale)}</small></span></div>
         <div className="panel-note" role="status" data-session-state={sessionState.status}>
-          {language === 'fa'
-            ? ({ idle: 'وضعیت حساب: در انتظار اتصال', initializing: 'وضعیت حساب: در حال اتصال امن…', guest: 'حساب مهمان: فعال', authenticated: 'حساب ثبت‌شده: متصل', offline: 'اتصال به سرور برقرار نیست؛ اطلاعات محلی اپ در دسترس است.', error: 'اتصال نشست کامل نشد؛ تنظیمات سرور را بررسی کنید.', unsupported: 'نشست پایدار در این پلتفرم هنوز فعال نیست.', 'signed-out': 'از حساب خارج شده‌اید.' }[sessionState.status] ?? 'وضعیت حساب نامشخص است.')
-            : ({ idle: 'Account: waiting for connection', initializing: 'Account: securing session…', guest: 'Guest account: active', authenticated: 'Registered account: connected', offline: 'Server is unreachable; local app content remains available.', error: 'Session could not be initialized; check server configuration.', unsupported: 'Persistent sessions are not enabled on this platform yet.', 'signed-out': 'You are signed out.' }[sessionState.status] ?? 'Account status unavailable.')}
+          {text.profile.sessionStatus[sessionState.status] ?? text.profile.sessionStatus.unknown}
         </div>
         {['offline', 'error'].includes(sessionState.status) && <button type="button" className="secondary-action" onClick={() => { void appSessionLifecycle.retry(); }}>
-          {language === 'fa' ? 'تلاش دوباره برای اتصال' : 'Retry secure connection'}
+          {text.profile.retryConnection}
         </button>}
         <AccountSessionPanel lifecycle={appSessionLifecycle} sessionState={sessionState} language={language} resetToken={passwordResetToken} onResetTokenConsumed={() => setPasswordResetToken(null)} />
         <div className="screen-tabs" role="group" aria-label={text.profile}>
@@ -1514,11 +1512,11 @@ export default function App() {
           <div><strong>{accuracy}%</strong><span>{text.accuracy}</span></div>
         </div>
         {sessionState.profile?.statistics && <div className="profile-server-record" aria-live="polite">
-          <strong>{language === 'fa' ? 'کارنامه رسمی سرور' : 'Official server record'}</strong>
-          <span>{language === 'fa' ? 'مسابقات' : 'Matches'}: {sessionState.profile.statistics.matchesPlayed}</span>
-          <span>{language === 'fa' ? 'برد' : 'Wins'}: {sessionState.profile.statistics.wins}</span>
-          <span>{language === 'fa' ? 'باخت' : 'Losses'}: {sessionState.profile.statistics.losses}</span>
-          <span>{language === 'fa' ? 'مساوی' : 'Draws'}: {sessionState.profile.statistics.draws}</span>
+          <strong>{text.profile.officialRecord}</strong>
+          <span>{text.profile.matchesPlayed}: {sessionState.profile.statistics.matchesPlayed}</span>
+          <span>{text.profile.wins}: {sessionState.profile.statistics.wins}</span>
+          <span>{text.profile.losses}: {sessionState.profile.statistics.losses}</span>
+          <span>{text.profile.draws}: {sessionState.profile.statistics.draws}</span>
         </div>}
         </div>
         <div className="profile-view" hidden={profileView !== 'honors'}>
