@@ -6,6 +6,7 @@ export type QuestionGenerationInput = {
   category: string;
   difficulty: string;
   language: string;
+  requiredLocales: string[];
   answerType: QuestionAnswerType;
   timeLimitSeconds: number;
   excludedQuestionIds: string[];
