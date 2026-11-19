@@ -181,6 +181,12 @@ test('account and session UI copy is centralized with complete English/Persian p
   const english = COPY.en.account;
   const persian = COPY.fa.account;
   assert.deepEqual(Object.keys(persian).sort(), Object.keys(english).sort());
+  const requiredKeys = ['network_error', 'request_aborted', 'session_changed', 'recovery_window_expired', 'authorization_failed', 'conflict', 'invalid_input', 'rate_limited', 'server_error', 'generic_error', 'account_data_unavailable', 'session_active', 'session_revoked', 'session_expired', 'session_unknown'];
+  for (const key of requiredKeys) {
+    assert.ok(english[key]?.trim(), `Missing English account state copy: ${key}`);
+    assert.ok(persian[key]?.trim(), `Missing Persian account state copy: ${key}`);
+  }
+
 
   for (const key of Object.keys(english)) {
     assert.equal(typeof english[key], 'string', `Invalid English account copy: ${key}`);
