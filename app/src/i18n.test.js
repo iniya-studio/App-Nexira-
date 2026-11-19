@@ -50,6 +50,18 @@ test('store screen copy is centralized and complete for every active locale', ()
   }
 });
 
+
+test('competitive matchmaking copy is centralized and explicitly locale-independent', () => {
+  const keys = ['competitiveOnline', 'competitiveTesting', 'competitivePreview', 'onlineOneVsOne', 'testingOneVsOne', 'localOneVsOne', 'onlineOpponent', 'acceptanceGate', 'passAndPlay', 'online', 'testing', 'local', 'onlineOneVsAi', 'previewOneVsAi', 'serverAi', 'scriptedAi', 'offline', 'findingOpponent', 'matchmakingDescription', 'searchActive', 'selectedCategory', 'language', 'queueRecovery', 'cancelSearch'];
+  for (const locale of ['en', 'fa']) {
+    for (const key of keys) assert.ok(COPY[locale].match[key]?.trim(), `Missing ${locale} match copy: ${key}`);
+  }
+  assert.match(COPY.en.match.onlineOpponent, /language does not limit matchmaking/i);
+  assert.match(COPY.fa.match.onlineOpponent, /زبان مانع/);
+  assert.match(COPY.en.match.matchmakingDescription, /language does not restrict matchmaking/i);
+  assert.match(COPY.fa.match.matchmakingDescription, /زبان انتخابی محدودیتی/);
+});
+
 test('all game categories have localized display names in English and Persian', () => {
   for (const category of CATEGORIES) {
     assert.ok(COPY.en.categoryNames[category.id], `Missing English category name: ${category.id}`);
