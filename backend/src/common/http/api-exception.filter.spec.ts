@@ -1,4 +1,5 @@
 import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { firstValueFrom } from 'rxjs';
 import { ApiExceptionFilter, ApiErrorResponse } from './api-exception.filter';
 
 function createHost() {
