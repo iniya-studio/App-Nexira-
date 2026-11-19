@@ -154,3 +154,24 @@ test('profile locale migration preserves supported locales and safely resets unk
   assert.equal(normalizeProfile({ settings: { language: 'ar' } }).settings.language, DEFAULT_LOCALE);
   assert.equal(normalizeProfile({ settings: { language: '__proto__' } }).settings.language, DEFAULT_LOCALE);
 });
+
+test('ranking screen copy is centralized and complete for every active locale', async () => {
+  const keys = [
+    'description', 'scopeLabel', 'global', 'seasonal', 'globalLeaderboard',
+    'seasonLeaderboard', 'top50', 'loading', 'loadError', 'retry',
+    'connectAccount', 'guestEligibility', 'noActiveSeason', 'yourPosition',
+    'rankingPoints', 'wins', 'pointsAbbr', 'losses', 'noResults', 'pointsPolicy',
+  ];
+  for (const locale of ['en', 'fa']) {
+    for (const key of keys) {
+      assert.ok(COPY[locale].ranking[key]?.trim(), `Missing ${locale} ranking copy: ${key}`);
+    }
+  }
+
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  const rankingsStart = appSource.indexOf("{screen === 'rankings'");
+  const storeStart = appSource.indexOf("{screen === 'store'");
+  const rankingsUi = appSource.slice(rankingsStart, storeStart);
+  assert.ok(rankingsStart >= 0 && storeStart > rankingsStart, 'Ranking screen boundaries must exist');
+  assert.equal(rankingsUi.includes("language === 'fa'"), false, 'Ranking UI must use the centralized locale dictionary.');
+});
