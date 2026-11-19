@@ -7,11 +7,6 @@ ALTER TABLE "MatchParticipant"
 UPDATE "MatchParticipant" AS participant
 SET "language" = COALESCE(
   NULLIF(BTRIM((
-    SELECT "preferredLanguage"
-    FROM "User"
-    WHERE "User"."id" = participant."userId"
-  )), ''),
-  NULLIF(BTRIM((
     SELECT "language"
     FROM "MatchmakingEntry"
     WHERE "MatchmakingEntry"."matchId" = participant."matchId"
@@ -26,6 +21,18 @@ SET "language" = COALESCE(
       AND "MatchmakingEntry"."guestIdentityId" = participant."guestIdentityId"
     ORDER BY "queuedAt" DESC
     LIMIT 1
+  )), ''),
+  NULLIF(BTRIM((
+    SELECT job."requestContext"->>'language'
+    FROM "QuestionGenerationJob" AS job
+    WHERE job."matchId" = participant."matchId"
+    ORDER BY job."createdAt" ASC
+    LIMIT 1
+  )), ''),
+  NULLIF(BTRIM((
+    SELECT "preferredLanguage"
+    FROM "User"
+    WHERE "User"."id" = participant."userId"
   )), ''),
   NULLIF(BTRIM((
     SELECT "Question"."canonicalLanguage"
@@ -47,3 +54,21 @@ ALTER TABLE "MatchParticipant"
     OR
     ("participantType" = 'AI'::"ParticipantType" AND "language" IS NULL)
   );
+
+
+-- Upgrade pending durable generation jobs to the new participant-locale context.
+UPDATE "QuestionGenerationJob" AS job
+SET "requestContext" = jsonb_set(
+  COALESCE(job."requestContext"::jsonb, '{}'::jsonb),
+  '{requiredLocales}',
+  COALESCE((
+    SELECT jsonb_agg(DISTINCT participant."language" ORDER BY participant."language")
+    FROM "MatchParticipant" AS participant
+    WHERE participant."matchId" = job."matchId"
+      AND participant."participantType" = 'HUMAN'::"ParticipantType"
+      AND participant."language" IS NOT NULL
+  ), '[]'::jsonb),
+  true
+)
+WHERE job."status" IN ('PENDING'::"QuestionGenerationJobStatus", 'PROCESSING'::"QuestionGenerationJobStatus")
+  AND NOT (COALESCE(job."requestContext"::jsonb, '{}'::jsonb) ? 'requiredLocales');
