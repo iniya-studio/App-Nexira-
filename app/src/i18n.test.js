@@ -57,10 +57,10 @@ test('competitive match gameplay copy is centralized and has complete English/Pe
     for (const key of keys) assert.ok(COPY[locale].match[key]?.trim(), `Missing ${locale} match gameplay copy: ${key}`);
   }
   const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
-  const matchStart = appSource.indexOf("{screen === 'match-game'}");
-  const matchEnd = appSource.indexOf("{screen === 'results'}");
+  const matchStart = appSource.indexOf("{screen === 'match-game'");
+  const matchEnd = appSource.indexOf("{screen === 'results'");
   const matchUi = appSource.slice(matchStart, matchEnd);
-  assert.doesNotMatch(matchUi, /language\\s*===\\s*['\"]fa['\"]/, 'Match gameplay UI must use the centralized locale dictionary.');
+  assert.equal(matchUi.includes("language === 'fa'"), false, 'Match gameplay UI must use the centralized locale dictionary.');
 });
 
 test('competitive matchmaking copy is centralized and explicitly locale-independent', () => {
