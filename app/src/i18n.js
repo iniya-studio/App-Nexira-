@@ -631,6 +631,7 @@ export function getLocalizedApiError(error, copy) {
   if (code === 'REQUEST_ABORTED') return copy.request_aborted;
   if (code === 'SESSION_SUPERSEDED') return copy.session_changed;
   if (code === 'CONVERSION_RECOVERY_EXPIRED') return copy.recovery_window_expired;
+  if (code === 'QUESTION_GENERATION_FAILED' || code === 'MATCH_CANCELLED') return copy.server_error;
   if (status === 401 || status === 403) return copy.authorization_failed;
   if (status === 409) return copy.conflict;
   if (status === 400 || status === 422) return copy.invalid_input;
