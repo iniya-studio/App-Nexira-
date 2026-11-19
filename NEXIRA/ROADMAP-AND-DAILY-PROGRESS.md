@@ -776,7 +776,7 @@ This is an explicit required part of the current Account/Session localization ph
 - Android workflow [44596362607](https://github.com/iniya-studio/App-Nexira-/actions/runs/44596362607) completed successfully for frontend error-boundary changes at commit 412479ca2c38f72f2a7b3f44c1e74d610eeb2293; frontend and match-engine tests passed.
 - Backend workflow [44596841554](https://github.com/iniya-studio/App-Nexira-/actions/runs/44596841554) completed with conclusion **success** against backend commit dbdc35b77008d5e5032562e7ca7e0f9dec4548ae. All steps passed: dependency install, Prisma formatting/schema validation/client generation, CI PostgreSQL migrations, NestJS production build, unit and PostgreSQL integration tests, ESLint, staging Compose validation, staging backend image build, and cleanup.
 
-**Acceptance:** Frontend transport hardening and AI recovery-code sanitization have successful full CI evidence (Android workflow for frontend changes and full Backend CI for backend changes). This closes the CI gate for these changes, not the wider error-contract audit. Continue auditing endpoint-specific codes only where client behavior materially differs; do not create one code per free-form exception message. Continue auditing endpoint-specific codes only where client behavior materially differs; do not create one code per free-form exception message. Localization and full 20-locale acceptance remain OPEN.
+**Acceptance:** Frontend transport hardening and AI recovery-code sanitization have successful full CI evidence (Android workflow for frontend changes and full Backend CI for backend changes). This closes the CI gate for these changes, not the wider error-contract audit. Continue auditing endpoint-specific codes only where client behavior materially differs; do not create one code per free-form exception message. Localization and full 20-locale acceptance remain OPEN.
 
 ## R-050 — Context-neutral API error copy and domain-code classification (in progress)
 
@@ -797,6 +797,30 @@ This is an explicit required part of the current Account/Session localization ph
 - Regression test: 4b6b2795d0c10dcb6339f69ac70e12d307285fe9
 
 ### CI
-- Android workflow [44599016452](https://github.com/iniya-studio/App-Nexira-/actions/runs/44599016452) is running against commit 4b6b2795d0c10dcb6339f69ac70e12d307285fe9. At this entry, source checkout and runtime setup have passed; Android SDK setup is in progress. Frontend tests/build have not yet run, so no CI acceptance is claimed.
+- Android workflow [44599016452](https://github.com/iniya-studio/App-Nexira-/actions/runs/44599016452) completed with conclusion **success** against commit 4b6b2795d0c10dcb6339f69ac70e12d307285fe9. Frontend/match-engine tests, web build, Android package build, artifact verification and upload all passed.
 
-**Acceptance:** Pending the full Android workflow. Continue endpoint-to-UI behavior review, especially guest-only/registered-only authorization, idempotency conflicts, active-match conflicts, and retryable session states. Keep WebSocket errors on their independent transport contract. Localization and full 20-locale acceptance remain OPEN.
+**Acceptance:** The context-neutral shared API error copy change has full Android CI evidence. R-050's scoped copy correction is accepted. The broader endpoint-to-UI behavior review remains open for guest-only/registered-only authorization, idempotency conflicts, active-match conflicts, and retryable session states. Keep WebSocket errors on their independent transport contract. Localization and full 20-locale acceptance remain OPEN.
+
+## R-051 — Question-generation and transport diagnostic boundary hardening
+
+**Date:** 2026-11-19
+
+### Audit findings
+- The question-generation worker could persist an arbitrary `QuestionGenerationError.code` as `lastErrorCode`. The question-recovery API returns that field, so arbitrary adapter/provider diagnostics could cross the backend/client boundary as a machine code.
+- The frontend HTTP client was normalized for non-2xx payloads, but network and abort paths also needed explicit regression coverage to ensure raw exception/caller cancellation diagnostics are not retained in the client-facing error object.
+- The API error view model must carry only stable machine-readable descriptors (code/status), not server/provider/network messages.
+
+### Implemented
+- Added an allowlist of recognized question-generation recovery codes. Provider HTTP status variants normalize to `GENERATOR_PROVIDER_HTTP_ERROR`; unknown/untrusted error codes normalize to `GENERATOR_INTERNAL_ERROR`.
+- Added PostgreSQL integration coverage proving an arbitrary provider diagnostic is not persisted as a question-recovery code; known timeout recovery behavior remains covered.
+- Added HTTP client tests proving hostile non-2xx response messages, stack/diagnostic fields, network exception messages and caller abort diagnostics do not enter client-facing errors.
+- Removed unused abort-diagnostic arguments so caller-provided abort reasons are not retained as error details.
+- Reviewed online match adapter state: submission/synchronization errors are represented as `{ code, status }`; question-generation failure and cancelled-match states use stable descriptors and localized fallbacks.
+- Reviewed API exception filter boundary: REST errors remain status/code based, with only the two status-bound guest-conversion codes explicitly allowlisted. WebSocket errors remain on their separate transport/filter contract.
+
+### CI evidence
+- Backend workflow [44599423819](https://github.com/iniya-studio/App-Nexira-/actions/runs/44599423819) completed with conclusion **success** against backend commit `9e170f311a87da9ba94d22c749d9915106e2e8de`. All stages passed, including Prisma checks/migrations, production build, Unit and PostgreSQL Integration tests, ESLint, staging Compose validation, Docker image build and cleanup.
+- Android workflow [44599433206](https://github.com/iniya-studio/App-Nexira-/actions/runs/44599433206) completed with conclusion **success** against main source commit `7d0681e60856f96554529f2f16b7db81f4415463`. Frontend/match-engine tests, web build, APK build, artifact verification and upload passed.
+- The Android workflow [44599016452](https://github.com/iniya-studio/App-Nexira-/actions/runs/44599016452) also verifies the preceding context-neutral API copy change.
+
+**Acceptance:** The question-generation recovery-code boundary, HTTP transport error normalization and context-neutral shared API copy have successful relevant CI evidence. The broader endpoint-to-UI behavior review is still open; do not treat the entire error-contract audit as closed. Localization and full 20-locale acceptance remain OPEN.
