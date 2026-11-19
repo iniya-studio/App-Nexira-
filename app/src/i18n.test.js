@@ -177,6 +177,24 @@ test('ranking screen copy is centralized and complete for every active locale', 
 });
 
 
+
+
+test('profile and account status UI copy has complete English/Persian parity', async () => {
+  assert.deepEqual(Object.keys(COPY.fa.profile).sort(), Object.keys(COPY.en.profile).sort());
+  assert.deepEqual(Object.keys(COPY.fa.profile.sessionStatus).sort(), Object.keys(COPY.en.profile.sessionStatus).sort());
+  for (const key of Object.keys(COPY.en.profile)) {
+    if (key === 'sessionStatus') continue;
+    assert.ok(COPY.en.profile[key]?.trim(), `Missing English profile copy: ${key}`);
+    assert.ok(COPY.fa.profile[key]?.trim(), `Missing Persian profile copy: ${key}`);
+  }
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  const profileStart = appSource.indexOf("{screen === 'profile'");
+  const storeStart = appSource.indexOf("{screen === 'store'");
+  const profileUi = appSource.slice(profileStart, storeStart);
+  assert.ok(profileStart >= 0 && storeStart > profileStart, 'Profile screen boundaries must exist');
+  assert.equal(profileUi.includes("language === 'fa'"), false, 'Profile UI must use centralized locale dictionaries.');
+});
+
 test('account and session UI copy is centralized with complete English/Persian parity', async () => {
   const english = COPY.en.account;
   const persian = COPY.fa.account;
