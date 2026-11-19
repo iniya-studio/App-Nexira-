@@ -25,6 +25,14 @@ function participantSnapshot(participant) {
   return snapshot;
 }
 
+function toMatchErrorDescriptor(error, fallbackCode) {
+  const code = typeof error?.code === 'string' && error.code.trim()
+    ? error.code
+    : fallbackCode;
+  const status = Number.isInteger(error?.status) ? error.status : 0;
+  return { code, status };
+}
+
 function participantView(participant) {
   return {
     ...participantSnapshot(participant),
@@ -73,7 +81,7 @@ export function createOnlineMatchAdapter(api, {
     } catch (error) {
       update({
         phase: 'submission-error',
-        error: error instanceof Error ? error.message : 'Answer submission failed.',
+        error: toMatchErrorDescriptor(error, 'MATCH_SUBMISSION_FAILED'),
       });
       throw error;
     }
@@ -166,13 +174,13 @@ export function createOnlineMatchAdapter(api, {
       if (recovery.status === 'FAILED') {
         return update({
           phase: 'error',
-          error: recovery.lastErrorCode || 'Question generation failed.',
+          error: toMatchErrorDescriptor({ code: recovery.lastErrorCode }, 'QUESTION_GENERATION_FAILED'),
         });
       }
       if (match.status === 'CANCELLED') {
         return update({
           phase: 'error',
-          error: 'The backend cancelled this match. No competitive result was recorded.',
+          error: { code: 'MATCH_CANCELLED', status: 0 },
         });
       }
 
@@ -272,9 +280,7 @@ export function createOnlineMatchAdapter(api, {
       }
       return view;
     })().catch((error) => {
-      const message = error instanceof Error
-        ? error.message
-        : 'Unable to synchronize the online match.';
+      const safeError = toMatchErrorDescriptor(error, 'MATCH_SYNC_FAILED');
       const recoverablePhases = new Set([
         'waiting-question', 'waiting-result', 'submitting', 'submission-error',
       ]);
@@ -285,7 +291,7 @@ export function createOnlineMatchAdapter(api, {
         : view?.phase === 'question' && deadlineExpired
           ? 'waiting-result'
           : 'error';
-      update({ phase, error: message });
+      update({ phase, error: safeError });
       throw error;
     }).finally(() => {
       syncInFlight = null;
