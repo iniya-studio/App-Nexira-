@@ -55,7 +55,7 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
           round: {
             include: { question: true },
           },
-          participant: { select: { language: true } },
+          participant: { select: { language: true, participantType: true } },
         },
       });
 
@@ -70,7 +70,12 @@ export class AnswerJudgeWorker implements OnModuleInit, OnModuleDestroy {
         return true;
       }
 
-      const participantLanguage = answer.participant.language;
+      // AI opponent answers are generated from the canonical question prompt,
+      // so their judging locale is the question's canonical language. Human
+      // answers must always use the immutable participant locale snapshot.
+      const participantLanguage = answer.participant.participantType === 'AI'
+        ? question.canonicalLanguage
+        : answer.participant.language;
       const localizedRoot = this.asRecord(question.localized);
       const localized = participantLanguage
         ? this.asRecord(localizedRoot?.[participantLanguage])
