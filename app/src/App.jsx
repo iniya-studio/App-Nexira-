@@ -1276,7 +1276,7 @@ export default function App() {
 
     {screen === 'match-game' && <ScreenFrame className="challenge-screen">
       {!matchView ? <GlassPanel variant="feature" role="alert">
-        <p>{matchError || (text.match.unavailable)}</p>
+        <p>{matchError ? getLocalizedApiError(matchError, text.account) : text.match.unavailable}</p>
         <button className="secondary-action" onClick={() => {
           const selectedCategory = categoryById(run?.categoryId);
           if (selectedCategory) void beginMatch(selectedCategory, '1vAI');
