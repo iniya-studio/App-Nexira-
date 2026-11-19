@@ -1049,39 +1049,39 @@ export default function App() {
         <button className="reference-settings-button" onClick={() => navigate('settings')} aria-label={text.settings}><Settings size={25} /></button>
       </section>
 
-      <section className="reference-mode-grid" aria-label={language === 'fa' ? 'حالت مسابقه' : 'Match modes'}>
+      <section className="reference-mode-grid" aria-label={text.home.matchModes}>
         <button className="reference-mode-card reference-mode-card--duel" onClick={() => { setEntryMatchMode('1v1'); navigate('categories'); }}>
           <span className="reference-mode-art reference-mode-art--duel"><UserRound size={54} /><UserRound size={36} /></span>
           <strong>1vs1</strong>
-          <span>{language === 'fa' ? 'با بازیکنان دیگر رقابت کن' : 'Challenge a player from around the world!'}</span>
+          <span>{text.home.duelDescription}</span>
           <i aria-hidden="true">»»»</i>
         </button>
         <button className="reference-mode-card reference-mode-card--ai" onClick={() => { setEntryMatchMode('1vAI'); navigate('categories'); }}>
           <span className="reference-ai-art" aria-hidden="true"><span className="reference-ai-face"><i /><i /></span><Cpu size={24} /></span>
           <strong>1vsAI</strong>
-          <span>{language === 'fa' ? 'مهارتت را مقابل هوش مصنوعی بسنج' : 'Test your skills against AI!'}</span>
+          <span>{text.home.aiDescription}</span>
           <i aria-hidden="true">»»»</i>
         </button>
       </section>
 
       <button className="reference-quick-battle" onClick={() => { setEntryMatchMode('1v1'); navigate('categories'); }}>
         <Zap size={34} fill="currentColor" />
-        <span><strong>Quick Battle</strong><small>{language === 'fa' ? 'برای شروع، موضوع مسابقه را انتخاب کن' : 'Choose a category to start a local preview'}</small></span>
+        <span><strong>{text.home.quickBattle}</strong><small>{text.home.quickBattleNote}</small></span>
         <Clock3 size={30} />
       </button>
 
       <section className="reference-lower-grid">
         <div className="reference-stats-panel">
-          <div className="reference-stats-heading"><Activity size={28} /><strong>{language === 'fa' ? 'آمار شما' : 'Your Stats'}</strong></div>
+          <div className="reference-stats-heading"><Activity size={28} /><strong>{text.home.yourStats}</strong></div>
           <div className="reference-stats">
-            <div><Trophy size={20} /><strong>{profile.battles.toLocaleString(localeConfig.intlLocale)}</strong><small>{language === 'fa' ? 'مسابقات' : 'Matches'}</small></div>
-            <div><Flame size={20} /><strong>{profile.bestScore.toLocaleString(localeConfig.intlLocale)}</strong><small>{language === 'fa' ? 'بهترین امتیاز' : 'Best Score'}</small></div>
-            <div><Target size={20} /><strong>{accuracy}%</strong><small>{language === 'fa' ? 'دقت پاسخ' : 'Accuracy'}</small></div>
+            <div><Trophy size={20} /><strong>{profile.battles.toLocaleString(localeConfig.intlLocale)}</strong><small>{text.home.matches}</small></div>
+            <div><Flame size={20} /><strong>{profile.bestScore.toLocaleString(localeConfig.intlLocale)}</strong><small>{text.home.bestScore}</small></div>
+            <div><Target size={20} /><strong>{accuracy}%</strong><small>{text.home.accuracy}</small></div>
           </div>
         </div>
         <button className="reference-store-card" onClick={() => navigate('store')}>
           <ShoppingCart size={42} />
-          <strong>{language === 'fa' ? 'فروشگاه' : 'Store'}</strong>
+          <strong>{text.home.store}</strong>
         </button>
       </section>
     </ScreenFrame>}
