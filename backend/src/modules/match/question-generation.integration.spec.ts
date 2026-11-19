@@ -622,6 +622,7 @@ describe('Question generation recovery integration', () => {
           category: 'science',
           difficulty: 'medium',
           language: 'en',
+          requiredLocales: ['en'],
           answerType: 'FREE_TEXT',
           timeLimitSeconds: 30,
           excludedQuestionIds: [],
