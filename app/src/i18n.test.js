@@ -182,6 +182,16 @@ test('account and session UI copy is centralized with complete English/Persian p
   const persian = COPY.fa.account;
   assert.deepEqual(Object.keys(persian).sort(), Object.keys(english).sort());
   const requiredKeys = ['network_error', 'request_aborted', 'session_changed', 'recovery_window_expired', 'authorization_failed', 'conflict', 'invalid_input', 'rate_limited', 'server_error', 'generic_error', 'account_data_unavailable', 'session_active', 'session_revoked', 'session_expired', 'session_unknown'];
+
+  const localizedCount = formatLocaleNumber(2, 'fa');
+  assert.equal(
+    formatCopy(persian.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: localizedCount }),
+    `رمز عبور تغییر کرد و ${localizedCount} نشست دیگر بسته شد.`,
+  );
+  assert.equal(
+    formatCopy(persian.all_sessions_were_revoked_result_revokedsessions, { revokedSessions: localizedCount }),
+    `همه نشست‌ها باطل شدند (${localizedCount}).`,
+  );
   for (const key of requiredKeys) {
     assert.ok(english[key]?.trim(), `Missing English account state copy: ${key}`);
     assert.ok(persian[key]?.trim(), `Missing Persian account state copy: ${key}`);
