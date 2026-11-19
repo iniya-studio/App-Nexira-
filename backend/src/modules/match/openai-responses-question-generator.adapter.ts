@@ -74,7 +74,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       ) ?? 'https://api.openai.com/v1'
     ).replace(/\/+$/, '');
     const timeoutMs = Number(
-      this.config.get<string>('QUESTION_GENERATOR_TIMEOUT_MS', '12000'),
+      this.config.get<string>('QUESTION_GENERATOR_TIMEOUT_MS', '30000'),
     );
 
     if (!apiKey || !model) {
@@ -103,7 +103,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       signal: AbortSignal.timeout(timeoutMs),
       body: JSON.stringify({
         model,
-        max_output_tokens: 1600,
+        max_output_tokens: 8000,
         input: [
           {
             role: 'system',
