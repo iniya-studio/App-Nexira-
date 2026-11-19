@@ -278,6 +278,8 @@ export class RoundService {
     principal: AuthenticatedPrincipal,
     _language: string,
   ): Promise<PublicRoundQuestion> {
+    // The caller locale is intentionally ignored; the immutable participant snapshot is authoritative.
+    void _language;
     const ownership =
       principal.principalType === PrincipalType.USER
         ? { userId: principal.principalId }
