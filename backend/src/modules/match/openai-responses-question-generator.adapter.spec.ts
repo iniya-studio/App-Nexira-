@@ -12,6 +12,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     category: 'science',
     difficulty: 'medium',
     language: 'en',
+    requiredLocales: ['en'],
     answerType: 'MULTIPLE_CHOICE',
     timeLimitSeconds: 30,
     excludedQuestionIds: [excludedId],
@@ -34,12 +35,20 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
       acceptEquivalentWording: false,
       notes: 'Choose the planet with the shortest orbital period.',
     },
-    localizedPrompt: 'Which planet has the shortest year?',
-    localizedOptions: [
-      { id: 'A', text: 'Mercury' },
-      { id: 'B', text: 'Neptune' },
-      { id: 'C', text: 'Mars' },
-    ],
+    localized: [{
+      language: 'en',
+      prompt: 'Which planet has the shortest year?',
+      options: [
+        { id: 'A', text: 'Mercury' },
+        { id: 'B', text: 'Neptune' },
+        { id: 'C', text: 'Mars' },
+      ],
+      gradingRubric: {
+        requiredConcepts: [],
+        acceptEquivalentWording: false,
+        notes: 'Choose the planet with the shortest orbital period.',
+      },
+    }],
     timeLimitSeconds: 30,
   };
   const originalFetch = global.fetch;
@@ -117,8 +126,8 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     expect(body.text.format.strict).toBe(true);
     expect(body.text.format.schema.additionalProperties).toBe(false);
     expect(body.tools).toBeUndefined();
-    expect(body.input[0].content[0].text).toContain('authoritative language selected by the user');
-    expect(body.input[0].content[0].text).toContain('must not draft in English and translate afterward');
+    expect(body.input[0].content[0].text).toContain('required_locales');
+    expect(body.input[0].content[0].text).toContain('never translate through English');
     expect(body.input[1].content[0].text).toContain('"language":"en"');
     const providerInput = JSON.stringify(body.input);
     expect(providerInput).toContain(excludedFingerprint);
@@ -142,16 +151,24 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
         acceptEquivalentWording: false,
         notes: 'سیاره‌ای را انتخاب کن که دورهٔ گردش مداری کوتاه‌تری دارد.',
       },
-      localizedPrompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟',
-      localizedOptions: [
-        { id: 'A', text: 'عطارد' },
-        { id: 'B', text: 'نپتون' },
-        { id: 'C', text: 'مریخ' },
-      ],
+      localized: [{
+        language: 'fa',
+        prompt: 'کدام سیاره کوتاه‌ترین سال را دارد؟',
+        options: [
+          { id: 'A', text: 'عطارد' },
+          { id: 'B', text: 'نپتون' },
+          { id: 'C', text: 'مریخ' },
+        ],
+        gradingRubric: {
+          requiredConcepts: [],
+          acceptEquivalentWording: false,
+          notes: 'سیاره‌ای را انتخاب کن که دورهٔ گردش مداری کوتاه‌تری دارد.',
+        },
+      }],
     };
     respond(persianQuestion);
 
-    const result = await adapter.generate({ ...input, language: 'fa' });
+    const result = await adapter.generate({ ...input, language: 'fa', requiredLocales: ['fa'] });
 
     expect(result.canonicalLanguage).toBe('fa');
     expect(result.canonicalPrompt).toBe('کدام سیاره کوتاه‌ترین سال را دارد؟');
@@ -281,8 +298,16 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
         acceptEquivalentWording: true,
         notes: 'Accept the planet name only.',
       },
-      localizedPrompt: 'What is the largest planet in our solar system?',
-      localizedOptions: [],
+      localized: [{
+        language: 'en',
+        prompt: 'What is the largest planet in our solar system?',
+        options: [],
+        gradingRubric: {
+          requiredConcepts: ['Jupiter'],
+          acceptEquivalentWording: true,
+          notes: 'Accept the planet name only.',
+        },
+      }],
     });
 
     const result = await adapter.generate({
@@ -317,11 +342,20 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
   it('rejects localized options whose IDs do not match canonical options', async () => {
     respond({
       ...structuredQuestion,
-      localizedOptions: [
-        { id: 'A', text: 'Mercury' },
-        { id: 'X', text: 'Neptune' },
-        { id: 'C', text: 'Mars' },
-      ],
+      localized: [{
+        language: 'en',
+        prompt: 'Which planet has the shortest year?',
+        options: [
+          { id: 'A', text: 'Mercury' },
+          { id: 'X', text: 'Neptune' },
+          { id: 'C', text: 'Mars' },
+        ],
+        gradingRubric: {
+          requiredConcepts: [],
+          acceptEquivalentWording: false,
+          notes: 'Choose the planet with the shortest orbital period.',
+        },
+      }],
     });
 
     await expect(adapter.generate(input)).rejects.toMatchObject({
