@@ -342,7 +342,7 @@ test('an invalidated refresh token moves the lifecycle from active identity to s
   assert.equal(state.status, 'signed-out');
   assert.equal(state.principal, null);
   assert.equal(state.session, null);
-  assert.match(state.error, /session has expired/i);
+  assert.deepEqual(state.error, { code: 'SESSION_EXPIRED', status: 401 });
 });
 
 
