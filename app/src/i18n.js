@@ -2,6 +2,7 @@ import { resolveLocale } from './locales.js';
 
 export const COPY = {
   en: {
+    store: {"eyebrow":"PLAYER PERSONALIZATION","title":"Store","description":"Customize your player identity. Every item is cosmetic and never changes competitive play.","collection":"THE CURATED COLLECTION","heroTitle":"Bring your style to the arena","heroDescription":"Frames, profile plates and visual effects made for self-expression.","catalogPreview":"CATALOG PREVIEW","categories":"Store categories","paymentsOff":"PAYMENTS OFF","emptyTitle":"Your collection is waiting","emptyDescription":"Items will appear here when the live catalog and account inventory are connected.","explore":"Explore featured items","preview":"PREVIEW","viewStyle":"View style","fairness":"Cosmetics only. No purchase can change score, timing, matchmaking or competitive ranking.","close":"Close","cosmeticPreview":"COSMETIC PREVIEW","modalNotice":"This is a visual concept only. It is not added to your account and no purchase is made."},
     home: {"matchModes":"Match modes","duelDescription":"Challenge a player from around the world!","aiDescription":"Test your skills against AI!","quickBattle":"Quick Battle","quickBattleNote":"Choose a category to start a local preview","yourStats":"Your Stats","matches":"Matches","bestScore":"Best Score","accuracy":"Accuracy","store":"Store"},
     navHome: 'HOME', navRanks: 'RANKINGS', navProfile: 'PROFILE', navSettings: 'SETTINGS',
     welcome: 'YOUR MIND IS YOUR WEAPON', homeTitle: 'ENTER THE', homeAccent: 'ARENA',
@@ -84,6 +85,7 @@ export const COPY = {
     },
   },
   fa: {
+    store: {"eyebrow":"شخصی‌سازی بازیکن","title":"فروشگاه","description":"ظاهر و هویت بازیکنت را شخصی‌سازی کن؛ بدون هیچ مزیت رقابتی.","collection":"مجموعه منتخب","heroTitle":"سبک خودت را وارد میدان کن","heroDescription":"قاب‌ها، پلاک‌ها و جلوه‌های بصری؛ فقط برای نمایش شخصیت تو.","catalogPreview":"پیش‌نمایش کاتالوگ","categories":"دسته‌بندی فروشگاه","paymentsOff":"پرداخت غیرفعال","emptyTitle":"هنوز آیتمی در مجموعه نیست","emptyDescription":"پس از فعال‌شدن کاتالوگ و مالکیت آیتم‌ها، موارد دریافت‌شده در این بخش نمایش داده می‌شوند.","explore":"مشاهده مجموعه منتخب","preview":"پیش‌نمایش","viewStyle":"مشاهده سبک","fairness":"همه آیتم‌ها صرفاً تزئینی هستند. خرید هیچ امتیاز، زمان بیشتر یا برتری در مسابقه ایجاد نمی‌کند.","close":"بستن","cosmeticPreview":"پیش‌نمایش ظاهری","modalNotice":"این طرح نمایشی است؛ هنوز به حساب کاربری اضافه نمی‌شود و خریدی انجام نمی‌دهد."},
     home: {"matchModes":"حالت مسابقه","duelDescription":"با بازیکنان دیگر رقابت کن","aiDescription":"مهارتت را مقابل هوش مصنوعی بسنج","quickBattle":"Quick Battle","quickBattleNote":"برای شروع، موضوع مسابقه را انتخاب کن","yourStats":"آمار شما","matches":"مسابقات","bestScore":"بهترین امتیاز","accuracy":"دقت پاسخ","store":"فروشگاه"},
     navHome: 'خانه', navRanks: 'رتبه‌بندی', navProfile: 'پروفایل', navSettings: 'تنظیمات',
     welcome: 'ذهن تو سلاح توست', homeTitle: 'ورود به', homeAccent: 'میدان',
