@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { Observable, throwError } from 'rxjs';
 
 type HttpResponse = {
   status(code: number): { json(body: ApiErrorResponse): void };
@@ -43,7 +44,8 @@ function definitionForStatus(status: number): ApiErrorDefinition {
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(exception: unknown, host: ArgumentsHost): Observable<never> | void {
+    if (host.getType() !== 'http') return throwError(() => exception);
     const response = host.switchToHttp().getResponse<HttpResponse>();
     const status = exception instanceof HttpException
       ? exception.getStatus()
