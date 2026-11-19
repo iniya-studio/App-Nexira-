@@ -205,7 +205,7 @@ export function createSessionLifecycle({
         if (generation === lifecycleGeneration) {
           if (error?.code === 'CONVERSION_RECOVERY_EXPIRED') {
             publish({ ...INITIAL_STATE, status: 'signed-out', error: { code: 'CONVERSION_RECOVERY_EXPIRED', status: 0 } });
-          } else publish({ ...state, error: error instanceof Error ? error.message : 'Account operation failed.' });
+          } else publish({ ...state, error: toSessionErrorDescriptor(error, 'ACCOUNT_OPERATION_FAILED') });
         }
         throw error;
       }
