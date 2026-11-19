@@ -60,6 +60,37 @@ test('HTTP client preserves status and stable code but discards untrusted respon
   );
 });
 
+test('HTTP client does not retain raw network or abort diagnostics', async () => {
+  const networkClient = createHttpClient({
+    baseUrl: 'https://api.example.test/api/v1',
+    authenticated: false,
+    fetchImpl: async () => { throw new Error('private network diagnostic'); },
+  });
+
+  await assert.rejects(
+    networkClient.get('/health', { authenticated: false }),
+    (error) => error instanceof ApiError
+      && error.code === 'NETWORK_ERROR'
+      && error.details === null
+      && error.message === 'Unable to reach the NEXIRA API.'
+      && !JSON.stringify(error).includes('private network diagnostic'),
+  );
+
+  const controller = new AbortController();
+  controller.abort(new Error('private caller cancellation detail'));
+  const abortClient = createHttpClient({
+    baseUrl: 'https://api.example.test/api/v1',
+    fetchImpl: async () => { throw new Error('fetch should not run'); },
+  });
+  await assert.rejects(
+    abortClient.get('/profile/me', { signal: controller.signal }),
+    (error) => error instanceof ApiError
+      && error.code === 'REQUEST_ABORTED'
+      && error.details === null
+      && !JSON.stringify(error).includes('private caller cancellation detail'),
+  );
+});
+
 test('HTTP client rejects malformed API paths before making a request', async () => {
   const client = createHttpClient({
     baseUrl: 'https://api.example.test/api/v1',
