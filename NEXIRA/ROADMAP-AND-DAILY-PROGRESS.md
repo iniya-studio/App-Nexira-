@@ -669,3 +669,34 @@ This is an explicit required part of the current Account/Session localization ph
 - Maintain full coverage across all 20 target locales and complete UI/game content, RTL and real-device acceptance.
 
 **Acceptance:** R-046/R-047 are bounded hardening steps, not completion. Localization remains OPEN.
+## R-048 — Standardized backend HTTP error envelope (in progress)
+
+**Date:** 2026-11-19  
+**Status:** A global HTTP exception filter is registered on main. It emits stable status-based error codes and safe generic messages, strips exception/validation payload details, and leaves non-HTTP transports to their own exception handling. Backend build and full unit/PostgreSQL integration tests passed on run 44591425417; ESLint found an unused-import issue in the new WebSocket passthrough test, which was corrected in 079b9ce. The corrected run 44591740939 is still running at the time of this entry.
+
+### Contract introduced
+- HTTP error envelope: statusCode, code, message, timestamp.
+- Stable mappings: 400/422 INVALID_REQUEST; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 409 CONFLICT; 429 RATE_LIMITED; 413 PAYLOAD_TOO_LARGE; 415 UNSUPPORTED_MEDIA_TYPE; other 5xx INTERNAL_SERVER_ERROR; remaining statuses REQUEST_FAILED.
+- Response messages are safe generic copy. The filter never serializes HttpException response bodies, validation arrays, raw Error.message, stack traces, secrets, or database diagnostics.
+- The filter is registered globally for HTTP requests only. Non-HTTP contexts return their exception through an RxJS error observable so WebSocket/RPC handlers retain transport-specific behavior.
+- Added tests for status/code mappings, unknown exception normalization, validation/custom exception payload suppression, and non-HTTP passthrough.
+
+### Commits and CI evidence
+- Filter: c4c7bab522570321bffabda91a1e1f7367338b78
+- Filter tests: 5803cb09a40fe7bf187eb2760b944f32c4a3b56b
+- Global registration: 445f992ba11835b8fd2efbb19bfcfb8630174d7f
+- Non-HTTP passthrough: 9b73332c2a3f3f01da02f00536c16871f593bc2d
+- HTTP context test setup: ec100e6d9b878271adcef600a7ab9be4bc3756e6
+- WebSocket passthrough test and typed cases: 5dcbea674c363d6e9f3f9226fcaf29223f498a5e, adac4a0593472171e492fbc4424d7c16585d750e, b9de5fb1e0fad1c6cc64d2046c198477ef54e07b, 079b9ce191db665dfe3b989ce2533dff09fdb04f
+- Run 44591425417: Prisma formatting, schema validation, Prisma Client generation, database migrations, NestJS production build and all unit/PostgreSQL integration tests passed. ESLint failed only because the initial WebSocket passthrough test imports were not yet used; that test was then added.
+- Run 44591740939 includes the corrected test and is pending at the time of this entry. Full backend CI acceptance is not yet claimed.
+
+### Remaining work
+- Verify corrected full backend CI, including ESLint, staging Compose validation and staging image build.
+- Document this API envelope in the backend API contract docs and confirm every client path maps stable codes/statuses without displaying server message text.
+- Refine generic status-level codes into endpoint/domain-specific stable codes where client behavior needs a distinction (e.g. expired/revoked session, invalid credentials, duplicate identity, match state conflict); preserve the generic safe fallback.
+- Audit WebSocket gateway/guard error acknowledgements and client event handling separately; HTTP filter does not define WebSocket error payloads.
+- Add HTTP integration tests against the real Nest application to prove the global filter is active for ValidationPipe, guards, controllers, and unexpected 500 errors.
+- Keep Localization and Account/Session localization OPEN until all 20 locales, user-visible states, and device acceptance are complete.
+
+**Acceptance:** This is the first shared HTTP error-envelope layer, not the final backend error-contract closure. Localization remains OPEN.
