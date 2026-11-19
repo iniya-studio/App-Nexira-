@@ -7,7 +7,7 @@ export async function questionGenerationInputForMatch(
   matchId: string,
   settings: Pick<
     QuestionGenerationInput,
-    'category' | 'difficulty' | 'language' | 'requiredLocales' | 'answerType' | 'timeLimitSeconds'
+    'category' | 'difficulty' | 'language' | 'answerType' | 'timeLimitSeconds'
   >,
 ): Promise<QuestionGenerationInput> {
   const match = await tx.match.findUnique({
