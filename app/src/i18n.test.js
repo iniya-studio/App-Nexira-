@@ -42,6 +42,14 @@ test('home screen copy is centralized and complete for every active locale', () 
   }
 });
 
+
+test('store screen copy is centralized and complete for every active locale', () => {
+  const keys = ['eyebrow', 'title', 'description', 'collection', 'heroTitle', 'heroDescription', 'catalogPreview', 'categories', 'paymentsOff', 'emptyTitle', 'emptyDescription', 'explore', 'preview', 'viewStyle', 'fairness', 'close', 'cosmeticPreview', 'modalNotice'];
+  for (const locale of ['en', 'fa']) {
+    for (const key of keys) assert.ok(COPY[locale].store[key]?.trim(), `Missing ${locale} store copy: ${key}`);
+  }
+});
+
 test('all game categories have localized display names in English and Persian', () => {
   for (const category of CATEGORIES) {
     assert.ok(COPY.en.categoryNames[category.id], `Missing English category name: ${category.id}`);
