@@ -255,6 +255,15 @@ test('account and session UI copy is centralized with complete English/Persian p
   assert.equal(component.includes("'fa-IR'") || component.includes("'en-US'"), false, 'Account/session date formatting must use locale metadata.');
 });
 
+test('shared API error copy is neutral across account and gameplay screens', () => {
+  for (const locale of ['en', 'fa']) {
+    const copy = COPY[locale].account;
+    for (const key of ['authorization_failed', 'conflict', 'invalid_input', 'generic_error']) {
+      assert.doesNotMatch(copy[key], /account|حساب/i, `${locale} ${key} must not assume an account-only context`);
+    }
+  }
+});
+
 test('server-originated API errors always resolve to safe localized copy', () => {
   for (const locale of ['en', 'fa']) {
     const copy = COPY[locale].account;
