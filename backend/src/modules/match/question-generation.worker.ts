@@ -556,6 +556,8 @@ export class QuestionGenerationWorker implements OnModuleInit, OnModuleDestroy {
       generated.difficulty !== input.difficulty ||
       generated.canonicalLanguage !== input.language ||
       generated.answerType !== input.answerType ||
+      Object.keys(generated.localized as Record<string, unknown>).length !== input.requiredLocales.length ||
+      input.requiredLocales.some((locale) => !(locale in (generated.localized as Record<string, unknown>))) ||
       generated.timeLimitSeconds !== input.timeLimitSeconds
     ) {
       throw new QuestionGenerationError(
