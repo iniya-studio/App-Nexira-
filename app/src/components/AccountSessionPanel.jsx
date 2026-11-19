@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, KeyRound, Link2, LogIn, LogOut, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { googleAuth } from '../api/googleAuth.js';
 import { formatCopy, getCopy } from '../i18n.js';
-import { getLocaleConfig } from '../locales.js';
+import { formatLocaleNumber, getLocaleConfig } from '../locales.js';
 
 export function AccountSessionPanel({
   lifecycle,
@@ -201,7 +201,7 @@ export function AccountSessionPanel({
       setCurrentPassword('');
       setNewPassword('');
       setPasswordChangeOpen(false);
-      setNotice(formatCopy(copy.account.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: result.sessionsRevoked, revokedSessions: result.revokedSessions }));
+      setNotice(formatCopy(copy.account.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: formatLocaleNumber(result.sessionsRevoked, language), revokedSessions: formatLocaleNumber(result.revokedSessions, language) }));
     } catch (cause) {
       setError(getLocalizedAccountError(cause, copy.account));
     } finally {
