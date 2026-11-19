@@ -1632,21 +1632,17 @@ export default function App() {
     {screen === 'store' && <ScreenFrame className="info-screen store-screen">
       <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.home}</button>
       <ScreenHeading
-        eyebrow={language === 'fa' ? 'شخصی‌سازی بازیکن' : 'PLAYER PERSONALIZATION'}
-        title={language === 'fa' ? 'فروشگاه' : 'Store'}
+        eyebrow={text.store.eyebrow}
+        title={text.store.title}
         accent="NEXIRA"
-        description={language === 'fa'
-          ? 'ظاهر و هویت بازیکنت را شخصی‌سازی کن؛ بدون هیچ مزیت رقابتی.'
-          : 'Customize your player identity. Every item is cosmetic and never changes competitive play.'}
+        description={text.store.description}
       />
       <section className="store-hero">
         <div className="store-hero-copy">
-          <span className="store-kicker"><Sparkles size={14} /> {language === 'fa' ? 'مجموعه منتخب' : 'THE CURATED COLLECTION'}</span>
-          <h2>{language === 'fa' ? 'سبک خودت را وارد میدان کن' : 'Bring your style to the arena'}</h2>
-          <p>{language === 'fa'
-            ? 'قاب‌ها، پلاک‌ها و جلوه‌های بصری؛ فقط برای نمایش شخصیت تو.'
-            : 'Frames, profile plates and visual effects made for self-expression.'}</p>
-          <span className="store-preview-pill">{language === 'fa' ? 'پیش‌نمایش کاتالوگ' : 'CATALOG PREVIEW'}</span>
+          <span className="store-kicker"><Sparkles size={14} /> {text.store.collection}</span>
+          <h2>{text.store.heroTitle}</h2>
+          <p>{text.store.heroDescription}</p>
+          <span className="store-preview-pill">{text.store.catalogPreview}</span>
         </div>
         <div className="store-hero-art" aria-hidden="true">
           <div className="store-hero-orbit store-hero-orbit--one" />
@@ -1656,7 +1652,7 @@ export default function App() {
       </section>
 
       <div className="store-toolbar">
-        <div className="store-tabs" role="tablist" aria-label={language === 'fa' ? 'دسته‌بندی فروشگاه' : 'Store categories'}>
+        <div className="store-tabs" role="tablist" aria-label={text.store.categories}>
           {STORE_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -1668,18 +1664,16 @@ export default function App() {
             >{language === 'fa' ? tab.fa : tab.en}</button>
           ))}
         </div>
-        <span className="store-payment-state">{language === 'fa' ? 'پرداخت غیرفعال' : 'PAYMENTS OFF'}</span>
+        <span className="store-payment-state">{text.store.paymentsOff}</span>
       </div>
 
       {storeTab === 'inventory' ? (
         <section className="store-inventory-empty">
           <span className="store-empty-mark"><ShoppingCart size={25} /></span>
-          <h2>{language === 'fa' ? 'هنوز آیتمی در مجموعه نیست' : 'Your collection is waiting'}</h2>
-          <p>{language === 'fa'
-            ? 'پس از فعال‌شدن کاتالوگ و مالکیت آیتم‌ها، موارد دریافت‌شده در این بخش نمایش داده می‌شوند.'
-            : 'Items will appear here when the live catalog and account inventory are connected.'}</p>
+          <h2>{text.store.emptyTitle}</h2>
+          <p>{text.store.emptyDescription}</p>
           <button type="button" className="store-secondary-action" onClick={() => setStoreTab('featured')}>
-            {language === 'fa' ? 'مشاهده مجموعه منتخب' : 'Explore featured items'}
+            {text.store.explore}
           </button>
         </section>
       ) : (
@@ -1695,12 +1689,12 @@ export default function App() {
                 </div>
                 <div className="store-item-meta">
                   <span>{language === 'fa' ? item.type.fa : item.type.en}</span>
-                  <b>{language === 'fa' ? 'پیش‌نمایش' : 'PREVIEW'}</b>
+                  <b>{text.store.preview}</b>
                 </div>
                 <h3>{language === 'fa' ? item.title.fa : item.title.en}</h3>
                 <p>{language === 'fa' ? item.description.fa : item.description.en}</p>
                 <button type="button" className="store-preview-action" onClick={() => setStorePreviewId(item.id)}>
-                  {language === 'fa' ? 'مشاهده سبک' : 'View style'} <ChevronRight size={15} />
+                  {text.store.viewStyle} <ChevronRight size={15} />
                 </button>
               </article>
             );
@@ -1709,26 +1703,22 @@ export default function App() {
       )}
 
       <p className="store-fairness-note"><Check size={14} />
-        {language === 'fa'
-          ? 'همه آیتم‌ها صرفاً تزئینی هستند. خرید هیچ امتیاز، زمان بیشتر یا برتری در مسابقه ایجاد نمی‌کند.'
-          : 'Cosmetics only. No purchase can change score, timing, matchmaking or competitive ranking.'}
+        {text.store.fairness}
       </p>
 
       {storePreviewItem && <div className="store-modal-backdrop">
         <section className="store-preview-modal" role="dialog" aria-modal="true" aria-labelledby="store-preview-title">
           <button type="button" className="store-modal-close" onClick={() => setStorePreviewId(null)}>
-            {language === 'fa' ? 'بستن' : 'Close'}
+            {text.store.close}
           </button>
           <div className={`store-modal-art store-item-art--${storePreviewItem.tone}`}>
             <StorePreviewIcon size={38} strokeWidth={1.6} />
           </div>
-          <span className="store-kicker">{language === 'fa' ? 'پیش‌نمایش ظاهری' : 'COSMETIC PREVIEW'}</span>
+          <span className="store-kicker">{text.store.cosmeticPreview}</span>
           <h2 id="store-preview-title">{language === 'fa' ? storePreviewItem.title.fa : storePreviewItem.title.en}</h2>
           <p>{language === 'fa' ? storePreviewItem.description.fa : storePreviewItem.description.en}</p>
           <div className="store-modal-notice">
-            {language === 'fa'
-              ? 'این طرح نمایشی است؛ هنوز به حساب کاربری اضافه نمی‌شود و خریدی انجام نمی‌دهد.'
-              : 'This is a visual concept only. It is not added to your account and no purchase is made.'}
+            {text.store.modalNotice}
           </div>
         </section>
       </div>}
