@@ -12,7 +12,7 @@ export async function questionGenerationInputForMatch(
 ): Promise<QuestionGenerationInput> {
   const match = await tx.match.findUnique({
     where: { id: matchId },
-    select: { participants: { where: { participantType: 'HUMAN' }, select: { participantKey: true, language: true } } },
+    select: { participants: { select: { participantKey: true, participantType: true, language: true } } },
   });
   if (!match || match.participants.length === 0) {
     throw new Error('Question generation match participants are unavailable');
@@ -21,7 +21,7 @@ export async function questionGenerationInputForMatch(
   const participantKeys = match.participants.map(
     (participant) => participant.participantKey,
   );
-  const requiredLocales = [...new Set(match.participants.map((participant) => participant.language).filter((locale): locale is string => Boolean(locale)))].sort();
+  const requiredLocales = [...new Set(match.participants.filter((participant) => participant.participantType === 'HUMAN').map((participant) => participant.language).filter((locale): locale is string => Boolean(locale)))].sort();
   if (requiredLocales.length === 0 || requiredLocales.some((locale) => !locale.trim())) {
     throw new Error('Human participant locale snapshots are unavailable');
   }
