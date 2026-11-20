@@ -181,3 +181,13 @@ No section is DONE merely because its code or documentation was added. Evidence 
 - Only after the foundation gates are green, produce the first UI translation pack (`ar, es, fr`) and keep all three disabled until their own translation and visual QA passes.
 
 **Status remains IN PROGRESS. No new locale has been enabled. No CI result or Android visual acceptance is claimed by this audit entry.**
+
+
+### Foundation implementation update — 6707230d355ef6ee809e5edcf3c9515c4758c474
+
+- Frontend locale normalization now uses `Intl.getCanonicalLocales`, and persisted locale resolution canonicalizes before checking enablement.
+- Added `getLocalePluralCategory` as the shared `Intl.PluralRules` foundation.
+- `formatCopy` now accepts the active locale and isolates interpolated dynamic values with Unicode FSI/PDI for RTL locales. The app timer/progress labels and account session-count notices now pass the active locale; account count values are also locale-formatted.
+- Added automated coverage for number/date/plural formatting across all 20 target Intl tags and for RTL interpolation isolation. These are test additions only until the corresponding CI run completes.
+- The earlier remaining-gap item “plural/message formatting” is now partially addressed: plural category selection and bidi-safe interpolation exist, but a full plural-message catalog contract and complete call-site audit remain open.
+- The script-font, full RTL visual, UI literal, and Android device acceptance gaps remain open. No locale enablement change was made.
