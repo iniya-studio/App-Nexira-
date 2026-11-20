@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { isEnabledLocale, normalizeLocaleCode } from '../../common/localization/locale-registry';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { questionGenerationInputForMatch } from './question-generation.context';
+import { isSupportedCategorySelection } from './category-catalog';
 
 // Snapshot match length at creation; deployment changes never alter active matches.
 const DEFAULT_V1_MATCH_ROUNDS = 10;
@@ -34,6 +35,11 @@ export class MatchService {
     principal: AuthenticatedPrincipal,
     options: AiMatchOptions = {},
   ) {
+    const category = options.category?.trim().toLowerCase() || INITIAL_QUESTION_SETTINGS.category;
+    const subcategoryId = options.subcategoryId?.trim().toLowerCase() || null;
+    if (!isSupportedCategorySelection(category, subcategoryId)) {
+      throw new BadRequestException('Unsupported match category or subcategory');
+    }
     return this.prisma.$transaction(async (tx) => {
       // Serialize retries/concurrent starts for one principal so a lost POST
       // response cannot leave multiple active 1vAI matches behind.
@@ -54,6 +60,8 @@ export class MatchService {
           id: true,
           mode: true,
           status: true,
+          category: true,
+          subcategoryId: true,
           currentRound: true,
           roundsTarget: true,
           createdAt: true,
@@ -81,8 +89,8 @@ export class MatchService {
         principal,
         {
           ...INITIAL_QUESTION_SETTINGS,
-          category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
-          subcategoryId: options.subcategoryId?.trim() || undefined,
+          category,
+          subcategoryId: subcategoryId ?? undefined,
           language: participantLanguage,
         },
         tx,
@@ -114,8 +122,8 @@ export class MatchService {
       first,
       {
         ...INITIAL_QUESTION_SETTINGS,
-        category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
-        subcategoryId: options.subcategoryId?.trim() || undefined,
+        category: options.category?.trim().toLowerCase() || INITIAL_QUESTION_SETTINGS.category,
+        subcategoryId: options.subcategoryId?.trim().toLowerCase() || undefined,
         language: options.language,
       },
       transaction,
@@ -335,6 +343,8 @@ export class MatchService {
         id: true,
         mode: true,
         status: true,
+        category: true,
+        subcategoryId: true,
         currentRound: true,
         roundsTarget: true,
         createdAt: true,
@@ -383,6 +393,8 @@ export class MatchService {
 
   private toMatchSummary(match: {
     id: string;
+    category?: string;
+    subcategoryId?: string | null;
     mode: MatchMode;
     status: MatchStatus;
     currentRound: number;
@@ -394,6 +406,8 @@ export class MatchService {
   }) {
     return {
       id: match.id,
+      category: match.category ?? 'general',
+      subcategoryId: match.subcategoryId ?? null,
       mode: match.mode,
       status: match.status,
       currentRound: match.currentRound,
