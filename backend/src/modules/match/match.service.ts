@@ -23,8 +23,8 @@ const INITIAL_QUESTION_SETTINGS = {
   timeLimitSeconds: 30,
 };
 
-type AiMatchOptions = { category?: string; language?: string; participantLanguages?: { first: string; second: string } };
-type MatchQuestionSettings = typeof INITIAL_QUESTION_SETTINGS & { language?: string };
+type AiMatchOptions = { category?: string; subcategoryId?: string; language?: string; participantLanguages?: { first: string; second: string } };
+type MatchQuestionSettings = typeof INITIAL_QUESTION_SETTINGS & { language?: string; subcategoryId?: string };
 
 @Injectable()
 export class MatchService {
@@ -82,6 +82,7 @@ export class MatchService {
         {
           ...INITIAL_QUESTION_SETTINGS,
           category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
+          subcategoryId: options.subcategoryId?.trim() || undefined,
           language: participantLanguage,
         },
         tx,
@@ -114,6 +115,7 @@ export class MatchService {
       {
         ...INITIAL_QUESTION_SETTINGS,
         category: options.category?.trim() || INITIAL_QUESTION_SETTINGS.category,
+        subcategoryId: options.subcategoryId?.trim() || undefined,
         language: options.language,
       },
       transaction,
@@ -151,6 +153,8 @@ export class MatchService {
         data: {
           mode,
           status: MatchStatus.WAITING,
+          category: questionSettings.category,
+          subcategoryId: questionSettings.subcategoryId ?? null,
           roundsTarget: configuredV1MatchRounds(),
           participants: { create: normalizedParticipants },
         },
