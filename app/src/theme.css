@@ -11,7 +11,7 @@
   --panel: rgba(15, 31, 48, 0.82);
   --panel-edge: rgba(128, 183, 218, 0.28);
   --font-display: "Orbitron Variable", sans-serif;
-  --font-body: "Inter Variable", "Noto Sans Arabic", sans-serif;
+  --font-body: "Inter Variable", sans-serif;
   --nexira-background-image: url('/assets/Background/nexira_tunnel.png');
   --nexira-background-overlay: rgba(5, 13, 25, 0.35);
 }
