@@ -139,6 +139,8 @@ export const COPY = {
       'books-stories': 'Books & Stories', 'culture-lifestyle': 'Culture & Lifestyle', 'brands-business': 'Brands & Business',
       'mythology-legends': 'Mythology & Legends', 'travel-tourism': 'Travel & Tourism',
       'education-mathematics': 'Education & Mathematics', 'fashion-beauty': 'Fashion & Beauty',
+      memory: 'Memory', logic: 'Logic', mathematics: 'Mathematics', knowledge: 'General Knowledge',
+      reaction: 'Reaction', focus: 'Focus', language: 'Language',
     }, categorySubtitles: {
       gaming: 'Worlds built for play.', 'movies-tv': 'Stories on every screen.', music: 'Find your rhythm.', sports: 'Records, rivals and legends.',
       technology: 'Ideas shaping tomorrow.', 'internet-social-media': 'The culture of being online.', 'anime-manga': 'Stories beyond reality.',
@@ -148,6 +150,9 @@ export const COPY = {
       'books-stories': 'Worlds made of words.', 'culture-lifestyle': 'How people live and celebrate.', 'brands-business': 'Names, ideas and markets.',
       'mythology-legends': 'Gods, heroes and ancient tales.', 'travel-tourism': 'Places worth discovering.',
       'education-mathematics': 'Think, solve and learn.', 'fashion-beauty': 'Style, expression and creativity.',
+      memory: 'Hold the signal.', logic: 'Find the weak link.', mathematics: 'Numbers do not lie.',
+      knowledge: 'Know more. Move fast.', reaction: 'Choose under pressure.', focus: 'Filter the noise.',
+      language: 'Read between the lines.',
     }, categorySubcategories: {
       gaming: { 'famous-games': 'Famous games', 'game-characters': 'Game characters', esports: 'Esports', studios: 'Studios', 'gaming-history': 'Gaming history' },
       'movies-tv': { movies: 'Movies', 'tv-series': 'TV series', actors: 'Actors', characters: 'Characters', awards: 'Awards' },
@@ -455,6 +460,8 @@ export const COPY = {
       'books-stories': 'کتاب و داستان', 'culture-lifestyle': 'فرهنگ و سبک زندگی', 'brands-business': 'برندها و کسب‌وکار',
       'mythology-legends': 'اسطوره‌ها و افسانه‌ها', 'travel-tourism': 'سفر و گردشگری',
       'education-mathematics': 'آموزش و ریاضیات', 'fashion-beauty': 'مد و زیبایی',
+      memory: 'حافظه', logic: 'منطق', mathematics: 'ریاضیات', knowledge: 'دانش عمومی',
+      reaction: 'سرعت واکنش', focus: 'تمرکز', language: 'زبان', science: 'علوم',
     }, categorySubtitles: {
       gaming: 'جهان‌هایی برای بازی.', 'movies-tv': 'داستان‌هایی روی هر نمایشگر.', music: 'ریتم خودت را پیدا کن.', sports: 'رکوردها، رقابت‌ها و اسطوره‌ها.',
       technology: 'ایده‌هایی که آینده را می‌سازند.', 'internet-social-media': 'فرهنگ دنیای آنلاین.', 'anime-manga': 'داستان‌هایی فراتر از واقعیت.',
@@ -464,6 +471,9 @@ export const COPY = {
       'books-stories': 'جهان‌هایی از جنس واژه.', 'culture-lifestyle': 'شیوه زندگی و جشن ملت‌ها.', 'brands-business': 'نام‌ها، ایده‌ها و بازارها.',
       'mythology-legends': 'خدایان، قهرمانان و روایت‌های کهن.', 'travel-tourism': 'مکان‌هایی برای کشف کردن.',
       'education-mathematics': 'فکر کن، حل کن و یاد بگیر.', 'fashion-beauty': 'سبک، بیان و خلاقیت.',
+      memory: 'الگو را به خاطر بسپار.', logic: 'نقطه‌ضعف را پیدا کن.', mathematics: 'اعداد دروغ نمی‌گویند.',
+      knowledge: 'بیشتر بدان، سریع‌تر حرکت کن.', reaction: 'زیر فشار انتخاب کن.', focus: 'نویز را کنار بزن.',
+      language: 'معنای پنهان را بخوان.', science: 'جهان طبیعت را رمزگشایی کن.',
     }, categorySubcategories: {
       gaming: { 'famous-games': 'بازی‌های مشهور', 'game-characters': 'شخصیت‌های بازی', esports: 'ورزش‌های الکترونیکی', studios: 'استودیوها', 'gaming-history': 'تاریخ گیمینگ' },
       'movies-tv': { movies: 'فیلم‌ها', 'tv-series': 'سریال‌ها', actors: 'بازیگران', characters: 'شخصیت‌ها', awards: 'جوایز' },
