@@ -310,7 +310,6 @@ describe('Free-text AI Judge worker integration', () => {
 
     const persisted = await prisma.answer.findMany({
       where: { id: { in: [firstReceipt.answerId, secondReceipt.answerId] } },
-      orderBy: { createdAt: 'asc' },
     });
     expect(persisted).toHaveLength(2);
     expect(persisted.every(
