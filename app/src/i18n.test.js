@@ -60,6 +60,11 @@ test('category screen preserves the full catalog and direct match entry without 
   assert.match(appSource, /const category = CATEGORIES\[Math\.floor\(Math\.random\(\) \* CATEGORIES\.length\)\]/);
   assert.doesNotMatch(appSource, /reference-quick-battle" onClick=\{\(\) => \{ setEntryMatchMode\('1v1'\); navigate\('categories'\); \}\}/);
   assert.match(appSource, /void beginMatch\(selected, pendingMode \?\? '1vAI'\)/);
+  assert.match(appSource, /if \(import\.meta\.env\.PROD\) \{/);
+  assert.match(appSource, /questions: CATEGORIES\.flatMap\(\(item\) => item\.questions\)\.slice\(0, 5\)/);
+  assert.match(appSource, /window\.scrollTo\(0, 0\)/);
+  assert.match(appSource, /setScreen\(mode === '1v1' \? 'subcategories' : 'match-game'\)/);
+  assert.match(themeSource, /\.categories-screen \.category-tile\s*\{[^}]*min-height:\s*112px/s);
   assert.match(themeSource, /\.categories-screen \.category-selection-panel\s*\{[^}]*overflow:\s*visible/s);
   assert.match(themeSource, /\.categories-screen \.category-grid\s*\{[^}]*display:\s*grid/s);
   assert.ok(dataSource.includes("id: 'memory'"));
