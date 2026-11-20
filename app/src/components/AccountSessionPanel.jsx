@@ -206,7 +206,7 @@ export function AccountSessionPanel({
       setCurrentPassword('');
       setNewPassword('');
       setPasswordChangeOpen(false);
-      setNotice(formatCopy(copy.account.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: formatLocaleNumber(result.sessionsRevoked, language), revokedSessions: formatLocaleNumber(result.revokedSessions, language) }));
+      setNotice(formatCopy(copy.account.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: formatLocaleNumber(result.sessionsRevoked, language), revokedSessions: formatLocaleNumber(result.revokedSessions, language) }, language));
     } catch (cause) {
       setError(getLocalizedAccountError(cause, copy.account));
     } finally {
@@ -249,7 +249,7 @@ export function AccountSessionPanel({
     try {
       const result = await lifecycle.logoutAll();
       setMode('login');
-      setNotice(formatCopy(copy.account.all_sessions_were_revoked_result_revokedsessions, { sessionsRevoked: result.sessionsRevoked, revokedSessions: result.revokedSessions }));
+      setNotice(formatCopy(copy.account.all_sessions_were_revoked_result_revokedsessions, { sessionsRevoked: formatLocaleNumber(result.sessionsRevoked, language), revokedSessions: formatLocaleNumber(result.revokedSessions, language) }, language));
     } catch (cause) {
       setError(getLocalizedAccountError(cause, copy.account));
     } finally {
