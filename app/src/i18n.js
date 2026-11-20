@@ -140,7 +140,7 @@ export const COPY = {
       'mythology-legends': 'Mythology & Legends', 'travel-tourism': 'Travel & Tourism',
       'education-mathematics': 'Education & Mathematics', 'fashion-beauty': 'Fashion & Beauty',
       memory: 'Memory', logic: 'Logic', mathematics: 'Mathematics', knowledge: 'General Knowledge',
-      reaction: 'Reaction', focus: 'Focus', language: 'Language',
+      reaction: 'Reaction', focus: 'Focus', language: 'Language', science: 'Science',
     }, categorySubtitles: {
       gaming: 'Worlds built for play.', 'movies-tv': 'Stories on every screen.', music: 'Find your rhythm.', sports: 'Records, rivals and legends.',
       technology: 'Ideas shaping tomorrow.', 'internet-social-media': 'The culture of being online.', 'anime-manga': 'Stories beyond reality.',
@@ -152,7 +152,7 @@ export const COPY = {
       'education-mathematics': 'Think, solve and learn.', 'fashion-beauty': 'Style, expression and creativity.',
       memory: 'Hold the signal.', logic: 'Find the weak link.', mathematics: 'Numbers do not lie.',
       knowledge: 'Know more. Move fast.', reaction: 'Choose under pressure.', focus: 'Filter the noise.',
-      language: 'Read between the lines.',
+      language: 'Read between the lines.', science: 'Decode the natural world.',
     }, categorySubcategories: {
       gaming: { 'famous-games': 'Famous games', 'game-characters': 'Game characters', esports: 'Esports', studios: 'Studios', 'gaming-history': 'Gaming history' },
       'movies-tv': { movies: 'Movies', 'tv-series': 'TV series', actors: 'Actors', characters: 'Characters', awards: 'Awards' },
