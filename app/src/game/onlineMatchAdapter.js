@@ -301,13 +301,14 @@ export function createOnlineMatchAdapter(api, {
   }
 
   return {
-    async start({ category, language = 'en' } = {}) {
-      const created = await api.createAiMatch({ category, language });
+    async start({ category, subcategoryId, language = 'en' } = {}) {
+      const created = await api.createAiMatch({ category, subcategoryId, language });
       if (!created?.id) throw new Error('Backend did not return a valid match ID.');
       view = {
         isOnline: true,
         matchId: created.id,
         categoryId: category,
+        subcategoryId: subcategoryId ?? null,
         mode: '1vAI',
         status: created.status,
         phase: 'waiting-question',
@@ -331,7 +332,7 @@ export function createOnlineMatchAdapter(api, {
       return refresh();
     },
 
-    async resume(matchId, { mode = '1v1', language = 'en', category = null } = {}) {
+    async resume(matchId, { mode = '1v1', language = 'en', category = null, subcategoryId = null } = {}) {
       if (typeof matchId !== 'string' || !matchId) {
         throw new TypeError('A valid server match ID is required.');
       }
@@ -340,7 +341,8 @@ export function createOnlineMatchAdapter(api, {
       view = {
         isOnline: true,
         matchId,
-        categoryId: category,
+        categoryId: match.category ?? category,
+        subcategoryId: match.subcategoryId ?? subcategoryId,
         mode,
         status: match.status,
         phase: 'waiting-question',
