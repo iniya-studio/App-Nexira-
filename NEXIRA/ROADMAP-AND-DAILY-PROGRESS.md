@@ -875,3 +875,16 @@ This is an explicit required part of the current Account/Session localization ph
 - Recursive dictionary/UI audit tests and matcher correction: `bc0854ccca17a4f8de32709b02623fef7a76af03`, `217274eca5a5204f41ec10a2c7ac65c6a6716740`, `e0fdd7d766031c83ccab78f65d4f6bd56ab1486b`
 
 **Acceptance:** The localization contract and stronger English/Persian baseline audit are committed and have successful Android CI evidence. This does not complete multi-locale translation. L10N remains OPEN until all 20 UI dictionaries and question packs are complete, all locale assumptions are removed, complex-script/RTL QA passes, and all 20 locales are enabled together with matching backend support.
+
+## 2026-11-20 — 20-locale foundation continuation
+
+- Re-audited the existing localization implementation instead of rebuilding it. The frontend/backend 20-locale registries, en/fa enablement gate, persisted settings.language, root direction propagation, and cross-locale match/Judge contracts were confirmed in source.
+- Removed the remaining hard-coded Persian/English matchmaking language label; the label now comes from the participant locale's native registry name.
+- Removed the settings summary's fixed two-language wording while preserving separate English and Persian copy.
+- Added frontend BCP-47 canonicalization to match backend behavior. Canonical casing is normalized before enabled-locale validation; disabled target locales remain disabled.
+- Added locale-aware plural-category selection and RTL FSI/PDI isolation for interpolated dynamic values. Updated timer/progress and account session-count call sites; account counts now use locale-aware number formatting.
+- Added tests for 20-locale number/date/plural formatter support, frontend/backend locale canonicalization, native locale labels, and RTL interpolation behavior.
+- Updated docs/LOCALIZATION_GLOBALIZATION_AUDIT.md with the verified baseline and remaining infrastructure gaps.
+- Current source head at the time of this roadmap entry: 78173bd1afce5105780add81baad988d22562218.
+- Verification status: GitHub connector returned no combined status checks and no PR-associated workflow runs for this commit. CI execution is therefore not confirmed here; do not mark this work green until the push-triggered workflow result is inspected.
+- Still open before translation production: script-font coverage/Android glyph QA, complete RTL visual/layout audit, plural-message catalog contract, full visible-literal/accessibility audit, and locale-specific no-fallback acceptance. No new locale was enabled.
