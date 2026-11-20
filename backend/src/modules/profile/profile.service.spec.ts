@@ -48,6 +48,17 @@ describe('ProfileService', () => {
     expect(prisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { displayName: 'Café' } }));
     expect(result.profile.displayName).toBe('Café');
   });
+  it('canonicalizes a registered profile locale before persistence', async () => {
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1', username: 'player_1', displayName: 'Player One', preferredLanguage: 'fa', createdAt: new Date(),
+    });
+    prisma.matchParticipant.findMany.mockResolvedValue([]);
+    await service.updateMyProfile(user, { preferredLanguage: 'FA' });
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: { preferredLanguage: 'fa' },
+    }));
+  });
   it('rejects guest language mutation', async () => {
     await expect(service.updateMyProfile(guest, { preferredLanguage: 'fa' })).rejects.toThrow(
       'Guest language is a device preference until account conversion',
