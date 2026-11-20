@@ -67,3 +67,7 @@ export function formatLocaleNumber(value, locale, options) {
 export function formatLocaleDate(value, locale, options) {
   return new Intl.DateTimeFormat(getLocaleConfig(locale).intlLocale, options).format(value);
 }
+
+export function getLocalePluralCategory(value, locale, options) {
+  return new Intl.PluralRules(getLocaleConfig(locale).intlLocale, options).select(value);
+}
