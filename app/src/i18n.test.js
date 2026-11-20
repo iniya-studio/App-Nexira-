@@ -177,6 +177,16 @@ test('locale registry contains the complete 20-locale target set without enablin
   }
 });
 
+test('matchmaking language labels use native locale metadata for every target locale', async () => {
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.ok(appSource.includes('{getLocaleConfig(matchmakingView?.language ?? language).nativeName}'));
+  assert.equal(appSource.includes("matchmakingView?.language ?? language) === 'fa' ? 'فارسی' : 'English'"), false);
+
+  for (const locale of getTargetLocales()) {
+    assert.ok(locale.nativeName.trim(), `Missing native language label: ${locale.code}`);
+  }
+});
+
 test('profile locale migration preserves supported locales and safely resets unknown locales', () => {
   assert.equal(normalizeProfile({ settings: { language: 'fa' } }).settings.language, 'fa');
   assert.equal(normalizeProfile({ settings: { language: 'en' } }).settings.language, 'en');
