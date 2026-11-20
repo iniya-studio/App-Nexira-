@@ -1247,11 +1247,11 @@ export default function App() {
         <h1>{text.challengeUnavailable}</h1>
         <p>{text.invalidChallenge}</p>
         <button className="primary-button" onClick={() => {
-          const selectedCategory = categoryById(run?.categoryId);
-          const selection = selectedCategory ? { categoryId: selectedCategory.id } : null;
+          const selectedCategory = run?.category ?? CATEGORY_CATALOG.find((item) => item.id === run?.categoryId) ?? categoryById(run?.categoryId);
+          const selection = selectedCategory ? { categoryId: selectedCategory.id, category: selectedCategory, subcategoryId: run?.subcategoryId } : null;
           runRef.current = null;
           setRun(selection);
-          navigate(selection ? 'modes' : 'categories');
+          navigate(selection ? 'subcategories' : 'categories');
         }}>
           <span className="primary-label">{text.backToChallenges}</span><ArrowRight className="primary-arrow" size={17} />
         </button>
@@ -1317,8 +1317,8 @@ export default function App() {
       {!matchView ? <GlassPanel variant="feature" role="alert">
         <p>{matchError ? getLocalizedApiError(matchError, text.account) : text.match.unavailable}</p>
         <button className="secondary-action" onClick={() => {
-          const selectedCategory = categoryById(run?.categoryId);
-          if (selectedCategory) void beginMatch(selectedCategory, '1vAI');
+          const selectedCategory = run?.category ?? CATEGORY_CATALOG.find((item) => item.id === run?.categoryId) ?? categoryById(run?.categoryId);
+          if (selectedCategory) void beginMatch({ ...selectedCategory, subcategoryId: run?.subcategoryId }, '1vAI');
           else leaveMatch('categories');
         }}>{text.match.retry}</button>
         <button className="secondary-action" onClick={leaveMatch}>{text.back}</button>
@@ -1504,7 +1504,7 @@ export default function App() {
       </GlassPanel>
       <div className="results-actions">
         <button className="primary-button" onClick={() => {
-          const selectedCategory = categoryById(matchView.categoryId ?? run?.categoryId) ?? run?.category ?? null;
+          const selectedCategory = run?.category ?? CATEGORY_CATALOG.find((item) => item.id === (matchView.categoryId ?? run?.categoryId)) ?? categoryById(matchView.categoryId ?? run?.categoryId) ?? null;
           if (selectedCategory) void beginMatch(selectedCategory, matchView.mode);
         }}><span className="play-mark"><RotateCcw size={16} /></span><span className="primary-label">{text.replay}</span><ArrowRight className="primary-arrow" size={18} /></button>
         <button className="secondary-action" onClick={() => leaveMatch('home')}>{text.homeLabel}</button>
