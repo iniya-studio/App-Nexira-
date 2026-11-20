@@ -4,6 +4,7 @@ export const QUESTION_GENERATOR = Symbol('QUESTION_GENERATOR');
 
 export type QuestionGenerationInput = {
   category: string;
+  subcategoryId?: string;
   difficulty: string;
   language: string;
   requiredLocales: string[];
