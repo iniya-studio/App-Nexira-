@@ -281,7 +281,7 @@ export default function App() {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [prefersReducedMotion, screen]);
+  }, [fontReady, prefersReducedMotion, screen]);
 
   useEffect(() => {
     if (Capacitor.getPlatform() !== 'android') return undefined;
