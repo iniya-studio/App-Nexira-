@@ -302,7 +302,7 @@ export function createOnlineMatchAdapter(api, {
 
   return {
     async start({ category, subcategoryId, language = 'en' } = {}) {
-      const created = await api.createAiMatch({ category, subcategoryId, language });
+      const created = await api.createAiMatch({ category, ...(subcategoryId ? { subcategoryId } : {}), language });
       if (!created?.id) throw new Error('Backend did not return a valid match ID.');
       view = {
         isOnline: true,
