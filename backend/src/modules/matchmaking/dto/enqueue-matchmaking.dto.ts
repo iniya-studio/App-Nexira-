@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsString, Length, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { ENABLED_LOCALES, normalizeLocaleCode } from '../../../common/localization/locale-registry';
 
 export class EnqueueMatchmakingDto {
@@ -7,6 +7,12 @@ export class EnqueueMatchmakingDto {
   @Length(1, 64)
   @Matches(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/)
   category!: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  @Matches(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/)
+  subcategoryId?: string;
 
   @IsString()
   @Transform(({ value }) => typeof value === 'string' ? normalizeLocaleCode(value) : value)
