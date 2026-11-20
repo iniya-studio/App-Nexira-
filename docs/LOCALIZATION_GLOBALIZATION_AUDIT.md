@@ -191,3 +191,35 @@ No section is DONE merely because its code or documentation was added. Evidence 
 - Added automated coverage for number/date/plural formatting across all 20 target Intl tags and for RTL interpolation isolation. These are test additions only until the corresponding CI run completes.
 - The earlier remaining-gap item “plural/message formatting” is now partially addressed: plural category selection and bidi-safe interpolation exist, but a full plural-message catalog contract and complete call-site audit remain open.
 - The script-font, full RTL visual, UI literal, and Android device acceptance gaps remain open. No locale enablement change was made.
+
+### Script-font architecture decision — 2026-11-20
+
+Source inspection confirmed that the frontend currently imports only Inter Variable and Orbitron Variable. The `Noto Sans Arabic` family name in the theme is a fallback declaration only; no Arabic font package is currently bundled. Script-font support is therefore an actual foundation gap, not merely a visual polish item.
+
+Approved font coverage matrix for implementation:
+
+| Locale(s) | Script coverage | Candidate family |
+| --- | --- | --- |
+| `fa`, `ar` | Arabic script | Noto Sans Arabic Variable |
+| `ur` | Urdu Nastaliq | Noto Nastaliq Urdu |
+| `hi` | Devanagari | Noto Sans Devanagari Variable |
+| `bn` | Bengali | Noto Sans Bengali Variable |
+| `th` | Thai | Noto Sans Thai Variable |
+| `ja` | Japanese | Noto Sans JP Variable |
+| `ko` | Korean | Noto Sans KR Variable |
+| `zh-CN` | Simplified Chinese | Noto Sans SC Variable |
+| remaining locales | Latin / extended Latin / Cyrillic | Existing Inter Variable, subject to glyph QA |
+
+Implementation constraints:
+
+- Use self-hosted Fontsource packages under their published licenses; do not depend on a remote font CDN at runtime.
+- Urdu must use its own Nastaliq family rather than treating generic Arabic sans as an equivalent Urdu typographic solution.
+- Load script families on demand by selected locale, not as a global eager font stack. Keep the CSS unicode-range/subset behavior where supported.
+- Measure Vite build output and final Android APK size before acceptance. CJK font packages can materially affect shipped asset size; do not accept an unmeasured size regression.
+- Preserve fallback stacks for unsupported glyphs and user-generated/AI-generated text. Font presence alone does not prove correct shaping or visual quality.
+- Validate representative glyphs, diacritics, combining marks, punctuation, numerals, mixed Latin/script text, and line-height/overflow on Android WebView.
+- Generate `package-lock.json` through npm in the project environment in the same change as `package.json`; never hand-edit lockfile metadata.
+
+Candidate package names were checked against Fontsource package documentation: `@fontsource-variable/noto-sans-arabic`, `@fontsource/noto-nastaliq-urdu`, `@fontsource-variable/noto-sans-devanagari`, `@fontsource-variable/noto-sans-bengali`, `@fontsource-variable/noto-sans-thai`, `@fontsource-variable/noto-sans-jp`, `@fontsource-variable/noto-sans-kr`, and `@fontsource-variable/noto-sans-sc`.
+
+**Status:** architecture selected; package installation and runtime implementation have not yet been committed. No locale is enabled by this font decision.
