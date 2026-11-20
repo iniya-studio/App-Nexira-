@@ -488,6 +488,7 @@ export default function App() {
         matchmakingTransitionRef.current = null;
         const queue = await adapter.start({
           category: category?.id ?? 'general',
+          subcategoryId: category?.subcategoryId,
           language: profileRef.current.settings.language,
         });
         setMatchmakingView({
@@ -512,6 +513,7 @@ export default function App() {
         onlineMatchAdapterRef.current = adapter;
         const next = await adapter.start({
           category: category?.id ?? 'general',
+          subcategoryId: category?.subcategoryId,
           language: profileRef.current.settings.language,
         });
         setMatchView({ ...next, categoryId: category?.id ?? 'general', categoryTitle: category?.title ?? 'General' });
@@ -1098,13 +1100,14 @@ export default function App() {
             if (entryMatchMode) {
               const selectedMode = entryMatchMode;
               setEntryMatchMode(null);
-              setRun({ categoryId: item.id });
-              beginMatch({ ...item, title: getCategoryTitle(language, item.id, item.id), subtitle: text.categorySubtitles[item.id] ?? '' }, selectedMode);
+              setRun({ categoryId: item.id, category: item, pendingMode: selectedMode });
+              setEntryMatchMode(null);
+              setScreen('subcategories');
               return;
             }
             runRef.current = null;
             setRun({ categoryId: item.id, category: item });
-            setScreen('modes');
+            setScreen('subcategories');
           }}>
             <span className="tile-top"><span className="tile-icon"><Icon size={20} /></span><span className="tile-index">0{index + 1}</span></span>
             <strong>{getCategoryTitle(language, item.id, item.id)}</strong><span className="tile-subtitle">{text.categorySubtitles[item.id] ?? ''}</span>
@@ -1116,6 +1119,38 @@ export default function App() {
         <p className="category-foot"><Sparkles size={13} /> {text.categoryFoot} <span>·</span> {text.localArena}</p>
       </GlassPanel>
     </ScreenFrame>}
+
+
+    {screen === 'subcategories' && (() => {
+      const selectedCategory = run?.category ?? CATEGORY_CATALOG.find((item) => item.id === run?.categoryId) ?? null;
+      if (!selectedCategory) return <ScreenFrame className="categories-screen"><GlassPanel><p className="empty-state">{text.challengeUnavailable}</p><button className="secondary-action" onClick={() => navigate('categories')}>{text.back}</button></GlassPanel></ScreenFrame>;
+      const Icon = CATEGORY_ICONS[selectedCategory.icon] ?? Activity;
+      return <ScreenFrame className="categories-screen subcategories-screen">
+        <button className="back-link" onClick={() => navigate('categories')}><ArrowLeft size={15} /> {text.back}</button>
+        <ScreenHeading eyebrow={getCategoryTitle(language, selectedCategory.id, selectedCategory.title).toUpperCase()} title={text.subcategoryTitle} accent={text.subcategoryAccent} description={text.subcategoryDescription} />
+        <GlassPanel variant="feature" className="category-selection-panel">
+          <div className={`mode-category-card tone-${selectedCategory.tone}`}>
+            <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span>
+            <span><strong>{getCategoryTitle(language, selectedCategory.id, selectedCategory.title)}</strong><small>{text.categorySubcategories[selectedCategory.id]?.[run?.subcategoryId] ?? text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
+          </div>
+          <div className="category-grid subcategory-grid">
+            {selectedCategory.subcategories.map((subcategoryId, index) => (
+              <button key={subcategoryId} className={`category-tile tone-${selectedCategory.tone}`} onClick={() => {
+                const selected = { ...selectedCategory, subcategoryId };
+                const pendingMode = run?.pendingMode;
+                runRef.current = { ...run, categoryId: selectedCategory.id, category: selected, subcategoryId };
+                setRun(runRef.current);
+                if (pendingMode) beginMatch(selected, pendingMode);
+                else setScreen('modes');
+              }}>
+                <span className="tile-top"><span className="tile-index">0{index + 1}</span><span className="tile-arrow"><ChevronRight size={16} /></span></span>
+                <strong>{text.categorySubcategories[selectedCategory.id]?.[subcategoryId] ?? subcategoryId}</strong>
+              </button>
+            ))}
+          </div>
+        </GlassPanel>
+      </ScreenFrame>;
+    })()}
 
     {screen === 'modes' && (() => {
       const selectedCategory = categoryById(run?.categoryId) ?? run?.category ?? null;
