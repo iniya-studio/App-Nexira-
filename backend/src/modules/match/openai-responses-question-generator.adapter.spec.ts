@@ -4,6 +4,7 @@ import {
   QuestionGenerationInput,
 } from './question-generator.port';
 import { OpenAiResponsesQuestionGeneratorAdapter } from './openai-responses-question-generator.adapter';
+import { TARGET_LOCALES } from '../../common/localization/locale-registry';
 
 describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
   const excludedId = 'c0f6df1e-2cdd-4946-99d7-d46485c1b86d';
@@ -134,6 +135,53 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     expect(providerInput).toContain(excludedFingerprint);
     expect(providerInput).not.toContain(excludedId);
     expect(providerInput).not.toContain('participantId');
+  });
+
+
+  it('generates and validates one shared question for the complete 20-locale target set', async () => {
+    const locales = Object.keys(TARGET_LOCALES);
+    const localized = locales.map((language) => ({
+      language,
+      prompt: `Localized prompt for ${language}`,
+      expectedAnswer: `Localized answer for ${language}`,
+      options: [
+        { id: 'A', text: `Option A (${language})` },
+        { id: 'B', text: `Option B (${language})` },
+        { id: 'C', text: `Option C (${language})` },
+      ],
+      gradingRubric: {
+        requiredConcepts: [`Concept (${language})`],
+        acceptEquivalentWording: true,
+        notes: `Localized grading guidance (${language})`,
+      },
+    }));
+    respond({ ...structuredQuestion, localized });
+
+    const result = await adapter.generate({
+      ...input,
+      requiredLocales: locales,
+    });
+
+    expect(Object.keys(result.localized as Record<string, unknown>).sort())
+      .toEqual([...locales].sort());
+    for (const locale of locales) {
+      expect(result.localized[locale]).toMatchObject({
+        prompt: expect.any(String),
+        expectedAnswer: expect.any(String),
+        options: { A: expect.any(String), B: expect.any(String), C: expect.any(String) },
+        gradingRubric: {
+          requiredConcepts: [expect.any(String)],
+          acceptEquivalentWording: true,
+          notes: expect.any(String),
+        },
+      });
+    }
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string,
+    );
+    expect(JSON.parse(body.input[1].content[0].text).required_locales.sort())
+      .toEqual([...locales].sort());
   });
 
   it('requests Persian directly for every generated question field when Persian is selected', async () => {

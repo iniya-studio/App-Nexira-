@@ -4,6 +4,7 @@ import {
   getEnabledLocales,
   isEnabledLocale,
   isTargetLocale,
+  normalizeLocaleCode,
 } from './locale-registry';
 
 describe('backend locale registry', () => {
@@ -28,6 +29,13 @@ describe('backend locale registry', () => {
     expect(TARGET_LOCALES.ar.direction).toBe('rtl');
     expect(TARGET_LOCALES.ur.direction).toBe('rtl');
     expect(Object.values(TARGET_LOCALES).filter((locale) => locale.direction === 'rtl')).toHaveLength(3);
+  });
+
+  it('canonicalizes BCP-47 casing without corrupting target locale identifiers', () => {
+    expect(normalizeLocaleCode('zh-cn')).toBe('zh-CN');
+    expect(normalizeLocaleCode('ZH-CN')).toBe('zh-CN');
+    expect(normalizeLocaleCode('FA')).toBe('fa');
+    expect(normalizeLocaleCode('en')).toBe('en');
   });
 
   it('rejects unknown and malformed locale identifiers', () => {

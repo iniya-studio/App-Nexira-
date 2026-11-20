@@ -48,3 +48,16 @@ export function isEnabledLocale(locale: unknown): locale is (typeof ENABLED_LOCA
 export function getEnabledLocales(): readonly LocaleDefinition[] {
   return ENABLED_LOCALES.map((locale) => TARGET_LOCALES[locale]);
 }
+
+/**
+ * Canonicalizes BCP-47 casing without collapsing distinct target locale IDs.
+ * For example, zh-cn becomes zh-CN (not zh-cn).
+ */
+export function normalizeLocaleCode(locale: string): string {
+  const trimmed = locale.trim();
+  try {
+    return Intl.getCanonicalLocales(trimmed)[0] ?? trimmed;
+  } catch {
+    return trimmed;
+  }
+}

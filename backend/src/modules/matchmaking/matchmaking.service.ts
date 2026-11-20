@@ -17,7 +17,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { isEnabledLocale } from '../../common/localization/locale-registry';
+import { isEnabledLocale, normalizeLocaleCode } from '../../common/localization/locale-registry';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
 import { MatchmakingGateway } from './matchmaking.gateway';
@@ -82,7 +82,7 @@ export class MatchmakingService {
       throw new ServiceUnavailableException('Public 1v1 matchmaking is not enabled');
     }
     const category = input.category.trim().toLowerCase();
-    const requestedLanguage = input.language.trim().toLowerCase();
+    const requestedLanguage = normalizeLocaleCode(input.language);
     if (!SUPPORTED_CATEGORIES.has(category)) throw new BadRequestException('Unsupported matchmaking category');
     if (principal.principalType === PrincipalType.GUEST && !isEnabledLocale(requestedLanguage)) {
       throw new BadRequestException('Unsupported matchmaking language');
@@ -101,7 +101,7 @@ export class MatchmakingService {
       const profileLanguage = principal.principalType === PrincipalType.USER
         ? (await tx.user.findUnique({ where: { id: principal.principalId }, select: { preferredLanguage: true } }))?.preferredLanguage
         : null;
-      const language = (profileLanguage?.trim() || requestedLanguage);
+      const language = normalizeLocaleCode(profileLanguage?.trim() || requestedLanguage);
       if (!isEnabledLocale(language)) throw new BadRequestException('Unsupported matchmaking language');
 
       // Locale is intentionally excluded from the compatibility lock: category defines the bucket.
