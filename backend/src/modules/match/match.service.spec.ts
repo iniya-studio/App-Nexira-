@@ -272,12 +272,12 @@ describe('MatchService', () => {
     });
     await service.createAiMatch(
       { principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'session-1' },
-      { category: 'science', language: 'fa' },
+      { category: 'science', subcategoryId: 'physics', language: 'fa' },
     );
     expect(tx.questionGenerationJob.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         requestContext: expect.objectContaining({
-          category: 'science', language: 'fa', answerType: 'FREE_TEXT',
+          category: 'science', subcategoryId: 'physics', language: 'fa', answerType: 'FREE_TEXT',
         }),
       }),
     });
