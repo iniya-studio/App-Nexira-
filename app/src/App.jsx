@@ -1077,7 +1077,11 @@ export default function App() {
         </button>
       </section>
 
-      <button className="reference-quick-battle" onClick={() => { setEntryMatchMode('1v1'); navigate('categories'); }}>
+      <button className="reference-quick-battle" onClick={() => {
+        const category = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+        const modeIndex = Math.floor(Math.random() * category.modes.length);
+        beginChallenge(category, category.modes[modeIndex], modeIndex);
+      }}>
         <Zap size={34} fill="currentColor" />
         <span><strong>{text.home.quickBattle}</strong><small>{text.home.quickBattleNote}</small></span>
         <Clock3 size={30} />
@@ -1150,8 +1154,9 @@ export default function App() {
                 const pendingMode = run?.pendingMode;
                 runRef.current = { ...run, categoryId: selectedCategory.id, category: selected, subcategoryId };
                 setRun(runRef.current);
-                if (pendingMode) beginMatch(selected, pendingMode);
-                else setScreen('modes');
+                // The selected mode was chosen on Home. Never insert the legacy
+                // challenge/mode picker between category selection and the match.
+                void beginMatch(selected, pendingMode ?? '1vAI');
               }}>
                 <span className="tile-top"><span className="tile-index">0{index + 1}</span><span className="tile-arrow"><ChevronRight size={16} /></span></span>
                 <strong>{text.categorySubcategories[selectedCategory.id]?.[subcategoryId] ?? subcategoryId}</strong>
