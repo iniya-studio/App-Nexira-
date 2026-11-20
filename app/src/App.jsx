@@ -1143,7 +1143,7 @@ export default function App() {
               : import.meta.env.PROD
                 ? text.match.competitiveTesting
                 : text.match.competitivePreview}</p>
-            <button className="mode-option" disabled={matchBusy || (import.meta.env.PROD && !publicOneVsOneEnabled)} onClick={() => beginMatch(selectedCategory, '1v1')}>
+            <button className="mode-option" disabled={matchBusy || ((import.meta.env.PROD || Array.isArray(selectedCategory.subcategories)) && !publicOneVsOneEnabled)} onClick={() => beginMatch(selectedCategory, '1v1')}>
               <span className="mode-number">P1</span>
               <span className="mode-label">{publicOneVsOneEnabled
                 ? text.match.onlineOneVsOne
@@ -1469,7 +1469,7 @@ export default function App() {
       </GlassPanel>
       <div className="results-actions">
         <button className="primary-button" onClick={() => {
-          const selectedCategory = categoryById(matchView.categoryId ?? run?.categoryId);
+          const selectedCategory = categoryById(matchView.categoryId ?? run?.categoryId) ?? run?.category ?? null;
           if (selectedCategory) void beginMatch(selectedCategory, matchView.mode);
         }}><span className="play-mark"><RotateCcw size={16} /></span><span className="primary-label">{text.replay}</span><ArrowRight className="primary-arrow" size={18} /></button>
         <button className="secondary-action" onClick={() => leaveMatch('home')}>{text.homeLabel}</button>
