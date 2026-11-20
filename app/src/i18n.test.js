@@ -46,7 +46,7 @@ test('category selection renders the canonical catalog and retains server-AI mat
   assert.ok(appSource.includes('text.categorySubcategories[selectedCategory.id]?.[subcategoryId]'));
   assert.ok(appSource.includes('Array.isArray(category?.subcategories)'));
   assert.ok(appSource.includes('const selectedCategory = run?.category ?? categoryById(run?.categoryId) ?? null'));
-  assert.ok(appSource.includes('run?.category ?? null'));
+  assert.ok(appSource.includes('run?.category ?? categoryById(run?.categoryId) ?? null'));
 });
 
 test('English and Persian provide the same complete translation keys', () => {
