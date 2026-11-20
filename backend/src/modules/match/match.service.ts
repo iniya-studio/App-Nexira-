@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { MatchMode, MatchStatus, ParticipantType, PrincipalType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isEnabledLocale, normalizeLocaleCode } from '../../common/localization/locale-registry';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { questionGenerationInputForMatch } from './question-generation.context';
 
@@ -66,7 +67,10 @@ export class MatchService {
       const preferredLanguage = principal.principalType === PrincipalType.USER
         ? (await tx.user.findUnique({ where: { id: principal.principalId }, select: { preferredLanguage: true } }))?.preferredLanguage
         : null;
-      const participantLanguage = preferredLanguage?.trim() || options.language?.trim() || 'en';
+      const participantLanguage = normalizeLocaleCode(preferredLanguage?.trim() || options.language?.trim() || 'en');
+      if (!isEnabledLocale(participantLanguage)) {
+        throw new BadRequestException('Unsupported match language');
+      }
 
       return this.createMatchWithInitialQuestion(
         MatchMode.ONE_V_AI,
@@ -131,13 +135,24 @@ export class MatchService {
               select: { preferredLanguage: true },
             })
           : null;
-      const language = questionSettings.language?.trim() || preferredLanguage?.preferredLanguage?.trim() || 'en';
+      const language = normalizeLocaleCode(questionSettings.language?.trim() || preferredLanguage?.preferredLanguage?.trim() || 'en');
+      if (!isEnabledLocale(language)) {
+        throw new BadRequestException('Unsupported match language');
+      }
+      const normalizedParticipants = participants.map((participant) => {
+        if (participant.participantType !== ParticipantType.HUMAN) return participant;
+        const participantLanguage = normalizeLocaleCode(String(participant.language ?? ''));
+        if (!isEnabledLocale(participantLanguage)) {
+          throw new BadRequestException('Unsupported participant language');
+        }
+        return { ...participant, language: participantLanguage };
+      });
       const match = await tx.match.create({
         data: {
           mode,
           status: MatchStatus.WAITING,
           roundsTarget: configuredV1MatchRounds(),
-          participants: { create: participants },
+          participants: { create: normalizedParticipants },
         },
         select: {
           id: true,
