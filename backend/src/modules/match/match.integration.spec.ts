@@ -174,7 +174,7 @@ describe('Match and round persistence integration', () => {
     } as const;
     const first = await matches.createAiMatch(principal, { category: 'science', subcategoryId: 'physics', language: 'fa' });
     matchIds.push(first.id);
-    const retry = await matches.createAiMatch(principal, { category: 'science', language: 'fa' });
+    const retry = await matches.createAiMatch(principal, { category: 'science', subcategoryId: 'physics', language: 'fa' });
     expect(retry.id).toBe(first.id);
     expect(await prisma.match.count({
       where: {
