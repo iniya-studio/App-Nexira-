@@ -22,7 +22,7 @@ import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from '../match/match.service';
 import { MatchmakingGateway } from './matchmaking.gateway';
 
-const SUPPORTED_CATEGORIES = new Set([
+const LEGACY_CATEGORIES = new Set([
   'general',
   'general-knowledge',
   'english',
@@ -40,6 +40,37 @@ const SUPPORTED_CATEGORIES = new Set([
   'science',
 ]);
 
+function isSupportedCategorySelection(category: string, subcategoryId: string | null, legacy: Set<string>) {
+  const catalog: Record<string, readonly string[]> = {
+    gaming: ['famous-games','game-characters','esports','studios','gaming-history'],
+    'movies-tv': ['movies','tv-series','actors','characters','awards'],
+    music: ['pop','rock','hip-hop-rap','k-pop','artists-bands'],
+    sports: ['football','basketball','combat-sports','world-competitions','famous-athletes'],
+    technology: ['ai','mobile-gadgets','computers','internet','technology-companies'],
+    'internet-social-media': ['youtube','streamers','social-networks','popular-memes','internet-trends'],
+    'anime-manga': ['anime-series','characters','manga','studios','japanese-world'],
+    'superheroes-comics': ['marvel','dc','superheroes','comics','antiheroes'],
+    geography: ['countries','cities','flags','landmarks','world-wonders'],
+    history: ['civilizations','kingdoms','wars','revolutions','historical-figures'],
+    space: ['solar-system','planets','space-missions','space-agencies','discoveries'],
+    science: ['physics','chemistry','biology','inventions','scientists'],
+    'cars-motorsports': ['car-brands','supercars','motorcycles','formula-one','racing'],
+    'animals-nature': ['animals','oceans','forests','nature','animal-records'],
+    'food-drinks': ['world-cuisines','fast-food','desserts','beverages','food-brands'],
+    'art-design': ['painting','architecture','photography','design','famous-artworks'],
+    'books-stories': ['novels','authors','fantasy','science-fiction','fictional-characters'],
+    'culture-lifestyle': ['national-cultures','festivals','traditions','fashion','lifestyle'],
+    'brands-business': ['global-brands','companies','startups','entrepreneurs','commerce'],
+    'mythology-legends': ['greek-mythology','norse-mythology','egyptian-mythology','iranian-mythology','world-mythologies'],
+    'travel-tourism': ['destinations','famous-attractions','scenic-cities','hotels','adventure-and-unique-places'],
+    'education-mathematics': ['mathematics','logic-puzzles','mental-calculations','general-knowledge','thinking-challenges'],
+    'fashion-beauty': ['fashion-clothing','fashion-brands','makeup-beauty','personal-style','trends-and-designers'],
+  };
+  const subcategories = catalog[category];
+  if (subcategories) return Boolean(subcategoryId && subcategories.includes(subcategoryId));
+  return legacy.has(category) && subcategoryId === null;
+}
+
 function configuredPositiveInteger(name: string, fallback: number) {
   const raw = process.env[name];
   const value = raw === undefined || raw === '' ? fallback : Number(raw);
@@ -52,6 +83,7 @@ type QueueEntry = {
   userId: string | null;
   guestIdentityId: string | null;
   category: string;
+  subcategoryId: string | null;
   language: string;
   status: MatchmakingEntryStatus;
   matchId: string | null;
@@ -73,7 +105,7 @@ export class MatchmakingService {
 
   async enqueue(
     principal: AuthenticatedPrincipal,
-    input: { category: string; language: string; idempotencyKey: string },
+    input: { category: string; subcategoryId?: string; language: string; idempotencyKey: string },
   ) {
     if (
       process.env.NODE_ENV !== 'test' &&
@@ -83,7 +115,8 @@ export class MatchmakingService {
     }
     const category = input.category.trim().toLowerCase();
     const requestedLanguage = normalizeLocaleCode(input.language);
-    if (!SUPPORTED_CATEGORIES.has(category)) throw new BadRequestException('Unsupported matchmaking category');
+    const subcategoryId = input.subcategoryId?.trim().toLowerCase() || null;
+    if (!isSupportedCategorySelection(category, subcategoryId, LEGACY_CATEGORIES)) throw new BadRequestException('Unsupported matchmaking category or subcategory');
     if (principal.principalType === PrincipalType.GUEST && !isEnabledLocale(requestedLanguage)) {
       throw new BadRequestException('Unsupported matchmaking language');
     }
@@ -104,8 +137,8 @@ export class MatchmakingService {
       const language = normalizeLocaleCode(profileLanguage?.trim() || requestedLanguage);
       if (!isEnabledLocale(language)) throw new BadRequestException('Unsupported matchmaking language');
 
-      // Locale is intentionally excluded from the compatibility lock: category defines the bucket.
-      const bucket = `nexira:1v1:${category}`;
+      // Locale is presentation metadata; category plus subcategory define the compatibility bucket.
+      const bucket = `nexira:1v1:${category}:${subcategoryId ?? 'all'}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
 
       const prior = await tx.matchmakingEntry.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
@@ -134,13 +167,14 @@ export class MatchmakingService {
         data: { status: MatchmakingEntryStatus.EXPIRED },
       });
       await tx.matchmakingEntry.updateMany({
-        where: { status: MatchmakingEntryStatus.WAITING, category, expiresAt: { lte: now } },
+        where: { status: MatchmakingEntryStatus.WAITING, category, subcategoryId, expiresAt: { lte: now } },
         data: { status: MatchmakingEntryStatus.EXPIRED },
       });
       const entry = await tx.matchmakingEntry.create({
         data: {
           ...principalData,
           category,
+          subcategoryId,
           language,
           idempotencyKey: input.idempotencyKey,
           expiresAt: new Date(now.getTime() + queueTtlSeconds * 1000),
@@ -155,6 +189,7 @@ export class MatchmakingService {
           SELECT "id" FROM "MatchmakingEntry"
           WHERE "status" = 'WAITING'::"MatchmakingEntryStatus"
             AND "category" = ${category}
+            AND "subcategoryId" IS NOT DISTINCT FROM ${subcategoryId}
             AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
             AND "id" <> ${entry.id}::uuid
             AND (
@@ -209,7 +244,7 @@ export class MatchmakingService {
         this.toPrincipal(opponent),
         this.toPrincipal(entry),
         tx,
-        { category, language: entry.language, participantLanguages: { first: opponent.language, second: entry.language } },
+        { category, subcategoryId, language: entry.language, participantLanguages: { first: opponent.language, second: entry.language } },
       );
       const matchedAt = new Date();
       const consumed = await tx.matchmakingEntry.updateMany({
@@ -225,6 +260,7 @@ export class MatchmakingService {
           matchId: match.id,
           match,
           category,
+          subcategoryId,
           language,
           queuedAt: entry.queuedAt,
           matchedAt,
@@ -293,10 +329,10 @@ export class MatchmakingService {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
       const waitingBuckets = await tx.matchmakingEntry.findMany({
         where: { ...this.principalWhere(principal), status: MatchmakingEntryStatus.WAITING },
-        select: { category: true },
+        select: { category: true, subcategoryId: true },
       });
       const bucketLocks = [...new Set(
-        waitingBuckets.map((entry) => `nexira:1v1:${entry.category}`),
+        waitingBuckets.map((entry) => `nexira:1v1:${entry.category}:${entry.subcategoryId ?? 'all'}`),
       )].sort();
       for (const bucket of bucketLocks) {
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${bucket})) IS NULL AS locked`;
@@ -388,6 +424,7 @@ export class MatchmakingService {
       status: entry.status,
       matchId: entry.matchId,
       category: entry.category,
+      subcategoryId: entry.subcategoryId,
       language: entry.language,
       queuedAt: entry.queuedAt,
       matchedAt: entry.matchedAt,
