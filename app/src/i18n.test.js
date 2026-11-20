@@ -35,6 +35,17 @@ test('all UI translation references and data-backed category labels are present'
 });
 
 
+
+test('home brand tagline and navigation accessibility label are localized', async () => {
+  assert.equal(COPY.en.brandTagline, 'PLAY · COMPETE · WIN');
+  assert.equal(COPY.fa.brandTagline, 'بازی کن · رقابت کن · پیروز شو');
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.match(appSource, /\{text\.brandTagline\}/);
+  assert.match(appSource, /aria-label=\{\`\$\{text\.navHome\} · NEXIRA\`\}/);
+  assert.equal(appSource.includes('PLAY · COMPETE · WIN'), false);
+  assert.equal(appSource.includes('NEXIRA Home'), false);
+});
+
 test('home screen copy is centralized and complete for every active locale', () => {
   const keys = ['matchModes', 'duelDescription', 'aiDescription', 'quickBattle', 'quickBattleNote', 'yourStats', 'matches', 'bestScore', 'accuracy', 'store'];
   for (const locale of ['en', 'fa']) {

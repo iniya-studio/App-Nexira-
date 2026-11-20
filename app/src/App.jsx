@@ -993,9 +993,9 @@ export default function App() {
 
     {screen === 'home' && <ScreenFrame className="home-screen home-reference-screen">
       <header className="reference-header">
-        <button className="reference-brand-button" onClick={() => navigate('home')} aria-label="NEXIRA Home">
+        <button className="reference-brand-button" onClick={() => navigate('home')} aria-label={`${text.navHome} · NEXIRA`}>
           <Brand />
-          <span className="reference-tagline">PLAY · COMPETE · WIN</span>
+          <span className="reference-tagline">{text.brandTagline}</span>
         </button>
         <div className="reference-header-actions">
           <button className="reference-icon-button" onClick={() => navigate('settings')} aria-label={text.settings}><Settings size={22} /></button>
