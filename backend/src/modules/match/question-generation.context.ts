@@ -8,7 +8,7 @@ export async function questionGenerationInputForMatch(
   matchId: string,
   settings: Pick<
     QuestionGenerationInput,
-    'category' | 'difficulty' | 'language' | 'answerType' | 'timeLimitSeconds'
+    'category' | 'subcategoryId' | 'difficulty' | 'language' | 'answerType' | 'timeLimitSeconds'
   >,
 ): Promise<QuestionGenerationInput> {
   const match = await tx.match.findUnique({
@@ -103,6 +103,7 @@ export function parseQuestionGenerationInput(
   if (
     !context ||
     typeof context.category !== 'string' ||
+    (context.subcategoryId !== undefined && context.subcategoryId !== null && typeof context.subcategoryId !== 'string') ||
     typeof context.difficulty !== 'string' ||
     typeof context.language !== 'string' ||
     !Array.isArray(context.requiredLocales) ||
@@ -125,6 +126,7 @@ export function parseQuestionGenerationInput(
 
   return {
     category: context.category,
+    ...(typeof context.subcategoryId === 'string' ? { subcategoryId: context.subcategoryId } : {}),
     difficulty: context.difficulty,
     language: context.language,
     requiredLocales: [...new Set(context.requiredLocales as string[])].sort(),
