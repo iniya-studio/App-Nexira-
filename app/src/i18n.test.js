@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { CATEGORIES, normalizeProfile } from './game/data.js';
-import { DEFAULT_LOCALE, formatLocaleNumber, getLocaleConfig, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, normalizeLocaleCode, resolveLocale } from './locales.js';
+import { DEFAULT_LOCALE, formatLocaleDate, formatLocaleNumber, getLocaleConfig, getLocalePluralCategory, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, normalizeLocaleCode, resolveLocale } from './locales.js';
 import { COPY, formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
 
 test('English and Persian provide the same complete translation keys', () => {
@@ -102,7 +102,7 @@ test('all game categories have localized display names in English and Persian', 
 
 test('unknown languages fall back to English and interpolation avoids undefined text', () => {
   assert.equal(getCopy('unknown'), COPY.en);
-  assert.equal(formatCopy(COPY.fa.answeredProgress, { answered: 2, total: 3 }), '2 از 3 پاسخ داده شد');
+  assert.equal(formatCopy(COPY.fa.answeredProgress, { answered: 2, total: 3 }, 'fa'), '\u20682\u2069 از \u20683\u2069 پاسخ داده شد');
   assert.equal(formatCopy('Value: {missing}', {}), 'Value: ');
 });
 
@@ -184,6 +184,19 @@ test('matchmaking language labels use native locale metadata for every target lo
 
   for (const locale of getTargetLocales()) {
     assert.ok(locale.nativeName.trim(), `Missing native language label: ${locale.code}`);
+  }
+});
+
+test('number, date, and plural formatters support every target Intl locale', () => {
+  const sampleDate = new Date('2026-11-20T12:00:00.000Z');
+  const allowedPluralCategories = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
+
+  for (const locale of getTargetLocales()) {
+    assert.ok(formatLocaleNumber(12345.67, locale.code), `Number formatting failed for ${locale.code}`);
+    assert.ok(formatLocaleDate(sampleDate, locale.code, { dateStyle: 'medium' }), `Date formatting failed for ${locale.code}`);
+    for (const value of [0, 1, 2, 5, 11, 21, 1.5]) {
+      assert.ok(allowedPluralCategories.has(getLocalePluralCategory(value, locale.code)), `Invalid plural category for ${locale.code}`);
+    }
   }
 });
 
@@ -278,12 +291,12 @@ test('account and session UI copy is centralized with complete English/Persian p
 
   const localizedCount = formatLocaleNumber(2, 'fa');
   assert.equal(
-    formatCopy(persian.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: localizedCount }),
-    `رمز عبور تغییر کرد و ${localizedCount} نشست دیگر بسته شد.`,
+    formatCopy(persian.password_changed_result_sessionsrevoked_other_se, { sessionsRevoked: localizedCount, revokedSessions: localizedCount }, 'fa'),
+    `رمز عبور تغییر کرد و \u2068${localizedCount}\u2069 نشست دیگر بسته شد.`,
   );
   assert.equal(
-    formatCopy(persian.all_sessions_were_revoked_result_revokedsessions, { revokedSessions: localizedCount }),
-    `همه نشست‌ها باطل شدند (${localizedCount}).`,
+    formatCopy(persian.all_sessions_were_revoked_result_revokedsessions, { revokedSessions: localizedCount }, 'fa'),
+    `همه نشست‌ها باطل شدند (\u2068${localizedCount}\u2069).`,
   );
   for (const key of requiredKeys) {
     assert.ok(english[key]?.trim(), `Missing English account state copy: ${key}`);
