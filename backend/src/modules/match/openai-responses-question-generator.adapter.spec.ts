@@ -164,8 +164,9 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
 
     expect(Object.keys(result.localized as Record<string, unknown>).sort())
       .toEqual([...locales].sort());
+    const localizedResult = result.localized as Record<string, unknown>;
     for (const locale of locales) {
-      expect(result.localized[locale]).toMatchObject({
+      expect(localizedResult[locale]).toMatchObject({
         prompt: expect.any(String),
         expectedAnswer: expect.any(String),
         options: { A: expect.any(String), B: expect.any(String), C: expect.any(String) },
