@@ -471,3 +471,25 @@ test('frontend and backend locale metadata stay in parity', async () => {
   assert.match(backendRegistry, /export const ENABLED_LOCALES = Object\.freeze\(\['en', 'fa'\] as const\);/);
   assert.equal(getLocaleConfig('ko').nativeName, '한국어');
 });
+
+
+test('primary UI copy alignment uses logical text direction in the base stylesheet', async () => {
+  const styles = await readFile(new URL('./styles.css', import.meta.url), 'utf8');
+  for (const selector of [
+    '.top-profile-copy',
+    '.primary-button',
+    '.daily-button',
+    '.home-quicklinks button',
+    '.category-tile',
+    '.mode-option',
+    '.answer-button',
+  ]) {
+    const start = styles.indexOf(`${selector}{`);
+    assert.notEqual(start, -1, `Missing base style rule: ${selector}`);
+    const end = styles.indexOf('}', start);
+    const rule = styles.slice(start, end);
+    assert.ok(rule.includes('text-align:start'), `${selector} must align with the active writing direction`);
+  }
+  assert.equal(styles.includes('text-align:left'), false, 'Physical left alignment must not remain in the base UI stylesheet.');
+  assert.ok(styles.includes('padding-inline:17px'), 'The mobile bottom sheet must use direction-aware horizontal padding.');
+});
