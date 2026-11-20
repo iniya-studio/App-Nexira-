@@ -1157,7 +1157,7 @@ export default function App() {
       if (!selectedCategory) return <ScreenFrame className="categories-screen"><GlassPanel><p className="empty-state">{text.challengeUnavailable}</p><button className="secondary-action" onClick={() => navigate('categories')}>{text.back}</button></GlassPanel></ScreenFrame>;
       const Icon = CATEGORY_ICONS[selectedCategory.icon] ?? Activity;
       return <ScreenFrame className="categories-screen">
-        <button className="back-link" onClick={() => navigate('categories')}><ArrowLeft size={15} /> {text.back}</button>
+        <button className="back-link" onClick={() => navigate('subcategories')}><ArrowLeft size={15} /> {text.back}</button>
         <ScreenHeading eyebrow={`${getCategoryTitle(language, selectedCategory.id, selectedCategory.title).toUpperCase()} · ${text.modeEyebrow}`} title={text.modeTitle} accent={text.modeAccent} description={text.modeDescription} />
         {matchError && <p className="panel-note" role="alert">{getLocalizedApiError(matchError, text.account)}</p>}
         <GlassPanel variant="feature" className="mode-selection-panel">
