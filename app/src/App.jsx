@@ -527,7 +527,7 @@ export default function App() {
           subcategoryId: category?.subcategoryId,
           language: profileRef.current.settings.language,
         });
-        setMatchView({ ...next, categoryId: category?.id ?? 'general', subcategoryId: category?.subcategoryId ?? null, categoryTitle: category?.title ?? 'General' });
+        setMatchView({ ...next, categoryId: category?.id ?? 'general', subcategoryId: category?.subcategoryId ?? null, categoryTitle: getCategoryTitle(profileRef.current.settings.language, category?.id ?? 'general', category?.title ?? category?.id ?? 'General') });
         setOnlineAnswerText('');
         setMatchError('');
         setShowExitConfirm(false);
@@ -1166,6 +1166,7 @@ export default function App() {
       const selectedCategory = run?.category ?? categoryById(run?.categoryId) ?? null;
       if (!selectedCategory) return <ScreenFrame className="categories-screen"><GlassPanel><p className="empty-state">{text.challengeUnavailable}</p><button className="secondary-action" onClick={() => navigate('categories')}>{text.back}</button></GlassPanel></ScreenFrame>;
       const Icon = CATEGORY_ICONS[selectedCategory.icon] ?? Activity;
+      const usesServerAi = import.meta.env.PROD || Array.isArray(selectedCategory.subcategories);
       return <ScreenFrame className="categories-screen">
         <button className="back-link" onClick={() => navigate('subcategories')}><ArrowLeft size={15} /> {text.back}</button>
         <ScreenHeading eyebrow={`${getCategoryTitle(language, selectedCategory.id, selectedCategory.title).toUpperCase()} · ${text.modeEyebrow}`} title={text.modeTitle} accent={text.modeAccent} description={text.modeDescription} />
@@ -1209,13 +1210,13 @@ export default function App() {
             </button>
             <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1vAI')}>
               <span className="mode-number">AI</span>
-              <span className="mode-label">{import.meta.env.PROD
+              <span className="mode-label">{usesServerAi
                 ? text.match.onlineOneVsAi
                 : text.match.previewOneVsAi}
-                <small>{import.meta.env.PROD
+                <small>{usesServerAi
                   ? text.match.serverAi
                   : text.match.scriptedAi}</small></span>
-              <span className="difficulty-badge">{import.meta.env.PROD
+              <span className="difficulty-badge">{usesServerAi
                 ? text.match.online
                 : text.match.offline}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
