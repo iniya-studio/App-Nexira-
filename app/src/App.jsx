@@ -1194,7 +1194,7 @@ export default function App() {
       </div>
       <div className="gameplay-hud">
         <div className="arena-timer">
-          <div className={`arena-timer-ring${remaining <= 5 ? ' arena-timer-ring--urgent' : ''}`} style={{ '--timer-progress': `${Math.max(0, Math.min(100, remaining / run.timeLimit * 100))}%` }} role="timer" aria-label={formatCopy(text.timerLabel, { label: text.timeRemaining, seconds: `${Math.ceil(remaining)} ${text.secondsUnit}` })}>
+          <div className={`arena-timer-ring${remaining <= 5 ? ' arena-timer-ring--urgent' : ''}`} style={{ '--timer-progress': `${Math.max(0, Math.min(100, remaining / run.timeLimit * 100))}%` }} role="timer" aria-label={formatCopy(text.timerLabel, { label: text.timeRemaining, seconds: `${Math.ceil(remaining)} ${text.secondsUnit}` }, language)}>
             <span><small>{text.timeRemaining}</small><strong>{Math.ceil(remaining)}<i>{text.secondsShort}</i></strong></span>
           </div>
         </div>
@@ -1215,7 +1215,7 @@ export default function App() {
         <div className="question-panel-top">
           <span><span className="live-dot" /> {text.round} <i>{String(run.questionIndex + 1).padStart(2, '0')} / {String(run.total).padStart(2, '0')}</i></span>
         </div>
-        <div className="round-track" aria-label={formatCopy(text.answeredProgress, { answered: run.answers.length, total: run.total })}>
+        <div className="round-track" aria-label={formatCopy(text.answeredProgress, { answered: run.answers.length, total: run.total }, language)}>
           {run.questions.map((_, index) => <i key={index} className={index < run.answers.length ? (run.answers[index].correct ? 'round-correct' : 'round-wrong') : ''} />)}
         </div>
         <div className="question-copy">
