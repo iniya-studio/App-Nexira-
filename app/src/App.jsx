@@ -24,6 +24,7 @@ import { loadLocaleFont } from './localeFonts.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
+import { CATEGORY_CATALOG } from './game/categoryCatalog.js';
 
 const CATEGORY_ICONS = {
   brain: Brain,
@@ -1090,7 +1091,7 @@ export default function App() {
       <ScreenHeading eyebrow={text.categoryEyebrow} title={text.categoryTitle} accent={text.categoryAccent} description={text.categoryDescription} />
       <GlassPanel variant="feature" className="category-selection-panel">
         <div className="category-grid">
-        {CATEGORIES.map((item, index) => {
+        {CATEGORY_CATALOG.map((item, index) => {
           const Icon = CATEGORY_ICONS[item.icon] ?? Activity;
           const savedStats = profile.categoryStats[item.id];
           return <button key={item.id} className={`category-tile tone-${item.tone}`} onClick={() => {
@@ -1098,7 +1099,7 @@ export default function App() {
               const selectedMode = entryMatchMode;
               setEntryMatchMode(null);
               setRun({ categoryId: item.id });
-              beginMatch(item, selectedMode);
+              beginMatch({ ...item, title: getCategoryTitle(language, item.id, item.id), subtitle: text.categorySubtitles[item.id] ?? '' }, selectedMode);
               return;
             }
             runRef.current = null;
@@ -1106,7 +1107,7 @@ export default function App() {
             setScreen('modes');
           }}>
             <span className="tile-top"><span className="tile-icon"><Icon size={20} /></span><span className="tile-index">0{index + 1}</span></span>
-            <strong>{getCategoryTitle(language, item.id, item.title)}</strong><span className="tile-subtitle">{text.categorySubtitles[item.id] ?? item.subtitle}</span>
+            <strong>{getCategoryTitle(language, item.id, item.id)}</strong><span className="tile-subtitle">{text.categorySubtitles[item.id] ?? ''}</span>
             <span className="tile-arrow"><ChevronRight size={16} /></span>
             {savedStats && <span className="tile-progress">{savedStats.battles} {text.battles.toLowerCase()} · {text.bestShort} {savedStats.bestScore}</span>}
           </button>;
