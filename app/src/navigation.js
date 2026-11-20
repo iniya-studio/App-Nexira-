@@ -1,3 +1,6 @@
 export function getHardwareBackDestination(screen) {
-  return screen === 'game' ? 'categories' : 'home';
+  if (screen === 'game') return 'categories';
+  if (screen === 'subcategories') return 'categories';
+  if (screen === 'modes') return 'subcategories';
+  return 'home';
 }
