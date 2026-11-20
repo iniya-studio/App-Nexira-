@@ -1,4 +1,5 @@
 import { JudgeDecision, PrincipalType } from '@prisma/client';
+import { TARGET_LOCALES } from '../../common/localization/locale-registry';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AnswerService } from './answer.service';
@@ -29,14 +30,23 @@ describe('Free-text AI Judge worker integration', () => {
       requiredConcepts: ['Mars'],
       acceptEquivalentWording: true,
     },
-    localized: {
-      en: { prompt: 'Which planet is known as the Red Planet?' },
-      fa: {
-        prompt: 'کدام سیاره به سیاره سرخ معروف است؟',
-        expectedAnswer: 'مریخ',
-        gradingRubric: { requiredConcepts: ['مریخ'], acceptEquivalentWording: true, notes: 'نام سیاره مریخ را بپذیر.' },
-      },
-    },
+    localized: Object.fromEntries(Object.keys(TARGET_LOCALES).map((locale) => {
+      const expectedAnswer = locale === 'en' ? 'Mars' : locale === 'fa' ? 'مریخ' : `Answer:${locale}`;
+      const prompt = locale === 'en'
+        ? 'Which planet is known as the Red Planet?'
+        : locale === 'fa'
+          ? 'کدام سیاره به سیاره سرخ معروف است؟'
+          : `Question:${locale}`;
+      return [locale, {
+        prompt,
+        expectedAnswer,
+        gradingRubric: {
+          requiredConcepts: [expectedAnswer],
+          acceptEquivalentWording: true,
+          notes: `Accept the correct answer in ${locale}.`,
+        },
+      }];
+    })),
     timeLimitSeconds: 30,
     contentVersion: 'free-text-judge-integration-v1',
     judgeVersion: 'free-text-semantic-v1',
@@ -179,6 +189,41 @@ describe('Free-text AI Judge worker integration', () => {
     }));
     await expect(prisma.answer.findUniqueOrThrow({ where: { id: answerId } }))
       .resolves.toMatchObject({ judgeStatus: 'COMPLETED', decision: 'CORRECT' });
+  });
+
+  it('routes AI Judge inputs through all 20 immutable participant locale snapshots', async () => {
+    const judge: FreeTextAnswerJudge = {
+      judge: jest.fn().mockResolvedValue(judgeResult(JudgeDecision.CORRECT)),
+    };
+    const worker = new AnswerJudgeWorker(prisma, judge);
+
+    for (const locale of Object.keys(TARGET_LOCALES)) {
+      const response = `response:${locale}`;
+      const { matchId, guestId, answerId } = await createPendingAnswer(response, 'en');
+      await prisma.matchParticipant.updateMany({
+        where: { matchId, guestIdentityId: guestId },
+        data: { language: locale },
+      });
+
+      await expect(worker.runOnce(matchId)).resolves.toBe(true);
+      const call = (judge.judge as jest.Mock).mock.calls.at(-1)?.[0];
+      const expectedAnswer = locale === 'en' ? 'Mars' : locale === 'fa' ? 'مریخ' : `Answer:${locale}`;
+      const expectedPrompt = locale === 'en'
+        ? 'Which planet is known as the Red Planet?'
+        : locale === 'fa'
+          ? 'کدام سیاره به سیاره سرخ معروف است؟'
+          : `Question:${locale}`;
+      expect(call).toMatchObject({
+        canonicalQuestion: expectedPrompt,
+        language: locale,
+        expectedAnswer,
+        gradingRubric: expect.objectContaining({ requiredConcepts: [expectedAnswer] }),
+        participantResponse: response,
+      });
+      await expect(prisma.answer.findUniqueOrThrow({ where: { id: answerId } }))
+        .resolves.toMatchObject({ judgeStatus: 'COMPLETED', decision: JudgeDecision.CORRECT });
+    }
+    expect(judge.judge).toHaveBeenCalledTimes(Object.keys(TARGET_LOCALES).length);
   });
 
   it('keeps UNCERTAIN unresolved and retries without awarding points', async () => {
