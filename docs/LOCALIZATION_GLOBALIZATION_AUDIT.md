@@ -223,3 +223,11 @@ Implementation constraints:
 Candidate package names were checked against Fontsource package documentation: `@fontsource-variable/noto-sans-arabic`, `@fontsource/noto-nastaliq-urdu`, `@fontsource-variable/noto-sans-devanagari`, `@fontsource-variable/noto-sans-bengali`, `@fontsource-variable/noto-sans-thai`, `@fontsource-variable/noto-sans-jp`, `@fontsource-variable/noto-sans-kr`, and `@fontsource-variable/noto-sans-sc`.
 
 **Status:** architecture selected; package installation and runtime implementation have not yet been committed. No locale is enabled by this font decision.
+
+### Confirmed product decision — locale selection and match snapshots — 2026-11-20
+
+- English is the system fallback/default locale for unavailable or invalid language values.
+- First-time users must choose a preferred language before continuing into the application. That choice is persisted for subsequent visits.
+- The persisted UI locale and active match locale snapshots are separate: each participant's selected locale is captured for a match, and later profile-language changes do not alter that active match.
+- AI-generated questions are delivered in each participant's selected match locale while preserving shared semantic content, answer identity, and equivalent match conditions such as difficulty and timing.
+- This decision does not enable any additional locale; locale availability remains governed by the approved release gates above.
