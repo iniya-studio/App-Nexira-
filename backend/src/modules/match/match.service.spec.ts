@@ -1,4 +1,4 @@
-import { MatchMode, MatchStatus, ParticipantType, PrincipalType, Prisma } from '@prisma/client';
+import { BadRequestException, MatchMode, MatchStatus, ParticipantType, PrincipalType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from './match.service';
@@ -220,6 +220,42 @@ describe('MatchService', () => {
       'A participant cannot be matched against themselves',
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('canonicalizes a stored profile locale before creating a 1vAI participant snapshot', async () => {
+    const { service, tx } = setup(MatchMode.ONE_V_AI, [
+      { participantKey: 'human:user:user-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+      { participantKey: 'ai:default-v1', participantType: ParticipantType.AI, status: 'ACTIVE' },
+    ]);
+    tx.user.findUnique.mockResolvedValue({ preferredLanguage: 'FA' });
+    await service.createAiMatch({
+      principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1',
+    });
+    expect(tx.match.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        participants: { create: expect.arrayContaining([
+          expect.objectContaining({ participantType: ParticipantType.HUMAN, language: 'fa' }),
+        ]) },
+      }),
+    }));
+    expect(tx.questionGenerationJob.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        requestContext: expect.objectContaining({ language: 'fa', requiredLocales: ['fa'] }),
+      }),
+    }));
+  });
+
+  it('rejects a disabled profile locale instead of persisting a non-enabled match snapshot', async () => {
+    const { service, tx } = setup(MatchMode.ONE_V_AI, [
+      { participantKey: 'human:user:user-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+      { participantKey: 'ai:default-v1', participantType: ParticipantType.AI, status: 'ACTIVE' },
+    ]);
+    tx.user.findUnique.mockResolvedValue({ preferredLanguage: 'zh-cn' });
+    await expect(service.createAiMatch({
+      principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1',
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(tx.match.create).not.toHaveBeenCalled();
+    expect(tx.questionGenerationJob.create).not.toHaveBeenCalled();
   });
 
   it('accepts the selected category and language for a real 1vAI match', async () => {
