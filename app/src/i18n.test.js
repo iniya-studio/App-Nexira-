@@ -2,8 +2,38 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { CATEGORIES, normalizeProfile } from './game/data.js';
+import { CATEGORY_CATALOG, CATEGORY_IDS, getCategoryById } from './game/categoryCatalog.js';
 import { DEFAULT_LOCALE, formatLocaleDate, formatLocaleNumber, getLocaleConfig, getLocalePluralCategory, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, normalizeLocaleCode, resolveLocale } from './locales.js';
 import { COPY, formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
+
+test('the canonical category catalog contains exactly 23 categories and 115 unique subcategories with English and Persian copy', () => {
+  const expectedIds = [
+    'gaming', 'movies-tv', 'music', 'sports', 'technology', 'internet-social-media',
+    'anime-manga', 'superheroes-comics', 'geography', 'history', 'space', 'science',
+    'cars-motorsports', 'animals-nature', 'food-drinks', 'art-design', 'books-stories',
+    'culture-lifestyle', 'brands-business', 'mythology-legends', 'travel-tourism',
+    'education-mathematics', 'fashion-beauty',
+  ];
+  assert.deepEqual(CATEGORY_IDS, expectedIds);
+  assert.equal(CATEGORY_CATALOG.length, 23);
+  const allSubcategoryIds = [];
+  for (const category of CATEGORY_CATALOG) {
+    assert.equal(category.subcategories.length, 5, `Expected five subcategories for ${category.id}`);
+    assert.ok(COPY.en.categoryNames[category.id], `Missing English category name: ${category.id}`);
+    assert.ok(COPY.fa.categoryNames[category.id], `Missing Persian category name: ${category.id}`);
+    assert.ok(COPY.en.categorySubtitles[category.id], `Missing English category subtitle: ${category.id}`);
+    assert.ok(COPY.fa.categorySubtitles[category.id], `Missing Persian category subtitle: ${category.id}`);
+    for (const subcategoryId of category.subcategories) {
+      allSubcategoryIds.push(`${category.id}:${subcategoryId}`);
+      assert.ok(COPY.en.categorySubcategories[category.id]?.[subcategoryId], `Missing English subcategory: ${category.id}/${subcategoryId}`);
+      assert.ok(COPY.fa.categorySubcategories[category.id]?.[subcategoryId], `Missing Persian subcategory: ${category.id}/${subcategoryId}`);
+    }
+  }
+  assert.equal(allSubcategoryIds.length, 115);
+  assert.equal(new Set(allSubcategoryIds).size, 115);
+  assert.equal(getCategoryById('gaming').id, 'gaming');
+  assert.equal(getCategoryById('unknown'), null);
+});
 
 test('English and Persian provide the same complete translation keys', () => {
   assert.deepEqual(Object.keys(COPY.fa).sort(), Object.keys(COPY.en).sort());
