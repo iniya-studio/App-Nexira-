@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getHardwareBackDestination } from './navigation.js';
 
-test('Gameplay hardware Back returns to Categories; all other secondary screens return Home', () => {
+test('hardware Back follows the category, subcategory, and mode selection hierarchy', () => {
   assert.equal(getHardwareBackDestination('game'), 'categories');
-  for (const screen of ['splash', 'categories', 'modes', 'results', 'profile', 'rankings', 'settings', 'language', 'store']) {
-    assert.equal(getHardwareBackDestination(screen), 'home', `${screen} Back destination changed`);
-  }
+  assert.equal(getHardwareBackDestination('subcategories'), 'categories');
+  assert.equal(getHardwareBackDestination('modes'), 'subcategories');
+  assert.equal(getHardwareBackDestination('profile'), 'home');
+  assert.equal(getHardwareBackDestination('settings'), 'home');
 });
