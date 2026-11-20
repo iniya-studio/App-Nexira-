@@ -494,6 +494,7 @@ export default function App() {
         setMatchmakingView({
           ...queue,
           categoryTitle: categoryById(queue.category)?.title ?? category?.title ?? category?.id ?? 'General',
+          subcategoryId: queue.subcategoryId ?? category?.subcategoryId ?? null,
         });
         setMatchError('');
         if (queue.status === 'MATCHED' && queue.matchId) {
@@ -516,7 +517,7 @@ export default function App() {
           subcategoryId: category?.subcategoryId,
           language: profileRef.current.settings.language,
         });
-        setMatchView({ ...next, categoryId: category?.id ?? 'general', categoryTitle: category?.title ?? 'General' });
+        setMatchView({ ...next, categoryId: category?.id ?? 'general', subcategoryId: category?.subcategoryId ?? null, categoryTitle: category?.title ?? 'General' });
         setOnlineAnswerText('');
         setMatchError('');
         setShowExitConfirm(false);
