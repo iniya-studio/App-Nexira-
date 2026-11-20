@@ -36,6 +36,18 @@ test('starts a server-owned 1vAI match with the selected category and language',
   assert.deepEqual(calls[0], ['createAiMatch', { category: 'science', language: 'fa' }]);
 });
 
+
+test('sends the selected subcategory to the server and keeps it in the match snapshot', async () => {
+  const { api, calls } = makeApi({
+    createAiMatch: async (options) => { calls.push(['createAiMatch', options]); return { id: 'match-1', status: 'WAITING', roundsTarget: 10, category: 'science', subcategoryId: 'physics' }; },
+  });
+  const adapter = createOnlineMatchAdapter(api);
+  const view = await adapter.start({ category: 'science', subcategoryId: 'physics', language: 'fa' });
+  assert.deepEqual(calls[0], ['createAiMatch', { category: 'science', subcategoryId: 'physics', language: 'fa' }]);
+  assert.equal(view.categoryId, 'science');
+  assert.equal(view.subcategoryId, 'physics');
+});
+
 test('loads a generated question only after server readiness starts the shared clock', async () => {
   const startedAt = new Date(Date.now() - 1000).toISOString();
   const deadlineAt = new Date(Date.now() + 29_000).toISOString();
