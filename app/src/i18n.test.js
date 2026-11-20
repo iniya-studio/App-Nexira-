@@ -419,7 +419,7 @@ test('frontend and backend locale metadata stay in parity', async () => {
     assert.equal(Intl.getCanonicalLocales(locale.intlLocale)[0], locale.intlLocale, `Invalid Intl locale for ${locale.code}`);
 
     const entryPrefix = locale.code === 'zh-CN' ? "'zh-CN':" : `${locale.code}:`;
-    const backendEntry = backendRegistry.split('\\n').find((line) => line.trim().startsWith(entryPrefix));
+    const backendEntry = backendRegistry.split('\n').find((line) => line.trim().startsWith(entryPrefix));
     assert.ok(backendEntry, `Backend registry is missing ${locale.code}`);
     const metadata = backendEntry.match(/nativeName: '([^']+)', englishName: '([^']+)', intlLocale: '([^']+)', direction: '(ltr|rtl)'/);
     assert.ok(metadata, `Backend metadata is malformed for ${locale.code}`);
@@ -431,6 +431,6 @@ test('frontend and backend locale metadata stay in parity', async () => {
   }
 
   assert.deepEqual(getSupportedLocales().map(({ code }) => code), ['en', 'fa']);
-  assert.match(backendRegistry, /export const ENABLED_LOCALES = Object\\.freeze\\(\\['en', 'fa'\\] as const\\);/);
+  assert.match(backendRegistry, /export const ENABLED_LOCALES = Object\.freeze\(\['en', 'fa'\] as const\);/);
   assert.equal(getLocaleConfig('ko').nativeName, '한국어');
 });
