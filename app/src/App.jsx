@@ -502,7 +502,7 @@ export default function App() {
         }
         return;
       }
-      if (import.meta.env.PROD) {
+      if (import.meta.env.PROD || Array.isArray(category?.subcategories)) {
         if (mode !== '1vAI') {
           throw new Error('Public 1v1 remains disabled until automated and two-device acceptance gates pass.');
         }
@@ -1103,7 +1103,7 @@ export default function App() {
               return;
             }
             runRef.current = null;
-            setRun({ categoryId: item.id });
+            setRun({ categoryId: item.id, category: item });
             setScreen('modes');
           }}>
             <span className="tile-top"><span className="tile-icon"><Icon size={20} /></span><span className="tile-index">0{index + 1}</span></span>
@@ -1118,7 +1118,7 @@ export default function App() {
     </ScreenFrame>}
 
     {screen === 'modes' && (() => {
-      const selectedCategory = categoryById(run?.categoryId);
+      const selectedCategory = categoryById(run?.categoryId) ?? run?.category ?? null;
       if (!selectedCategory) return <ScreenFrame className="categories-screen"><GlassPanel><p className="empty-state">{text.challengeUnavailable}</p><button className="secondary-action" onClick={() => navigate('categories')}>{text.back}</button></GlassPanel></ScreenFrame>;
       const Icon = CATEGORY_ICONS[selectedCategory.icon] ?? Activity;
       return <ScreenFrame className="categories-screen">
@@ -1128,15 +1128,15 @@ export default function App() {
         <GlassPanel variant="feature" className="mode-selection-panel">
           <div className={`mode-category-card tone-${selectedCategory.tone}`}>
             <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{getCategoryTitle(language, selectedCategory.id, selectedCategory.title)}</strong><small>{text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
-            <span className="mode-question-count">{selectedCategory.questions.length}<small>{text.rounds}</small></span>
+            <span className="mode-question-count">{Array.isArray(selectedCategory.questions) ? selectedCategory.questions.length : 'AI'}<small>{Array.isArray(selectedCategory.questions) ? text.rounds : text.match.serverAi}</small></span>
           </div>
-          <div className="mode-list">
+          {Array.isArray(selectedCategory.modes) && <div className="mode-list">
             {selectedCategory.modes.map((mode, index) => <button className="mode-option" key={mode} onClick={() => beginChallenge(selectedCategory, mode, index)}>
               <span className="mode-number">0{index + 1}</span><span className="mode-label">{text.modeNames[selectedCategory.id]?.[index] ?? mode}<small><Timer size={12} /> {MODE_TIMES[index]} {text.seconds}</small></span>
               <span className={`difficulty-badge difficulty-${index}`}>{text.difficulty[index]}</span>
               <span className="mode-arrow"><ChevronRight size={16} /></span>
             </button>)}
-          </div>
+          </div>}
           <div className="mode-list">
             <p className="eyebrow">{publicOneVsOneEnabled
               ? text.match.competitiveOnline
