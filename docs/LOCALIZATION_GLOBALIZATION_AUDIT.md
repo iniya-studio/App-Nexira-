@@ -137,3 +137,47 @@ Release requirement: all 20 entries must be selectable in the final APK only aft
 5. **L10N-04 — Release gates:** all 20 selector entries enabled, strict tests, cross-locale 1v1 integration, frontend/backend CI, Android APK build, and device acceptance.
 
 No section is DONE merely because its code or documentation was added. Evidence is required for every exit criterion.
+
+
+---
+
+## Re-audit — 2026-11-20 (supersedes conflicting historical source notes above)
+
+**Reviewed main HEAD:** `7750bf6bb0a3d3c2d5b4a7a669c897e4f9719ea8`  
+**Scope:** existing 20-locale foundation only; no translation pack was added or enabled during this audit.
+
+### Verified as already implemented
+
+- Frontend `app/src/locales.js` and backend `backend/src/common/localization/locale-registry.ts` each declare the same ordered 20 target locales, native/English names, Intl tags, and LTR/RTL metadata.
+- Frontend/backend enablement remains `en` and `fa` only. The language selector is driven by `getSupportedLocales()`, so incomplete target locales are not selectable.
+- The persisted source of truth remains `profile.settings.language`; profile normalization validates it and unknown/disabled values recover to English. The first-run language-selection completion marker is separate and preserved.
+- `App.jsx` applies the selected locale to the document `lang` and `dir` attributes and to the application shell. RTL metadata exists for `fa`, `ar`, and `ur`.
+- Locale-aware number/date formatter helpers already exist. Current visible statistics use the selected locale's Intl tag.
+- The English and Persian UI dictionaries remain the only complete UI dictionaries. The static sample question set remains English/Persian preview/test content and is not being expanded as part of the AI-generated match-content localization path.
+- Backend cross-locale match contracts, participant locale snapshots, localized question payload validation, and Judge locale handling are already implemented and have dedicated unit/integration coverage. Test fixtures exercise all 20 locale identifiers; this does not mean all 20 production translations/providers have been accepted or enabled.
+- Frontend/backend locale metadata parity and enabled-set parity are covered by frontend tests.
+
+### Foundation corrections made on this audit
+
+- Removed the remaining hard-coded Persian/English matchmaking language label. It now resolves the participant language's native name from the locale registry.
+- Replaced the settings summary's fixed “English / Persian” wording with a language-neutral label in both baseline dictionaries.
+- Added frontend BCP-47 locale canonicalization using `Intl.getCanonicalLocales`, matching the backend normalization policy. Persisted `FA` now resolves to `fa`; canonical-but-disabled locales such as `zh-cn` remain disabled and resolve safely to the default locale.
+- Added regression tests for native locale labels across the full target registry and frontend locale canonicalization.
+
+### Remaining infrastructure gaps — must close before translation production is considered complete
+
+1. **Script font coverage:** the app currently bundles only Inter and Orbitron. CSS names Noto Sans Arabic as a fallback, but no dedicated Arabic/Urdu, Devanagari, Bengali, Thai, Japanese, Korean, or Simplified Chinese font packages are bundled. Device fallback is not yet accepted as a production guarantee. Select and bundle appropriate script fonts, keep payload size reasonable, and verify glyph coverage on Android.
+2. **RTL layout audit:** document and root direction propagation is present, but every screen, nested control, input, icon, spacing rule, and mixed-script value still needs a systematic RTL audit. Existing visual direction support is not equivalent to verified Arabic/Urdu acceptance.
+3. **Plural/message formatting:** current `formatCopy` supports simple named interpolation only. Locale-specific plural selection and bidi-safe interpolation of mixed-direction values need a defined shared contract and tests before those patterns are used in new packs.
+4. **Formatting coverage:** number/date helper behavior must be exercised for all 20 Intl tags, including representative Arabic/Persian digits, grouping, dates, and invalid input handling. Current use sites should be audited so locale formatting is consistently applied.
+5. **UI literal/reference audit:** the current English/Persian dictionaries have recursive parity tests, but the complete production UI still needs a fresh source scan for unlocalized visible literals, hard-coded two-language assumptions, accessibility labels, and nested translation references.
+6. **No-fallback content contract:** keep UI dictionaries and AI-generated match content separate. A locale must not become selectable until its full UI pack and the relevant generated-content/Judge path have passed locale-specific acceptance. The sample preview questions are not a substitute for production match content.
+7. **Android visual acceptance:** font loading, line wrapping, text expansion, keyboard/input direction, and RTL/LTR layout must be checked on the actual Android build at supported phone sizes before any locale is enabled.
+
+### Next execution order
+
+- Complete the remaining foundation gaps above, reusing the current registry, persistence, direction propagation, backend match contract, and tests.
+- Add reusable automated checks for script/font configuration, locale formatting, plural/interpolation behavior, UI literal coverage, and no-fallback content behavior.
+- Only after the foundation gates are green, produce the first UI translation pack (`ar, es, fr`) and keep all three disabled until their own translation and visual QA passes.
+
+**Status remains IN PROGRESS. No new locale has been enabled. No CI result or Android visual acceptance is claimed by this audit entry.**
