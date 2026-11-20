@@ -118,6 +118,35 @@ describe('Public 1v1 matchmaking PostgreSQL integration', () => {
     ]);
   });
 
+
+  it('never pairs players who selected different subcategories in the same parent category', async () => {
+    const physics = await createGuest();
+    const chemistry = await createGuest();
+    const physicsOpponent = await createGuest();
+    const first = await matchmaking.enqueue(physics, {
+      ...request('science', 'fa'), subcategoryId: 'physics',
+    });
+    const different = await matchmaking.enqueue(chemistry, {
+      ...request('science', 'en'), subcategoryId: 'chemistry',
+    });
+    const compatible = await matchmaking.enqueue(physicsOpponent, {
+      ...request('science', 'en'), subcategoryId: 'physics',
+    });
+    queueIds.push(first.queueId, different.queueId, compatible.queueId);
+    expect(first.status).toBe('WAITING');
+    expect(different.status).toBe('WAITING');
+    expect(compatible.status).toBe('MATCHED');
+    expect(compatible.matchId).toBeTruthy();
+    matchIds.push(compatible.matchId!);
+    const persistedMatch = await prisma.match.findUniqueOrThrow({ where: { id: compatible.matchId! } });
+    expect(persistedMatch.category).toBe('science');
+    expect(persistedMatch.subcategoryId).toBe('physics');
+    const entries = await prisma.matchmakingEntry.findMany({
+      where: { id: { in: [first.queueId, different.queueId, compatible.queueId] } },
+    });
+    expect(entries.find((entry) => entry.id === different.queueId)?.status).toBe('WAITING');
+  });
+
   it('makes enqueue idempotent and prevents one principal from occupying two waiting slots', async () => {
     const principal = await createGuest();
     const key = request();
