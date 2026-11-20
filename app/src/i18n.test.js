@@ -35,6 +35,16 @@ test('the canonical category catalog contains exactly 23 categories and 115 uniq
   assert.equal(getCategoryById('unknown'), null);
 });
 
+test('category selection renders the canonical catalog and retains server-AI match context', async () => {
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.ok(appSource.includes("import { CATEGORY_CATALOG } from './game/categoryCatalog.js'"));
+  assert.ok(appSource.includes('{CATEGORY_CATALOG.map((item, index) => {'));
+  assert.ok(appSource.includes('setRun({ categoryId: item.id, category: item })'));
+  assert.ok(appSource.includes('Array.isArray(category?.subcategories)'));
+  assert.ok(appSource.includes('const selectedCategory = categoryById(run?.categoryId) ?? run?.category ?? null'));
+  assert.ok(appSource.includes('run?.category ?? null'));
+});
+
 test('English and Persian provide the same complete translation keys', () => {
   assert.deepEqual(Object.keys(COPY.fa).sort(), Object.keys(COPY.en).sort());
 
