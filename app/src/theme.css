@@ -466,7 +466,7 @@ button {
 
 .category-tile::after {
   position: absolute;
-  right: -25px;
+  inset-inline-end: -25px;
   bottom: -34px;
   width: 105px;
   height: 105px;
@@ -904,8 +904,8 @@ button {
 .glass-panel::before {
   position: absolute;
   top: 0;
-  right: 16%;
-  left: 16%;
+  inset-inline-end: 16%;
+  inset-inline-start: 16%;
   height: 1px;
   content: "";
   pointer-events: none;
