@@ -15,7 +15,7 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
   let idempotencyKey = null;
 
   return {
-    async start({ category, language = 'en' } = {}) {
+    async start({ category, subcategoryId, language = 'en' } = {}) {
       const recovered = await api.getMine();
       const activeMatchedGame = recovered?.status === 'MATCHED' &&
         !['COMPLETED', 'CANCELLED'].includes(recovered.match?.status);
@@ -33,7 +33,7 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
         return view;
       }
       if (recovered?.status === 'WAITING') {
-        if (recovered.category === category && recovered.language === language) {
+        if (recovered.category === category && recovered.subcategoryId === subcategoryId && recovered.language === language) {
           view = recovered;
           return view;
         }
@@ -46,7 +46,7 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
         idempotencyKey = null;
       }
       if (!idempotencyKey) idempotencyKey = createKey();
-      view = await api.enqueue({ category, language, idempotencyKey });
+      view = await api.enqueue({ category, subcategoryId, language, idempotencyKey });
       return view;
     },
     async refresh() {
