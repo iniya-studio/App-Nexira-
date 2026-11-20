@@ -178,6 +178,9 @@ export default function App() {
 
   useLayoutEffect(() => {
     screenRef.current = screen;
+    // Each screen starts at its own top edge. Without this, Android can
+    // preserve the previous scroll offset and hide the first category rows.
+    window.scrollTo(0, 0);
   }, [screen]);
 
   useEffect(() => {
@@ -514,7 +517,7 @@ export default function App() {
         }
         return;
       }
-      if (import.meta.env.PROD || Array.isArray(category?.subcategories)) {
+      if (import.meta.env.PROD) {
         if (mode !== '1vAI') {
           throw new Error('Public 1v1 remains disabled until automated and two-device acceptance gates pass.');
         }
@@ -535,8 +538,17 @@ export default function App() {
         return;
       }
 
+      // New catalog categories intentionally have no bundled question bank yet.
+      // Use a small legacy sample set only for local preview/testing until the
+      // live AI question service is integrated; never treat it as production data.
+      const localPreviewCategory = Array.isArray(category?.questions) && category.questions.length > 0
+        ? category
+        : {
+            ...category,
+            questions: CATEGORIES.flatMap((item) => item.questions).slice(0, 5),
+          };
       const next = matchAdapterRef.current.start({
-        category,
+        category: localPreviewCategory,
         mode,
         matchId: makeRunId(),
         language: profileRef.current.settings.language,
@@ -571,7 +583,8 @@ export default function App() {
       }
       setMatchView(onlineMatchAdapterRef.current?.getView() ?? null);
       setMatchError(error);
-      setScreen(mode === '1v1' ? 'modes' : 'match-game');
+      // Keep the obsolete mode/challenge picker out of the competitive flow.
+      setScreen(mode === '1v1' ? 'subcategories' : 'match-game');
     } finally {
       setMatchBusy(false);
     }
