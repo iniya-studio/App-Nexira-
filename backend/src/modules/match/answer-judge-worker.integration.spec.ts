@@ -225,4 +225,99 @@ describe('Free-text AI Judge worker integration', () => {
     expect(afterRetry.score).toBe(resolved.points);
     expect(judge.judge).toHaveBeenCalledTimes(2);
   });
+
+  it('judges both participants in a cross-locale 1v1 using their immutable locale snapshots', async () => {
+    const firstGuestId = await prisma.guestIdentity.create({ data: {} });
+    const secondGuestId = await prisma.guestIdentity.create({ data: {} });
+    guestIds.push(firstGuestId.id, secondGuestId.id);
+
+    const firstPrincipal = {
+      principalType: PrincipalType.GUEST,
+      principalId: firstGuestId.id,
+      sessionId: randomUUID(),
+    } as const;
+    const secondPrincipal = {
+      principalType: PrincipalType.GUEST,
+      principalId: secondGuestId.id,
+      sessionId: randomUUID(),
+    } as const;
+
+    const match = await matches.createOneVsOne(
+      firstPrincipal,
+      secondPrincipal,
+      undefined,
+      {
+        category: 'science',
+        language: 'en',
+        participantLanguages: { first: 'en', second: 'fa' },
+      },
+    );
+    matchIds.push(match.id);
+
+    const started = await rounds.startNextRound(match.id, question);
+    questionIds.push(started.questionId);
+
+    // Deliberately request the opposite locale: the server-side participant
+    // snapshot, not a caller-supplied locale, must determine each rendering.
+    const [firstView, secondView] = await Promise.all([
+      rounds.getRoundQuestion(match.id, started.roundId, firstPrincipal, 'fa'),
+      rounds.getRoundQuestion(match.id, started.roundId, secondPrincipal, 'en'),
+    ]);
+    expect(firstView.questionId).toBe(secondView.questionId);
+    expect(firstView.prompt).toBe('Which planet is known as the Red Planet?');
+    expect(secondView.prompt).toBe('کدام سیاره به سیاره سرخ معروف است؟');
+
+    const firstReceipt = await answers.submitAnswer(
+      match.id,
+      started.roundId,
+      firstPrincipal,
+      'Mars',
+      randomUUID(),
+    );
+    const secondReceipt = await answers.submitAnswer(
+      match.id,
+      started.roundId,
+      secondPrincipal,
+      'مریخ',
+      randomUUID(),
+    );
+
+    const judge: FreeTextAnswerJudge = {
+      judge: jest.fn().mockResolvedValue(judgeResult(JudgeDecision.CORRECT)),
+    };
+    const worker = new AnswerJudgeWorker(prisma, judge);
+    await expect(worker.runOnce()).resolves.toBe(true);
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    const judgedInputs = (judge.judge as jest.Mock).mock.calls.map(
+      ([input]) => input,
+    );
+    expect(judgedInputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        canonicalQuestion: 'Which planet is known as the Red Planet?',
+        language: 'en',
+        expectedAnswer: 'Mars',
+        participantResponse: 'Mars',
+      }),
+      expect.objectContaining({
+        canonicalQuestion: 'کدام سیاره به سیاره سرخ معروف است؟',
+        language: 'fa',
+        expectedAnswer: 'مریخ',
+        gradingRubric: expect.objectContaining({ requiredConcepts: ['مریخ'] }),
+        participantResponse: 'مریخ',
+      }),
+    ]));
+
+    const persisted = await prisma.answer.findMany({
+      where: { id: { in: [firstReceipt.answerId, secondReceipt.answerId] } },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(persisted).toHaveLength(2);
+    expect(persisted.every(
+      (answer) => answer.judgeStatus === 'COMPLETED' &&
+        answer.decision === JudgeDecision.CORRECT &&
+        answer.points > 0,
+    )).toBe(true);
+  });
+
 });
