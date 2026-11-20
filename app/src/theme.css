@@ -592,7 +592,7 @@ button {
 
 .mode-label small {
   margin-top: 2px;
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   letter-spacing: 0.2px;
 }
@@ -1617,7 +1617,7 @@ button:focus-visible {
 .hero-caption,
 .section-heading p,
 .ranking-subtitle {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-body);
 }
 
 .profile-identity > span:last-child strong {
