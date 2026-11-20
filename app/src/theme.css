@@ -76,13 +76,13 @@ button {
 
 .ambient--one {
   top: 8%;
-  right: 3%;
+  inset-inline-end: 3%;
   background: #6a2be2;
 }
 
 .ambient--two {
   bottom: 8%;
-  left: -12rem;
+  inset-inline-start: -12rem;
   background: #00c5ff;
 }
 
@@ -832,7 +832,7 @@ button {
 }
 
 .results-stats > div + div {
-  border-left: 0;
+  border-inline-start: 0;
 }
 
 .stat-card {
@@ -1168,7 +1168,7 @@ button {
 }
 
 .profile-metrics > div + div {
-  border-left: 1px solid rgba(148, 181, 207, 0.1);
+  border-inline-start: 1px solid rgba(148, 181, 207, 0.1);
 }
 
 .profile-metrics strong {
@@ -1599,7 +1599,7 @@ button:focus-visible {
 }
 
 .storage-warning {
-  right: 12px;
+  inset-inline-end: 12px;
   bottom: calc(82px + env(safe-area-inset-bottom));
   border-radius: 9px;
   backdrop-filter: blur(12px);
@@ -1644,7 +1644,7 @@ button:focus-visible {
   }
 
   .hero-art {
-    right: -4%;
+    inset-inline-end: -4%;
     width: 50%;
   }
 
@@ -1694,8 +1694,8 @@ button:focus-visible {
 
   .hero-art {
     top: 8%;
-    right: -13%;
-    left: auto;
+    inset-inline-end: -13%;
+    inset-inline-start: auto;
     width: 62%;
     height: 360px;
     opacity: 0.4;
