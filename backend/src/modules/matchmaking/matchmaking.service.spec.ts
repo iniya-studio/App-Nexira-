@@ -100,6 +100,14 @@ describe('MatchmakingService', () => {
     }
   });
 
+  it('canonicalizes queue language codes before persistence', async () => {
+    const { service, tx } = setup();
+    await service.enqueue(guest, { ...input, language: 'EN' });
+    expect(tx.matchmakingEntry.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ language: 'en' }),
+    });
+  });
+
   it('rejects target locales until their complete content packs are enabled', async () => {
     const { service, prisma } = setup();
     await expect(service.enqueue(guest, { ...input, language: 'ar' })).rejects.toBeInstanceOf(BadRequestException);
