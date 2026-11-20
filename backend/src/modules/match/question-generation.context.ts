@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { isTargetLocale, normalizeLocaleCode } from '../../common/localization/locale-registry';
 import { QuestionGenerationInput } from './question-generator.port';
 import { normalizedQuestionFingerprint } from './question-validation';
 
@@ -23,17 +24,22 @@ export async function questionGenerationInputForMatch(
   );
   const humanParticipants = match.participants.filter((participant) => participant.participantType === 'HUMAN');
   const participantLocales = humanParticipants.map((participant) => participant.language);
-  const validParticipantLocales = participantLocales.filter(
-    (locale): locale is string =>
-      typeof locale === 'string' && locale.trim().length > 0,
+  const validParticipantLocales = participantLocales.map((locale) =>
+    typeof locale === 'string' && locale.trim().length > 0
+      ? normalizeLocaleCode(locale)
+      : null,
   );
   if (
     participantLocales.length === 0 ||
-    validParticipantLocales.length !== participantLocales.length
+    validParticipantLocales.some((locale) => locale === null || !isTargetLocale(locale))
   ) {
-    throw new Error('Human participant locale snapshots are unavailable');
+    throw new Error('Human participant locale snapshots are invalid');
   }
-  const requiredLocales = [...new Set(validParticipantLocales)].sort();
+  const requiredLocales = [...new Set(validParticipantLocales as string[])].sort();
+  const language = normalizeLocaleCode(settings.language);
+  if (!isTargetLocale(language) || !requiredLocales.includes(language)) {
+    throw new Error('Question generation language is not a participant target locale');
+  }
   const possibleRematches = await tx.match.findMany({
     where: {
       id: { not: matchId },
@@ -83,6 +89,7 @@ export async function questionGenerationInputForMatch(
 
   return {
     ...settings,
+    language,
     requiredLocales,
     excludedQuestionIds: [...excludedQuestionIds],
     excludedQuestionFingerprints: [...excludedQuestionFingerprints],
