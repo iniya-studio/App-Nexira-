@@ -47,3 +47,18 @@ test('replaces a waiting queue when the player selects a different category or l
   assert.equal(enqueued[0].language, 'fa');
   assert.equal(result.queueId, 'new-queue');
 });
+
+test('replaces a waiting queue when the selected subcategory changes', async () => {
+  const enqueued = [];
+  let cancelCalls = 0;
+  const api = {
+    getMine: async () => ({ status: 'WAITING', category: 'science', subcategoryId: 'physics', language: 'en', queueId: 'old-queue' }),
+    cancel: async () => { cancelCalls += 1; return { status: 'CANCELLED' }; },
+    enqueue: async (input) => { enqueued.push(input); return { status: 'WAITING', ...input, queueId: 'new-queue' }; },
+  };
+  const adapter = createOnlineMatchmakingAdapter(api);
+  const result = await adapter.start({ category: 'science', subcategoryId: 'chemistry', language: 'en' });
+  assert.equal(cancelCalls, 1);
+  assert.equal(enqueued[0].subcategoryId, 'chemistry');
+  assert.equal(result.queueId, 'new-queue');
+});
