@@ -1,4 +1,4 @@
-import { resolveLocale } from './locales.js';
+import { getLocaleConfig, resolveLocale } from './locales.js';
 
 export const COPY = {
   en: {
@@ -644,6 +644,11 @@ export function getLocalizedApiError(error, copy) {
   return copy.generic_error;
 }
 
-export function formatCopy(template, values) {
-  return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
+export function formatCopy(template, values, locale = 'en') {
+  const direction = getLocaleConfig(locale).direction;
+  return template.replace(/\{(\w+)\}/g, (_, key) => {
+    const value = String(values[key] ?? '');
+    if (!value || direction !== 'rtl') return value;
+    return `\u2068${value}\u2069`;
+  });
 }
