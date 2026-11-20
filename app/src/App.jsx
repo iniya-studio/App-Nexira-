@@ -20,6 +20,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy } from './i18n.js';
 import { getLocaleConfig, getSupportedLocales } from './locales.js';
+import { loadLocaleFont } from './localeFonts.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
@@ -96,6 +97,8 @@ export default function App() {
   const [profile, setProfile] = useState(() => loadProfile());
   const [isInitialLanguageSelection, setIsInitialLanguageSelection] = useState(() => !hasCompletedLanguageSelection());
   const [screen, setScreen] = useState('splash');
+  const [fontReady, setFontReady] = useState(false);
+  const [languageChanging, setLanguageChanging] = useState(false);
   const [passwordResetToken, setPasswordResetToken] = useState(null);
   const [entryMatchMode, setEntryMatchMode] = useState(null);
   const [profileView, setProfileView] = useState('progress');
@@ -142,6 +145,7 @@ export default function App() {
   const matchTimerRemainingRef = useRef(10);
   const matchTimerKeyRef = useRef(null);
   const progressionRequestRef = useRef(0);
+  const languageChangeRequestRef = useRef(0);
   if (!matchAdapterRef.current) matchAdapterRef.current = createLocalMatchAdapter();
 
   const language = profile.settings.language;
@@ -260,7 +264,15 @@ export default function App() {
   }, [language]);
 
   useEffect(() => {
-    if (screen !== 'splash') return undefined;
+    let active = true;
+    loadLocaleFont(language)
+      .catch((error) => console.error('Unable to load the selected locale font.', error))
+      .finally(() => { if (active) setFontReady(true); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (screen !== 'splash' || !fontReady) return undefined;
     const fadeTimer = window.setTimeout(() => setSplashExiting(true), prefersReducedMotion ? 0 : 1250);
     const finishTimer = window.setTimeout(() => {
       setScreen(hasCompletedLanguageSelection() ? 'home' : 'language');
@@ -378,6 +390,26 @@ export default function App() {
   }, [screen, refreshServerProgression]);
 
   const navigate = useCallback((destination) => setScreen(destination), []);
+
+  const handleLanguageChange = useCallback(async (value) => {
+    if (!getSupportedLocales().some((locale) => locale.code === value)) return;
+    if (value === profileRef.current.settings.language) return;
+    const requestId = ++languageChangeRequestRef.current;
+    setLanguageChanging(true);
+    try {
+      const result = await loadLocaleFont(value);
+      if (!result.applied || requestId !== languageChangeRequestRef.current) return;
+      updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, language: value } }));
+      completeLanguageSelection();
+      const wasInitialSelection = isInitialLanguageSelection;
+      setIsInitialLanguageSelection(false);
+      navigate(wasInitialSelection ? 'home' : 'settings');
+    } catch (error) {
+      console.error('Unable to change the selected locale font.', error);
+    } finally {
+      if (requestId === languageChangeRequestRef.current) setLanguageChanging(false);
+    }
+  }, [isInitialLanguageSelection, navigate, updateProfile]);
 
   const beginChallenge = useCallback((category, mode, modeIndex) => {
     matchAdapterRef.current.reset();
@@ -1706,15 +1738,8 @@ export default function App() {
           className="language-option"
           value={language}
           aria-label={text.language}
-          onChange={(event) => {
-            const value = event.target.value;
-            if (!getSupportedLocales().some((locale) => locale.code === value)) return;
-            updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, language: value } }));
-            completeLanguageSelection();
-            const wasInitialSelection = isInitialLanguageSelection;
-            setIsInitialLanguageSelection(false);
-            navigate(wasInitialSelection ? 'home' : 'settings');
-          }}
+          disabled={languageChanging}
+          onChange={(event) => { void handleLanguageChange(event.target.value); }}
           style={{ display: 'block', width: '100%', minHeight: 58, padding: '0 14px', color: '#e9f2fa', border: '1px solid rgba(0, 197, 255, 0.42)', borderRadius: 9, background: 'rgba(9, 23, 38, 0.9)', font: 'inherit', textAlign: 'start' }}
         >
           {getSupportedLocales().map((locale) => (
