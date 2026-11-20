@@ -1162,7 +1162,7 @@ export default function App() {
           <small>
             {matchmakingView?.categoryTitle ?? (text.match.selectedCategory)}
             {' · '}
-            {text.match.language}: {(matchmakingView?.language ?? language) === 'fa' ? 'فارسی' : 'English'}
+            {text.match.language}: {getLocaleConfig(matchmakingView?.language ?? language).nativeName}
           </small>
           <p>{text.match.queueRecovery}</p>
         </div>
