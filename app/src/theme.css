@@ -433,7 +433,7 @@ button {
 
 .categories-screen .category-tile {
   min-width: 0;
-  min-height: 142px;
+  min-height: 112px;
   overflow: visible;
 }
 
