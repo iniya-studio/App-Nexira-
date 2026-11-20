@@ -172,7 +172,7 @@ describe('Match and round persistence integration', () => {
       principalId: guestId,
       sessionId: randomUUID(),
     } as const;
-    const first = await matches.createAiMatch(principal, { category: 'science', language: 'fa' });
+    const first = await matches.createAiMatch(principal, { category: 'science', subcategoryId: 'physics', language: 'fa' });
     matchIds.push(first.id);
     const retry = await matches.createAiMatch(principal, { category: 'science', language: 'fa' });
     expect(retry.id).toBe(first.id);
