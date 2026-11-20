@@ -170,6 +170,8 @@ export class MatchService {
           id: true,
           mode: true,
           status: true,
+          category: true,
+          subcategoryId: true,
           currentRound: true,
           roundsTarget: true,
           createdAt: true,
