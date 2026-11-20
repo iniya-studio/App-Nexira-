@@ -400,3 +400,37 @@ test('Store catalog, navigation, and exit confirmation copy are fully dictionary
     assert.equal(appSource.includes(marker), false, `Store display copy must not be hardcoded: ${marker}`);
   }
 });
+
+test('frontend and backend locale metadata stay in parity', async () => {
+  const backendRegistry = await readFile(new URL('../../backend/src/common/localization/locale-registry.ts', import.meta.url), 'utf8');
+  const frontendLocales = getTargetLocales();
+
+  assert.equal(frontendLocales.length, 20, 'The frontend target registry must contain exactly 20 locales');
+  assert.equal(new Set(frontendLocales.map(({ code }) => code)).size, 20, 'Locale codes must be unique');
+  assert.deepEqual(frontendLocales.map(({ code }) => code), [
+    'en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi',
+    'id', 'ja', 'ko', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi',
+  ]);
+
+  for (const locale of frontendLocales) {
+    assert.ok(locale.nativeName.trim(), `Missing native name for ${locale.code}`);
+    assert.ok(locale.englishName.trim(), `Missing English name for ${locale.code}`);
+    assert.ok(['ltr', 'rtl'].includes(locale.direction), `Invalid direction for ${locale.code}`);
+    assert.equal(Intl.getCanonicalLocales(locale.intlLocale)[0], locale.intlLocale, `Invalid Intl locale for ${locale.code}`);
+
+    const entryPrefix = locale.code === 'zh-CN' ? "'zh-CN':" : `${locale.code}:`;
+    const backendEntry = backendRegistry.split('\\n').find((line) => line.trim().startsWith(entryPrefix));
+    assert.ok(backendEntry, `Backend registry is missing ${locale.code}`);
+    const metadata = backendEntry.match(/nativeName: '([^']+)', englishName: '([^']+)', intlLocale: '([^']+)', direction: '(ltr|rtl)'/);
+    assert.ok(metadata, `Backend metadata is malformed for ${locale.code}`);
+    assert.deepEqual(
+      { nativeName: metadata[1], englishName: metadata[2], intlLocale: metadata[3], direction: metadata[4] },
+      { nativeName: locale.nativeName, englishName: locale.englishName, intlLocale: locale.intlLocale, direction: locale.direction },
+      `Frontend/backend locale metadata mismatch for ${locale.code}`,
+    );
+  }
+
+  assert.deepEqual(getSupportedLocales().map(({ code }) => code), ['en', 'fa']);
+  assert.match(backendRegistry, /export const ENABLED_LOCALES = Object\\.freeze\\(\\['en', 'fa'\\] as const\\);/);
+  assert.equal(getLocaleConfig('ko').nativeName, '한국어');
+});
