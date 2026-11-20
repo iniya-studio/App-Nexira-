@@ -23,20 +23,33 @@ export const LOCALE_REGISTRY = Object.freeze({
 
 export const DEFAULT_LOCALE = 'en';
 
+export function normalizeLocaleCode(locale) {
+  if (typeof locale !== 'string') return '';
+  const trimmed = locale.trim();
+  try {
+    return Intl.getCanonicalLocales(trimmed)[0] ?? trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 export function isTargetLocale(locale) {
   return typeof locale === 'string' && Object.hasOwn(LOCALE_REGISTRY, locale);
 }
 
 export function isSupportedLocale(locale) {
-  return isTargetLocale(locale) && LOCALE_REGISTRY[locale].enabled === true;
+  const normalized = normalizeLocaleCode(locale);
+  return isTargetLocale(normalized) && LOCALE_REGISTRY[normalized].enabled === true;
 }
 
 export function resolveLocale(locale) {
-  return isSupportedLocale(locale) ? locale : DEFAULT_LOCALE;
+  const normalized = normalizeLocaleCode(locale);
+  return isSupportedLocale(normalized) ? normalized : DEFAULT_LOCALE;
 }
 
 export function getLocaleConfig(locale) {
-  return LOCALE_REGISTRY[isTargetLocale(locale) ? locale : DEFAULT_LOCALE];
+  const normalized = normalizeLocaleCode(locale);
+  return LOCALE_REGISTRY[isTargetLocale(normalized) ? normalized : DEFAULT_LOCALE];
 }
 
 export function getTargetLocales() {
