@@ -138,6 +138,15 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
   });
 
 
+
+  it('passes the selected subcategory as a strict generation constraint', async () => {
+    respond(structuredQuestion);
+    await adapter.generate({ ...input, subcategoryId: 'physics' });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.input[0].content[0].text).toContain('selected subcategory');
+    expect(body.input[1].content[0].text).toContain('"subcategory":"physics"');
+  });
+
   it('generates and validates one shared question for the complete 20-locale target set', async () => {
     const locales = Object.keys(TARGET_LOCALES);
     const localized = locales.map((language) => ({
