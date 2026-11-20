@@ -222,7 +222,18 @@ Implementation constraints:
 
 Candidate package names were checked against Fontsource package documentation: `@fontsource-variable/noto-sans-arabic`, `@fontsource/noto-nastaliq-urdu`, `@fontsource-variable/noto-sans-devanagari`, `@fontsource-variable/noto-sans-bengali`, `@fontsource-variable/noto-sans-thai`, `@fontsource-variable/noto-sans-jp`, `@fontsource-variable/noto-sans-kr`, and `@fontsource-variable/noto-sans-sc`.
 
-**Status:** architecture selected; package installation and runtime implementation have not yet been committed. No locale is enabled by this font decision.
+Implementation and verification update — 2026-11-20:
+
+- Fontsource dependencies are installed and lockfile-consistent. Runtime font CSS is imported dynamically; Inter is no longer eagerly imported from the application entry point. Orbitron remains a static brand/display font and is not a body/script font.
+- The first all-locale dynamic-import build emitted the complete Japanese/Korean/Chinese font asset sets into the APK (22 MB APK). Although those fonts were not requested at startup, shipping every disabled locale's font assets was an unnecessary size regression.
+- The runtime importer map is therefore restricted to currently enabled locales: `en` and `fa` only. Unsupported/disabled locales resolve to the Inter fallback until their UI/content packs are complete and they are explicitly enabled. The remaining installed font packages are not referenced by the runtime importer map and are not emitted into the current Vite APK.
+- On first launch and subsequent launches, Splash waits for the saved/default locale font to resolve. Language selection waits for the target font before persisting/applying the new locale. A monotonically increasing request token prevents an older asynchronous request from replacing the latest selected font.
+- Dedicated tests cover font configuration, deferred application, stale concurrent requests, and safe fallback behavior.
+- The first integrated build on commit `f7c50e20` passed all tests and Android packaging but measured 22 MB. A follow-up build is in progress on the enabled-locale-only importer; its APK size must be recorded before closing the bundle-size gate.
+- Urdu Nastaliq and the remaining script-specific families remain planned for activation with their locale packs. They must be added to the runtime importer map only when their locales are enabled; do not silently enable an incomplete locale.
+- Visual Android WebView acceptance (glyph shaping, diacritics, mixed-script text, line-height, overflow, and RTL/LTR layout) remains a separate device-level gate.
+
+**Status:** runtime lazy-loading is implemented for the two enabled locales (`en`, `fa`). Automated font-loader tests and the first integrated Android build passed. The enabled-locale-only APK size check and physical-device visual acceptance remain open. No additional locale was enabled.
 
 ### Confirmed product decision — locale selection and match snapshots — 2026-11-20
 
