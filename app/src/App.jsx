@@ -997,7 +997,7 @@ export default function App() {
     return () => window.clearTimeout(advanceTimer);
   }, [finishOrAdvance, run?.lastAnswer, run?.questionIndex, run?.status, screen]);
 
-  const category = run ? categoryById(run.categoryId) : null;
+  const category = run ? (run.category ?? categoryById(run.categoryId)) : null;
   const currentAnswer = run?.lastAnswer;
 
   return <div
