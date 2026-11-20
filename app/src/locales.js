@@ -11,7 +11,7 @@ export const LOCALE_REGISTRY = Object.freeze({
   hi: Object.freeze({ code: 'hi', nativeName: 'हिन्दी', englishName: 'Hindi', intlLocale: 'hi', direction: 'ltr', enabled: false }),
   id: Object.freeze({ code: 'id', nativeName: 'Bahasa Indonesia', englishName: 'Indonesian', intlLocale: 'id', direction: 'ltr', enabled: false }),
   ja: Object.freeze({ code: 'ja', nativeName: '日本語', englishName: 'Japanese', intlLocale: 'ja', direction: 'ltr', enabled: false }),
-  ko: Object.freeze({ code: 'ko', nativeName: 'Korean', englishName: 'Korean', intlLocale: 'ko', direction: 'ltr', enabled: false }),
+  ko: Object.freeze({ code: 'ko', nativeName: '한국어', englishName: 'Korean', intlLocale: 'ko', direction: 'ltr', enabled: false }),
   'zh-CN': Object.freeze({ code: 'zh-CN', nativeName: '简体中文', englishName: 'Simplified Chinese', intlLocale: 'zh-CN', direction: 'ltr', enabled: false }),
   bn: Object.freeze({ code: 'bn', nativeName: 'বাংলা', englishName: 'Bengali', intlLocale: 'bn', direction: 'ltr', enabled: false }),
   ur: Object.freeze({ code: 'ur', nativeName: 'اردو', englishName: 'Urdu', intlLocale: 'ur-PK', direction: 'rtl', enabled: false }),
