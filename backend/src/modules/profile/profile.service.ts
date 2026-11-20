@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { MatchStatus, PrincipalType, Prisma, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isEnabledLocale, normalizeLocaleCode } from '../../common/localization/locale-registry';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -44,12 +45,16 @@ export class ProfileService {
       throw new BadRequestException('At least one supported profile field is required');
     }
     const displayName = input.displayName === undefined ? undefined : this.normalizeDisplayName(input.displayName);
+    const preferredLanguage = input.preferredLanguage === undefined ? undefined : normalizeLocaleCode(input.preferredLanguage);
+    if (preferredLanguage !== undefined && !isEnabledLocale(preferredLanguage)) {
+      throw new BadRequestException('Unsupported profile language');
+    }
     if (principal.principalType === PrincipalType.USER) {
       const result = await this.prisma.user.updateMany({
         where: { id: principal.principalId, status: UserStatus.ACTIVE },
         data: {
           ...(displayName === undefined ? {} : { displayName }),
-          ...(input.preferredLanguage === undefined ? {} : { preferredLanguage: input.preferredLanguage }),
+          ...(preferredLanguage === undefined ? {} : { preferredLanguage }),
         },
       });
       if (result.count !== 1) throw new NotFoundException('Profile not found');
