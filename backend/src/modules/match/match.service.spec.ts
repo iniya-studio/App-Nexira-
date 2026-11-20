@@ -264,6 +264,12 @@ describe('MatchService', () => {
       { participantKey: 'human:guest:guest-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
       { participantKey: 'ai:default-v1', participantType: ParticipantType.AI, status: 'ACTIVE' },
     ]);
+    tx.match.findUnique.mockResolvedValue({
+      participants: [
+        { participantKey: 'human:guest:guest-1', participantType: ParticipantType.HUMAN, language: 'fa' },
+        { participantKey: 'ai:default-v1', participantType: ParticipantType.AI, language: null },
+      ],
+    });
     await service.createAiMatch(
       { principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'session-1' },
       { category: 'science', language: 'fa' },
