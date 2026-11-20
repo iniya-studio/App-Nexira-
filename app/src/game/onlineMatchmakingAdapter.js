@@ -46,7 +46,7 @@ export function createOnlineMatchmakingAdapter(api, { createKey = createIdempote
         idempotencyKey = null;
       }
       if (!idempotencyKey) idempotencyKey = createKey();
-      view = await api.enqueue({ category, subcategoryId, language, idempotencyKey });
+      view = await api.enqueue({ category, ...(subcategoryId ? { subcategoryId } : {}), language, idempotencyKey });
       return view;
     },
     async refresh() {
