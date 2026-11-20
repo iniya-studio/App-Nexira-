@@ -299,6 +299,16 @@ export default function App() {
         setShowExitConfirm(true);
         return;
       }
+      if (currentScreen === 'modes') {
+        setScreen('subcategories');
+        return;
+      }
+      if (currentScreen === 'subcategories') {
+        runRef.current = null;
+        setRun(null);
+        setScreen('categories');
+        return;
+      }
       if (currentScreen === 'match-results') {
         matchAdapterRef.current.reset();
         onlineMatchAdapterRef.current?.reset();
