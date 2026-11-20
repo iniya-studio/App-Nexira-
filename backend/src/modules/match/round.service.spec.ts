@@ -7,6 +7,7 @@ import {
   PrincipalType,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { TARGET_LOCALES } from '../../common/localization/locale-registry';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { GeneratedQuestion } from './question.types';
 import { RoundService } from './round.service';
