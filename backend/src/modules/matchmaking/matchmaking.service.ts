@@ -196,7 +196,7 @@ export class MatchmakingService {
         this.toPrincipal(opponent),
         this.toPrincipal(entry),
         tx,
-        { category, subcategoryId, language: entry.language, participantLanguages: { first: opponent.language, second: entry.language } },
+        { category, subcategoryId: subcategoryId ?? undefined, language: entry.language, participantLanguages: { first: opponent.language, second: entry.language } },
       );
       const matchedAt = new Date();
       const consumed = await tx.matchmakingEntry.updateMany({
