@@ -16,8 +16,9 @@ function createDocument() {
 test('locale font configuration maps script-specific families', () => {
   assert.equal(getLocaleFontConfig('fa').code, 'fa');
   assert.match(getLocaleFontConfig('fa').family, /Noto Sans Arabic/);
-  assert.match(getLocaleFontConfig('ur').family, /Noto Nastaliq Urdu/);
-  assert.match(getLocaleFontConfig('ja').family, /Noto Sans JP/);
+  assert.equal(getLocaleFontConfig('ur').code, 'en');
+  assert.equal(getLocaleFontConfig('ja').code, 'en');
+  assert.match(getLocaleFontConfig('ur').family, /Inter Variable/);
   assert.equal(getLocaleFontConfig('unknown').code, 'en');
 });
 
