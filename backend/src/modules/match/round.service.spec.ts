@@ -376,6 +376,42 @@ describe('RoundService', () => {
     expect(result).not.toHaveProperty('gradingRubric');
   });
 
+  it.each(Object.keys(TARGET_LOCALES))(
+    'delivers the participant snapshot rendering for target locale %s',
+    async (locale) => {
+      const localized = Object.fromEntries(Object.keys(TARGET_LOCALES).map((code) => [
+        code,
+        { prompt: `prompt:${code}`, options: { A: `A:${code}`, B: `B:${code}` } },
+      ]));
+      prisma.round.findFirst.mockResolvedValue({
+        id: 'round-locale',
+        matchId: 'match-1',
+        roundNumber: 1,
+        questionId: 'question-locale',
+        voidedAt: null,
+        startedAt,
+        deadlineAt: new Date(startedAt.getTime() + 20_000),
+        match: { participants: [{ language: locale }] },
+        question: {
+          id: 'question-locale',
+          answerType: 'MULTIPLE_CHOICE',
+          canonicalPrompt: 'Canonical prompt',
+          canonicalOptions: [{ id: 'A', text: 'Canonical A' }, { id: 'B', text: 'Canonical B' }],
+          localized,
+          timeLimitSeconds: 20,
+        },
+        answers: [],
+      });
+
+      const result = await service.getRoundQuestion('match-1', 'round-locale', principal, 'en');
+      expect(result).toMatchObject({
+        questionId: 'question-locale',
+        prompt: `prompt:${locale}`,
+        options: [{ id: 'A', text: `A:${locale}` }, { id: 'B', text: `B:${locale}` }],
+      });
+    },
+  );
+
   it('rejects a missing participant-locale rendering instead of falling back to canonical text', async () => {
     prisma.round.findFirst.mockResolvedValue({
       id: 'round-1',
