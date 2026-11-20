@@ -1102,7 +1102,6 @@ export default function App() {
               const selectedMode = entryMatchMode;
               setEntryMatchMode(null);
               setRun({ categoryId: item.id, category: item, pendingMode: selectedMode });
-              setEntryMatchMode(null);
               setScreen('subcategories');
               return;
             }
@@ -1154,7 +1153,7 @@ export default function App() {
     })()}
 
     {screen === 'modes' && (() => {
-      const selectedCategory = categoryById(run?.categoryId) ?? run?.category ?? null;
+      const selectedCategory = run?.category ?? categoryById(run?.categoryId) ?? null;
       if (!selectedCategory) return <ScreenFrame className="categories-screen"><GlassPanel><p className="empty-state">{text.challengeUnavailable}</p><button className="secondary-action" onClick={() => navigate('categories')}>{text.back}</button></GlassPanel></ScreenFrame>;
       const Icon = CATEGORY_ICONS[selectedCategory.icon] ?? Activity;
       return <ScreenFrame className="categories-screen">
@@ -1163,7 +1162,7 @@ export default function App() {
         {matchError && <p className="panel-note" role="alert">{getLocalizedApiError(matchError, text.account)}</p>}
         <GlassPanel variant="feature" className="mode-selection-panel">
           <div className={`mode-category-card tone-${selectedCategory.tone}`}>
-            <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{getCategoryTitle(language, selectedCategory.id, selectedCategory.title)}</strong><small>{text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
+            <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{getCategoryTitle(language, selectedCategory.id, selectedCategory.title)}</strong><small>{text.categorySubcategories[selectedCategory.id]?.[run?.subcategoryId] ?? text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
             <span className="mode-question-count">{Array.isArray(selectedCategory.questions) ? selectedCategory.questions.length : 'AI'}<small>{Array.isArray(selectedCategory.questions) ? text.rounds : text.match.serverAi}</small></span>
           </div>
           {Array.isArray(selectedCategory.modes) && <div className="mode-list">
