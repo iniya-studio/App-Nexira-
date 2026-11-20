@@ -40,6 +40,10 @@ test('category selection renders the canonical catalog and retains server-AI mat
   assert.ok(appSource.includes("import { CATEGORY_CATALOG } from './game/categoryCatalog.js'"));
   assert.ok(appSource.includes('{CATEGORY_CATALOG.map((item, index) => {'));
   assert.ok(appSource.includes('setRun({ categoryId: item.id, category: item })'));
+  assert.ok(appSource.includes("{screen === 'subcategories'"));
+  assert.ok(appSource.includes('selectedCategory.subcategories.map((subcategoryId, index)'));
+  assert.ok(appSource.includes('subcategoryId: category?.subcategoryId'));
+  assert.ok(appSource.includes('text.categorySubcategories[selectedCategory.id]?.[subcategoryId]'));
   assert.ok(appSource.includes('Array.isArray(category?.subcategories)'));
   assert.ok(appSource.includes('const selectedCategory = categoryById(run?.categoryId) ?? run?.category ?? null'));
   assert.ok(appSource.includes('run?.category ?? null'));
