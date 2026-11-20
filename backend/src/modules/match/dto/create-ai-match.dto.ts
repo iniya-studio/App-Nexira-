@@ -1,4 +1,5 @@
 import { IsIn, IsOptional, IsString, Length } from 'class-validator';
+import { ENABLED_LOCALES } from '../../../common/localization/locale-registry';
 
 export class CreateAiMatchDto {
   @IsOptional()
@@ -7,6 +8,6 @@ export class CreateAiMatchDto {
   category?: string;
 
   @IsOptional()
-  @IsIn(['en', 'fa'])
+  @IsIn([...ENABLED_LOCALES])
   language?: string;
 }
