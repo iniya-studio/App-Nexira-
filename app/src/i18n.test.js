@@ -49,6 +49,23 @@ test('category selection renders the canonical catalog and retains server-AI mat
   assert.ok(appSource.includes('run?.category ?? categoryById(run?.categoryId) ?? null'));
 });
 
+test('category screen preserves the full catalog and direct match entry without changing legacy questions', async () => {
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  const dataSource = await readFile(new URL('./game/data.js', import.meta.url), 'utf8');
+  const themeSource = await readFile(new URL('./theme.css', import.meta.url), 'utf8');
+
+  assert.equal(CATEGORY_CATALOG.length, 23);
+  assert.equal(CATEGORIES.length, 8);
+  assert.ok(CATEGORIES.every((category) => category.questions.length > 0));
+  assert.match(appSource, /const category = CATEGORIES\[Math\.floor\(Math\.random\(\) \* CATEGORIES\.length\)\]/);
+  assert.doesNotMatch(appSource, /reference-quick-battle" onClick=\{\(\) => \{ setEntryMatchMode\('1v1'\); navigate\('categories'\); \}\}/);
+  assert.match(appSource, /void beginMatch\(selected, pendingMode \?\? '1vAI'\)/);
+  assert.match(themeSource, /\.categories-screen \.category-selection-panel\s*\{[^}]*overflow:\s*visible/s);
+  assert.match(themeSource, /\.categories-screen \.category-grid\s*\{[^}]*display:\s*grid/s);
+  assert.ok(dataSource.includes("id: 'memory'"));
+  assert.ok(dataSource.includes("id: 'science'"));
+});
+
 test('English and Persian provide the same complete translation keys', () => {
   assert.deepEqual(Object.keys(COPY.fa).sort(), Object.keys(COPY.en).sort());
 
