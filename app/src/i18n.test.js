@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { CATEGORIES, normalizeProfile } from './game/data.js';
-import { DEFAULT_LOCALE, formatLocaleNumber, getLocaleConfig, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, resolveLocale } from './locales.js';
+import { DEFAULT_LOCALE, formatLocaleNumber, getLocaleConfig, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, normalizeLocaleCode, resolveLocale } from './locales.js';
 import { COPY, formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
 
 test('English and Persian provide the same complete translation keys', () => {
@@ -185,6 +185,20 @@ test('matchmaking language labels use native locale metadata for every target lo
   for (const locale of getTargetLocales()) {
     assert.ok(locale.nativeName.trim(), `Missing native language label: ${locale.code}`);
   }
+});
+
+test('frontend locale canonicalization matches the backend BCP-47 policy', () => {
+  assert.equal(normalizeLocaleCode(' FA '), 'fa');
+  assert.equal(normalizeLocaleCode('zh-cn'), 'zh-CN');
+  assert.equal(normalizeLocaleCode('ZH-CN'), 'zh-CN');
+  assert.equal(normalizeLocaleCode('en'), 'en');
+  assert.equal(normalizeLocaleCode(null), '');
+
+  assert.equal(resolveLocale('FA'), 'fa');
+  assert.equal(resolveLocale(' fa '), 'fa');
+  assert.equal(resolveLocale('zh-cn'), DEFAULT_LOCALE, 'Canonical but disabled locales must remain disabled');
+  assert.equal(getLocaleConfig('ZH-CN').code, 'zh-CN');
+  assert.equal(resolveLocale('unknown'), DEFAULT_LOCALE);
 });
 
 test('profile locale migration preserves supported locales and safely resets unknown locales', () => {
