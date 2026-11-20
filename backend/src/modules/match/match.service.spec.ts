@@ -1,4 +1,5 @@
-import { BadRequestException, MatchMode, MatchStatus, ParticipantType, PrincipalType, Prisma } from '@prisma/client';
+import { BadRequestException } from '@nestjs/common';
+import { MatchMode, MatchStatus, ParticipantType, PrincipalType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { MatchService } from './match.service';
