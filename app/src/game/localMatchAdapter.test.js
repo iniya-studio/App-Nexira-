@@ -104,6 +104,30 @@ test('supports no-response penalties, third-strike completion, and reset', () =>
   assert.equal(adapter.getView(), null);
 });
 
+
+test('uses the selected locale for local questions and rejects disabled locale packs', () => {
+  const adapter = createLocalMatchAdapter();
+  const view = adapter.start({
+    category: PREVIEW_CATEGORY,
+    mode: '1v1',
+    matchId: 'local-fa-locale',
+    language: 'fa',
+  });
+
+  assert.equal(view.question.language, 'fa');
+  assert.match(view.question.prompt, /نشانه/);
+
+  assert.throws(() => adapter.start({
+    category: PREVIEW_CATEGORY,
+    mode: '1v1',
+    matchId: 'local-disabled-locale',
+    language: 'de',
+  }), {
+    name: 'RangeError',
+    message: /not enabled for local match content/,
+  });
+});
+
 test('rejects invalid local adapter transitions and option IDs', () => {
   const adapter = createLocalMatchAdapter();
   assert.throws(() => adapter.continue(), RangeError);
