@@ -1,4 +1,4 @@
-import { CATEGORIES } from './data.js';
+import { getCategoryById } from './categoryCatalog.js';
 
 export function xpForNextLevel(level) {
   return 100 + Math.max(0, level - 1) * 40;
@@ -69,5 +69,5 @@ export function isValidAnswer(question, answerIndex) {
 }
 
 export function categoryById(categoryId) {
-  return CATEGORIES.find((category) => category.id === categoryId) ?? null;
+  return getCategoryById(categoryId);
 }

@@ -6,13 +6,13 @@ import {
 } from './match.js';
 import { getQuestionCopy } from '../i18n.js';
 
-function createQuestionPackages(category, matchId) {
+function createQuestionPackages(category, matchId, language) {
   if (!category || !Array.isArray(category.questions) || category.questions.length === 0) {
     throw new TypeError('A competitive match requires a category with questions.');
   }
 
   return category.questions.map((question, roundIndex) => {
-    const persian = getQuestionCopy('fa', category.id, roundIndex, question);
+    const persian = getQuestionCopy('fa', question);
     return {
       questionId: `${matchId}-question-${roundIndex + 1}`,
       matchId,
@@ -159,7 +159,7 @@ export function createLocalMatchAdapter() {
         matchId,
         mode,
         participants,
-        questionPackages: createQuestionPackages(category, matchId),
+        questionPackages: createQuestionPackages(category, matchId, language),
         timeLimit: 10,
       }));
       phase = 'question';

@@ -645,54 +645,33 @@ export const COPY = {
   },
 };
 
-export const PERSIAN_QUESTIONS = {
-  memory: [
-    { id: 'memory.q01', prompt: 'نشانه: مثلث · شش‌ضلعی · دایره · شش‌ضلعی. کدام شکل تکرار شده است؟', options: ['مثلث', 'دایره', 'شش‌ضلعی', 'مربع'] },
-    { id: 'memory.q02', prompt: 'الگو را به خاطر بسپار: فیروزه‌ای، طلایی، صورتی. مورد دوم چه بود؟', options: ['فیروزه‌ای', 'طلایی', 'صورتی', 'سبز'] },
-    { id: 'memory.q03', prompt: 'کدام عدد نخست آمده بود: ۷ · ۲ · ۹ · ۴؟', options: ['۲', '۴', '۷', '۹'] },
-  ],
-  logic: [
-    { id: 'logic.q01', prompt: 'دنباله را کامل کن: ۳، ۶، ۱۲، ۲۴، ...', options: ['۳۶', '۴۲', '۴۸', '۵۴'] },
-    { id: 'logic.q02', prompt: 'همهٔ VEXها NEX هستند. همهٔ NEXها RAS هستند. کدام گزاره حتماً درست است؟', options: ['همهٔ RASها VEX هستند', 'همهٔ VEXها RAS هستند', 'هیچ VEXی RAS نیست', 'بعضی NEXها VEX نیستند'] },
-    { id: 'logic.q03', prompt: 'کدام عدد الگو را می‌شکند: ۴، ۹، ۱۶، ۲۵، ۳۶، ۴۸؟', options: ['۹', '۱۶', '۳۶', '۴۸'] },
-  ],
-  mathematics: [
-    { id: 'mathematics.q01', prompt: '۱۸٪ از ۲۰۰ چند می‌شود؟', options: ['۱۸', '۳۲', '۳۶', '۴۲'] },
-    { id: 'mathematics.q02', prompt: 'سریع حل کن: ۷ × ۸ − ۹', options: ['۴۵', '۴۷', '۴۹', '۵۱'] },
-    { id: 'mathematics.q03', prompt: 'عدد اول بعد از ۲۳ چیست؟', options: ['۲۵', '۲۷', '۲۹', '۳۱'] },
-  ],
-  knowledge: [
-    { id: 'knowledge.q01', prompt: 'حلقه‌های کدام سیاره آشکارتر هستند؟', options: ['مریخ', 'زحل', 'زهره', 'عطارد'] },
-    { id: 'knowledge.q02', prompt: 'کدام اقیانوس از همه بزرگ‌تر است؟', options: ['اطلس', 'هند', 'منجمد شمالی', 'آرام'] },
-    { id: 'knowledge.q03', prompt: 'شش‌ضلعی چند ضلع دارد؟', options: ['۵', '۶', '۷', '۸'] },
-  ],
-  reaction: [
-    { id: 'reaction.q01', prompt: 'کدام نماد با بقیه تفاوت دارد؟', options: ['▲', '▲', '▶', '▲'] },
-    { id: 'reaction.q02', prompt: 'تنها عدد اول زوج را انتخاب کن.', options: ['۱', '۲', '۳', '۵'] },
-    { id: 'reaction.q03', prompt: 'کدام جهت مخالف شمال است؟', options: ['شرق', 'غرب', 'جنوب', 'شمال‌شرقی'] },
-  ],
-  focus: [
-    { id: 'focus.q01', prompt: 'حرف A را بشمار: ARENA SIGNAL ALPHA', options: ['۴', '۵', '۶', '۷'] },
-    { id: 'focus.q02', prompt: 'کدام جفت دقیقاً یکسان است؟', options: ['NEX1RA / NEXIRA', 'NEXIRA / NEXIRA', 'NEXlRA / NEXIRA', 'NEXlRA / NEX1RA'] },
-    { id: 'focus.q03', prompt: 'تنها دنبالهٔ نزولی را انتخاب کن.', options: ['۲، ۴، ۶', '۹، ۷، ۵', '۳، ۵، ۴', '۸، ۶، ۷'] },
-  ],
-  language: [
-    { id: 'language.q01', prompt: 'نزدیک‌ترین معنی واژهٔ انگلیسی «rapid» را انتخاب کن.', options: ['کند', 'سریع', 'ساکت', 'محتاط'] },
-    { id: 'language.q02', prompt: 'کدام واژه به انگلیسی درست نوشته شده است؟', options: ['Occasion', 'Ocassion', 'Occaision', 'Occation'] },
-    { id: 'language.q03', prompt: 'جفت را کامل کن: کتاب برای خواندن است، همان‌طور که موسیقی برای ... است.', options: ['کشیدن', 'گوش‌دادن', 'نوشتن', 'ساختن'] },
-  ],
-  science: [
-    { id: 'science.q01', prompt: 'گیاهان کدام گاز را از جو جذب می‌کنند؟', options: ['اکسیژن', 'نیتروژن', 'دی‌اکسید کربن', 'هلیوم'] },
-    { id: 'science.q02', prompt: 'نماد شیمیایی طلا چیست؟', options: ['Ag', 'Au', 'Go', 'Gd'] },
-    { id: 'science.q03', prompt: 'کدام نیرو سیاره‌ها را در مدار نگه می‌دارد؟', options: ['اصطکاک', 'مغناطیس', 'گرانش', 'فشار'] },
-  ],
-};
-
-export function getQuestionCopy(language, categoryId, questionIndex, question) {
-  if (language !== 'fa') return question;
-  const translation = PERSIAN_QUESTIONS[categoryId]?.find(({ id }) => id === question?.id);
-  return translation ? { ...question, ...translation } : question;
-}
+export const PERSIAN_QUESTIONS = Object.freeze({
+ 'memory.q01':{id:'memory.q01',prompt:'نشانه: مثلث · شش‌ضلعی · دایره · شش‌ضلعی. کدام شکل تکرار شده است؟',options:['مثلث', 'دایره', 'شش‌ضلعی', 'مربع']},
+ 'memory.q02':{id:'memory.q02',prompt:'الگو را به خاطر بسپار: فیروزه‌ای، طلایی، صورتی. مورد دوم چه بود؟',options:['فیروزه‌ای', 'طلایی', 'صورتی', 'سبز']},
+ 'memory.q03':{id:'memory.q03',prompt:'کدام عدد نخست آمده بود: ۷ · ۲ · ۹ · ۴؟',options:['۲', '۴', '۷', '۹']},
+ 'logic.q01':{id:'logic.q01',prompt:'دنباله را کامل کن: ۳، ۶، ۱۲، ۲۴، ...',options:['۳۶', '۴۲', '۴۸', '۵۴']},
+ 'logic.q02':{id:'logic.q02',prompt:'همهٔ VEXها NEX هستند. همهٔ NEXها RAS هستند. کدام گزاره حتماً درست است؟',options:['همهٔ RASها VEX هستند', 'همهٔ VEXها RAS هستند', 'هیچ VEXی RAS نیست', 'بعضی NEXها VEX نیستند']},
+ 'logic.q03':{id:'logic.q03',prompt:'کدام عدد الگو را می‌شکند: ۴، ۹، ۱۶، ۲۵، ۳۶، ۴۸؟',options:['۹', '۱۶', '۳۶', '۴۸']},
+ 'mathematics.q01':{id:'mathematics.q01',prompt:'۱۸٪ از ۲۰۰ چند می‌شود؟',options:['۱۸', '۳۲', '۳۶', '۴۲']},
+ 'mathematics.q02':{id:'mathematics.q02',prompt:'سریع حل کن: ۷ × ۸ − ۹',options:['۴۵', '۴۷', '۴۹', '۵۱']},
+ 'mathematics.q03':{id:'mathematics.q03',prompt:'عدد اول بعد از ۲۳ چیست؟',options:['۲۵', '۲۷', '۲۹', '۳۱']},
+ 'knowledge.q01':{id:'knowledge.q01',prompt:'حلقه‌های کدام سیاره آشکارتر هستند؟',options:['مریخ', 'زحل', 'زهره', 'عطارد']},
+ 'knowledge.q02':{id:'knowledge.q02',prompt:'کدام اقیانوس از همه بزرگ‌تر است؟',options:['اطلس', 'هند', 'منجمد شمالی', 'آرام']},
+ 'knowledge.q03':{id:'knowledge.q03',prompt:'شش‌ضلعی چند ضلع دارد؟',options:['۵', '۶', '۷', '۸']},
+ 'reaction.q01':{id:'reaction.q01',prompt:'کدام نماد با بقیه تفاوت دارد؟',options:['▲', '▲', '▶', '▲']},
+ 'reaction.q02':{id:'reaction.q02',prompt:'تنها عدد اول زوج را انتخاب کن.',options:['۱', '۲', '۳', '۵']},
+ 'reaction.q03':{id:'reaction.q03',prompt:'کدام جهت مخالف شمال است؟',options:['شرق', 'غرب', 'جنوب', 'شمال‌شرقی']},
+ 'focus.q01':{id:'focus.q01',prompt:'حرف A را بشمار: ARENA SIGNAL ALPHA',options:['۴', '۵', '۶', '۷']},
+ 'focus.q02':{id:'focus.q02',prompt:'کدام جفت دقیقاً یکسان است؟',options:['NEX1RA / NEXIRA', 'NEXIRA / NEXIRA', 'NEXlRA / NEXIRA', 'NEXlRA / NEX1RA']},
+ 'focus.q03':{id:'focus.q03',prompt:'تنها دنبالهٔ نزولی را انتخاب کن.',options:['۲، ۴، ۶', '۹، ۷، ۵', '۳، ۵، ۴', '۸، ۶، ۷']},
+ 'language.q01':{id:'language.q01',prompt:'نزدیک‌ترین معنی واژهٔ انگلیسی «rapid» را انتخاب کن.',options:['کند', 'سریع', 'ساکت', 'محتاط']},
+ 'language.q02':{id:'language.q02',prompt:'کدام واژه به انگلیسی درست نوشته شده است؟',options:['Occasion', 'Ocassion', 'Occaision', 'Occation']},
+ 'language.q03':{id:'language.q03',prompt:'جفت را کامل کن: کتاب برای خواندن است، همان‌طور که موسیقی برای ... است.',options:['کشیدن', 'گوش‌دادن', 'نوشتن', 'ساختن']},
+ 'science.q01':{id:'science.q01',prompt:'گیاهان کدام گاز را از جو جذب می‌کنند؟',options:['اکسیژن', 'نیتروژن', 'دی‌اکسید کربن', 'هلیوم']},
+ 'science.q02':{id:'science.q02',prompt:'نماد شیمیایی طلا چیست؟',options:['Ag', 'Au', 'Go', 'Gd']},
+ 'science.q03':{id:'science.q03',prompt:'کدام نیرو سیاره‌ها را در مدار نگه می‌دارد؟',options:['اصطکاک', 'مغناطیس', 'گرانش', 'فشار']},
+});
+export function getQuestionCopy(language,question){if(language!=='fa'||!question?.id)return question;const t=PERSIAN_QUESTIONS[question.id];return t?{...question,...t,answer:question.answer}:question;}
 
 export function getCopy(language) {
   return COPY[resolveLocale(language)];

@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CATEGORIES } from './data.js';
+import {QUESTION_FIXTURES} from './questionFixtures.js';
+const PREVIEW_CATEGORY={id:'offline-preview',title:'Offline preview',questions:QUESTION_FIXTURES};
 import { createLocalMatchAdapter } from './localMatchAdapter.js';
 
 test('local 1v1 adapter switches turns without exposing private question data', () => {
   const adapter = createLocalMatchAdapter();
   let view = adapter.start({
-    category: CATEGORIES[0],
+    category: PREVIEW_CATEGORY,
     mode: '1v1',
     matchId: 'local-1v1',
     language: 'en',
@@ -39,7 +40,7 @@ test('local 1v1 adapter switches turns without exposing private question data', 
 test('local 1vAI adapter runs against an explicitly scripted preview opponent', () => {
   const adapter = createLocalMatchAdapter();
   let view = adapter.start({
-    category: CATEGORIES[0],
+    category: PREVIEW_CATEGORY,
     mode: '1vAI',
     matchId: 'local-1vai',
     language: 'fa',
@@ -62,7 +63,7 @@ test('local 1vAI adapter runs against an explicitly scripted preview opponent', 
 test('completes every scripted-preview round and returns a sanitized final result', () => {
   const adapter = createLocalMatchAdapter();
   let view = adapter.start({
-    category: CATEGORIES[0],
+    category: PREVIEW_CATEGORY,
     mode: '1vAI',
     matchId: 'local-complete',
   });
@@ -82,7 +83,7 @@ test('completes every scripted-preview round and returns a sanitized final resul
 test('supports no-response penalties, third-strike completion, and reset', () => {
   const adapter = createLocalMatchAdapter();
   let view = adapter.start({
-    category: CATEGORIES[0],
+    category: PREVIEW_CATEGORY,
     mode: '1vAI',
     matchId: 'local-timeout',
   });
@@ -107,7 +108,7 @@ test('rejects invalid local adapter transitions and option IDs', () => {
   const adapter = createLocalMatchAdapter();
   assert.throws(() => adapter.continue(), RangeError);
   adapter.start({
-    category: CATEGORIES[0],
+    category: PREVIEW_CATEGORY,
     mode: '1v1',
     matchId: 'local-invalid',
   });

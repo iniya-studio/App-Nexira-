@@ -6,9 +6,11 @@ import {
   Trophy, UserRound, Zap, Atom,
 } from 'lucide-react';
 import {
-  CATEGORIES, MODE_TIMES, completeLanguageSelection, hasCompletedLanguageSelection, loadProfile, saveProfile,
+  MODE_TIMES, completeLanguageSelection, hasCompletedLanguageSelection, loadProfile, saveProfile,
 } from './game/data.js';
 import { awardRun, categoryById, isValidAnswer, remainingTime, xpForNextLevel } from './game/scoring.js';
+import { CATEGORY_CATALOG } from './game/categoryCatalog.js';
+import { QUESTION_FIXTURES } from './game/questionFixtures.js';
 import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } from './game/session.js';
 import { createLocalMatchAdapter } from './game/localMatchAdapter.js';
 import { createOnlineMatchAdapter } from './game/onlineMatchAdapter.js';
@@ -302,10 +304,6 @@ export default function App() {
         setShowExitConfirm(true);
         return;
       }
-      if (currentScreen === 'modes') {
-        setScreen('subcategories');
-        return;
-      }
       if (currentScreen === 'subcategories') {
         runRef.current = null;
         setRun(null);
@@ -316,7 +314,7 @@ export default function App() {
         matchAdapterRef.current.reset();
         onlineMatchAdapterRef.current?.reset();
         setMatchView(null);
-        setScreen('modes');
+        setScreen('categories');
         return;
       }
       if (currentScreen === 'home') {
@@ -425,6 +423,7 @@ export default function App() {
     }
   }, [isInitialLanguageSelection, navigate, updateProfile]);
 
+  const quickBattlePreviewCategory={id:'quick-battle-preview',title:'Quick Battle',modes:['Speed Sprint'],questions:QUESTION_FIXTURES};
   const beginChallenge = useCallback((category, mode, modeIndex) => {
     matchAdapterRef.current.reset();
     setMatchView(null);
@@ -545,7 +544,7 @@ export default function App() {
         ? category
         : {
             ...category,
-            questions: CATEGORIES.flatMap((item) => item.questions).slice(0, 5),
+            questions: QUESTION_FIXTURES.slice(0, 5),
           };
       const next = matchAdapterRef.current.start({
         category: localPreviewCategory,
@@ -605,7 +604,7 @@ export default function App() {
         onlineMatchmakingAdapterRef.current = null;
         matchmakingTransitionRef.current = null;
         setMatchmakingView(null);
-        setScreen('modes');
+        setScreen('categories');
       }
     } catch (error) {
       setMatchError(error);
@@ -806,7 +805,7 @@ export default function App() {
     }
   }, []);
 
-  const leaveMatch = useCallback((destination = 'modes') => {
+  const leaveMatch = useCallback((destination = 'categories') => {
     matchAdapterRef.current.reset();
     onlineMatchAdapterRef.current?.reset();
     onlineMatchAdapterRef.current = null;
@@ -995,7 +994,7 @@ export default function App() {
             adapter.reset();
             onlineMatchmakingAdapterRef.current = null;
             setMatchError(text.match.matchmakingEnded);
-            setScreen('modes');
+            setScreen('categories');
           }
         }
       } catch (error) {
@@ -1091,9 +1090,7 @@ export default function App() {
       </section>
 
       <button className="reference-quick-battle" onClick={() => {
-        const category = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
-        const modeIndex = Math.floor(Math.random() * category.modes.length);
-        beginChallenge(category, category.modes[modeIndex], modeIndex);
+        beginChallenge(quickBattlePreviewCategory, quickBattlePreviewCategory.modes[0], 0);
       }}>
         <Zap size={34} fill="currentColor" />
         <span><strong>{text.home.quickBattle}</strong><small>{text.home.quickBattleNote}</small></span>
@@ -1175,71 +1172,6 @@ export default function App() {
                 <strong>{text.categorySubcategories[selectedCategory.id]?.[subcategoryId] ?? subcategoryId}</strong>
               </button>
             ))}
-          </div>
-        </GlassPanel>
-      </ScreenFrame>;
-    })()}
-
-    {screen === 'modes' && (() => {
-      const selectedCategory = run?.category ?? categoryById(run?.categoryId) ?? null;
-      if (!selectedCategory) return <ScreenFrame className="categories-screen"><GlassPanel><p className="empty-state">{text.challengeUnavailable}</p><button className="secondary-action" onClick={() => navigate('categories')}>{text.back}</button></GlassPanel></ScreenFrame>;
-      const Icon = CATEGORY_ICONS[selectedCategory.icon] ?? Activity;
-      const usesServerAi = import.meta.env.PROD || Array.isArray(selectedCategory.subcategories);
-      return <ScreenFrame className="categories-screen">
-        <button className="back-link" onClick={() => navigate('subcategories')}><ArrowLeft size={15} /> {text.back}</button>
-        <ScreenHeading eyebrow={`${getCategoryTitle(language, selectedCategory.id, selectedCategory.title).toUpperCase()} · ${text.modeEyebrow}`} title={text.modeTitle} accent={text.modeAccent} description={text.modeDescription} />
-        {matchError && <p className="panel-note" role="alert">{getLocalizedApiError(matchError, text.account)}</p>}
-        <GlassPanel variant="feature" className="mode-selection-panel">
-          <div className={`mode-category-card tone-${selectedCategory.tone}`}>
-            <span className={`tile-icon tone-${selectedCategory.tone}`}><Icon size={22} /></span><span><strong>{getCategoryTitle(language, selectedCategory.id, selectedCategory.title)}</strong><small>{text.categorySubcategories[selectedCategory.id]?.[run?.subcategoryId] ?? text.categorySubtitles[selectedCategory.id] ?? selectedCategory.subtitle}</small></span>
-            <span className="mode-question-count">{Array.isArray(selectedCategory.questions) ? selectedCategory.questions.length : 'AI'}<small>{Array.isArray(selectedCategory.questions) ? text.rounds : text.match.serverAi}</small></span>
-          </div>
-          {Array.isArray(selectedCategory.modes) && <div className="mode-list">
-            {selectedCategory.modes.map((mode, index) => <button className="mode-option" key={mode} onClick={() => beginChallenge(selectedCategory, mode, index)}>
-              <span className="mode-number">0{index + 1}</span><span className="mode-label">{text.modeNames[selectedCategory.id]?.[index] ?? mode}<small><Timer size={12} /> {MODE_TIMES[index]} {text.seconds}</small></span>
-              <span className={`difficulty-badge difficulty-${index}`}>{text.difficulty[index]}</span>
-              <span className="mode-arrow"><ChevronRight size={16} /></span>
-            </button>)}
-          </div>}
-          <div className="mode-list">
-            <p className="eyebrow">{publicOneVsOneEnabled
-              ? text.match.competitiveOnline
-              : import.meta.env.PROD
-                ? text.match.competitiveTesting
-                : text.match.competitivePreview}</p>
-            <button className="mode-option" disabled={matchBusy || ((import.meta.env.PROD || Array.isArray(selectedCategory.subcategories)) && !publicOneVsOneEnabled)} onClick={() => beginMatch(selectedCategory, '1v1')}>
-              <span className="mode-number">P1</span>
-              <span className="mode-label">{publicOneVsOneEnabled
-                ? text.match.onlineOneVsOne
-                : import.meta.env.PROD
-                  ? text.match.testingOneVsOne
-                  : text.match.localOneVsOne}
-                <small>{publicOneVsOneEnabled
-                  ? text.match.onlineOpponent
-                  : import.meta.env.PROD
-                    ? text.match.acceptanceGate
-                    : text.match.passAndPlay}</small></span>
-              <span className="difficulty-badge">{publicOneVsOneEnabled
-                ? text.match.online
-                : import.meta.env.PROD
-                  ? text.match.testing
-                  : text.match.local}</span>
-              <span className="mode-arrow"><ChevronRight size={16} /></span>
-            </button>
-            <button className="mode-option" onClick={() => beginMatch(selectedCategory, '1vAI')}>
-              <span className="mode-number">AI</span>
-              <span className="mode-label">{usesServerAi
-                ? text.match.onlineOneVsAi
-                : text.match.previewOneVsAi}
-                <small>{usesServerAi
-                  ? text.match.serverAi
-                  : text.match.scriptedAi}</small></span>
-              <span className="difficulty-badge">{usesServerAi
-                ? text.match.online
-                : text.match.offline}</span>
-              <span className="mode-arrow"><ChevronRight size={16} /></span>
-            </button>
-            {matchError && <p className="empty-state" role="alert">{getLocalizedApiError(matchError, text.account)}</p>}
           </div>
         </GlassPanel>
       </ScreenFrame>;
@@ -1499,7 +1431,7 @@ export default function App() {
         <p className="saved-note"><Check size={13} /> {storageFailed ? text.saveNotice : text.saved}</p>
       </GlassPanel>
       <div className="results-actions">
-        <button className="primary-button" onClick={() => { const again = categoryById(run.categoryId); if (again) beginChallenge(again, run.mode, run.modeIndex); }}>
+        <button className="primary-button" onClick={() => { const again=run.categoryId==='quick-battle-preview'?quickBattlePreviewCategory:categoryById(run.categoryId);if(again)beginChallenge(again,run.mode,run.modeIndex); }}>
           <span className="play-mark"><RotateCcw size={16} /></span><span className="primary-label">{text.replay}</span><ArrowRight className="primary-arrow" size={18} />
         </button>
         <button className="secondary-action" onClick={() => navigate('home')}>{text.homeLabel}</button>
@@ -1603,9 +1535,9 @@ export default function App() {
         <div className="profile-view" hidden={profileView !== 'stats'}>
         <h2 className="subsection-title"><BarChart3 size={15} /> {text.stats}</h2>
         <div className="category-stat-list">
-          {CATEGORIES.filter((item) => profile.categoryStats[item.id]?.battles).map((item) => {
+          {CATEGORY_CATALOG.filter((item) => profile.categoryStats[item.id]?.battles).map((item) => {
             const stats = profile.categoryStats[item.id];
-            return <div className="category-stat-row" key={item.id}><span>{item.title}</span><span>{stats.battles} {text.battles.toLowerCase()}</span><strong>{stats.bestScore}</strong></div>;
+            return <div className="category-stat-row" key={item.id}><span>{getCategoryTitle(language,item.id,item.id)}</span><span>{stats.battles} {text.battles.toLowerCase()}</span><strong>{stats.bestScore}</strong></div>;
           })}
           {!profile.battles && <p className="empty-state">{text.noRuns}</p>}
         </div>
