@@ -26,7 +26,6 @@ import { loadLocaleFont } from './localeFonts.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
-import { CATEGORY_CATALOG } from './game/categoryCatalog.js';
 
 const CATEGORY_ICONS = {
   brain: Brain,
