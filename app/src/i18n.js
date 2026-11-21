@@ -1,4 +1,4 @@
-import { getLocaleConfig, resolveLocale } from './locales.js';
+import { getLocaleConfig, isSupportedLocale, resolveLocale } from './locales.js';
 
 export const COPY = {
   en: {
@@ -675,9 +675,17 @@ const QUESTION_TRANSLATIONS = Object.freeze({ fa: PERSIAN_QUESTIONS });
 
 export function getQuestionCopy(language, question) {
   if (!question?.id) return question;
-  const translations = QUESTION_TRANSLATIONS[language];
+  if (!isSupportedLocale(language)) {
+    throw new RangeError(`Question content is not enabled for locale "${language}".`);
+  }
+  const locale = resolveLocale(language);
+  if (locale === 'en') return question;
+  const translations = QUESTION_TRANSLATIONS[locale];
   const translated = translations?.[question.id];
-  return translated ? { ...question, ...translated, answer: question.answer } : question;
+  if (!translated) {
+    throw new RangeError(`Question translation is missing for locale "${locale}" and ID "${question.id}".`);
+  }
+  return { ...question, ...translated, answer: question.answer };
 }
 
 export function getCopy(language) {
