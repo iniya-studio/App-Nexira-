@@ -55,6 +55,14 @@ test('Spanish, French, German and Italian category packs cover all 23 categories
   }
 });
 
+test('localized category packs are exposed through the shared UI copy resolver', () => {
+  const expected = { es: 'Videojuegos', fr: 'Jeux vidéo', de: 'Gaming', it: 'Videogiochi' };
+  for (const [locale, label] of Object.entries(expected)) {
+    assert.equal(getCopy(locale).categoryNames.gaming, label);
+    assert.equal(getCopy(locale).categorySubcategories.gaming['famous-games']?.trim().length > 0, true);
+  }
+});
+
 test('legacy categories are absent while 24 fixtures are preserved',async()=>{const d=await readFile(new URL('./game/data.js',import.meta.url),'utf8');const a=await readFile(new URL('./App.jsx',import.meta.url),'utf8');assert.equal(QUESTION_FIXTURES.length,24);assert.equal(new Set(QUESTION_FIXTURES.map(q=>q.id)).size,24);assert.equal(d.includes('export const CATEGORIES'),false);assert.equal(a.includes('CATEGORIES'),false);assert.equal(a.includes("screen === 'modes'"),false);assert.equal(a.includes("setScreen('modes')"),false);});
 
 test('English and Persian provide the same complete translation keys', () => {
