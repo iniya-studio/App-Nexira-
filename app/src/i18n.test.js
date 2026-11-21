@@ -468,3 +468,26 @@ test('primary UI copy alignment uses logical text direction in the base styleshe
   assert.equal(styles.includes('text-align:left'), false, 'Physical left alignment must not remain in the base UI stylesheet.');
   assert.ok(styles.includes('padding-inline:17px'), 'The mobile bottom sheet must use direction-aware horizontal padding.');
 });
+
+test('runtime locale infrastructure applies document language, direction, font, and RTL navigation consistently', async () => {
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  const directionSource = await readFile(new URL('./app.css', import.meta.url), 'utf8');
+  const layoutSource = await readFile(new URL('./styles.css', import.meta.url), 'utf8');
+
+  assert.match(appSource, /document\.documentElement\.lang\s*=\s*language/);
+  assert.match(appSource, /document\.documentElement\.dir\s*=\s*localeConfig\.direction/);
+  assert.match(appSource, /dir=\{localeConfig\.direction\}/);
+  assert.match(appSource, /loadLocaleFont\(language\)/);
+  assert.match(appSource, /const handleLanguageChange = useCallback\(async \(value\) => \{/);
+  assert.match(appSource, /if \(!getSupportedLocales\(\)\.some\(\(locale\) => locale\.code === value\)\) return/);
+  assert.match(appSource, /const result = await loadLocaleFont\(value\)/);
+  assert.match(appSource, /if \(!result\.applied \|\| requestId !== languageChangeRequestRef\.current\) return/);
+  assert.match(appSource, /document\.documentElement\.dir = localeConfig\.direction;[\s\S]*?\}, \[language\]\)/);
+
+  for (const selector of ['.back-link svg', '.tile-arrow svg', '.mode-arrow svg', '.setting-action svg', '.primary-arrow']) {
+    assert.ok(directionSource.includes(`[dir="rtl"] ${selector}`), `Missing RTL mirroring for ${selector}`);
+  }
+  assert.match(layoutSource, /text-align:\s*start/);
+  assert.match(layoutSource, /(?:margin|padding|inset)-(?:inline|block)/);
+  assert.doesNotMatch(layoutSource, /text-align:\s*left\b/);
+});
