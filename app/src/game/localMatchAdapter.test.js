@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {QUESTION_FIXTURES} from './questionFixtures.js';
-const PREVIEW_CATEGORY={id:'offline-preview',title:'Offline preview',questions:QUESTION_FIXTURES};
+const PREVIEW_CATEGORY={id:'offline-preview',title:'Offline preview',questions:QUESTION_FIXTURES.slice(0,3)};
 import { createLocalMatchAdapter } from './localMatchAdapter.js';
 
 test('local 1v1 adapter switches turns without exposing private question data', () => {

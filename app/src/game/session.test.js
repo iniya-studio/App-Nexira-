@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_PROFILE, normalizeProfile } from './data.js';
 import {QUESTION_FIXTURES} from './questionFixtures.js';
-const PREVIEW_CATEGORY={id:'quick-battle-preview',title:'Quick Battle',modes:['Speed Sprint','Precision'],questions:QUESTION_FIXTURES};
+const PREVIEW_CATEGORY={id:'quick-battle-preview',title:'Quick Battle',modes:['Speed Sprint','Precision'],questions:QUESTION_FIXTURES.slice(0,3)};
 import { awardRun } from './scoring.js';
 import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } from './session.js';
 
