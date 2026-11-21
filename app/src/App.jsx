@@ -174,7 +174,7 @@ export default function App() {
   const accuracy = profile.totalAnswers ? Math.round(profile.correctAnswers / profile.totalAnswers * 100) : 0;
   const playableRun = isPlayableChallenge(run);
   const question = playableRun
-    ? getQuestionCopy(language, run.categoryId, run.questionIndex, run.questions[run.questionIndex])
+    ? getQuestionCopy(language, run.questions[run.questionIndex])
     : null;
   const activeMode = run ? text.modeNames[run.categoryId]?.[run.modeIndex] ?? run.mode : '';
 
@@ -1421,7 +1421,7 @@ export default function App() {
         <div className="answer-review" hidden={resultsView !== 'review'}>
           {run.questions.map((item, index) => {
             const answer = run.answers[index];
-            const localizedItem = getQuestionCopy(language, run.categoryId, index, item);
+            const localizedItem = getQuestionCopy(language, item);
             return <div className={`review-row${answer?.correct ? ' review-correct' : ' review-wrong'}`} key={index}>
               <span>{String(index + 1).padStart(2, '0')}</span><span>{localizedItem.prompt}<small>{answer?.correct ? localizedItem.options[answer.answerIndex] : `${answer?.timedOut ? text.timedOut : text.incorrect} · ${localizedItem.options[item.answer]}`}</small></span>
               <strong>{answer?.points > 0 ? `+${answer.points}` : answer?.points ?? 0}</strong>
