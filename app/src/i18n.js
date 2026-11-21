@@ -1,5 +1,6 @@
 import { CATEGORY_TRANSLATIONS } from './game/categoryTranslations.js';
 import { getLocaleConfig, isSupportedLocale, resolveLocale } from './locales.js';
+import spanish from './i18n/translations/es.js';
 
 export const COPY = {
   en: {
@@ -645,6 +646,14 @@ export const COPY = {
     },
   },
 };
+
+// Complete UI dictionaries are kept in locale-specific modules. Category copy remains sourced from the canonical catalogue.
+COPY.es = Object.freeze({
+  ...spanish,
+  categoryNames: CATEGORY_TRANSLATIONS.es.categoryNames,
+  categorySubtitles: CATEGORY_TRANSLATIONS.es.categorySubtitles,
+  categorySubcategories: CATEGORY_TRANSLATIONS.es.categorySubcategories,
+});
 
 export const PERSIAN_QUESTIONS = Object.freeze({
  'memory.q01':{id:'memory.q01',prompt:'نشانه: مثلث · شش‌ضلعی · دایره · شش‌ضلعی. کدام شکل تکرار شده است؟',options:['مثلث', 'دایره', 'شش‌ضلعی', 'مربع']},
