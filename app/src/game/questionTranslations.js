@@ -366,7 +366,7 @@ export const QUESTION_TRANSLATIONS = Object.freeze({
     'science.q01': { prompt: 'پودے فضا سے کون سی گیس جذب کرتے ہیں؟', options: ['آکسیجن', 'نائٹروجن', 'کاربن ڈائی آکسائیڈ', 'ہیلیم'] },
     'science.q02': { prompt: 'سونے کی کیمیائی علامت کیا ہے؟', options: ['Ag', 'Au', 'Go', 'Gd'] },
     'science.q03': { prompt: 'کون سی قوت سیاروں کو مدار میں رکھتی ہے؟', options: ['رگڑ', 'مقناطیسیت', 'کششِ ثقل', 'دباؤ'] },
-  }),,
+  }),
 
   it: Object.freeze({
     'memory.q01': { prompt: 'Segnale: triangolo · esagono · cerchio · esagono. Quale forma si è ripetuta?', options: ['Triangolo', 'Cerchio', 'Esagono', 'Quadrato'] },
