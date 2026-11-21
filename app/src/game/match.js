@@ -153,8 +153,10 @@ export function getPublicQuestion(match, participantId, language) {
 
   const question = match.questionPackages[match.roundIndex];
   const requestedLanguage = language || participant.language;
-  const localized = question.localized[requestedLanguage]
-    || question.localized[question.canonicalLanguage];
+  const localized = question.localized[requestedLanguage];
+  if (!localized) {
+    throw new RangeError(`Question content is unavailable for locale "${requestedLanguage}".`);
+  }
 
   return {
     questionId: question.questionId,
@@ -163,9 +165,7 @@ export function getPublicQuestion(match, participantId, language) {
     prompt: localized.prompt,
     options: localized.options.map(({ id, text }) => ({ id, text })),
     timeLimit: question.timeLimit,
-    language: question.localized[requestedLanguage]
-      ? requestedLanguage
-      : question.canonicalLanguage,
+    language: requestedLanguage,
   };
 }
 
