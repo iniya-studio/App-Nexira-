@@ -38,8 +38,10 @@ test('the canonical category catalog contains exactly 23 categories and 115 uniq
   assert.equal(getCategoryById('unknown'), null);
 });
 
-test('Spanish, French, German, Italian, Portuguese, Russian and Turkish category packs cover all 23 categories, subtitles and 115 subcategories', () => {
-  for (const locale of ['es', 'fr', 'de', 'it', 'pt', 'ru', 'tr']) {
+test('every available translated category pack covers all 23 categories, subtitles and 115 subcategories', () => {
+  const categoryLocales = Object.keys(CATEGORY_TRANSLATIONS).sort();
+  assert.deepEqual(categoryLocales, ['de', 'es', 'fr', 'it', 'pt', 'ru', 'tr']);
+  for (const locale of categoryLocales) {
     const pack = CATEGORY_TRANSLATIONS[locale];
     assert.ok(pack, `Missing category pack: ${locale}`);
     for (const category of CATEGORY_CATALOG) {
@@ -55,10 +57,16 @@ test('Spanish, French, German, Italian, Portuguese, Russian and Turkish category
   }
 });
 
-test('disabled locales do not expose partial category translations through the UI resolver', () => {
-  for (const locale of ['es', 'fr', 'de', 'it']) {
-    assert.equal(getSupportedLocales().some((entry) => entry.code === locale), false);
-    assert.equal(getCopy(locale).categoryNames.gaming, getCopy('en').categoryNames.gaming);
+test('every disabled target locale stays fail-closed even when a partial category pack exists', () => {
+  const enabled = new Set(getSupportedLocales().map(({ code }) => code));
+  const disabledTargets = getTargetLocales().filter(({ code }) => !enabled.has(code));
+  assert.equal(disabledTargets.length, 18);
+  for (const { code } of disabledTargets) {
+    assert.equal(isSupportedLocale(code), false, `Disabled locale became supported: ${code}`);
+    assert.equal(getCopy(code).categoryNames.gaming, getCopy('en').categoryNames.gaming,
+      `Partial category copy leaked through the UI resolver for ${code}`);
+    assert.equal(getCopy(code).store.title, getCopy('en').store.title,
+      `Partial UI copy leaked through the UI resolver for ${code}`);
   }
 });
 
