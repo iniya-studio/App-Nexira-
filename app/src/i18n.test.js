@@ -623,10 +623,10 @@ test('All 18 translated offline question packs cover all 24 fixtures without Eng
       }
       assert.ok(Number.isInteger(question.answer));
       assert.ok(question.answer >= 0 && question.answer < translated.options.length);
-      const resolved = getQuestionCopy(locale, question);
-      assert.equal(resolved.id, question.id);
-      assert.equal(resolved.answer, question.answer,
-        `Authoritative answer index changed for ${locale}/${question.id}`);
+      assert.equal(Object.hasOwn(translated, 'answer'), false,
+        `A translated pack must not override the canonical answer index for ${locale}/${question.id}`);
+      assert.ok(question.answer >= 0 && question.answer < translated.options.length,
+        `Canonical answer index is outside the translated options for ${locale}/${question.id}`);
     }
   }
 });
