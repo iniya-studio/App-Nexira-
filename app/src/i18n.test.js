@@ -517,9 +517,9 @@ test('runtime locale infrastructure applies document language, direction, font, 
 });
 
 
-test('Spanish and French offline question packs cover all 24 fixtures without changing option or answer semantics', () => {
+test('All 18 translated offline question packs cover all 24 fixtures without changing option order or answer semantics', () => {
   const fixtureIds = QUESTION_FIXTURES.map(({ id }) => id).sort();
-  for (const locale of ['es', 'fr']) {
+  for (const locale of ['es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi', 'id', 'ja', 'ko', 'ar', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi']) {
     const pack = QUESTION_TRANSLATIONS[locale];
     assert.ok(pack, `Missing question pack: ${locale}`);
     assert.deepEqual(Object.keys(pack).sort(), fixtureIds, `Question ID coverage mismatch for ${locale}`);
