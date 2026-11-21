@@ -4,6 +4,7 @@ import test from 'node:test';
 import {normalizeProfile} from './game/data.js';
 import {QUESTION_FIXTURES} from './game/questionFixtures.js';
 import { QUESTION_TRANSLATIONS } from './game/questionTranslations.js';
+import { CATEGORY_TRANSLATIONS } from './game/categoryTranslations.js';
 import { CATEGORY_CATALOG, CATEGORY_IDS, getCategoryById } from './game/categoryCatalog.js';
 import { DEFAULT_LOCALE, formatLocaleDate, formatLocaleNumber, getLocaleConfig, getLocalePluralCategory, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, normalizeLocaleCode, resolveLocale } from './locales.js';
 import { COPY, formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
@@ -35,6 +36,23 @@ test('the canonical category catalog contains exactly 23 categories and 115 uniq
   assert.equal(new Set(allSubcategoryIds).size, 115);
   assert.equal(getCategoryById('gaming').id, 'gaming');
   assert.equal(getCategoryById('unknown'), null);
+});
+
+test('Spanish and French category packs cover all 23 categories, subtitles and 115 subcategories', () => {
+  for (const locale of ['es', 'fr']) {
+    const pack = CATEGORY_TRANSLATIONS[locale];
+    assert.ok(pack, `Missing category pack: ${locale}`);
+    for (const category of CATEGORY_CATALOG) {
+      assert.ok(pack.categoryNames[category.id]?.trim(), `Missing ${locale} category name: ${category.id}`);
+      assert.ok(pack.categorySubtitles[category.id]?.trim(), `Missing ${locale} category subtitle: ${category.id}`);
+      for (const subcategoryId of category.subcategories) {
+        assert.ok(pack.categorySubcategories[category.id]?.[subcategoryId]?.trim(), `Missing ${locale} subcategory: ${category.id}/${subcategoryId}`);
+      }
+      assert.deepEqual(Object.keys(pack.categorySubcategories[category.id]).sort(), [...category.subcategories].sort(), `Unexpected subcategory key in ${locale}/${category.id}`);
+    }
+    assert.deepEqual(Object.keys(pack.categoryNames).sort(), Object.keys(COPY.en.categoryNames).sort());
+    assert.deepEqual(Object.keys(pack.categorySubtitles).sort(), Object.keys(COPY.en.categorySubtitles).sort());
+  }
 });
 
 test('legacy categories are absent while 24 fixtures are preserved',async()=>{const d=await readFile(new URL('./game/data.js',import.meta.url),'utf8');const a=await readFile(new URL('./App.jsx',import.meta.url),'utf8');assert.equal(QUESTION_FIXTURES.length,24);assert.equal(new Set(QUESTION_FIXTURES.map(q=>q.id)).size,24);assert.equal(d.includes('export const CATEGORIES'),false);assert.equal(a.includes('CATEGORIES'),false);assert.equal(a.includes("screen === 'modes'"),false);assert.equal(a.includes("setScreen('modes')"),false);});
