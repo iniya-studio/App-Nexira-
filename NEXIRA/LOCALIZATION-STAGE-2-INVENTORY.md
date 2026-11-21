@@ -1,6 +1,6 @@
 # NEXIRA Localization — Stage 2 Source Inventory
 
-Status: L0 inventory in progress  
+Status: L3 translation production in progress  
 Baseline branch: `main`  
 Baseline commit inspected: `7f00118f585347e503a9bb2b7152ad0728b07440`  
 Target locale order: `en, fa, ar, es, fr, de, pt, ru, tr, hi, id, ja, ko, zh-CN, bn, ur, it, nl, th, vi`
@@ -12,7 +12,7 @@ Target locale order: `en, fa, ar, es, fr, de, pt, ru, tr, hi, id, ja, ko, zh-CN,
 | Locale registry | `app/src/locales.js` | 20 target locales; only `en` and `fa` enabled | Keep enablement closed until release gates pass |
 | UI copy | `app/src/i18n.js` → `COPY` | English and Persian dictionaries; dictionary section is about 53 KB | Translate every nested leaf for the 18 remaining locales; preserve key and placeholder parity |
 | Category labels | `COPY.*.categoryNames`, `categorySubtitles`, `categorySubcategories` | 23 category IDs and 115 subcategory IDs in `app/src/game/categoryCatalog.js` | Translate every name, subtitle, and subcategory label |
-| Question content | `app/src/game/questionFixtures.js` + `PERSIAN_QUESTIONS` in `app/src/i18n.js` | 24 stable question IDs; English source and Persian prompt/options | Add complete prompt/options for every locale; preserve IDs, order, option count, and answer index |
+| Question content | `app/src/game/questionFixtures.js` + `app/src/game/questionTranslations.js` + `PERSIAN_QUESTIONS` in `app/src/i18n.js` | 24 stable question IDs; complete offline prompt/options packs added for all 18 non-baseline locales; automated coverage test enumerates all 18 packs | Review translation quality and verify semantic correctness; preserve IDs, order, option count, and answer index |
 | Local match delivery | `app/src/game/localMatchAdapter.js` | Local question package currently exposes `en` and `fa` localized content only | Resolve requested locale pack instead of hard-coding Persian |
 | UI integration | `app/src/App.jsx`, `app/src/components/AccountSessionPanel.jsx` | App consumes centralized copy; App source is about 93 KB | Audit all rendered text, attributes, accessibility labels, placeholders, and conditional states for hardcoded literals |
 | Frontend tests | `app/src/i18n.test.js` | Existing en/fa parity, category, fixture, and locale-registry tests | Extend to all packs, placeholder integrity, visible-literal coverage, and question-pack integrity |
