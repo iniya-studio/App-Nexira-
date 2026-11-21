@@ -631,28 +631,29 @@ test('All 18 translated offline question packs cover all 24 fixtures without Eng
   }
 });
 
-test('Spanish UI dictionary has complete recursive key, type, array and placeholder parity', () => {
-  const inspect = (source, translated, path = 'root') => {
-    assert.equal(typeof translated, typeof source, `Type mismatch at ${path}`);
+test('every registered translated UI dictionary has recursive key, type, array and placeholder parity', () => {
+  const inspect = (source, translated, locale, path = 'root') => {
+    assert.equal(typeof translated, typeof source, \`Type mismatch in \${locale} at \${path}\`);
     if (typeof source === 'string') {
-      assert.ok(source.trim(), `Empty English source at ${path}`);
-      assert.ok(translated.trim(), `Empty Spanish translation at ${path}`);
-      const placeholders = value => [...value.matchAll(/\\{([A-Za-z0-9_]+)\\}/g)].map(match => match[1]).sort();
-      assert.deepEqual(placeholders(translated), placeholders(source), `Interpolation placeholders differ at ${path}`);
+      assert.ok(source.trim(), \`Empty English source at \${path}\`);
+      assert.ok(translated.trim(), \`Empty \${locale} translation at \${path}\`);
+      const placeholders = value => [...value.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map(match => match[1]).sort();
+      assert.deepEqual(placeholders(translated), placeholders(source), \`Interpolation placeholders differ in \${locale} at \${path}\`);
       return;
     }
     if (Array.isArray(source)) {
-      assert.ok(Array.isArray(translated), `Expected array at ${path}`);
-      assert.equal(translated.length, source.length, `Array length differs at ${path}`);
-      source.forEach((value, index) => inspect(value, translated[index], `${path}[${index}]`));
+      assert.ok(Array.isArray(translated), \`Expected array in \${locale} at \${path}\`);
+      assert.equal(translated.length, source.length, \`Array length differs in \${locale} at \${path}\`);
+      source.forEach((value, index) => inspect(value, translated[index], locale, \`\${path}[\${index}]\`));
       return;
     }
     if (source && typeof source === 'object') {
-      assert.deepEqual(Object.keys(translated).sort(), Object.keys(source).sort(), `Nested keys differ at ${path}`);
-      for (const key of Object.keys(source)) inspect(source[key], translated[key], `${path}.${key}`);
+      assert.ok(translated && typeof translated === 'object', \`Expected object in \${locale} at \${path}\`);
+      assert.deepEqual(Object.keys(translated).sort(), Object.keys(source).sort(), \`Nested keys differ in \${locale} at \${path}\`);
+      for (const key of Object.keys(source)) inspect(source[key], translated[key], locale, \`\${path}.\${key}\`);
     }
   };
-  assert.ok(COPY.es, 'Spanish UI dictionary is not registered');
-  inspect(COPY.en, COPY.es);
+  const translatedLocales = Object.keys(COPY).filter(locale => !['en', 'fa'].includes(locale));
+  assert.ok(translatedLocales.length > 0, 'No translated UI dictionaries are registered');
+  for (const locale of translatedLocales) inspect(COPY.en, COPY[locale], locale);
 });
-
