@@ -121,6 +121,17 @@ test('unknown languages fall back to English and interpolation avoids undefined 
 
 test('all 24 fixtures resolve Persian copy by stable question ID',()=>{assert.equal(Object.keys(PERSIAN_QUESTIONS).length,24);for(const q of QUESTION_FIXTURES){const t=PERSIAN_QUESTIONS[q.id];assert.ok(t);const l=getQuestionCopy('fa',q);assert.equal(l.prompt,t.prompt);assert.deepEqual(l.options,t.options);assert.equal(l.answer,q.answer);assert.strictEqual(getQuestionCopy('en',q),q);}});
 
+test('question lookup fails closed for disabled locales and missing translations', () => {
+  assert.throws(() => getQuestionCopy('de', QUESTION_FIXTURES[0]), {
+    name: 'RangeError',
+    message: /not enabled for locale "de"/,
+  });
+  assert.throws(() => getQuestionCopy('fa', { ...QUESTION_FIXTURES[0], id: 'missing.question' }), {
+    name: 'RangeError',
+    message: /translation is missing for locale "fa"/,
+  });
+});
+
 test('locale registry contains the complete 20-locale target set without enabling incomplete packs', async () => {
   const expectedTargets = ['en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi', 'id', 'ja', 'ko', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi'];
   assert.deepEqual(getTargetLocales().map(({ code }) => code), expectedTargets);
