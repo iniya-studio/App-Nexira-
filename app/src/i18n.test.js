@@ -55,11 +55,10 @@ test('Spanish, French, German and Italian category packs cover all 23 categories
   }
 });
 
-test('localized category packs are exposed through the shared UI copy resolver', () => {
-  const expected = { es: 'Videojuegos', fr: 'Jeux vidéo', de: 'Gaming', it: 'Videogiochi' };
-  for (const [locale, label] of Object.entries(expected)) {
-    assert.equal(getCopy(locale).categoryNames.gaming, label);
-    assert.equal(getCopy(locale).categorySubcategories.gaming['famous-games']?.trim().length > 0, true);
+test('disabled locales do not expose partial category translations through the UI resolver', () => {
+  for (const locale of ['es', 'fr', 'de', 'it']) {
+    assert.equal(getSupportedLocales().some((entry) => entry.code === locale), false);
+    assert.equal(getCopy(locale).categoryNames.gaming, getCopy('en').categoryNames.gaming);
   }
 });
 
