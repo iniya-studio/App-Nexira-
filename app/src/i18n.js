@@ -1,6 +1,7 @@
 import { CATEGORY_TRANSLATIONS } from './game/categoryTranslations.js';
 import { getLocaleConfig, isSupportedLocale, resolveLocale } from './locales.js';
 import spanish from './i18n/translations/es.js';
+import french from './i18n/translations/fr.js';
 
 export const COPY = {
   en: {
@@ -653,6 +654,13 @@ COPY.es = Object.freeze({
   categoryNames: CATEGORY_TRANSLATIONS.es.categoryNames,
   categorySubtitles: CATEGORY_TRANSLATIONS.es.categorySubtitles,
   categorySubcategories: CATEGORY_TRANSLATIONS.es.categorySubcategories,
+});
+
+COPY.fr = Object.freeze({
+  ...french,
+  categoryNames: CATEGORY_TRANSLATIONS.fr.categoryNames,
+  categorySubtitles: CATEGORY_TRANSLATIONS.fr.categorySubtitles,
+  categorySubcategories: CATEGORY_TRANSLATIONS.fr.categorySubcategories,
 });
 
 export const PERSIAN_QUESTIONS = Object.freeze({
