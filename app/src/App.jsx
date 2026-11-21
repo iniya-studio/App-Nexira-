@@ -424,7 +424,12 @@ export default function App() {
     }
   }, [isInitialLanguageSelection, navigate, updateProfile]);
 
-  const quickBattlePreviewCategory={id:'quick-battle-preview',title:'Quick Battle',modes:['Speed Sprint'],questions:QUESTION_FIXTURES.slice(0,5)};
+  const quickBattlePreviewCategory = {
+    id: 'quick-battle-preview',
+    title: text.home.quickBattle,
+    modes: [text.home.quickBattleMode],
+    questions: QUESTION_FIXTURES.slice(0, 5),
+  };
   const beginChallenge = useCallback((category, mode, modeIndex) => {
     matchAdapterRef.current.reset();
     setMatchView(null);
