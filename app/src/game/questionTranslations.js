@@ -1,4 +1,4 @@
-// Human-reviewed offline question translations. Stable IDs, option order and answer indices remain canonical.
+// Offline question translations. Stable IDs, option order and canonical answer indices remain unchanged.
 export const QUESTION_TRANSLATIONS = Object.freeze({
   es: Object.freeze({
     'memory.q01': { prompt: 'Señal: triángulo · hexágono · círculo · hexágono. ¿Qué figura se repitió?', options: ['Triángulo', 'Círculo', 'Hexágono', 'Cuadrado'] },
