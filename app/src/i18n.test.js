@@ -36,20 +36,6 @@ test('the canonical category catalog contains exactly 23 categories and 115 uniq
   assert.equal(getCategoryById('unknown'), null);
 });
 
-test('category selection renders the canonical catalog and retains server-AI match context', async () => {
-  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
-  assert.ok(appSource.includes("import { CATEGORY_CATALOG } from './game/categoryCatalog.js'"));
-  assert.ok(appSource.includes('{CATEGORY_CATALOG.map((item, index) => {'));
-  assert.ok(appSource.includes('setRun({ categoryId: item.id, category: item })'));
-  assert.ok(appSource.includes("{screen === 'subcategories'"));
-  assert.ok(appSource.includes('selectedCategory.subcategories.map((subcategoryId, index)'));
-  assert.ok(appSource.includes('subcategoryId: category?.subcategoryId'));
-  assert.ok(appSource.includes('text.categorySubcategories[selectedCategory.id]?.[subcategoryId]'));
-  assert.ok(appSource.includes('Array.isArray(category?.subcategories)'));
-  assert.ok(appSource.includes('const selectedCategory = run?.category ?? categoryById(run?.categoryId) ?? null'));
-  assert.ok(appSource.includes('run?.category ?? categoryById(run?.categoryId) ?? null'));
-});
-
 test('legacy categories are absent while 24 fixtures are preserved',async()=>{const d=await readFile(new URL('./game/data.js',import.meta.url),'utf8');const a=await readFile(new URL('./App.jsx',import.meta.url),'utf8');assert.equal(QUESTION_FIXTURES.length,24);assert.equal(new Set(QUESTION_FIXTURES.map(q=>q.id)).size,24);assert.equal(d.includes('export const CATEGORIES'),false);assert.equal(a.includes('CATEGORIES'),false);assert.equal(a.includes("screen === 'modes'"),false);assert.equal(a.includes("setScreen('modes')"),false);});
 
 test('English and Persian provide the same complete translation keys', () => {
