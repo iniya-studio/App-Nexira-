@@ -592,9 +592,11 @@ test('a locale cannot be enabled until its full UI, category and question conten
   assert.deepEqual(getSupportedLocales().map(({ code }) => code).sort(), ['en', 'fa']);
 });
 
-test('All 18 translated offline question packs cover all 24 fixtures without changing option order or answer semantics', () => {
+test('All 18 translated offline question packs cover all 24 fixtures without English prompt fallback or answer drift', () => {
   const fixtureIds = QUESTION_FIXTURES.map(({ id }) => id).sort();
-  for (const locale of ['es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi', 'id', 'ja', 'ko', 'ar', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi']) {
+  const translatedLocales = getTargetLocales().filter(({ code }) => !['en', 'fa'].includes(code)).map(({ code }) => code);
+  assert.equal(translatedLocales.length, 18);
+  for (const locale of translatedLocales) {
     const pack = QUESTION_TRANSLATIONS[locale];
     assert.ok(pack, `Missing question pack: ${locale}`);
     assert.deepEqual(Object.keys(pack).sort(), fixtureIds, `Question ID coverage mismatch for ${locale}`);
@@ -602,7 +604,17 @@ test('All 18 translated offline question packs cover all 24 fixtures without cha
       const translated = pack[question.id];
       assert.equal(typeof translated.prompt, 'string');
       assert.ok(translated.prompt.trim(), `Empty prompt: ${locale}/${question.id}`);
+      assert.notEqual(translated.prompt.trim(), question.prompt.trim(),
+        `English prompt fallback leaked into ${locale}/${question.id}`);
       assert.equal(translated.options.length, question.options.length, `Option count changed: ${locale}/${question.id}`);
+      if (question.id === 'language.q02') {
+        assert.deepEqual(translated.options, question.options,
+          `English spelling choices must remain exact in ${locale}/${question.id}`);
+      }
+      if (question.id.startsWith('focus.')) {
+        assert.deepEqual(translated.options, question.options,
+          `Latin visual/counting tokens must remain exact in ${locale}/${question.id}`);
+      }
       for (const option of translated.options) {
         assert.equal(typeof option, 'string');
         assert.ok(option.trim(), `Empty option: ${locale}/${question.id}`);
