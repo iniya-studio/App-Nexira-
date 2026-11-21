@@ -4,6 +4,7 @@ import spanish from './i18n/translations/es.js';
 import french from './i18n/translations/fr.js';
 import german from './i18n/translations/de.js';
 import italian from './i18n/translations/it.js';
+import portuguese from './i18n/translations/pt.js';
 
 export const COPY = {
   en: {
@@ -676,6 +677,12 @@ COPY.it = Object.freeze({
   categoryNames: CATEGORY_TRANSLATIONS.it.categoryNames,
   categorySubtitles: CATEGORY_TRANSLATIONS.it.categorySubtitles,
   categorySubcategories: CATEGORY_TRANSLATIONS.it.categorySubcategories,
+});
+COPY.pt = Object.freeze({
+  ...portuguese,
+  categoryNames: CATEGORY_TRANSLATIONS.pt.categoryNames,
+  categorySubtitles: CATEGORY_TRANSLATIONS.pt.categorySubtitles,
+  categorySubcategories: CATEGORY_TRANSLATIONS.pt.categorySubcategories,
 });
 
 export const PERSIAN_QUESTIONS = Object.freeze({
