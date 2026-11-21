@@ -12,7 +12,7 @@ function createQuestionPackages(category, matchId, language) {
   }
 
   return category.questions.map((question, roundIndex) => {
-    const persian = getQuestionCopy('fa', question);
+    const translated = getQuestionCopy(language, question);
     return {
       questionId: `${matchId}-question-${roundIndex + 1}`,
       matchId,
@@ -28,12 +28,12 @@ function createQuestionPackages(category, matchId, language) {
       gradingRubric: { type: 'exact-option-id' },
       localized: {
         en: {
-          prompt: question.prompt,
+          prompt: language === 'en' ? translated.prompt : question.prompt,
           options: question.options.map((text, index) => ({ id: `option-${index}`, text })),
         },
         fa: {
-          prompt: persian.prompt,
-          options: persian.options.map((text, index) => ({ id: `option-${index}`, text })),
+          prompt: getQuestionCopy('fa', question).prompt,
+          options: getQuestionCopy('fa', question).options.map((text, index) => ({ id: `option-${index}`, text })),
         },
       },
       timeLimit: 10,
