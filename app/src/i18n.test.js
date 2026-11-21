@@ -596,6 +596,8 @@ test('All 18 translated offline question packs cover all 24 fixtures without Eng
   const fixtureIds = QUESTION_FIXTURES.map(({ id }) => id).sort();
   const translatedLocales = getTargetLocales().filter(({ code }) => !['en', 'fa'].includes(code)).map(({ code }) => code);
   assert.equal(translatedLocales.length, 18);
+  assert.deepEqual(Object.keys(QUESTION_TRANSLATIONS).sort(), [...translatedLocales].sort(),
+    'Question translation packs must match the 18 non-English/non-Persian target locales exactly');
   for (const locale of translatedLocales) {
     const pack = QUESTION_TRANSLATIONS[locale];
     assert.ok(pack, `Missing question pack: ${locale}`);
@@ -621,6 +623,10 @@ test('All 18 translated offline question packs cover all 24 fixtures without Eng
       }
       assert.ok(Number.isInteger(question.answer));
       assert.ok(question.answer >= 0 && question.answer < translated.options.length);
+      const resolved = getQuestionCopy(locale, question);
+      assert.equal(resolved.id, question.id);
+      assert.equal(resolved.answer, question.answer,
+        `Authoritative answer index changed for ${locale}/${question.id}`);
     }
   }
 });
