@@ -54,7 +54,7 @@ test('English and Persian provide the same complete translation keys', () => {
   }
 });
 
-test('all UI translation references are present',async()=>{const a=await readFile(new URL('./App.jsx',import.meta.url),'utf8');const refs=[...a.matchAll(/\\btext\\.([A-Za-z]\\w*)/g)].map(m=>m[1]);for(const k of refs)assert.ok(k in COPY.en&&k in COPY.fa);});
+test('all UI translation references are present',async()=>{const a=await readFile(new URL('./App.jsx',import.meta.url),'utf8');const refs=[...a.matchAll(/\btext\.([A-Za-z]\w*)/g)].map(m=>m[1]);for(const k of refs)assert.ok(k in COPY.en&&k in COPY.fa);});
 
 
 
