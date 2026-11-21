@@ -101,7 +101,7 @@ export const CATEGORY_TRANSLATIONS = Object.freeze({
       'education-mathematics': { mathematics:'Mathématiques','logic-puzzles':'Énigmes logiques','mental-calculations':'Calcul mental','general-knowledge':'Culture générale','thinking-challenges':'Défis de réflexion' },
       'fashion-beauty': { 'fashion-clothing':'Mode et vêtements','fashion-brands':'Marques de mode','makeup-beauty':'Maquillage et beauté','personal-style':'Style personnel','trends-and-designers':'Tendances et créateurs' },
     },
-  }),,
+  }),
 
   de: Object.freeze({
     categoryNames: {
