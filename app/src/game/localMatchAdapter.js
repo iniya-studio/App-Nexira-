@@ -5,8 +5,9 @@ import {
   startMatch,
 } from './match.js';
 import { getQuestionCopy } from '../i18n.js';
+import { isSupportedLocale } from '../locales.js';
 
-function createQuestionPackages(category, matchId, language) {
+function createQuestionPackages(category, matchId) {
   if (!category || !Array.isArray(category.questions) || category.questions.length === 0) {
     throw new TypeError('A competitive match requires a category with questions.');
   }
@@ -145,6 +146,9 @@ export function createLocalMatchAdapter() {
     start({ category, mode, matchId, language = 'en' }) {
       if (!['1v1', '1vAI'].includes(mode)) throw new TypeError('Unsupported competitive match mode.');
       if (typeof matchId !== 'string' || !matchId.trim()) throw new TypeError('A match ID is required.');
+      if (!isSupportedLocale(language)) {
+        throw new RangeError('The selected language is not enabled for local match content.');
+      }
 
       const participants = mode === '1v1'
         ? [
@@ -159,7 +163,7 @@ export function createLocalMatchAdapter() {
         matchId,
         mode,
         participants,
-        questionPackages: createQuestionPackages(category, matchId, language),
+        questionPackages: createQuestionPackages(category, matchId),
         timeLimit: 10,
       }));
       phase = 'question';
