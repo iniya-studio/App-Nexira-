@@ -64,15 +64,17 @@ test('profile language and profile data survive a save-and-reload cycle', () => 
   assert.equal(reloaded.settings.sound, true);
 });
 
-test('profile loading normalizes unavailable locale codes to the default locale', () => {
-  const storage = createStorage({
-    [STORAGE_KEY]: JSON.stringify({
-      ...DEFAULT_PROFILE,
-      settings: { ...DEFAULT_PROFILE.settings, language: 'xx-INVALID' },
-    }),
-  });
+test('profile loading normalizes invalid and disabled locales to the default locale', () => {
+  for (const language of ['xx-INVALID', 'ar']) {
+    const storage = createStorage({
+      [STORAGE_KEY]: JSON.stringify({
+        ...DEFAULT_PROFILE,
+        settings: { ...DEFAULT_PROFILE.settings, language },
+      }),
+    });
 
-  assert.equal(loadProfile(storage).settings.language, 'en');
+    assert.equal(loadProfile(storage).settings.language, 'en', language);
+  }
 });
 
 test('corrupt profile JSON safely falls back to the default profile', () => {
