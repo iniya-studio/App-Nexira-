@@ -38,8 +38,8 @@ test('the canonical category catalog contains exactly 23 categories and 115 uniq
   assert.equal(getCategoryById('unknown'), null);
 });
 
-test('Spanish, French and German category packs cover all 23 categories, subtitles and 115 subcategories', () => {
-  for (const locale of ['es', 'fr', 'de']) {
+test('Spanish, French, German and Italian category packs cover all 23 categories, subtitles and 115 subcategories', () => {
+  for (const locale of ['es', 'fr', 'de', 'it']) {
     const pack = CATEGORY_TRANSLATIONS[locale];
     assert.ok(pack, `Missing category pack: ${locale}`);
     for (const category of CATEGORY_CATALOG) {
