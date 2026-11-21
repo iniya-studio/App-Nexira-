@@ -75,6 +75,18 @@ test('home screen copy is centralized and complete for every active locale', () 
   }
 });
 
+test('quick battle preview metadata is localized and has no component-owned English fallback', async () => {
+  assert.equal(COPY.en.home.quickBattle, 'Quick Battle');
+  assert.equal(COPY.en.home.quickBattleMode, 'Speed Sprint');
+  assert.equal(COPY.fa.home.quickBattle, 'نبرد سریع');
+  assert.equal(COPY.fa.home.quickBattleMode, 'رقابت سرعتی');
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.match(appSource, /title: text\.home\.quickBattle/);
+  assert.match(appSource, /modes: \[text\.home\.quickBattleMode\]/);
+  assert.equal(appSource.includes("title:'Quick Battle'"), false);
+  assert.equal(appSource.includes("modes:['Speed Sprint']"), false);
+});
+
 
 test('store screen copy is centralized and complete for every active locale', () => {
   const keys = ['eyebrow', 'title', 'description', 'collection', 'heroTitle', 'heroDescription', 'catalogPreview', 'categories', 'paymentsOff', 'emptyTitle', 'emptyDescription', 'explore', 'preview', 'viewStyle', 'fairness', 'close', 'cosmeticPreview', 'modalNotice'];
