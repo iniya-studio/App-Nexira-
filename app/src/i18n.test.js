@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {normalizeProfile} from './game/data.js';
 import {QUESTION_FIXTURES} from './game/questionFixtures.js';
+import { QUESTION_TRANSLATIONS } from './game/questionTranslations.js';
 import { CATEGORY_CATALOG, CATEGORY_IDS, getCategoryById } from './game/categoryCatalog.js';
 import { DEFAULT_LOCALE, formatLocaleDate, formatLocaleNumber, getLocaleConfig, getLocalePluralCategory, getSupportedLocales, getTargetLocales, isSupportedLocale, isTargetLocale, normalizeLocaleCode, resolveLocale } from './locales.js';
 import { COPY, formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy, PERSIAN_QUESTIONS } from './i18n.js';
@@ -513,4 +514,26 @@ test('runtime locale infrastructure applies document language, direction, font, 
   assert.match(layoutSource, /text-align:\s*start/);
   assert.match(layoutSource, /(?:margin|padding|inset)-(?:inline|block)/);
   assert.doesNotMatch(layoutSource, /text-align:\s*left\b/);
+});
+
+
+test('Spanish and French offline question packs cover all 24 fixtures without changing option or answer semantics', () => {
+  const fixtureIds = QUESTION_FIXTURES.map(({ id }) => id).sort();
+  for (const locale of ['es', 'fr']) {
+    const pack = QUESTION_TRANSLATIONS[locale];
+    assert.ok(pack, `Missing question pack: ${locale}`);
+    assert.deepEqual(Object.keys(pack).sort(), fixtureIds, `Question ID coverage mismatch for ${locale}`);
+    for (const question of QUESTION_FIXTURES) {
+      const translated = pack[question.id];
+      assert.equal(typeof translated.prompt, 'string');
+      assert.ok(translated.prompt.trim(), `Empty prompt: ${locale}/${question.id}`);
+      assert.equal(translated.options.length, question.options.length, `Option count changed: ${locale}/${question.id}`);
+      for (const option of translated.options) {
+        assert.equal(typeof option, 'string');
+        assert.ok(option.trim(), `Empty option: ${locale}/${question.id}`);
+      }
+      assert.ok(Number.isInteger(question.answer));
+      assert.ok(question.answer >= 0 && question.answer < translated.options.length);
+    }
+  }
 });
