@@ -671,7 +671,14 @@ export const PERSIAN_QUESTIONS = Object.freeze({
  'science.q02':{id:'science.q02',prompt:'نماد شیمیایی طلا چیست؟',options:['Ag', 'Au', 'Go', 'Gd']},
  'science.q03':{id:'science.q03',prompt:'کدام نیرو سیاره‌ها را در مدار نگه می‌دارد؟',options:['اصطکاک', 'مغناطیس', 'گرانش', 'فشار']},
 });
-export function getQuestionCopy(language,question){if(language!=='fa'||!question?.id)return question;const t=PERSIAN_QUESTIONS[question.id];return t?{...question,...t,answer:question.answer}:question;}
+const QUESTION_TRANSLATIONS = Object.freeze({ fa: PERSIAN_QUESTIONS });
+
+export function getQuestionCopy(language, question) {
+  if (!question?.id) return question;
+  const translations = QUESTION_TRANSLATIONS[language];
+  const translated = translations?.[question.id];
+  return translated ? { ...question, ...translated, answer: question.answer } : question;
+}
 
 export function getCopy(language) {
   return COPY[resolveLocale(language)];
