@@ -156,6 +156,8 @@ export default function App() {
   const playerName = profile.playerName === 'OPERATOR' ? text.operatorDefault : profile.playerName;
   const prefersReducedMotion = profile.settings.reducedMotion;
   const publicOneVsOneEnabled = import.meta.env.VITE_ENABLE_PUBLIC_1V1 === 'true';
+  // Explicit opt-in for APK-level UI testing with bundled fixtures; never enabled by default.
+  const localOneVsAiPreviewEnabled = import.meta.env.VITE_ENABLE_LOCAL_1VAI_PREVIEW === 'true';
   const displayLevel = serverProgress?.level ?? profile.level;
   const displayXp = serverProgress?.currentLevelXp ?? profile.xp;
   const displayTotalXp = serverProgress?.totalXp ?? String(profile.totalXp);
@@ -515,7 +517,7 @@ export default function App() {
         }
         return;
       }
-      if (import.meta.env.PROD) {
+      if (import.meta.env.PROD && !(mode === '1vAI' && localOneVsAiPreviewEnabled)) {
         if (mode !== '1vAI') {
           throw new Error('Public 1v1 remains disabled until automated and two-device acceptance gates pass.');
         }
