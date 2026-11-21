@@ -51,7 +51,7 @@ export const QUESTION_TRANSLATIONS = Object.freeze({
     'science.q01': { prompt: 'Quel gaz les plantes absorbent-elles dans l’atmosphère ?', options: ['Oxygène', 'Azote', 'Dioxyde de carbone', 'Hélium'] },
     'science.q02': { prompt: 'Quel est le symbole chimique de l’or ?', options: ['Ag', 'Au', 'Go', 'Gd'] },
     'science.q03': { prompt: 'Quelle force maintient les planètes en orbite ?', options: ['Frottement', 'Magnétisme', 'Gravité', 'Pression'] },
-  }),,
+  }),
 
   de: Object.freeze({
     'memory.q01': { prompt: 'Signal: Dreieck · Sechseck · Kreis · Sechseck. Welche Form kam zweimal vor?', options: ['Dreieck', 'Kreis', 'Sechseck', 'Quadrat'] },
