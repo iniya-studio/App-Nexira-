@@ -79,7 +79,7 @@ test('English and Persian translation trees have recursive key and placeholder p
     if (typeof source === 'string') {
       assert.ok(source.trim(), `Empty source string at ${path}`);
       assert.ok(translated.trim(), `Empty translated string at ${path}`);
-      const placeholders = value => [...value.matchAll(/\\{([A-Za-z0-9_]+)\\}/g)].map(match => match[1]).sort();
+      const placeholders = value => [...value.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map(match => match[1]).sort();
       assert.deepEqual(placeholders(translated), placeholders(source), `Interpolation placeholders differ at ${path}`);
       return;
     }
