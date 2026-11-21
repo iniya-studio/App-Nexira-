@@ -2,7 +2,7 @@
 
 Status: L3 translation production in progress  
 Baseline branch: `main`  
-Baseline commit inspected: `7f00118f585347e503a9bb2b7152ad0728b07440`  
+Baseline commit inspected: `8c68b86c0a91615ebfae092d1a8ee3bb182fa9fa`  
 Target locale order: `en, fa, ar, es, fr, de, pt, ru, tr, hi, id, ja, ko, zh-CN, bn, ur, it, nl, th, vi`
 
 ## Confirmed source surfaces
@@ -11,11 +11,11 @@ Target locale order: `en, fa, ar, es, fr, de, pt, ru, tr, hi, id, ja, ko, zh-CN,
 |---|---|---|---|
 | Locale registry | `app/src/locales.js` | 20 target locales; only `en` and `fa` enabled | Keep enablement closed until release gates pass |
 | UI copy | `app/src/i18n.js` → `COPY` | English and Persian dictionaries; dictionary section is about 53 KB | Translate every nested leaf for the 18 remaining locales; preserve key and placeholder parity |
-| Category labels | `app/src/game/categoryCatalog.js` + `app/src/game/categoryTranslations.js` | Complete offline category names, subtitles and all 115 subcategory labels added for Spanish and French; automated coverage test added | Add the remaining 16 locale packs, integrate them into locale copy, and verify every key against the canonical catalog |
+| Category labels | `app/src/game/categoryCatalog.js` + `app/src/game/categoryTranslations.js` | Complete offline category names, subtitles and all 115 subcategory labels added for Spanish, French and German; automated coverage test added | Add the remaining 15 locale packs, integrate them into locale copy, and verify every key against the canonical catalog |
 | Question content | `app/src/game/questionFixtures.js` + `app/src/game/questionTranslations.js` + `PERSIAN_QUESTIONS` in `app/src/i18n.js` | 24 stable question IDs; offline prompt/options packs added for all 18 non-baseline locales; automated coverage test enumerates all 18 packs | Review translation quality and verify semantic correctness; preserve IDs, order, option count, and answer index |
 | Local match delivery | `app/src/game/localMatchAdapter.js` | Question packages now derive localized copies from every currently enabled locale rather than hard-coding Persian; selected participant locale is still enforced by the match engine | Once locale packs are complete and enabled, verify all 20 locales flow through the same package resolver |
 | UI integration | `app/src/App.jsx`, `app/src/components/AccountSessionPanel.jsx` | App consumes centralized copy; App source is about 93 KB | Audit all rendered text, attributes, accessibility labels, placeholders, and conditional states for hardcoded literals |
-| Frontend tests | `app/src/i18n.test.js` | Question pack coverage for 18 locales; Spanish/French category pack coverage; recursive en/fa key and placeholder parity checks added | Extend complete key/placeholder coverage to every locale and audit all visible UI literals |
+| Frontend tests | `app/src/i18n.test.js` | Question pack coverage for 18 locales; Spanish/French/German category pack coverage; recursive en/fa key and placeholder parity checks added | Extend complete key/placeholder coverage to every locale and audit all visible UI literals |
 | Backend locale policy | `backend/src/common/localization/locale-registry.ts` | Target registry exists; enabled set is en/fa | Maintain exact frontend/backend target and enablement parity |
 
 ## Confirmed counts
@@ -26,7 +26,7 @@ Target locale order: `en, fa, ar, es, fr, de, pt, ru, tr, hi, id, ja, ko, zh-CN,
 - Subcategories: 115
 - Legacy question fixtures: 24
 - Question translation packs: English canonical fixtures, Persian translations, and 18 non-baseline locale packs
-- Category translation packs: Spanish and French (full 23-category / 115-subcategory coverage); other locales pending
+- Category translation packs: Spanish, French and German (full 23-category / 115-subcategory coverage); 15 locales pending
 
 ## Important implementation constraints
 
@@ -121,7 +121,15 @@ L0 remains **in progress**. No translation production or locale activation is au
 ## Stage 2 implementation evidence — 2026-11-21
 
 - `app/src/game/questionTranslations.js`: 18 offline locale packs for all 24 fixture IDs; test coverage preserves prompt presence, option count/order, and canonical answer index.
-- `app/src/game/categoryTranslations.js`: Spanish and French category names, subtitles, and all 115 subcategory labels; exact key coverage is tested against the canonical catalog.
+- `app/src/game/categoryTranslations.js`: Spanish, French and German category names, subtitles, and all 115 subcategory labels; exact key coverage is tested against the canonical catalog.
 - `app/src/game/localMatchAdapter.js`: localized question packages are now assembled from `getSupportedLocales()` instead of a Persian-only hard-coded branch. Newly completed locales will be included automatically once enabled.
 - `app/src/i18n.test.js`: recursive English/Persian key and placeholder parity guard added.
-- Stage 2 remains open: full UI dictionaries and category packs for the other 16 locales, runtime integration, full all-locale tests, and locale activation are not yet complete.
+- Stage 2 remains open: full UI dictionaries and category packs for the other 15 locales, runtime integration, full all-locale tests, and locale activation are not yet complete.
+
+
+## Follow-up correction — 2026-11-21
+
+- Fixed an extra comma in `app/src/game/categoryTranslations.js` that caused the module parser to fail before the localization tests could run.
+- Added the complete German category pack (23 categories, category/mode subtitles, 115 subcategories) and extended the category coverage test to include `de`.
+- Commit: `8c68b86c0a91615ebfae092d1a8ee3bb182fa9fa` (`fix(i18n): correct category translation module syntax`). CI run `44885175428` is pending at the time of this inventory update; no green result is claimed.
+- Stage 2 remains open. Only English and Persian are enabled; UI dictionaries for the other 18 locales and category packs for 15 locales are still missing. No APK is requested until Stage 2 is complete.
