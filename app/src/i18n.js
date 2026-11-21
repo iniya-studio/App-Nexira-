@@ -1,3 +1,4 @@
+import { CATEGORY_TRANSLATIONS } from './game/categoryTranslations.js';
 import { getLocaleConfig, isSupportedLocale, resolveLocale } from './locales.js';
 
 export const COPY = {
@@ -688,8 +689,19 @@ export function getQuestionCopy(language, question) {
   return { ...question, ...translated, answer: question.answer };
 }
 
+const LOCALIZED_COPY = Object.freeze(Object.fromEntries(Object.keys(COPY).map((locale) => {
+  const base = COPY[locale];
+  const categories = CATEGORY_TRANSLATIONS[locale];
+  return [locale, categories ? Object.freeze({
+    ...base,
+    categoryNames: categories.categoryNames,
+    categorySubtitles: categories.categorySubtitles,
+    categorySubcategories: categories.categorySubcategories,
+  }) : base];
+})));
+
 export function getCopy(language) {
-  return COPY[resolveLocale(language)];
+  return LOCALIZED_COPY[resolveLocale(language)];
 }
 
 export function getCategoryTitle(language, categoryId, fallback = '') {
