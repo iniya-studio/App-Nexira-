@@ -46,3 +46,44 @@ Target locale order: `en, fa, ar, es, fr, de, pt, ru, tr, hi, id, ja, ko, zh-CN,
 ## Exit criteria for L0
 
 L0 is complete only after the remaining source-level audits above are recorded and every production-visible string/content source has an owner and stable translation key or content ID. Translation production must not be declared complete from dictionary parity alone.
+
+## L0 source-level UI audit — 2026-11-21
+
+### Files inspected directly on `main`
+
+- `app/src/App.jsx` — main production UI and inline screen/component markup (95 KB source).
+- `app/src/components/AccountSessionPanel.jsx` — account/session UI component.
+- `app/src/i18n.js` — centralized English/Persian copy source (referenced by the existing inventory and UI).
+- `app/index.html` — document title and description fallback metadata.
+- `app/src/game/categoryCatalog.js` — category and subcategory IDs.
+- `app/src/game/questionFixtures.js` — canonical question fixtures.
+- `app/src/game/localMatchAdapter.js` — local match content delivery.
+- `app/src/i18n.test.js` — current localization contract tests.
+
+### Confirmed findings from the rendered UI audit
+
+| Finding | Location | Classification | Required action |
+|---|---|---|---|
+| Home mode labels `1vs1` and `1vsAI` are literal JSX text | `App.jsx` home mode cards | Product notation / visible label | Decide and document as intentionally invariant labels, or move to dictionary if localized wording is required |
+| Quick Battle preview category title is hard-coded as `Quick Battle` | `App.jsx` `quickBattlePreviewCategory` | Player-facing gameplay metadata | Use the existing localized Quick Battle label or a stable localized content key |
+| Quick Battle preview mode is hard-coded as `Speed Sprint` | `App.jsx` `quickBattlePreviewCategory.modes` | Player-facing gameplay metadata | Add a localized mode label/key; do not let the raw fallback reach match UI |
+| Quick Battle preview uses the category ID `quick-battle-preview` | `App.jsx` | Internal stable ID | Keep invariant; ensure display labels are resolved from locale copy |
+| Initial HTML title/description are English fallbacks | `app/index.html` | Document metadata fallback | Runtime updates `document.title` and meta description from selected locale copy; verify metadata is correct after locale initialization |
+| Account/session component contains no detected user-facing English JSX literals | `AccountSessionPanel.jsx` | Centralized copy usage | Continue to require all account text through the supplied localized `copy` object |
+
+### Literal-text classification rules
+
+- Brand name `NEXIRA`, stable IDs, protocol/error identifiers, CSS classes, and technical notation are not translation strings by default.
+- `1vs1` and `1vsAI` are visible product-mode notation; they remain an explicit localization decision rather than silently being counted as translated copy.
+- Error messages used only for logs or internal exceptions are not player-facing copy. Player-facing errors must resolve through stable error codes and localized dictionary entries.
+- Any fallback such as `General` or a raw mode ID that can appear in rendered match/result UI must be replaced by a localized fallback before L0 can close.
+
+### Remaining L0 audit gates
+
+1. Trace every player-visible category/mode/subcategory label from its data source to its rendered UI; confirm no raw IDs or English fallbacks are displayed.
+2. Trace every player-visible backend response field and API error path; confirm the UI renders localized stable codes/IDs rather than server-provided prose.
+3. Audit all gameplay overlays, empty/loading/error states, accessibility attributes, and document metadata across each screen/state, including conditional branches.
+4. Add automated source/contract tests that fail on the identified Quick Battle literals and on unlocalized display fallbacks.
+5. Record explicit disposition for the invariant `1vs1` / `1vsAI` notation.
+
+L0 remains **in progress**. No translation production or locale activation is authorized until all remaining gates above are evidenced by tests.
