@@ -559,6 +559,24 @@ test('runtime locale infrastructure applies document language, direction, font, 
 });
 
 
+test('a locale cannot be enabled until its full UI, category and question content exists', () => {
+  for (const locale of getSupportedLocales()) {
+    const copy = COPY[locale.code];
+    assert.ok(copy, `Enabled locale has no UI dictionary: ${locale.code}`);
+    for (const category of CATEGORY_CATALOG) {
+      assert.ok(copy.categoryNames?.[category.id], `Enabled locale missing category name: ${locale.code}/${category.id}`);
+      assert.ok(copy.categorySubtitles?.[category.id], `Enabled locale missing category subtitle: ${locale.code}/${category.id}`);
+      for (const subcategory of category.subcategories) {
+        assert.ok(copy.categorySubcategories?.[category.id]?.[subcategory], `Enabled locale missing subcategory: ${locale.code}/${category.id}/${subcategory}`);
+      }
+    }
+    for (const question of QUESTION_FIXTURES) {
+      assert.doesNotThrow(() => getQuestionCopy(locale.code, question), `Enabled locale missing question: ${locale.code}/${question.id}`);
+    }
+  }
+  assert.deepEqual(getSupportedLocales().map(({ code }) => code).sort(), ['en', 'fa']);
+});
+
 test('All 18 translated offline question packs cover all 24 fixtures without changing option order or answer semantics', () => {
   const fixtureIds = QUESTION_FIXTURES.map(({ id }) => id).sort();
   for (const locale of ['es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi', 'id', 'ja', 'ko', 'ar', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi']) {
