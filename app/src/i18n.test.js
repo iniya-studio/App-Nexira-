@@ -40,7 +40,7 @@ test('the canonical category catalog contains exactly 23 categories and 115 uniq
 
 test('every available translated category pack covers all 23 categories, subtitles and 115 subcategories', () => {
   const categoryLocales = Object.keys(CATEGORY_TRANSLATIONS).sort();
-  assert.deepEqual(categoryLocales, ['ar', 'de', 'es', 'fr', 'it', 'pt', 'ru', 'tr']);
+  assert.deepEqual(categoryLocales, ['ar', 'de', 'es', 'fr', 'id', 'it', 'nl', 'pt', 'ru', 'tr']);
   for (const locale of categoryLocales) {
     const pack = CATEGORY_TRANSLATIONS[locale];
     assert.ok(pack, `Missing category pack: ${locale}`);
