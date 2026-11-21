@@ -5,7 +5,7 @@ import {
   startMatch,
 } from './match.js';
 import { getQuestionCopy } from '../i18n.js';
-import { isSupportedLocale } from '../locales.js';
+import { getSupportedLocales, isSupportedLocale } from '../locales.js';
 
 function createQuestionPackages(category, matchId) {
   if (!category || !Array.isArray(category.questions) || category.questions.length === 0) {
@@ -13,7 +13,13 @@ function createQuestionPackages(category, matchId) {
   }
 
   return category.questions.map((question, roundIndex) => {
-    const persian = getQuestionCopy('fa', question);
+    const localized = Object.fromEntries(getSupportedLocales().map(({ code }) => {
+      const copy = getQuestionCopy(code, question);
+      return [code, {
+        prompt: copy.prompt,
+        options: copy.options.map((text, index) => ({ id: `option-${index}`, text })),
+      }];
+    }));
     return {
       questionId: `${matchId}-question-${roundIndex + 1}`,
       matchId,
@@ -27,16 +33,7 @@ function createQuestionPackages(category, matchId) {
       answerType: 'multiple_choice',
       answerKey: `option-${question.answer}`,
       gradingRubric: { type: 'exact-option-id' },
-      localized: {
-        en: {
-          prompt: question.prompt,
-          options: question.options.map((text, index) => ({ id: `option-${index}`, text })),
-        },
-        fa: {
-          prompt: persian.prompt,
-          options: persian.options.map((text, index) => ({ id: `option-${index}`, text })),
-        },
-      },
+      localized,
       timeLimit: 10,
       contentVersion: 'local-category-v1',
     };
