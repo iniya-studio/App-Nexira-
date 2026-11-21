@@ -3,6 +3,7 @@ import { getLocaleConfig, isSupportedLocale, resolveLocale } from './locales.js'
 import spanish from './i18n/translations/es.js';
 import french from './i18n/translations/fr.js';
 import german from './i18n/translations/de.js';
+import italian from './i18n/translations/it.js';
 
 export const COPY = {
   en: {
@@ -669,6 +670,12 @@ COPY.de = Object.freeze({
   categoryNames: CATEGORY_TRANSLATIONS.de.categoryNames,
   categorySubtitles: CATEGORY_TRANSLATIONS.de.categorySubtitles,
   categorySubcategories: CATEGORY_TRANSLATIONS.de.categorySubcategories,
+});
+COPY.it = Object.freeze({
+  ...italian,
+  categoryNames: CATEGORY_TRANSLATIONS.it.categoryNames,
+  categorySubtitles: CATEGORY_TRANSLATIONS.it.categorySubtitles,
+  categorySubcategories: CATEGORY_TRANSLATIONS.it.categorySubcategories,
 });
 
 export const PERSIAN_QUESTIONS = Object.freeze({
