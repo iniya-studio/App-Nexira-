@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLocaleFontLoader, getLocaleFontConfig } from './localeFonts.js';
+import { getTargetLocales } from './locales.js';
 
 function createDocument() {
   const properties = new Map();
@@ -13,30 +14,53 @@ function createDocument() {
   };
 }
 
-test('locale font configuration maps script-specific families', () => {
-  assert.equal(getLocaleFontConfig('fa').code, 'fa');
-  assert.match(getLocaleFontConfig('fa').family, /Noto Sans Arabic/);
-  assert.equal(getLocaleFontConfig('ur').code, 'en');
-  assert.equal(getLocaleFontConfig('ja').code, 'en');
-  assert.match(getLocaleFontConfig('ur').family, /Inter Variable/);
+test('every target locale resolves to a script-appropriate font family', () => {
+  const expectedFamilies = {
+    en: /Inter Variable/,
+    fa: /Noto Sans Arabic/,
+    ar: /Noto Sans Arabic/,
+    es: /Inter Variable/,
+    fr: /Inter Variable/,
+    de: /Inter Variable/,
+    pt: /Inter Variable/,
+    ru: /Inter Variable/,
+    tr: /Inter Variable/,
+    hi: /Noto Sans Devanagari/,
+    id: /Inter Variable/,
+    ja: /Noto Sans JP/,
+    ko: /Noto Sans KR/,
+    'zh-CN': /Noto Sans SC/,
+    bn: /Noto Sans Bengali/,
+    ur: /Noto Nastaliq Urdu/,
+    it: /Inter Variable/,
+    nl: /Inter Variable/,
+    th: /Noto Sans Thai/,
+    vi: /Inter Variable/,
+  };
+
+  assert.deepEqual(Object.keys(expectedFamilies).sort(), getTargetLocales().map(({ code }) => code).sort());
+  for (const locale of getTargetLocales()) {
+    const config = getLocaleFontConfig(locale.code);
+    assert.equal(config.code, locale.code);
+    assert.match(config.family, expectedFamilies[locale.code], `Wrong font family for ${locale.code}`);
+  }
   assert.equal(getLocaleFontConfig('unknown').code, 'en');
 });
 
-test('font loader applies the selected locale after its import resolves', async () => {
+test('font loader imports and applies the selected target locale font', async () => {
   const documentRef = createDocument();
-  let imported = '';
-  const loader = createLocaleFontLoader({
-    documentRef,
-    importers: {
-      en: async () => { imported = 'en'; },
-      fa: async () => { imported = 'fa'; },
-    },
-  });
-  const result = await loader('fa');
-  assert.equal(imported, 'fa');
-  assert.equal(result.applied, true);
-  assert.equal(documentRef.documentElement.dataset.localeFont, 'fa');
-  assert.match(documentRef.documentElement.properties.get('--font-body'), /Noto Sans Arabic/);
+  const imported = [];
+  const importers = Object.fromEntries(getTargetLocales().map(({ code }) => [code, async () => imported.push(code)]));
+  const loader = createLocaleFontLoader({ documentRef, importers });
+
+  for (const locale of getTargetLocales()) {
+    const result = await loader(locale.code);
+    assert.equal(result.applied, true);
+    assert.equal(result.locale, locale.code);
+    assert.equal(documentRef.documentElement.dataset.localeFont, locale.code);
+    assert.match(documentRef.documentElement.properties.get('--font-body'), getLocaleFontConfig(locale.code).family.includes('Noto') ? /Noto/ : /Inter/);
+  }
+  assert.deepEqual(imported, getTargetLocales().map(({ code }) => code));
 });
 
 test('a stale font request cannot override the latest selected locale', async () => {
@@ -61,9 +85,9 @@ test('a script font import failure safely falls back to Inter', async () => {
   const documentRef = createDocument();
   const loader = createLocaleFontLoader({
     documentRef,
-    importers: { en: async () => {}, fa: async () => { throw new Error('font chunk unavailable'); } },
+    importers: { en: async () => {}, ja: async () => { throw new Error('font chunk unavailable'); } },
   });
-  const result = await loader('fa');
+  const result = await loader('ja');
   assert.equal(result.fallback, true);
   assert.equal(documentRef.documentElement.dataset.localeFont, 'en');
   assert.match(documentRef.documentElement.properties.get('--font-body'), /Inter Variable/);
