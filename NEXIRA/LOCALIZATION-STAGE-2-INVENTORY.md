@@ -87,3 +87,31 @@ L0 is complete only after the remaining source-level audits above are recorded a
 5. Record explicit disposition for the invariant `1vs1` / `1vsAI` notation.
 
 L0 remains **in progress**. No translation production or locale activation is authorized until all remaining gates above are evidenced by tests.
+
+## L0 gameplay-display and local-question delivery trace — 2026-11-21
+
+### Additional confirmed gaps
+
+| Finding | Source | Impact | Required action |
+|---|---|---|---|
+| `createQuestionPackages(category, matchId, language)` ignores its `language` argument and always calls `getQuestionCopy('fa', question)` | `app/src/game/localMatchAdapter.js` | Local match packages are built with only hard-coded `en` and `fa` entries; selected locale is not used to select question content | Make the selected locale an explicit input to question-pack resolution; preserve canonical English data and stable option IDs/answer key |
+| Local question delivery constructs only `localized.en` and `localized.fa` | `localMatchAdapter.js` | No path exists yet for the other 18 locale question packs | Add locale-pack registry/resolver with strict missing-pack behavior; do not silently present English as a completed translation |
+| Local scripted opponent/player display names are literal English | `localMatchAdapter.js` `createView()` | Participant names can appear in the competitive match UI | Resolve these labels from locale copy or stable participant display-name descriptors |
+| Quick Battle preview `categoryTitle` and `mode` flow into the challenge model | `App.jsx` → `session.js` | Hard-coded preview metadata can surface in game/results UI | Resolve localized display title and mode label before creating/rendering the challenge |
+| `getCategoryTitle(language, categoryId, fallback)` returns caller-provided fallback when no localized category key exists | `app/src/i18n.js` | A raw English fallback or internal ID can escape into UI if caller passes one | Audit every call site; use localized fallback keys and add tests for unknown/missing category IDs |
+| `getQuestionCopy(language, question)` falls back to the canonical question object when no pack entry exists | `app/src/i18n.js` | Missing translation can silently display English canonical content | Keep fallback only where explicitly allowed for canonical English; for non-English selected locales, require an explicit missing-translation state or reject the pack |
+
+### Local match content contract to preserve
+
+- The English fixture remains the canonical source.
+- Question IDs, round order, option IDs/order/count, answer key, scoring, timer, and match semantics must remain invariant across locale packs.
+- Translation must change only player-facing prompt/option text and other explicitly localized display fields.
+- The locale used to build a match must be the same locale used to resolve its question package; no hard-coded `fa` selection is acceptable.
+- A locale without a complete approved question pack must remain unavailable for selection/match delivery.
+
+### Additional L0 exit gates
+
+6. Test that local match question packages use the requested locale rather than always Persian.
+7. Test that every active locale has a complete question pack with exact fixture-ID, option-count, option-ID, order, and answer-key parity.
+8. Test that missing non-English translations fail closed and never silently fall back to English.
+9. Test participant display names, category title, mode title, and result metadata in both RTL and LTR locales.
