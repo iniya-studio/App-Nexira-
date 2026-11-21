@@ -73,6 +73,30 @@ test('English and Persian provide the same complete translation keys', () => {
   }
 });
 
+test('English and Persian translation trees have recursive key and placeholder parity', () => {
+  const inspect = (source, translated, path = 'root') => {
+    assert.equal(typeof translated, typeof source, `Type mismatch at ${path}`);
+    if (typeof source === 'string') {
+      assert.ok(source.trim(), `Empty source string at ${path}`);
+      assert.ok(translated.trim(), `Empty translated string at ${path}`);
+      const placeholders = value => [...value.matchAll(/\\{([A-Za-z0-9_]+)\\}/g)].map(match => match[1]).sort();
+      assert.deepEqual(placeholders(translated), placeholders(source), `Interpolation placeholders differ at ${path}`);
+      return;
+    }
+    if (Array.isArray(source)) {
+      assert.ok(Array.isArray(translated), `Expected array at ${path}`);
+      assert.equal(translated.length, source.length, `Array length differs at ${path}`);
+      source.forEach((value, index) => inspect(value, translated[index], `${path}[${index}]`));
+      return;
+    }
+    if (source && typeof source === 'object') {
+      assert.deepEqual(Object.keys(translated).sort(), Object.keys(source).sort(), `Nested keys differ at ${path}`);
+      for (const key of Object.keys(source)) inspect(source[key], translated[key], `${path}.${key}`);
+    }
+  };
+  inspect(COPY.en, COPY.fa);
+});
+
 test('all UI translation references are present',async()=>{const a=await readFile(new URL('./App.jsx',import.meta.url),'utf8');const refs=[...a.matchAll(/\btext\.([A-Za-z]\w*)/g)].map(m=>m[1]);for(const k of refs)assert.ok(k in COPY.en&&k in COPY.fa);});
 
 
