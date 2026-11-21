@@ -101,5 +101,58 @@ export const CATEGORY_TRANSLATIONS = Object.freeze({
       'education-mathematics': { mathematics:'Mathématiques','logic-puzzles':'Énigmes logiques','mental-calculations':'Calcul mental','general-knowledge':'Culture générale','thinking-challenges':'Défis de réflexion' },
       'fashion-beauty': { 'fashion-clothing':'Mode et vêtements','fashion-brands':'Marques de mode','makeup-beauty':'Maquillage et beauté','personal-style':'Style personnel','trends-and-designers':'Tendances et créateurs' },
     },
+  }),,
+
+  de: Object.freeze({
+    categoryNames: {
+      gaming:'Gaming', 'movies-tv':'Film und Fernsehen', music:'Musik', sports:'Sport', technology:'Technologie',
+      'internet-social-media':'Internet und soziale Medien', 'anime-manga':'Anime und Manga', 'superheroes-comics':'Superhelden und Comics',
+      geography:'Geografie', history:'Geschichte', space:'Weltraum', science:'Wissenschaft', 'cars-motorsports':'Autos und Motorsport',
+      'animals-nature':'Tiere und Natur', 'food-drinks':'Essen und Getränke', 'art-design':'Kunst und Design',
+      'books-stories':'Bücher und Geschichten', 'culture-lifestyle':'Kultur und Lebensstil', 'brands-business':'Marken und Unternehmen',
+      'mythology-legends':'Mythologie und Legenden', 'travel-tourism':'Reisen und Tourismus', 'education-mathematics':'Bildung und Mathematik',
+      'fashion-beauty':'Mode und Schönheit', memory:'Gedächtnis', logic:'Logik', mathematics:'Mathematik',
+      knowledge:'Allgemeinwissen', reaction:'Reaktion', focus:'Konzentration', language:'Sprache', science:'Wissenschaft'
+    },
+    categorySubtitles: {
+      gaming:'Welten voller Spielspaß.', 'movies-tv':'Geschichten auf jeder Leinwand.', music:'Finde deinen Rhythmus.',
+      sports:'Rekorde, Rivalen und Legenden.', technology:'Ideen, die die Zukunft gestalten.',
+      'internet-social-media':'Kultur in der vernetzten Welt.', 'anime-manga':'Geschichten jenseits der Wirklichkeit.',
+      'superheroes-comics':'Helden, Schurken und Universen.', geography:'Entdecke die Welt.', history:'Die Vergangenheit entschlüsseln.',
+      space:'Jenseits unserer Welt.', science:'Entdecke, wie alles funktioniert.', 'cars-motorsports':'Maschinen für Höchstgeschwindigkeit.',
+      'animals-nature':'Leben in all seinen Formen.', 'food-drinks':'Schmecke die Welt.', 'art-design':'Kreativität in jedem Detail.',
+      'books-stories':'Welten aus Worten.', 'culture-lifestyle':'Wie Menschen leben und feiern.',
+      'brands-business':'Namen, Ideen und Märkte.', 'mythology-legends':'Götter, Helden und alte Erzählungen.',
+      'travel-tourism':'Orte, die entdeckt werden wollen.', 'education-mathematics':'Denken, lösen und lernen.',
+      'fashion-beauty':'Stil, Ausdruck und Kreativität.', memory:'Behalte das Signal im Kopf.', logic:'Finde den entscheidenden Hinweis.',
+      mathematics:'Zahlen lügen nicht.', knowledge:'Lerne mehr. Reagiere schneller.', reaction:'Entscheide unter Druck.',
+      focus:'Blende Ablenkungen aus.', language:'Lies zwischen den Zeilen.', science:'Entschlüssle die Natur.'
+    },
+    categorySubcategories: {
+      gaming:{'famous-games':'Berühmte Spiele','game-characters':'Spielfiguren',esports:'E-Sport',studios:'Studios','gaming-history':'Geschichte der Videospiele'},
+      'movies-tv':{movies:'Filme','tv-series':'Fernsehserien',actors:'Schauspieler',characters:'Figuren',awards:'Auszeichnungen'},
+      music:{pop:'Pop',rock:'Rock','hip-hop-rap':'Hip-Hop und Rap','k-pop':'K-Pop','artists-bands':'Künstler und Bands'},
+      sports:{football:'Fußball',basketball:'Basketball','combat-sports':'Kampfsport','world-competitions':'Weltweite Wettbewerbe','famous-athletes':'Berühmte Sportler'},
+      technology:{ai:'Künstliche Intelligenz','mobile-gadgets':'Mobilgeräte und Gadgets',computers:'Computer',internet:'Internet','technology-companies':'Technologieunternehmen'},
+      'internet-social-media':{youtube:'YouTube',streamers:'Streamer','social-networks':'Soziale Netzwerke','popular-memes':'Beliebte Memes','internet-trends':'Internettrends'},
+      'anime-manga':{'anime-series':'Anime-Serien',characters:'Figuren',manga:'Manga',studios:'Studios','japanese-world':'Japanische Kultur'},
+      'superheroes-comics':{marvel:'Marvel',dc:'DC',superheroes:'Superhelden',comics:'Comics',antiheroes:'Antihelden'},
+      geography:{countries:'Länder',cities:'Städte',flags:'Flaggen',landmarks:'Sehenswürdigkeiten','world-wonders':'Weltwunder'},
+      history:{civilizations:'Zivilisationen',kingdoms:'Königreiche',wars:'Kriege',revolutions:'Revolutionen','historical-figures':'Historische Persönlichkeiten'},
+      space:{'solar-system':'Sonnensystem',planets:'Planeten','space-missions':'Raummissionen','space-agencies':'Raumfahrtagenturen',discoveries:'Entdeckungen'},
+      science:{physics:'Physik',chemistry:'Chemie',biology:'Biologie',inventions:'Erfindungen',scientists:'Wissenschaftler'},
+      'cars-motorsports':{'car-brands':'Automarken',supercars:'Supersportwagen',motorcycles:'Motorräder','formula-one':'Formel 1',racing:'Rennsport'},
+      'animals-nature':{animals:'Tiere',oceans:'Ozeane',forests:'Wälder',nature:'Natur','animal-records':'Tierrekorde'},
+      'food-drinks':{'world-cuisines':'Küchen der Welt','fast-food':'Fast Food',desserts:'Desserts',beverages:'Getränke','food-brands':'Lebensmittelmarken'},
+      'art-design':{painting:'Malerei',architecture:'Architektur',photography:'Fotografie',design:'Design','famous-artworks':'Berühmte Kunstwerke'},
+      'books-stories':{novels:'Romane',authors:'Autoren',fantasy:'Fantasy','science-fiction':'Science-Fiction','fictional-characters':'Fiktive Figuren'},
+      'culture-lifestyle':{'national-cultures':'Nationale Kulturen',festivals:'Feste',traditions:'Traditionen',fashion:'Mode',lifestyle:'Lebensstil'},
+      'brands-business':{'global-brands':'Globale Marken',companies:'Unternehmen',startups:'Start-ups',entrepreneurs:'Unternehmer',commerce:'Handel'},
+      'mythology-legends':{'greek-mythology':'Griechische Mythologie','norse-mythology':'Nordische Mythologie','egyptian-mythology':'Ägyptische Mythologie','iranian-mythology':'Iranische Mythologie','world-mythologies':'Weltmythologien'},
+      'travel-tourism':{destinations:'Reiseziele','famous-attractions':'Berühmte Attraktionen','scenic-cities':'Malerische Städte',hotels:'Hotels','adventure-and-unique-places':'Abenteuer und besondere Orte'},
+      'education-mathematics':{mathematics:'Mathematik','logic-puzzles':'Logikrätsel','mental-calculations':'Kopfrechnen','general-knowledge':'Allgemeinwissen','thinking-challenges':'Denkaufgaben'},
+      'fashion-beauty':{'fashion-clothing':'Mode und Kleidung','fashion-brands':'Modemarken','makeup-beauty':'Make-up und Schönheit','personal-style':'Persönlicher Stil','trends-and-designers':'Trends und Designer'}
+    }
   }),
+
 });
