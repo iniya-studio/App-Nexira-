@@ -7,7 +7,7 @@ import { awardRun } from './scoring.js';
 import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } from './session.js';
 
 test('all challenge questions have four valid answer choices', () => {
-  for (const category of CATEGORIES) {
+  for (const category of [PREVIEW_CATEGORY]) {
     assert.ok(PREVIEW_CATEGORY.questions.length > 0, `${category.title} has questions`);
     for (const question of PREVIEW_CATEGORY.questions) {
       assert.equal(question.options.length, 4, `${category.title} question has four choices`);
