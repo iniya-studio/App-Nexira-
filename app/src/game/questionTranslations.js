@@ -156,7 +156,7 @@ export const QUESTION_TRANSLATIONS = Object.freeze({
     'science.q01': { prompt: 'Bitkiler atmosferden hangi gazı emer?', options: ['Oksijen', 'Azot', 'Karbondioksit', 'Helyum'] },
     'science.q02': { prompt: 'Altının kimyasal simgesi nedir?', options: ['Ag', 'Au', 'Go', 'Gd'] },
     'science.q03': { prompt: 'Gezegenleri yörüngede tutan kuvvet hangisidir?', options: ['Sürtünme', 'Manyetizma', 'Yerçekimi', 'Basınç'] },
-  }),,
+  }),
 
   hi: Object.freeze({
     'memory.q01': { prompt: 'संकेत: त्रिभुज · षट्भुज · वृत्त · षट्भुज। कौन-सी आकृति दोहराई गई?', options: ['त्रिभुज', 'वृत्त', 'षट्भुज', 'वर्ग'] },
