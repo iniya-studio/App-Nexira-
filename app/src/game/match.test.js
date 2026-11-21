@@ -224,11 +224,12 @@ test('returns localized public questions with stable option IDs and no answer ke
   assert.equal('canonicalPrompt' in persian, false);
 });
 
-test('falls back to the canonical language when a participant translation is missing', () => {
+test('rejects a question request when the selected locale pack is missing', () => {
   const match = makeMatch();
-  const publicQuestion = getPublicQuestion(match, 'human-a', 'de');
-  assert.equal(publicQuestion.language, 'en');
-  assert.equal(publicQuestion.prompt, questionPackages[0].canonicalPrompt);
+  assert.throws(
+    () => getPublicQuestion(match, 'human-a', 'de'),
+    { name: 'RangeError', message: /unavailable for locale "de"/ },
+  );
 });
 
 test('starts the match, accepts trusted Judge decisions, and advances only after both submissions', () => {
