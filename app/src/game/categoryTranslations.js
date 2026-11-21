@@ -1,5 +1,8 @@
+import { EXTRA_CATEGORY_TRANSLATIONS } from './categoryTranslationsExtra.js';
+
 // Offline category labels. IDs and catalog order remain canonical.
 export const CATEGORY_TRANSLATIONS = Object.freeze({
+  ...EXTRA_CATEGORY_TRANSLATIONS,
   es: Object.freeze({
     categoryNames: {
       gaming: 'Videojuegos', 'movies-tv': 'Cine y TV', music: 'Música', sports: 'Deportes', technology: 'Tecnología',
