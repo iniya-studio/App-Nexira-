@@ -113,9 +113,9 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
       answerKey: 'A',
       timeLimitSeconds: 30,
       contentVersion: 'question-content-v2',
-      generatorVersion: 'question-generator-v2',
+      generatorVersion: 'question-generator-v3',
       modelVersion: 'test-generator-model',
-      generationPolicyVersion: 'shared-semantic-multilocale-v1',
+      generationPolicyVersion: 'shared-semantic-multilocale-v2',
     });
     expect(result.contentFingerprint).toMatch(/^[a-f0-9]{64}$/);
 
