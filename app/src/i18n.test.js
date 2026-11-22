@@ -692,3 +692,31 @@ test('No non-Hindi UI locale may inherit Devanagari-script text', () => {
   }
   assert.equal(leaks.length, 0, `Hindi-script text leaked into other UI locales: ${leaks.join(', ')}`);
 });
+
+test('No non-Hindi category or question pack may inherit Devanagari-script text', () => {
+  const leaks = [];
+  const inspect = (value, locale, section, key = 'root') => {
+    if (typeof value === 'string') {
+      if (/\\p{Script=Devanagari}/u.test(value)) leaks.push(`${section}:${locale}:${key}`);
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => inspect(item, locale, section, `${key}[${index}]`));
+      return;
+    }
+    if (value && typeof value === 'object') {
+      for (const [childKey, child] of Object.entries(value)) {
+        inspect(child, locale, section, `${key}.${childKey}`);
+      }
+    }
+  };
+
+  for (const [locale, pack] of Object.entries(CATEGORY_TRANSLATIONS)) {
+    if (locale !== 'hi') inspect(pack, locale, 'category');
+  }
+  for (const [locale, pack] of Object.entries(QUESTION_TRANSLATIONS)) {
+    if (locale !== 'hi') inspect(pack, locale, 'question');
+  }
+
+  assert.deepEqual(leaks, [], `Hindi-script text leaked into non-Hindi category/question packs: ${leaks.join(', ')}`);
+});
