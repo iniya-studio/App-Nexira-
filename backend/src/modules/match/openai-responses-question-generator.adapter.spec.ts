@@ -21,6 +21,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
   };
   const structuredQuestion = {
     category: 'science',
+    subcategoryId: null,
     difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'MULTIPLE_CHOICE',
@@ -180,12 +181,21 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     expect(body.input[1].content[0].text).toContain('"language_name":"Brazilian Portuguese"');
   });
 
-  it('passes the selected subcategory as a strict generation constraint', async () => {
-    respond(structuredQuestion);
-    await adapter.generate({ ...input, subcategoryId: 'physics' });
+  it('passes the selected subcategory and requires an exact output echo', async () => {
+    respond({ ...structuredQuestion, subcategoryId: 'physics' });
+    const result = await adapter.generate({ ...input, subcategoryId: 'physics' });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body.input[0].content[0].text).toContain('selected subcategory');
-    expect(body.input[1].content[0].text).toContain('"subcategory":"physics"');
+    expect(body.input[0].content[0].text).toContain('Return subcategoryId exactly as supplied');
+    expect(body.input[1].content[0].text).toContain('"subcategoryId":"physics"');
+    expect(result.category).toBe('science');
+  });
+
+  it('rejects a question when the provider omits or changes the selected subcategory', async () => {
+    respond(structuredQuestion);
+    await expect(adapter.generate({ ...input, subcategoryId: 'physics' })).rejects.toMatchObject({
+      code: 'GENERATOR_SETTINGS_MISMATCH',
+    });
   });
 
   it('generates and validates one shared question for the complete 20-locale target set', async () => {
