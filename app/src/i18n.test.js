@@ -668,3 +668,16 @@ test('every registered translated UI dictionary has recursive key, type, array a
   assert.ok(translatedLocales.length > 0, 'No translated UI dictionaries are registered');
   for (const locale of translatedLocales) inspect(COPY.en, COPY[locale], locale);
 });
+
+
+test('Vietnamese UI copy is fully localized and remains disabled until release approval', () => {
+  assert.equal(isSupportedLocale('vi'), false, 'Vietnamese must remain disabled until localization release approval');
+  assert.equal(COPY.vi.match.online, 'TRỰC TUYẾN');
+  assert.equal(COPY.vi.account.sign_in, 'Đăng nhập');
+  assert.equal(COPY.vi.profile.sessionStatus.guest, 'Tài khoản khách: đang hoạt động');
+  for (const { key, value } of collectTranslationLeaves(COPY.vi)) {
+    assert.equal(typeof value, 'string', `Vietnamese translation must be text: ${key}`);
+    assert.ok(value.trim(), `Vietnamese translation must not be empty: ${key}`);
+    assert.doesNotMatch(value, /\\p{Script=Devanagari}/u, `Hindi text must not leak into Vietnamese UI: ${key}`);
+  }
+});
