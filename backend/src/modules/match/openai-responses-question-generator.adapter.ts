@@ -309,7 +309,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
     if (
       typeof input.category !== 'string' ||
       !input.category.trim() ||
-      !isSupportedCategorySelection(input.category, input.subcategoryId),
+      !isSupportedCategorySelection(input.category, input.subcategoryId) ||
       (input.subcategoryId !== undefined && (typeof input.subcategoryId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(input.subcategoryId))) ||
       input.category.length > 64 ||
       typeof input.difficulty !== 'string' ||
