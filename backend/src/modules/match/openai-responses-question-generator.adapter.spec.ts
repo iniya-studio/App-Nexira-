@@ -10,7 +10,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
   const excludedId = 'c0f6df1e-2cdd-4946-99d7-d46485c1b86d';
   const excludedFingerprint = 'a'.repeat(64);
   const input: QuestionGenerationInput = {
-    category: 'science',
+    category: 'general',
     difficulty: 'medium',
     language: 'en',
     requiredLocales: ['en'],
@@ -20,7 +20,8 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     excludedQuestionFingerprints: [excludedFingerprint],
   };
   const structuredQuestion = {
-    category: 'science',
+    category: 'general',
+    subcategoryId: null,
     difficulty: 'medium',
     canonicalLanguage: 'en',
     answerType: 'MULTIPLE_CHOICE',
@@ -105,16 +106,16 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     const result = await adapter.generate(input);
 
     expect(result).toMatchObject({
-      category: 'science',
+      category: 'general',
       difficulty: 'medium',
       canonicalLanguage: 'en',
       answerType: 'MULTIPLE_CHOICE',
       answerKey: 'A',
       timeLimitSeconds: 30,
       contentVersion: 'question-content-v2',
-      generatorVersion: 'question-generator-v2',
+      generatorVersion: 'question-generator-v3',
       modelVersion: 'test-generator-model',
-      generationPolicyVersion: 'shared-semantic-multilocale-v1',
+      generationPolicyVersion: 'shared-semantic-multilocale-v2',
     });
     expect(result.contentFingerprint).toMatch(/^[a-f0-9]{64}$/);
 
@@ -139,12 +140,62 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
 
 
 
-  it('passes the selected subcategory as a strict generation constraint', async () => {
-    respond(structuredQuestion);
-    await adapter.generate({ ...input, subcategoryId: 'physics' });
+  it('identifies pt as Brazilian Portuguese in the live generation request', async () => {
+    const brazilianQuestion = {
+      ...structuredQuestion,
+      canonicalLanguage: 'pt',
+      canonicalPrompt: 'Qual planeta tem o ano mais curto?',
+      canonicalOptions: [
+        { id: 'A', text: 'Mercúrio' },
+        { id: 'B', text: 'Netuno' },
+        { id: 'C', text: 'Marte' },
+      ],
+      gradingRubric: {
+        requiredConcepts: [],
+        acceptEquivalentWording: false,
+        notes: 'Escolha o planeta com o menor período orbital.',
+      },
+      localized: [{
+        language: 'pt',
+        prompt: 'Qual planeta tem o ano mais curto?',
+        expectedAnswer: 'Mercúrio',
+        options: [
+          { id: 'A', text: 'Mercúrio' },
+          { id: 'B', text: 'Netuno' },
+          { id: 'C', text: 'Marte' },
+        ],
+        gradingRubric: {
+          requiredConcepts: [],
+          acceptEquivalentWording: false,
+          notes: 'Escolha o planeta com o menor período orbital.',
+        },
+      }],
+    };
+    respond(brazilianQuestion);
+
+    await adapter.generate({ ...input, language: 'pt', requiredLocales: ['pt'] });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.input[0].content[0].text).toContain('Brazilian Portuguese (pt-BR)');
+    expect(body.input[1].content[0].text).toContain('"language":"pt"');
+    expect(body.input[1].content[0].text).toContain('"language_name":"Brazilian Portuguese"');
+  });
+
+  it('passes the selected subcategory and requires an exact output echo', async () => {
+    respond({ ...structuredQuestion, category: 'science', subcategoryId: 'physics' });
+    const result = await adapter.generate({ ...input, category: 'science', subcategoryId: 'physics' });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body.input[0].content[0].text).toContain('selected subcategory');
-    expect(body.input[1].content[0].text).toContain('"subcategory":"physics"');
+    expect(body.input[0].content[0].text).toContain('Return subcategoryId exactly as supplied');
+    expect(body.input[1].content[0].text).toContain('"subcategoryId":"physics"');
+    expect(result.category).toBe('science');
+  });
+
+  it('rejects a question when the provider omits or changes the selected subcategory', async () => {
+    respond({ ...structuredQuestion, category: 'science' });
+    await expect(adapter.generate({ ...input, category: 'science', subcategoryId: 'physics' })).rejects.toMatchObject({
+      code: 'GENERATOR_SETTINGS_MISMATCH',
+    });
   });
 
   it('generates and validates one shared question for the complete 20-locale target set', async () => {
@@ -433,6 +484,29 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
           options: {},
         },
       },
+    });
+  });
+
+  it('rejects unsupported category/subcategory input before contacting the provider', async () => {
+    await expect(adapter.generate({
+      ...input,
+      category: 'science',
+      subcategoryId: 'formula-one',
+    })).rejects.toMatchObject({ code: 'GENERATOR_INPUT_INVALID' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a provider category echo that differs from the requested category', async () => {
+    respond({ ...structuredQuestion, category: 'cars' });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_SETTINGS_MISMATCH',
+    });
+  });
+
+  it('requires an explicit null subcategory when no subcategory was selected', async () => {
+    respond({ ...structuredQuestion, subcategoryId: 'physics' });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_SETTINGS_MISMATCH',
     });
   });
 

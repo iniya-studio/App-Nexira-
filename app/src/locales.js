@@ -5,7 +5,7 @@ export const LOCALE_REGISTRY = Object.freeze({
   es: Object.freeze({ code: 'es', nativeName: 'Español', englishName: 'Spanish', intlLocale: 'es', direction: 'ltr', enabled: false }),
   fr: Object.freeze({ code: 'fr', nativeName: 'Français', englishName: 'French', intlLocale: 'fr', direction: 'ltr', enabled: false }),
   de: Object.freeze({ code: 'de', nativeName: 'Deutsch', englishName: 'German', intlLocale: 'de', direction: 'ltr', enabled: false }),
-  pt: Object.freeze({ code: 'pt', nativeName: 'Português', englishName: 'Portuguese', intlLocale: 'pt', direction: 'ltr', enabled: false }),
+  pt: Object.freeze({ code: 'pt', nativeName: 'Português (Brasil)', englishName: 'Brazilian Portuguese', intlLocale: 'pt-BR', direction: 'ltr', enabled: false }),
   ru: Object.freeze({ code: 'ru', nativeName: 'Русский', englishName: 'Russian', intlLocale: 'ru', direction: 'ltr', enabled: false }),
   tr: Object.freeze({ code: 'tr', nativeName: 'Türkçe', englishName: 'Turkish', intlLocale: 'tr', direction: 'ltr', enabled: false }),
   hi: Object.freeze({ code: 'hi', nativeName: 'हिन्दी', englishName: 'Hindi', intlLocale: 'hi', direction: 'ltr', enabled: false }),
