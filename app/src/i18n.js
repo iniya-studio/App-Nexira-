@@ -17,6 +17,7 @@ import arabic from './i18n/translations/ar.js';
 import urdu from './i18n/translations/ur.js';
 import dutch from './i18n/translations/nl.js';
 import thai from './i18n/translations/th.js';
+import vietnamese from './i18n/translations/vi.js';
 
 export const COPY = {
   en: {
@@ -779,6 +780,13 @@ COPY.th = Object.freeze({
   categoryNames: CATEGORY_TRANSLATIONS.th.categoryNames,
   categorySubtitles: CATEGORY_TRANSLATIONS.th.categorySubtitles,
   categorySubcategories: CATEGORY_TRANSLATIONS.th.categorySubcategories,
+});
+
+COPY.vi = Object.freeze({
+  ...vietnamese,
+  categoryNames: CATEGORY_TRANSLATIONS.vi.categoryNames,
+  categorySubtitles: CATEGORY_TRANSLATIONS.vi.categorySubtitles,
+  categorySubcategories: CATEGORY_TRANSLATIONS.vi.categorySubcategories,
 });
 
 export const PERSIAN_QUESTIONS = Object.freeze({
