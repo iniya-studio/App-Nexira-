@@ -115,7 +115,7 @@ const tr = {
   challengeUnavailable: 'Bu kategori veya mücadele kullanılamıyor. Başka bir seçenek belirleyin.',
   backToChallenges: 'MÜCADELELERE DÖN', reactorLabel: 'NEXIRA arena çekirdeği',
   reactorCore: 'ÇEKİRDEK / 01', reactorEnergy: 'ENERJİ HAZIR',
-  categoryEyebrow: '08 ALAN · AVANTAJINIZI SEÇİN', categoryTitle: 'KENDİ',
+  categoryEyebrow: '23 KATEGORİ · AVANTAJINIZI SEÇİN', categoryTitle: 'KENDİ',
   categoryAccent: 'SAVAŞ ALANINIZI SEÇİN', subcategoryTitle: 'Seçiminizi', subcategoryAccent: 'belirleyin',
   subcategoryDescription: 'Bu maç için beş özel konudan birini seçin.',
   categoryFoot: 'MÜCADELELERİ GÖRMEK İÇİN BİR KATEGORİ SEÇİN',
