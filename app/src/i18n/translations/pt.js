@@ -75,7 +75,7 @@ const pt = {
     noActiveSeason: 'No momento, não há nenhuma temporada ativa. A classificação global continua disponível.',
     yourPosition: 'Sua posição', rankingPoints: 'pontos de classificação', wins: 'vitórias',
     pointsAbbr: 'PTS', losses: 'derrotas', noResults: 'Nenhuma partida classificatória foi concluída ainda.',
-    pointsPolicy: 'Los pontos de classificação son independientes de los XP y solo se obtienen con resultados válidos de partidas 1 contra 1.',
+    pointsPolicy: 'Os pontos de classificação são independentes dos XP e só são concedidos por resultados válidos de partidas 1 contra 1.',
   },
   home: {
     matchModes: 'Modos de jogo', duelDescription: 'Desafie jogadores do mundo todo!',
