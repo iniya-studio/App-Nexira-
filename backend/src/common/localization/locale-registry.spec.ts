@@ -17,11 +17,14 @@ describe('backend locale registry', () => {
   });
 
   it('marks only locales with complete current packs as enabled', () => {
-    expect(ENABLED_LOCALES).toEqual(['en', 'fa']);
-    expect(getEnabledLocales().map((locale) => locale.code)).toEqual(['en', 'fa']);
-    expect(isEnabledLocale('en')).toBe(true);
-    expect(isEnabledLocale('fa')).toBe(true);
-    expect(isEnabledLocale('ar')).toBe(false);
+    const expected = [
+      'en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi',
+      'id', 'ja', 'ko', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi',
+    ];
+    expect(ENABLED_LOCALES).toEqual(expected);
+    expect(getEnabledLocales().map((locale) => locale.code)).toEqual(expected);
+    for (const locale of expected) expect(isEnabledLocale(locale)).toBe(true);
+    expect(isEnabledLocale('xx')).toBe(false);
   });
 
   it('records RTL direction for all three RTL target locales', () => {
