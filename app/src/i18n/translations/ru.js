@@ -115,7 +115,7 @@ const ru = {
   challengeUnavailable: 'Эта категория или испытание недоступны. Выберите другой вариант.',
   backToChallenges: 'НАЗАД К ИСПЫТАНИЯМ', reactorLabel: 'Ядро арены NEXIRA',
   reactorCore: 'ЯДРО / 01', reactorEnergy: 'ЭНЕРГИЯ ГОТОВА',
-  categoryEyebrow: '08 ДИСЦИПЛИН · ВЫБЕРИТЕ СВОЁ ПРЕИМУЩЕСТВО', categoryTitle: 'ВЫБЕРИТЕ СВОЁ',
+  categoryEyebrow: '23 КАТЕГОРИИ · ВЫБЕРИТЕ СВОЁ ПРЕИМУЩЕСТВО', categoryTitle: 'ВЫБЕРИТЕ СВОЁ',
   categoryAccent: 'ПОЛЕ БОЯ', subcategoryTitle: 'Выберите', subcategoryAccent: 'направление',
   subcategoryDescription: 'Выберите одну из пяти тем для этого матча.',
   categoryFoot: 'ВЫБЕРИТЕ КАТЕГОРИЮ, ЧТОБЫ УВИДЕТЬ ИСПЫТАНИЯ',
