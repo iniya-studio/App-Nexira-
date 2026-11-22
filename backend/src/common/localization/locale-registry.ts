@@ -35,7 +35,10 @@ export const TARGET_LOCALES: Readonly<Record<string, LocaleDefinition>> = Object
   vi: Object.freeze({ code: 'vi', nativeName: 'Tiếng Việt', englishName: 'Vietnamese', intlLocale: 'vi', direction: 'ltr' }),
 });
 
-export const ENABLED_LOCALES = Object.freeze(['en', 'fa'] as const);
+export const ENABLED_LOCALES = Object.freeze([
+  'en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi',
+  'id', 'ja', 'ko', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi',
+] as const);
 
 export function isTargetLocale(locale: unknown): locale is keyof typeof TARGET_LOCALES {
   return typeof locale === 'string' && Object.hasOwn(TARGET_LOCALES, locale);
