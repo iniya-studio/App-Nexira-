@@ -57,16 +57,18 @@ test('every available translated category pack covers all 23 categories, subtitl
   }
 });
 
-test('every disabled target locale stays fail-closed even when a partial category pack exists', () => {
-  const enabled = new Set(getSupportedLocales().map(({ code }) => code));
-  const disabledTargets = getTargetLocales().filter(({ code }) => !enabled.has(code));
-  assert.equal(disabledTargets.length, 18);
-  for (const { code } of disabledTargets) {
-    assert.equal(isSupportedLocale(code), false, `Disabled locale became supported: ${code}`);
-    assert.equal(getCopy(code).categoryNames.gaming, getCopy('en').categoryNames.gaming,
-      `Partial category copy leaked through the UI resolver for ${code}`);
-    assert.equal(getCopy(code).store.title, getCopy('en').store.title,
-      `Partial UI copy leaked through the UI resolver for ${code}`);
+test('all 20 target locales are enabled with complete UI, category and question packs', () => {
+  const expected = ['en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi', 'id', 'ja', 'ko', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi'];
+  assert.deepEqual(getSupportedLocales().map(({ code }) => code), expected);
+  assert.equal(getTargetLocales().length, 20);
+  for (const code of expected) {
+    assert.equal(isSupportedLocale(code), true, `Locale is not enabled: ${code}`);
+    assert.ok(COPY[code], `Missing UI copy pack: ${code}`);
+    assert.ok(getCopy(code).categoryNames.gaming, `Missing category copy: ${code}`);
+    if (code !== 'en' && code !== 'fa') {
+      assert.deepEqual(Object.keys(QUESTION_TRANSLATIONS[code]).sort(), QUESTION_FIXTURES.map(({ id }) => id).sort(),
+        `Question coverage differs for ${code}`);
+    }
   }
 });
 
@@ -110,6 +112,31 @@ test('English and Persian translation trees have recursive key and placeholder p
     }
   };
   inspect(COPY.en, COPY.fa);
+});
+
+test('all translated UI packs preserve the complete English key tree and placeholders', () => {
+  const inspect = (source, translated, path = 'root') => {
+    assert.equal(typeof translated, typeof source, `Type mismatch at ${path}`);
+    if (typeof source === 'string') {
+      assert.ok(translated.trim(), `Empty translation at ${path}`);
+      const placeholders = value => [...value.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map(match => match[1]).sort();
+      assert.deepEqual(placeholders(translated), placeholders(source), `Interpolation placeholders differ at ${path}`);
+      return;
+    }
+    if (Array.isArray(source)) {
+      assert.ok(Array.isArray(translated), `Expected array at ${path}`);
+      assert.equal(translated.length, source.length, `Array length differs at ${path}`);
+      source.forEach((value, index) => inspect(value, translated[index], `${path}[${index}]`));
+      return;
+    }
+    if (source && typeof source === 'object') {
+      assert.deepEqual(Object.keys(translated).sort(), Object.keys(source).sort(), `Nested keys differ at ${path}`);
+      for (const key of Object.keys(source)) inspect(source[key], translated[key], `${path}.${key}`);
+    }
+  };
+  for (const locale of getSupportedLocales().map(({ code }) => code)) {
+    inspect(COPY.en, COPY[locale], locale);
+  }
 });
 
 test('all UI translation references are present',async()=>{const a=await readFile(new URL('./App.jsx',import.meta.url),'utf8');const refs=[...a.matchAll(/\btext\.([A-Za-z]\w*)/g)].map(m=>m[1]);for(const k of refs)assert.ok(k in COPY.en&&k in COPY.fa);});
@@ -191,32 +218,31 @@ test('unknown languages fall back to English and interpolation avoids undefined 
 
 test('all 24 fixtures resolve Persian copy by stable question ID',()=>{assert.equal(Object.keys(PERSIAN_QUESTIONS).length,24);for(const q of QUESTION_FIXTURES){const t=PERSIAN_QUESTIONS[q.id];assert.ok(t);const l=getQuestionCopy('fa',q);assert.equal(l.prompt,t.prompt);assert.deepEqual(l.options,t.options);assert.equal(l.answer,q.answer);assert.strictEqual(getQuestionCopy('en',q),q);}});
 
-test('question lookup fails closed for disabled locales and missing translations', () => {
-  assert.throws(() => getQuestionCopy('de', QUESTION_FIXTURES[0]), {
+test('question lookup rejects unknown locales and missing translations', () => {
+  assert.throws(() => getQuestionCopy('xx', QUESTION_FIXTURES[0]), {
     name: 'RangeError',
-    message: /not enabled for locale "de"/,
+    message: /not enabled for locale "xx"/,
   });
-  assert.throws(() => getQuestionCopy('fa', { ...QUESTION_FIXTURES[0], id: 'missing.question' }), {
+  assert.throws(() => getQuestionCopy('es', { ...QUESTION_FIXTURES[0], id: 'missing.question' }), {
     name: 'RangeError',
-    message: /translation is missing for locale "fa"/,
+    message: /translation is missing for locale "es"/,
   });
 });
 
 test('locale registry contains the complete 20-locale target set without enabling incomplete packs', async () => {
   const expectedTargets = ['en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi', 'id', 'ja', 'ko', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi'];
   assert.deepEqual(getTargetLocales().map(({ code }) => code), expectedTargets);
-  assert.deepEqual(getSupportedLocales().map(({ code }) => code), ['en', 'fa']);
+  assert.deepEqual(getSupportedLocales().map(({ code }) => code), expectedTargets);
   assert.equal(DEFAULT_LOCALE, 'en');
 
   for (const locale of expectedTargets) assert.equal(isTargetLocale(locale), true);
-  for (const locale of ['en', 'fa']) assert.equal(isSupportedLocale(locale), true);
-  for (const locale of expectedTargets.filter((locale) => !['en', 'fa'].includes(locale))) {
-    assert.equal(isSupportedLocale(locale), false, `Incomplete locale must remain disabled: ${locale}`);
-    assert.equal(resolveLocale(locale), DEFAULT_LOCALE);
+  for (const locale of expectedTargets) {
+    assert.equal(isSupportedLocale(locale), true, `Approved locale must be enabled: ${locale}`);
+    assert.equal(resolveLocale(locale), locale);
   }
 
   assert.equal(isTargetLocale('unknown'), false);
-  assert.equal(isSupportedLocale('ar'), false);
+  assert.equal(isSupportedLocale('ar'), true);
   assert.equal(resolveLocale('fa'), 'fa');
   assert.equal(resolveLocale(null), DEFAULT_LOCALE);
   assert.equal(getLocaleConfig('fa').direction, 'rtl');
@@ -230,7 +256,7 @@ test('locale registry contains the complete 20-locale target set without enablin
   assert.equal(formatLocaleNumber(1234.5, 'fa'), new Intl.NumberFormat('fa-IR').format(1234.5));
 
   const backendRegistry = await readFile(new URL('../../backend/src/common/localization/locale-registry.ts', import.meta.url), 'utf8');
-  assert.ok(backendRegistry.includes("export const ENABLED_LOCALES = Object.freeze(['en', 'fa'] as const);"));
+  assert.ok(backendRegistry.includes("'en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi',"));
   for (const locale of expectedTargets) {
     assert.match(backendRegistry, new RegExp(`(^|\\n)\\s*${locale === 'zh-CN' ? `['"]zh-CN['"]` : locale}:`, 'm'), `Backend target registry is missing ${locale}`);
   }
