@@ -19,7 +19,7 @@ export const TARGET_LOCALES: Readonly<Record<string, LocaleDefinition>> = Object
   es: Object.freeze({ code: 'es', nativeName: 'Español', englishName: 'Spanish', intlLocale: 'es', direction: 'ltr' }),
   fr: Object.freeze({ code: 'fr', nativeName: 'Français', englishName: 'French', intlLocale: 'fr', direction: 'ltr' }),
   de: Object.freeze({ code: 'de', nativeName: 'Deutsch', englishName: 'German', intlLocale: 'de', direction: 'ltr' }),
-  pt: Object.freeze({ code: 'pt', nativeName: 'Português', englishName: 'Portuguese', intlLocale: 'pt', direction: 'ltr' }),
+  pt: Object.freeze({ code: 'pt', nativeName: 'Português (Brasil)', englishName: 'Brazilian Portuguese', intlLocale: 'pt-BR', direction: 'ltr' }),
   ru: Object.freeze({ code: 'ru', nativeName: 'Русский', englishName: 'Russian', intlLocale: 'ru', direction: 'ltr' }),
   tr: Object.freeze({ code: 'tr', nativeName: 'Türkçe', englishName: 'Turkish', intlLocale: 'tr', direction: 'ltr' }),
   hi: Object.freeze({ code: 'hi', nativeName: 'हिन्दी', englishName: 'Hindi', intlLocale: 'hi', direction: 'ltr' }),
