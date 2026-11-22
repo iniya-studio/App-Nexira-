@@ -4,7 +4,8 @@
 **Document:** NEX-BE-005  
 **Version:** 1.0  
 **Status:** Backend implementation and CI verified; live SMTP delivery and device acceptance remain OPEN  
-**Target branch:** `feature/backend-foundation`  
+**Original implementation branch:** `feature/backend-foundation`  
+**Current source-of-truth branch:** `main`  
 **Related contract:** `NEX-BE-002 — Identity & Access Contracts`
 
 ## 1. Scope
