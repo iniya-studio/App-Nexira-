@@ -115,7 +115,7 @@ const fr = {
   challengeUnavailable: 'Cette catégorie ou ce défi est indisponible. Choisissez une autre option.',
   backToChallenges: 'RETOUR AUX DÉFIS', reactorLabel: 'Noyau de l’arène NEXIRA',
   reactorCore: 'NOYAU / 01', reactorEnergy: 'ÉNERGIE PRÊTE',
-  categoryEyebrow: '08 DISCIPLINES · CHOISISSEZ VOTRE AVANTAGE', categoryTitle: 'CHOISISSEZ VOTRE',
+  categoryEyebrow: '23 CATÉGORIES · CHOISISSEZ VOTRE AVANTAGE', categoryTitle: 'CHOISISSEZ VOTRE',
   categoryAccent: 'CHAMP DE BATAILLE', subcategoryTitle: 'Choisissez votre', subcategoryAccent: 'spécialité',
   subcategoryDescription: 'Sélectionnez l’un des cinq sujets ciblés pour ce match.',
   categoryFoot: 'SÉLECTIONNEZ UNE CATÉGORIE POUR AFFICHER SES DÉFIS',
