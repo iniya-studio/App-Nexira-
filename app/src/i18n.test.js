@@ -678,6 +678,6 @@ test('Vietnamese UI copy is fully localized and remains disabled until release a
   for (const { key, value } of collectTranslationLeaves(COPY.vi)) {
     assert.equal(typeof value, 'string', `Vietnamese translation must be text: ${key}`);
     assert.ok(value.trim(), `Vietnamese translation must not be empty: ${key}`);
-    assert.doesNotMatch(value, /\\p{Script=Devanagari}/u, `Hindi text must not leak into Vietnamese UI: ${key}`);
+    assert.doesNotMatch(value, /\p{Script=Devanagari}/u, `Hindi text must not leak into Vietnamese UI: ${key}`);
   }
 });
