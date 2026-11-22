@@ -6,7 +6,7 @@ import {
   QuestionGenerator,
 } from './question-generator.port';
 import { GeneratedQuestion } from './question.types';
-import { isTargetLocale } from '../../common/localization/locale-registry';
+import { isTargetLocale, TARGET_LOCALES } from '../../common/localization/locale-registry';
 import {
   normalizedQuestionFingerprint,
   validateGeneratedQuestion,
@@ -112,7 +112,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                 type: 'input_text',
                 text:
                   'Generate exactly one original quiz question using only the supplied settings. ' +
-                  'The language field is the canonical locale for shared semantic content. required_locales lists every human participant locale. Generate exactly one semantic question and a localized rendering for every required locale, directly authored in that locale; never translate through English and never omit a requested locale. canonicalPrompt, canonicalOptions, answerKey and gradingRubric must be authored in the canonical language. Each localized entry must contain its own prompt, expected answer, option text keyed by stable option IDs, and localized grading rubric. Preserve identical meaning, answer identity, difficulty, option IDs and option order across all locales. ' +
+                  'The language field is the canonical locale for shared semantic content, and language_name identifies its exact language variant. For pt, language_name is Brazilian Portuguese (pt-BR), not European Portuguese. required_locales lists every human participant locale. Generate exactly one semantic question and a localized rendering for every required locale, directly authored in that locale; never translate through English and never omit a requested locale. canonicalPrompt, canonicalOptions, answerKey and gradingRubric must be authored in the canonical language. Each localized entry must contain its own prompt, expected answer, option text keyed by stable option IDs, and localized grading rubric. Preserve identical meaning, answer identity, difficulty, option IDs and option order across all locales. ' +
                   'Use the requested category and subcategory (when supplied) as strict topic constraints, plus difficulty, answer type, and time limit. The question must specifically belong to the selected subcategory, not merely the parent category. For multiple choice, provide 2 to 8 distinct options and an answerKey equal to exactly one option ID; option IDs are language-neutral and must remain stable between canonical and localized options. For free text, use null options and a concise expected answer with a grading rubric containing required concepts, all in the requested language. Do not include player data or mention internal identifiers. The excluded fingerprints represent prior question content; avoid repeating or paraphrasing any of those questions.',
               },
             ],
@@ -127,6 +127,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                   ...(input.subcategoryId ? { subcategory: input.subcategoryId } : {}),
                   difficulty: input.difficulty,
                   language: input.language,
+                  language_name: TARGET_LOCALES[input.language].englishName,
                   required_locales: input.requiredLocales,
                   answer_type: input.answerType,
                   time_limit_seconds: input.timeLimitSeconds,
