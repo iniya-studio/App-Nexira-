@@ -1,11 +1,11 @@
 # NEXIRA Global Localization Audit
 
-**Status:** Approved V1 release scope — 20 locales required; multilingual cross-locale 1v1 approved; implementation not yet complete  
+**Status:** Historical 2026-11-19 baseline superseded; 20-locale technical enablement is implemented and owner-device smoke accepted  
 **Branch:** `main`  
-**Audit basis:** Current `main` source inspected on 2026-11-19  
+**Audit basis:** Historical snapshot 2026-11-19; see 2026-11-22 source reconciliation below  
 **Scope:** Frontend locale selection, translation coverage, persistence, directionality, formatting, game content, and test gates.
 
-## Verified baseline
+## Verified baseline — historical snapshot (2026-11-19; superseded by the current-state reconciliation below)
 
 - `app/src/i18n.js` currently exports only two complete UI dictionaries: `en` and `fa`.
 - `getCopy(language)` silently falls back to English for every unknown locale.
@@ -242,3 +242,18 @@ Implementation and verification update — 2026-11-20:
 - The persisted UI locale and active match locale snapshots are separate: each participant's selected locale is captured for a match, and later profile-language changes do not alter that active match.
 - AI-generated questions are delivered in each participant's selected match locale while preserving shared semantic content, answer identity, and equivalent match conditions such as difficulty and timing.
 - This decision does not enable any additional locale; locale availability remains governed by the approved release gates above.
+
+## Current-state reconciliation — 2026-11-22
+
+The preceding baseline describes the repository before the 20-locale implementation and must not be read as current status.
+
+- Frontend registry: all 20 target locales are enabled in `app/src/locales.js`.
+- Backend registry: all 20 target locales are listed in `ENABLED_LOCALES`.
+- UI dictionaries and locale-aware category/question resolvers are wired in the current frontend. Category packs cover the 18 additional locales; question packs cover the 18 additional locales, while English and Persian use their canonical sources.
+- Locale-specific font loading is implemented through `app/src/localeFonts.js`, including script families for Arabic, Urdu Nastaliq, Hindi, Bengali, Japanese, Korean, Simplified Chinese, and Thai.
+- Automated i18n tests cover the enabled target set, category/question pack integrity, locale normalization/formatting, and RTL-sensitive behavior.
+- Android CI run [45053863414](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053863414) passed build, tests, APK verification and artifact upload on `a414957492f84d7cdfa5959c5e4f523bc58d9994`.
+- Backend CI run [45053997097](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053997097) passed all quality, PostgreSQL integration, Compose and image-build stages on `a339d8b5f68bd5d60fb913aaadd0e911da296ac9`.
+- The owner installed the APK and confirmed that language selection works and persists across app restarts.
+
+**Acceptance boundary:** The technical 20-locale enablement/persistence stage is closed. Native-speaker translation review, exhaustive per-screen visual QA, and live AI question-generation/Judge language evaluation remain separate quality gates; do not conflate them with the completed foundation.
