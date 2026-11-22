@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JudgeDecision } from '@prisma/client';
+import { TARGET_LOCALES } from '../../common/localization/locale-registry';
 import {
   FreeTextAnswerJudge,
   FreeTextJudgeInput,
@@ -74,7 +75,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
                 type: 'input_text',
                 text:
                   'You are a strict semantic answer judge for a competitive quiz. ' +
-                  'The supplied language field is authoritative and is the language selected for this match. ' +
+                  'The supplied language field is authoritative and is the language selected for this match; language_name identifies its exact language variant. For pt, language_name is Brazilian Portuguese (pt-BR), not European Portuguese. ' +
                   'Interpret the canonical question, expected answer, grading rubric, and participant response ' +
                   'using that language; do not assume English, silently translate the question into English, ' +
                   'or reject an answer merely because it uses a common equivalent term or script variation. ' +
@@ -97,6 +98,7 @@ export class OpenAiResponsesAnswerJudgeAdapter implements FreeTextAnswerJudge {
                 text: JSON.stringify({
                   canonical_question: input.canonicalQuestion,
                   language: input.language,
+                  language_name: TARGET_LOCALES[input.language]?.englishName ?? input.language,
                   expected_answer: input.expectedAnswer,
                   grading_rubric: input.gradingRubric,
                   participant_response: input.participantResponse,
