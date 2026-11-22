@@ -3,7 +3,7 @@
 **Project:** NEXIRA  
 **Document:** NEX-FE-002  
 **Version:** 1.0  
-**Status:** Technical contract baseline — ready for CI validation and implementation planning  
+**Status:** Contract implemented in substantial part on main; component/device acceptance and external-provider configuration remain OPEN  
 **Target branch:** `main`  
 **Related contracts:** NEX-BE-002 Identity & Access; NEX-BE-009 Matchmaking; NEX-BE-010 Progression & Ranking  
 **Scope:** Player profile, registered account, guest profile continuity, authentication entry points, account recovery, and session controls.
@@ -74,7 +74,7 @@ For registered users, `User.displayName` is canonical. `username` remains unique
 - Reject control characters, invisible control/bidi override characters, empty values, and values outside 1–40 Unicode code points after normalization.
 - Never accept `userId`, `guestIdentityId`, `principalId`, XP, level, wins, losses, ranking position, or inventory ownership from a profile update payload.
 - A profile update may change only fields explicitly allowed by the DTO.
-- `preferredLanguage` is a supported locale code from the server's allowlist. Until the global localization contract is approved, retain current supported values `en` and `fa`; do not persist an unsupported language as active.
+- `preferredLanguage` is a supported locale code from the server's allowlist. The current V1 allowlist contains all 20 enabled locales; reject unsupported values and preserve canonical BCP-47 casing.
 
 ### 2.3 Official statistics
 
@@ -419,3 +419,28 @@ Do not begin full UI/UX redesign during these steps. Use existing components as 
 - No claim of global launch readiness while iOS secure storage, email delivery, distributed abuse controls, data export/deletion policy, and live production verification remain incomplete.
 
 **Acceptance rule:** NEX-FE-002 defines the target behavior. Existing code is not considered compliant merely because an endpoint or component exists. Each implementation item must be mapped to code, tests, CI evidence, and a verified commit on `main`.
+
+
+## 2026-11-22 implementation reconciliation
+
+This contract remains the behavioral source of truth. The original implementation sequence below is a planning record; the current source inventory is:
+
+| Contract area | Current source evidence | Acceptance state |
+|---|---|---|
+| Server-owned profile read/update | `GET/PATCH /profile/me`, profile lifecycle state and server-backed display-name update are wired | Code present; full device acceptance pending |
+| Account summary and cold restore | Session lifecycle maintains account/profile/authentication/session state and loads account data after session initialization | Automated lifecycle coverage present; device acceptance pending |
+| Independent registration and login | `AccountSessionPanel.jsx` exposes signed-out registration and login; lifecycle/API methods are wired | Code present; real backend/device flow pending |
+| Guest conversion and no-merge sign-in warning | Guest conversion and explicit replacement warning are present | Existing backend/session coverage; full device acceptance pending |
+| Google sign-in | Frontend adapter, Android Credential Manager plugin, nonce challenge and backend verifier are present | Adapter tests pass in CI; live OAuth credentials and device acceptance pending |
+| Email verification | Backend issue/verify/resend APIs and Android cold/warm app-link handler are present | Backend CI pass; live SMTP and deployed app-link acceptance pending |
+| Password recovery/change | Backend request/reset/change services and AccountSessionPanel forms are present | Code present; live delivery and device acceptance pending |
+| Session controls | List, revoke selected session, logout-all, and local logout controls are present | Code present; device acceptance pending |
+| Privacy export/deletion and iOS secure storage | Not claimed as implemented in this V1 Android acceptance scope | Separate global-release gates |
+
+### Evidence and limitations
+- Backend CI [45053997097](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053997097) passed on `a339d8b5f68bd5d60fb913aaadd0e911da296ac9`, including PostgreSQL integration tests and all backend quality/build steps.
+- Android-side automated tests include session lifecycle/coordinator behavior and the Google adapter. No dedicated `AccountSessionPanel` component-level test file was found in the inspected source paths; this is a concrete test-coverage gap to address before acceptance.
+- The presence of a form, endpoint, or green CI does not prove successful interaction on a physical device. In particular, the older 2026-11-15 report of registration submit/scroll trouble is historical and must be rechecked on a current APK rather than assumed either fixed or still broken.
+- Real Google sign-in requires `VITE_GOOGLE_WEB_CLIENT_ID` to match backend `GOOGLE_CLIENT_ID`. Email verification and password recovery require SMTP credentials, sender/domain setup, and absolute frontend URLs. These are not available in the repository's example configuration.
+
+**Current exit criteria:** Add focused AccountSessionPanel interaction tests, then perform a current-APK acceptance run covering registration, login, Google, email verification, password reset, cold restore, profile synchronization, and session controls. Mark each external-provider scenario blocked—not passed—until its real configuration is available.
