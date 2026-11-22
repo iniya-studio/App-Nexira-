@@ -302,7 +302,7 @@ test('frontend locale canonicalization matches the backend BCP-47 policy', () =>
 test('profile locale migration preserves supported locales and safely resets unknown locales', () => {
   assert.equal(normalizeProfile({ settings: { language: 'fa' } }).settings.language, 'fa');
   assert.equal(normalizeProfile({ settings: { language: 'en' } }).settings.language, 'en');
-  assert.equal(normalizeProfile({ settings: { language: 'ar' } }).settings.language, DEFAULT_LOCALE);
+  assert.equal(normalizeProfile({ settings: { language: 'ar' } }).settings.language, 'ar');
   assert.equal(normalizeProfile({ settings: { language: '__proto__' } }).settings.language, DEFAULT_LOCALE);
 });
 
