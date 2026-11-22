@@ -687,7 +687,7 @@ test('No non-Hindi UI locale may inherit Devanagari-script text', () => {
   const leaks = [];
   for (const locale of Object.keys(COPY).filter((code) => !['en', 'fa', 'hi'].includes(code))) {
     for (const { key, value } of collectTranslationLeaves(COPY[locale])) {
-      if (/\\p{Script=Devanagari}/u.test(value)) leaks.push(`${locale}:${key}`);
+      if (/\p{Script=Devanagari}/u.test(value)) leaks.push(`${locale}:${key}`);
     }
   }
   assert.equal(leaks.length, 0, `Hindi-script text leaked into other UI locales: ${leaks.join(', ')}`);
