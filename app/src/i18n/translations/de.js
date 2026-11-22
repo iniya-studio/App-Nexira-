@@ -115,7 +115,7 @@ const de = {
   challengeUnavailable: 'Diese Kategorie oder Herausforderung ist nicht verfügbar. Wähle eine andere Option.',
   backToChallenges: 'ZURÜCK ZU DEN HERAUSFORDERUNGEN', reactorLabel: 'NEXIRA-Arenakern',
   reactorCore: 'KERN / 01', reactorEnergy: 'ENERGIE BEREIT',
-  categoryEyebrow: '08 DISZIPLINEN · WÄHLE DEINEN VORTEIL', categoryTitle: 'WÄHLE DEIN',
+  categoryEyebrow: '23 KATEGORIEN · WÄHLE DEINEN VORTEIL', categoryTitle: 'WÄHLE DEIN',
   categoryAccent: 'SCHLACHTFELD', subcategoryTitle: 'Wähle deinen', subcategoryAccent: 'Schwerpunkt',
   subcategoryDescription: 'Wähle eines der fünf gezielten Themen für dieses Spiel.',
   categoryFoot: 'WÄHLE EINE KATEGORIE, UM IHRE HERAUSFORDERUNGEN ANZUZEIGEN',
