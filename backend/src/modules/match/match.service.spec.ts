@@ -283,6 +283,23 @@ describe('MatchService', () => {
     });
   });
 
+  it.each([
+    ['unknown category', { category: 'not-a-real-category', subcategoryId: 'physics' }],
+    ['subcategory outside its category', { category: 'science', subcategoryId: 'formula-one' }],
+    ['missing subcategory for a categorized selection', { category: 'science' }],
+  ])('rejects %s before creating a match or question job', async (_label, options) => {
+    const { service, tx } = setup(MatchMode.ONE_V_AI, [
+      { participantKey: 'human:guest:guest-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
+      { participantKey: 'ai:default-v1', participantType: ParticipantType.AI, status: 'ACTIVE' },
+    ]);
+    await expect(service.createAiMatch(
+      { principalType: PrincipalType.GUEST, principalId: 'guest-1', sessionId: 'session-1' },
+      options,
+    )).rejects.toBeInstanceOf(BadRequestException);
+    expect(tx.match.create).not.toHaveBeenCalled();
+    expect(tx.questionGenerationJob.create).not.toHaveBeenCalled();
+  });
+
   it('returns only server-persisted live scores to an authorized match participant', async () => {
     const findFirst = jest.fn().mockResolvedValue({
       id: 'match-live-score',
