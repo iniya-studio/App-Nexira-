@@ -224,6 +224,9 @@ test('locale registry contains the complete 20-locale target set without enablin
   assert.equal(getLocaleConfig('ur').direction, 'rtl');
   assert.equal(getLocaleConfig('en').direction, 'ltr');
   assert.equal(getLocaleConfig('zh-CN').intlLocale, 'zh-CN');
+  assert.equal(getLocaleConfig('pt').nativeName, 'Português (Brasil)');
+  assert.equal(getLocaleConfig('pt').intlLocale, 'pt-BR');
+  assert.equal(formatLocaleNumber(1234.5, 'pt'), new Intl.NumberFormat('pt-BR').format(1234.5));
   assert.equal(formatLocaleNumber(1234.5, 'fa'), new Intl.NumberFormat('fa-IR').format(1234.5));
 
   const backendRegistry = await readFile(new URL('../../backend/src/common/localization/locale-registry.ts', import.meta.url), 'utf8');
@@ -629,6 +632,14 @@ test('All 18 translated offline question packs cover all 24 fixtures without Eng
         `Canonical answer index is outside the translated options for ${locale}/${question.id}`);
     }
   }
+});
+
+test('Brazilian Portuguese uses localized gameplay labels and remains a complete disabled UI pack', () => {
+  assert.equal(COPY.pt.match.online, 'ONLINE');
+  assert.equal(COPY.pt.match.testing, 'TESTES');
+  assert.equal(COPY.pt.match.activeTurn, 'TURNO ATUAL');
+  assert.equal(COPY.pt.ranking.retry, 'Tentar novamente');
+  assert.equal(isSupportedLocale('pt'), false, 'Portuguese must remain disabled until localization release approval');
 });
 
 test('every registered translated UI dictionary has recursive key, type, array and placeholder parity', () => {
