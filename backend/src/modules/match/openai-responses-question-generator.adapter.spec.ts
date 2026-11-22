@@ -487,6 +487,20 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     });
   });
 
+  it('rejects a provider category echo that differs from the requested category', async () => {
+    respond({ ...structuredQuestion, category: 'geography' });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_SETTINGS_MISMATCH',
+    });
+  });
+
+  it('requires an explicit null subcategory when no subcategory was selected', async () => {
+    respond({ ...structuredQuestion, subcategoryId: 'physics' });
+    await expect(adapter.generate(input)).rejects.toMatchObject({
+      code: 'GENERATOR_SETTINGS_MISMATCH',
+    });
+  });
+
   it('rejects a generated question whose settings differ from the persisted request', async () => {
     respond({ ...structuredQuestion, difficulty: 'hard' });
 
