@@ -139,6 +139,47 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
 
 
 
+  it('identifies pt as Brazilian Portuguese in the live generation request', async () => {
+    const brazilianQuestion = {
+      ...structuredQuestion,
+      canonicalLanguage: 'pt',
+      canonicalPrompt: 'Qual planeta tem o ano mais curto?',
+      canonicalOptions: [
+        { id: 'A', text: 'Mercúrio' },
+        { id: 'B', text: 'Netuno' },
+        { id: 'C', text: 'Marte' },
+      ],
+      gradingRubric: {
+        requiredConcepts: [],
+        acceptEquivalentWording: false,
+        notes: 'Escolha o planeta com o menor período orbital.',
+      },
+      localized: [{
+        language: 'pt',
+        prompt: 'Qual planeta tem o ano mais curto?',
+        expectedAnswer: 'Mercúrio',
+        options: [
+          { id: 'A', text: 'Mercúrio' },
+          { id: 'B', text: 'Netuno' },
+          { id: 'C', text: 'Marte' },
+        ],
+        gradingRubric: {
+          requiredConcepts: [],
+          acceptEquivalentWording: false,
+          notes: 'Escolha o planeta com o menor período orbital.',
+        },
+      }],
+    };
+    respond(brazilianQuestion);
+
+    await adapter.generate({ ...input, language: 'pt', requiredLocales: ['pt'] });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.input[0].content[0].text).toContain('Brazilian Portuguese (pt-BR)');
+    expect(body.input[1].content[0].text).toContain('"language":"pt"');
+    expect(body.input[1].content[0].text).toContain('"language_name":"Brazilian Portuguese"');
+  });
+
   it('passes the selected subcategory as a strict generation constraint', async () => {
     respond(structuredQuestion);
     await adapter.generate({ ...input, subcategoryId: 'physics' });
