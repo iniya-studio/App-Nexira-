@@ -697,7 +697,7 @@ test('No non-Hindi category or question pack may inherit Devanagari-script text'
   const leaks = [];
   const inspect = (value, locale, section, key = 'root') => {
     if (typeof value === 'string') {
-      if (/\\p{Script=Devanagari}/u.test(value)) leaks.push(`${section}:${locale}:${key}`);
+      if (/\p{Script=Devanagari}/u.test(value)) leaks.push(`${section}:${locale}:${key}`);
       return;
     }
     if (Array.isArray(value)) {
