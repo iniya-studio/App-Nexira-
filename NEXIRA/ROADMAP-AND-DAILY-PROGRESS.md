@@ -888,3 +888,33 @@ This is an explicit required part of the current Account/Session localization ph
 - Current source head at the time of this roadmap entry: 78173bd1afce5105780add81baad988d22562218.
 - Verification status: GitHub connector returned no combined status checks and no PR-associated workflow runs for this commit. CI execution is therefore not confirmed here; do not mark this work green until the push-triggered workflow result is inspected.
 - Still open before translation production: script-font coverage/Android glyph QA, complete RTL visual/layout audit, plural-message catalog contract, full visible-literal/accessibility audit, and locale-specific no-fallback acceptance. No new locale was enabled.
+
+## R-054 — 20-locale localization closure and Profile/Account documentation reconciliation
+
+**Date:** 2026-11-22
+
+### Localization acceptance
+- Supersedes the 2026-11-19/20 historical roadmap statements that only English/Persian were enabled or that 20-locale implementation remained pending.
+- Frontend and backend source registries now enable the same 20 target locales.
+- Locale-specific font loading, 18 additional category translation packs, 18 additional question translation packs, locale-aware formatting, and i18n regression coverage are present in source.
+- Android workflow [45053863414](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053863414) passed frontend/Match Engine tests, web/Android build, APK verification and artifact upload on `a414957492f84d7cdfa5959c5e4f523bc58d9994`.
+- Backend workflow [45053997097](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053997097) passed all 18 job steps, including Prisma validation/generation, PostgreSQL migrations, NestJS build, unit/integration tests, ESLint, Compose validation and backend image build on `a339d8b5f68bd5d60fb913aaadd0e911da296ac9`.
+- Owner installed the APK and confirmed the languages work and the selected language persists after app restart.
+- **Decision:** close technical localization foundation and persistence. Native-speaker/content review, exhaustive screen-by-screen visual QA, and live AI language acceptance remain separate quality gates.
+
+### Profile/Account documentation reconciliation
+- R-022/R-023 are retained as historical snapshots; their claims that Google UI, independent registration, verification deep links, password recovery, and session controls were absent are superseded by current source.
+- Current source includes AccountSessionPanel flows for registration/login/guest conversion, Google sign-in, verification resend, password recovery/reset/change, and session list/revoke/logout-all.
+- Android Google Credential Manager plugin and frontend adapter are present; live OAuth still requires matching `VITE_GOOGLE_WEB_CLIENT_ID` and backend `GOOGLE_CLIENT_ID` configuration.
+- Backend email verification and password lifecycle services are present; live delivery still requires SMTP credentials, sender-domain authentication, and deployed verification/reset URLs.
+- Android warm/cold app-link handling is present for verification and password-reset tokens.
+- Backend workflow [45053997097](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053997097) is successful. This verifies backend code/CI, not live external-provider delivery or full account UX on a physical device.
+- A dedicated AccountSessionPanel component-level test was not found in the inspected source paths. Add this coverage and re-run the older registration submit/scroll scenario on a current APK before declaring account UX accepted.
+
+### Documentation updated / superseded
+- `docs/NEX-BE-004-phase2-registered-authentication.md`: historical Phase 2 release-gate list reconciled with current auth lifecycle implementation.
+- `docs/NEX-BE-005-email-verification-delivery.md`: CI-pending status superseded; live SMTP/app-link release gates retained.
+- `docs/NEX-FE-002-profile-account-contract.md`: contract status and 20-locale preferred-language allowlist reconciled; account acceptance matrix added.
+- `NEXIRA/LOCALIZATION-20-LOCALE-PLAN.md` and `docs/LOCALIZATION_GLOBALIZATION_AUDIT.md`: historical baseline statements superseded by current evidence and explicit scope boundary.
+
+**Current stage:** ACCOUNT UI + ANDROID ACCEPTANCE — OPEN. First implementation task: add focused AccountSessionPanel interaction tests and verify scroll/touch/submit behavior without changing the existing auth/security contracts. External OAuth/SMTP acceptance remains blocked until real deployment configuration is supplied.
