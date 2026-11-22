@@ -12,8 +12,8 @@ import {
   validateGeneratedQuestion,
 } from './question-validation';
 
-const GENERATOR_VERSION = 'question-generator-v2';
-const GENERATION_POLICY_VERSION = 'shared-semantic-multilocale-v1';
+const GENERATOR_VERSION = 'question-generator-v3';
+const GENERATION_POLICY_VERSION = 'shared-semantic-multilocale-v2';
 
 type ResponsesApiPayload = {
   status?: string;
