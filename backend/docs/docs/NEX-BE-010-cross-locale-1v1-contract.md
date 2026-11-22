@@ -38,6 +38,9 @@ Locale is a presentation and evaluation context, never a matchmaking advantage o
 - Canonical semantic content, answer key, rubric concepts and difficulty are shared. Localized renderings may change wording and culturally appropriate examples only when semantic equivalence, answer identity and difficulty are preserved.
 - Validate exact locale coverage, option-ID parity/order, required fields and semantic consistency before persisting/attaching the question. Missing rendering is a generation failure, not permission to display another language.
 - For 1vAI, requested locale set contains the human participant locale. Existing English/Persian behavior remains compatible during migration.
+- Match creation validates the selected category/subcategory pair against the canonical server taxonomy (23 categories / 115 category-scoped subcategories) before creating a match or question-generation job.
+- The generation request carries both selected IDs. The strict provider output schema must return the exact category and `subcategoryId` (or explicit `null` when no subcategory was selected); any mismatch fails generation and cannot be attached to a round.
+- Exact ID echo is a structural integrity check, not proof that the question's meaning truly belongs to the requested topic. Topic relevance is currently constrained by the generation instruction; an independent semantic topic-verification pass is not yet implemented and must not be represented as a deterministic guarantee.
 
 ## 5. Participant-specific read contract
 
@@ -74,6 +77,7 @@ Locale is a presentation and evaluation context, never a matchmaking advantage o
 8. No participant can read another participant's private answer or hidden question fields.
 9. Existing 1vAI, same-locale 1v1, settlement, scoring and idempotency tests remain green.
 10. PostgreSQL migration, unit tests, integration tests, backend CI and Android/client contract tests pass before release activation.
+11. The 23-category / 115-subcategory taxonomy is covered; unsupported category/subcategory pairs are rejected before job creation; generated category and subcategory metadata must exactly match the persisted request.
 
 ## 9. Implementation sequence
 
@@ -81,6 +85,7 @@ Locale is a presentation and evaluation context, never a matchmaking advantage o
 - 02A.2 — Add MatchParticipant locale snapshot and additive migration/backfill.
 - 02A.3 — Make matchmaking category-only while retaining per-entry locale.
 - 02A.4 — Expand generation context to all HUMAN participant locales; generate one semantic question with locale-specific prompt, expected answer, option text and grading rubric; reject duplicate/missing locales and option-ID/order mismatches. (Implementation committed; CI evidence pending)
+- 02A.4a — Enforce the canonical 23/115 category taxonomy at match entry and exact category/subcategory echo in the strict AI output contract. (Implementation committed on localization work branch; execution evidence pending)
 - 02A.5 — Resolve participant locale in question delivery and free-text Judge processing from the immutable participant snapshot; ignore caller locale for match question reads and reject missing cross-locale renderings. (Implementation committed; integration evidence pending)
 - 02A.6 — Add cross-locale PostgreSQL integration and security regression tests for same semantic question delivery, stable option IDs, server-authoritative locale and localized Judge input. (Regression tests committed; execution pending)
 - 02A.7 — Enable only after CI and release gates are evidenced.
