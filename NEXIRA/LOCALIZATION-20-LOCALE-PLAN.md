@@ -1,6 +1,6 @@
 # NEXIRA — 20-Locale Localization Implementation Contract
 
-Status: IN PROGRESS  
+Status: 20-locale technical enablement and Android device smoke accepted; full linguistic/content QA remains a separate release-quality activity  
 Target branch: `main` only  
 Target locales (fixed order): `en, fa, ar, es, fr, de, pt, ru, tr, hi, id, ja, ko, zh-CN, bn, ur, it, nl, th, vi`
 
@@ -8,7 +8,7 @@ Target locales (fixed order): `en, fa, ar, es, fr, de, pt, ru, tr, hi, id, ja, k
 
 Deliver complete, production-quality localization for all 20 target locales. A locale is not complete merely because it exists in a registry or can be selected. Every user-visible string, gameplay question and answer option, locale-sensitive format, and direction-dependent UI behavior must be correct before release enablement.
 
-English and Persian remain the currently enabled baseline until all 20 locale packs pass the release gates. No incomplete locale may silently fall back to English while appearing selected.
+Historical note: English and Persian were the initial enabled baseline. The current main source enables all 20 target locales in both frontend and backend registries. This does not by itself certify professional linguistic review of every string.
 
 ## 2. Source-of-truth architecture
 
@@ -76,3 +76,17 @@ Every shipped category, mode name, question prompt, answer option, difficulty la
 ## 7. Definition of done
 
 Localization is complete only when all 20 locales are selectable, persist correctly, render every production UI state and every shipped game question/options in the selected language, preserve game semantics, correctly format locale-sensitive values, render RTL/LTR and all required scripts on Android without visual defects, pass all automated gates, and have matching frontend/backend enablement. Until then, the affected locale remains disabled and the localization work remains open.
+
+
+## 2026-11-22 acceptance reconciliation
+
+### Accepted scope
+- All 20 target locales are enabled in `app/src/locales.js` and the backend `ENABLED_LOCALES` registry.
+- The frontend has locale-specific font importers/families for Arabic, Urdu Nastaliq, Devanagari, Bengali, Japanese, Korean, Simplified Chinese, Thai, and the relevant Latin/Cyrillic locales.
+- Offline question translations are present for the 18 non-English/non-Persian locales; English and Persian use their canonical question sources. Category translation packs cover the 18 additional locales, with English/Persian copy in the base dictionaries.
+- The frontend i18n tests assert the target/enabled locale set and category/question translation integrity. Android CI run [45053863414](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053863414) passed frontend/Match Engine tests, web/Android build, APK validation, and artifact upload on commit `a414957492f84d7cdfa5959c5e4f523bc58d9994`.
+- Backend CI run [45053997097](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053997097) passed on commit `a339d8b5f68bd5d60fb913aaadd0e911da296ac9`.
+- The product owner installed the resulting APK, confirmed that the languages were active and working, and confirmed that the selected language persisted after closing and reopening the app.
+
+### Scope boundary
+This closes the **technical foundation, enablement, persistence, and owner device smoke check**. It does not claim professional native-speaker review of every translation, exhaustive screenshot QA of every screen/locale combination, or live AI-provider language acceptance. Those remain content-quality/release QA items and must not reopen the completed technical foundation without a reproducible defect.
