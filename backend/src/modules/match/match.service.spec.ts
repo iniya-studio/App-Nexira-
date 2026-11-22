@@ -246,12 +246,12 @@ describe('MatchService', () => {
     }));
   });
 
-  it('rejects a disabled profile locale instead of persisting a non-enabled match snapshot', async () => {
+  it('rejects an unknown profile locale instead of persisting an invalid match snapshot', async () => {
     const { service, tx } = setup(MatchMode.ONE_V_AI, [
       { participantKey: 'human:user:user-1', participantType: ParticipantType.HUMAN, status: 'ACTIVE' },
       { participantKey: 'ai:default-v1', participantType: ParticipantType.AI, status: 'ACTIVE' },
     ]);
-    tx.user.findUnique.mockResolvedValue({ preferredLanguage: 'zh-cn' });
+    tx.user.findUnique.mockResolvedValue({ preferredLanguage: 'xx' });
     await expect(service.createAiMatch({
       principalType: PrincipalType.USER, principalId: 'user-1', sessionId: 'session-1',
     })).rejects.toBeInstanceOf(BadRequestException);
