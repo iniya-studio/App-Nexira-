@@ -3,7 +3,7 @@
 **Project:** NEXIRA  
 **Document:** NEX-BE-004  
 **Version:** 1.0  
-**Status:** Phase 2 core implementation complete — CI verified; email verification delivery remains a release gate  
+**Status:** Historical Phase 2 record; current auth lifecycle status is reconciled in the 2026-11-22 addendum below  
 **Target branch:** `feature/backend-foundation`  
 **Related contract:** `NEX-BE-002 — Identity & Access Contracts`  
 **Previous phase:** `NEX-BE-003 — Guest Identity & Session Foundation`
@@ -155,3 +155,29 @@ https://github.com/iniya-studio/App-Nexira-/actions/runs/42393979745
 **Phase 2 core authentication implementation is accepted as implemented and CI-verified for continued backend development.**
 
 This acceptance does not waive the release gates in Section 7. In particular, email/password registration must not be treated as production-ready until email verification delivery and completion are implemented and verified.
+
+
+## 2026-11-22 status reconciliation
+
+This section supersedes the follow-on list below where later implementation has closed a code-level item. The original Phase 2 record and its CI evidence remain historical and unchanged.
+
+### Current source-confirmed implementation on `main`
+- Email/password registration and login remain implemented with Argon2id.
+- Google sign-in now has a frontend adapter, Android Capacitor Credential Manager plugin, server-issued nonce flow, and backend ID-token verification. Native/client configuration still requires a real `VITE_GOOGLE_WEB_CLIENT_ID` and matching backend `GOOGLE_CLIENT_ID`.
+- Email verification token issue/verify/resend is implemented in the backend. Android app-link handling is present in `app/src/App.jsx`; the live email route still requires SMTP credentials and an absolute `EMAIL_VERIFICATION_URL`.
+- Password reset request/completion and authenticated password change are implemented in `PasswordLifecycleService` and exposed by the auth/account controllers. The Android deep-link handler recognizes `/reset-password`.
+- Profile/account hydration and session controls are connected through the current session lifecycle and account panel.
+
+### Current verification boundary
+- Backend CI run [45053997097](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053997097) passed on commit `a339d8b5f68bd5d60fb913aaadd0e911da296ac9`. Prisma format/validate/generate, PostgreSQL migrations, NestJS production build, unit and PostgreSQL integration tests, ESLint, staging Compose validation, and backend image build all succeeded.
+- Android source includes `googleAuth.test.js` and session lifecycle/coordinator tests. These prove adapter/lifecycle behavior under test doubles, not successful live Google OAuth or real mail delivery.
+- No live SMTP inbox delivery, deployed OAuth credential validation, or complete account-flow device acceptance is claimed by this addendum.
+
+### Remaining release gates
+1. Configure and verify Google OAuth client IDs for the Android app and backend.
+2. Configure SMTP sender credentials, verification/reset URLs, and sender-domain SPF/DKIM/DMARC; complete real inbox delivery and token-consumption tests.
+3. Confirm Android app links resolve both verification and password-reset URLs from cold and warm app states.
+4. Add/complete component-level account-panel interaction coverage and run the full registration, sign-in, conversion, recovery, and session-management acceptance on a current APK.
+5. Keep distributed rate limiting, production session lifetime values, production Argon2 benchmarking, iOS Keychain support, and global privacy export/deletion policy as explicit release gates.
+
+**Decision:** Backend authentication lifecycle implementation is code-present and CI-verified for continued development. Production account readiness and live device acceptance remain OPEN.
