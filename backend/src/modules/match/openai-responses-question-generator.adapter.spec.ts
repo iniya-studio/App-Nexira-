@@ -10,7 +10,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
   const excludedId = 'c0f6df1e-2cdd-4946-99d7-d46485c1b86d';
   const excludedFingerprint = 'a'.repeat(64);
   const input: QuestionGenerationInput = {
-    category: 'science',
+    category: 'general',
     difficulty: 'medium',
     language: 'en',
     requiredLocales: ['en'],
@@ -20,7 +20,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     excludedQuestionFingerprints: [excludedFingerprint],
   };
   const structuredQuestion = {
-    category: 'science',
+    category: 'general',
     subcategoryId: null,
     difficulty: 'medium',
     canonicalLanguage: 'en',
@@ -106,7 +106,7 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     const result = await adapter.generate(input);
 
     expect(result).toMatchObject({
-      category: 'science',
+      category: 'general',
       difficulty: 'medium',
       canonicalLanguage: 'en',
       answerType: 'MULTIPLE_CHOICE',
@@ -182,8 +182,8 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
   });
 
   it('passes the selected subcategory and requires an exact output echo', async () => {
-    respond({ ...structuredQuestion, subcategoryId: 'physics' });
-    const result = await adapter.generate({ ...input, subcategoryId: 'physics' });
+    respond({ ...structuredQuestion, category: 'science', subcategoryId: 'physics' });
+    const result = await adapter.generate({ ...input, category: 'science', subcategoryId: 'physics' });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body.input[0].content[0].text).toContain('selected subcategory');
     expect(body.input[0].content[0].text).toContain('Return subcategoryId exactly as supplied');
@@ -192,8 +192,8 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
   });
 
   it('rejects a question when the provider omits or changes the selected subcategory', async () => {
-    respond(structuredQuestion);
-    await expect(adapter.generate({ ...input, subcategoryId: 'physics' })).rejects.toMatchObject({
+    respond({ ...structuredQuestion, category: 'science' });
+    await expect(adapter.generate({ ...input, category: 'science', subcategoryId: 'physics' })).rejects.toMatchObject({
       code: 'GENERATOR_SETTINGS_MISMATCH',
     });
   });
@@ -487,8 +487,17 @@ describe('OpenAiResponsesQuestionGeneratorAdapter', () => {
     });
   });
 
+  it('rejects unsupported category/subcategory input before contacting the provider', async () => {
+    await expect(adapter.generate({
+      ...input,
+      category: 'science',
+      subcategoryId: 'formula-one',
+    })).rejects.toMatchObject({ code: 'GENERATOR_INPUT_INVALID' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('rejects a provider category echo that differs from the requested category', async () => {
-    respond({ ...structuredQuestion, category: 'geography' });
+    respond({ ...structuredQuestion, category: 'cars' });
     await expect(adapter.generate(input)).rejects.toMatchObject({
       code: 'GENERATOR_SETTINGS_MISMATCH',
     });
