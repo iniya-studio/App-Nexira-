@@ -60,7 +60,7 @@ test('every available translated category pack covers all 23 categories, subtitl
 test('every disabled target locale stays fail-closed even when a partial category pack exists', () => {
   const enabled = new Set(getSupportedLocales().map(({ code }) => code));
   const disabledTargets = getTargetLocales().filter(({ code }) => !enabled.has(code));
-  assert.equal(disabledTargets.length, 18);
+  assert.equal(disabledTargets.length, 19);
   for (const { code } of disabledTargets) {
     assert.equal(isSupportedLocale(code), false, `Disabled locale became supported: ${code}`);
     assert.equal(getCopy(code).categoryNames.gaming, getCopy('en').categoryNames.gaming,
@@ -595,12 +595,12 @@ test('a locale cannot be enabled until its full UI, category and question conten
   assert.deepEqual(getSupportedLocales().map(({ code }) => code).sort(), ['en', 'fa']);
 });
 
-test('All 18 translated offline question packs cover all 24 fixtures without English prompt fallback or answer drift', () => {
+test('All 19 translated offline question packs cover all 24 fixtures without English prompt fallback or answer drift', () => {
   const fixtureIds = QUESTION_FIXTURES.map(({ id }) => id).sort();
   const translatedLocales = getTargetLocales().filter(({ code }) => !['en', 'fa'].includes(code)).map(({ code }) => code);
-  assert.equal(translatedLocales.length, 18);
+  assert.equal(translatedLocales.length, 19);
   assert.deepEqual(Object.keys(QUESTION_TRANSLATIONS).sort(), [...translatedLocales].sort(),
-    'Question translation packs must match the 18 non-English/non-Persian target locales exactly');
+    'Question translation packs must match the 19 non-English/non-Persian target locales exactly');
   for (const locale of translatedLocales) {
     const pack = QUESTION_TRANSLATIONS[locale];
     assert.ok(pack, `Missing question pack: ${locale}`);
