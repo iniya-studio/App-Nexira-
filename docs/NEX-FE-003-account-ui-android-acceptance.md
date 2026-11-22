@@ -24,7 +24,7 @@ The following source capabilities are present on `main`:
 - `googleAuth.js` and Android `GoogleAuthPlugin.java`: server-challenge nonce passed into Android Credential Manager; ID token returned to the frontend for backend verification.
 - `App.jsx`: warm `appUrlOpen` and cold `getLaunchUrl()` handling for email-verification and password-reset links.
 - Backend auth services/controllers: email/password and Google auth, email verification issue/verify/resend, password reset/change, profile/account APIs, and session controls.
-- Existing automated coverage includes session lifecycle/coordinator and Google adapter tests. A dedicated AccountSessionPanel component-level test file was not found in the inspected source paths.
+- Existing automated coverage includes session lifecycle/coordinator and Google adapter tests. `app/src/components/AccountSessionPanel.test.js` also exists, but its current assertions use `react-dom/server` (`renderToStaticMarkup`) and verify static HTML only; they do not mount the component in a DOM, dispatch user events, or verify lifecycle callbacks/busy-state transitions. Therefore, genuine interaction coverage is still missing.
 
 These are source findings, not claims of successful live OAuth, SMTP delivery, or physical-device account-flow acceptance.
 
@@ -42,7 +42,7 @@ Never commit credentials to Git. If a provider is not configured, mark its live 
 
 ### A1 — AccountSessionPanel interaction coverage
 
-Add focused component-level tests using the smallest stable DOM/test harness compatible with the current React 19 + Node test setup. Before adding dependencies, inspect the existing test toolchain and justify the minimal choice.
+Retain the existing static-render tests as markup/locale smoke tests. Add real interaction tests using `happy-dom` plus `@testing-library/react` with the existing `node:test` runner and Vite module loader. This is the selected minimal DOM harness; add both as development dependencies and regenerate `package-lock.json` with npm in the project environment. Do not hand-edit the lockfile. Keep the test DOM isolated and cleaned between cases.
 
 Required scenarios:
 1. Signed-out registration: mode selection, required fields, submit handler called once, busy state, success and safe error states.
