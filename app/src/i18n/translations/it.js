@@ -104,7 +104,7 @@ const it = {
   challengeUnavailable: 'Questa categoria o sfida non è disponibile. Scegli un’altra opzione.',
   backToChallenges: 'TORNA ALLE SFIDE', reactorLabel: 'Nucleo dell’arena NEXIRA',
   reactorCore: 'NUCLEO / 01', reactorEnergy: 'ENERGIA PRONTA',
-  categoryEyebrow: '08 DISCIPLINE · SCEGLI IL TUO VANTAGGIO', categoryTitle: 'SCEGLI IL TUO',
+  categoryEyebrow: '23 CATEGORIE · SCEGLI IL TUO VANTAGGIO', categoryTitle: 'SCEGLI IL TUO',
   categoryAccent: 'CAMPO DI BATTAGLIA', subcategoryTitle: 'Scegli il tuo', subcategoryAccent: 'ambito',
   subcategoryDescription: 'Seleziona uno dei cinque argomenti specifici per questa partita.',
   categoryFoot: 'SELEZIONA UNA CATEGORIA PER MOSTRARE LE SUE SFIDE',
