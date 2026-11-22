@@ -294,7 +294,7 @@ test('frontend locale canonicalization matches the backend BCP-47 policy', () =>
 
   assert.equal(resolveLocale('FA'), 'fa');
   assert.equal(resolveLocale(' fa '), 'fa');
-  assert.equal(resolveLocale('zh-cn'), DEFAULT_LOCALE, 'Canonical but disabled locales must remain disabled');
+  assert.equal(resolveLocale('zh-cn'), 'zh-CN', 'Canonical locale identifiers must resolve to the enabled locale');
   assert.equal(getLocaleConfig('ZH-CN').code, 'zh-CN');
   assert.equal(resolveLocale('unknown'), DEFAULT_LOCALE);
 });
@@ -552,8 +552,11 @@ test('frontend and backend locale metadata stay in parity', async () => {
     );
   }
 
-  assert.deepEqual(getSupportedLocales().map(({ code }) => code), ['en', 'fa']);
-  assert.match(backendRegistry, /export const ENABLED_LOCALES = Object\.freeze\(\['en', 'fa'\] as const\);/);
+  assert.deepEqual(getSupportedLocales().map(({ code }) => code), [
+    'en', 'fa', 'ar', 'es', 'fr', 'de', 'pt', 'ru', 'tr', 'hi',
+    'id', 'ja', 'ko', 'zh-CN', 'bn', 'ur', 'it', 'nl', 'th', 'vi',
+  ]);
+  assert.match(backendRegistry, /export const ENABLED_LOCALES = Object\.freeze\(\[[\s\S]*?'vi',[\s\S]*?\] as const\);/);
   assert.equal(getLocaleConfig('ko').nativeName, '한국어');
 });
 
@@ -618,7 +621,7 @@ test('a locale cannot be enabled until its full UI, category and question conten
       assert.doesNotThrow(() => getQuestionCopy(locale.code, question), `Enabled locale missing question: ${locale.code}/${question.id}`);
     }
   }
-  assert.deepEqual(getSupportedLocales().map(({ code }) => code).sort(), ['en', 'fa']);
+  assert.deepEqual(getSupportedLocales().map(({ code }) => code).sort(), getTargetLocales().map(({ code }) => code).sort());
 });
 
 test('All 18 translated offline question packs cover all 24 fixtures without English prompt fallback or answer drift', () => {
@@ -660,12 +663,12 @@ test('All 18 translated offline question packs cover all 24 fixtures without Eng
   }
 });
 
-test('Brazilian Portuguese uses localized gameplay labels and remains a complete disabled UI pack', () => {
+test('Brazilian Portuguese uses localized gameplay labels in the enabled UI pack', () => {
   assert.equal(COPY.pt.match.online, 'ONLINE');
   assert.equal(COPY.pt.match.testing, 'TESTES');
   assert.equal(COPY.pt.match.activeTurn, 'TURNO ATUAL');
   assert.equal(COPY.pt.ranking.retry, 'Tentar novamente');
-  assert.equal(isSupportedLocale('pt'), false, 'Portuguese must remain disabled until localization release approval');
+  assert.equal(isSupportedLocale('pt'), true);
 });
 
 test('every registered translated UI dictionary has recursive key, type, array and placeholder parity', () => {
@@ -696,8 +699,8 @@ test('every registered translated UI dictionary has recursive key, type, array a
 });
 
 
-test('Vietnamese UI copy is fully localized and remains disabled until release approval', () => {
-  assert.equal(isSupportedLocale('vi'), false, 'Vietnamese must remain disabled until localization release approval');
+test('Vietnamese UI copy is fully localized and enabled', () => {
+  assert.equal(isSupportedLocale('vi'), true);
   assert.equal(COPY.vi.match.online, 'TRỰC TUYẾN');
   assert.equal(COPY.vi.account.sign_in, 'Đăng nhập');
   assert.equal(COPY.vi.profile.sessionStatus.guest, 'Tài khoản khách: đang hoạt động');
