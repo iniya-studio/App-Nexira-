@@ -120,6 +120,41 @@ describe('OpenAiResponsesAnswerJudgeAdapter', () => {
     expect(body.input[1].content[0].text).toContain('مشتری');
   });
 
+  it('identifies pt as Brazilian Portuguese in the live judging request', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'completed',
+        output: [{
+          type: 'message',
+          content: [{
+            type: 'output_text',
+            text: JSON.stringify({
+              decision: 'CORRECT',
+              confidence: 0.98,
+              reason_code: 'MEANING_MATCH',
+              rationale: 'A resposta está correta.',
+            }),
+          }],
+        }],
+      }),
+    });
+
+    await adapter.judge({
+      canonicalQuestion: 'Qual planeta é conhecido como Planeta Vermelho?',
+      language: 'pt',
+      expectedAnswer: 'Marte',
+      gradingRubric: { requiredConcepts: ['Marte'] },
+      participantResponse: 'O planeta Marte.',
+    });
+
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.input[0].content[0].text).toContain('Brazilian Portuguese (pt-BR)');
+    expect(body.input[1].content[0].text).toContain('"language":"pt"');
+    expect(body.input[1].content[0].text).toContain('"language_name":"Brazilian Portuguese"');
+  });
+
   it('returns UNCERTAIN without converting it to INCORRECT', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
