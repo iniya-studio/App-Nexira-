@@ -105,7 +105,7 @@ test('supports no-response penalties, third-strike completion, and reset', () =>
 });
 
 
-test('uses the selected locale for local questions and rejects disabled locale packs', () => {
+test('uses the selected locale for local questions and rejects unknown locale packs', () => {
   const adapter = createLocalMatchAdapter();
   const view = adapter.start({
     category: PREVIEW_CATEGORY,
@@ -120,8 +120,8 @@ test('uses the selected locale for local questions and rejects disabled locale p
   assert.throws(() => adapter.start({
     category: PREVIEW_CATEGORY,
     mode: '1v1',
-    matchId: 'local-disabled-locale',
-    language: 'de',
+    matchId: 'local-unknown-locale',
+    language: 'xx',
   }), {
     name: 'RangeError',
     message: /not enabled for local match content/,
