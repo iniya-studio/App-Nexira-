@@ -9,6 +9,8 @@ import russian from './i18n/translations/ru.js';
 import turkish from './i18n/translations/tr.js';
 import hindi from './i18n/translations/hi.js';
 import indonesian from './i18n/translations/id.js';
+import japanese from './i18n/translations/ja.js';
+import korean from './i18n/translations/ko.js';
 
 export const COPY = {
   en: {
@@ -715,6 +717,20 @@ COPY.id = Object.freeze({
   categoryNames: CATEGORY_TRANSLATIONS.id.categoryNames,
   categorySubtitles: CATEGORY_TRANSLATIONS.id.categorySubtitles,
   categorySubcategories: CATEGORY_TRANSLATIONS.id.categorySubcategories,
+});
+
+COPY.ja = Object.freeze({
+  ...japanese,
+  categoryNames: CATEGORY_TRANSLATIONS.ja.categoryNames,
+  categorySubtitles: CATEGORY_TRANSLATIONS.ja.categorySubtitles,
+  categorySubcategories: CATEGORY_TRANSLATIONS.ja.categorySubcategories,
+});
+
+COPY.ko = Object.freeze({
+  ...korean,
+  categoryNames: CATEGORY_TRANSLATIONS.ko.categoryNames,
+  categorySubtitles: CATEGORY_TRANSLATIONS.ko.categorySubtitles,
+  categorySubcategories: CATEGORY_TRANSLATIONS.ko.categorySubcategories,
 });
 
 export const PERSIAN_QUESTIONS = Object.freeze({
