@@ -1,4 +1,5 @@
 import { CATEGORY_TRANSLATIONS } from './game/categoryTranslations.js';
+import { QUESTION_TRANSLATIONS as QUESTION_TRANSLATION_PACKS } from './game/questionTranslations.js';
 import { getLocaleConfig, isSupportedLocale, resolveLocale } from './locales.js';
 import spanish from './i18n/translations/es.js';
 import french from './i18n/translations/fr.js';
@@ -815,7 +816,7 @@ export const PERSIAN_QUESTIONS = Object.freeze({
  'science.q02':{id:'science.q02',prompt:'نماد شیمیایی طلا چیست؟',options:['Ag', 'Au', 'Go', 'Gd']},
  'science.q03':{id:'science.q03',prompt:'کدام نیرو سیاره‌ها را در مدار نگه می‌دارد؟',options:['اصطکاک', 'مغناطیس', 'گرانش', 'فشار']},
 });
-const QUESTION_TRANSLATIONS = Object.freeze({ fa: PERSIAN_QUESTIONS });
+const QUESTION_TRANSLATIONS = Object.freeze({ ...QUESTION_TRANSLATION_PACKS, fa: PERSIAN_QUESTIONS });
 
 export function getQuestionCopy(language, question) {
   if (!question?.id) return question;
