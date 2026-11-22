@@ -3,7 +3,7 @@
 **Project:** NEXIRA  
 **Document:** NEX-BE-005  
 **Version:** 1.0  
-**Status:** Implementation committed; CI verification pending  
+**Status:** Backend implementation and CI verified; live SMTP delivery and device acceptance remain OPEN  
 **Target branch:** `feature/backend-foundation`  
 **Related contract:** `NEX-BE-002 — Identity & Access Contracts`
 
@@ -44,3 +44,12 @@ The existing `EmailVerificationToken` model and initial migration already contai
 5. Replace process-local resend limiting before multi-instance production.
 6. Wire and test the frontend verification page.
 7. CI must pass Prisma validation/generation, PostgreSQL migration deployment, build, tests, and ESLint.
+
+
+## 2026-11-22 verification reconciliation
+
+- The backend verification service, token hashing/consumption, resend endpoint, SMTP adapter, and delivery-failure audit path are present in `main`.
+- The Android app's `app/src/App.jsx` handles both warm `appUrlOpen` events and cold `getLaunchUrl()` startup links for `/verify-email`; it validates the token shape and calls the session lifecycle verification method. The same handler recognizes `/reset-password`.
+- Backend CI run [45053997097](https://github.com/iniya-studio/App-Nexira-/actions/runs/45053997097) completed successfully on commit `a339d8b5f68bd5d60fb913aaadd0e911da296ac9`, including PostgreSQL migrations, unit/integration tests, build, lint, Compose validation, and backend image build.
+- Live delivery is **not** verified: `SMTP_HOST`, sender credentials, `EMAIL_FROM`, and `EMAIL_VERIFICATION_URL` remain deployment configuration inputs. The app-link domain/asset association must also be configured and validated against the deployed domain.
+- Therefore the previous “CI verification pending” status is superseded, but the release gates for real inbox delivery, deployed app-link resolution, and end-to-end device verification remain open.
