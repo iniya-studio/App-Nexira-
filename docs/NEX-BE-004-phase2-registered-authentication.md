@@ -4,7 +4,8 @@
 **Document:** NEX-BE-004  
 **Version:** 1.0  
 **Status:** Historical Phase 2 record; current auth lifecycle status is reconciled in the 2026-11-22 addendum below  
-**Target branch:** `feature/backend-foundation`  
+**Original implementation branch:** `feature/backend-foundation`  
+**Current source-of-truth branch:** `main`  
 **Related contract:** `NEX-BE-002 — Identity & Access Contracts`  
 **Previous phase:** `NEX-BE-003 — Guest Identity & Session Foundation`
 
@@ -138,7 +139,7 @@ https://github.com/iniya-studio/App-Nexira-/actions/runs/42393979745
 - All work remains on `feature/backend-foundation`.
 - No merge to integration or main was performed.
 
-## 7. Remaining work and release gates
+## 7. Remaining work and release gates — historical snapshot at original Phase 2 completion
 
 1. **Email verification delivery and completion:** No mail provider has been selected/configured. Verification-token issuance, delivery, and the `POST /api/v1/auth/email/verify` completion endpoint remain follow-on work. Do not represent email/password accounts as verified until that flow succeeds.
 2. **Sensitive-route enforcement:** Apply `EmailVerifiedGuard` to registered-user actions that require verified email as those feature routes are introduced.
