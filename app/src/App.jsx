@@ -165,7 +165,15 @@ export default function App() {
   const threshold = serverProgress?.xpRequiredForNextLevel ?? localThreshold;
   const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
   const activeRanking = rankingView === 'global' ? globalRanking : seasonalRanking;
-  const rankingEntries = activeRanking?.entries ?? [];
+  const rankingEntries = Array.isArray(activeRanking?.entries)
+    ? activeRanking.entries
+      .filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string')
+      .sort((left, right) => left.position - right.position)
+    : [];
+  const podiumEntries = [2, 1, 3]
+    .map((position) => rankingEntries.find((entry) => entry.position === position))
+    .filter(Boolean);
+  const tableEntries = rankingEntries.filter((entry) => entry.position > 3);
   const storeVisibleItems = storeTab === 'featured'
     ? STORE_ITEMS.slice(0, 4)
     : STORE_ITEMS.filter((item) => item.group === storeTab);
@@ -365,17 +373,19 @@ export default function App() {
         api.getCurrentSeasonRanking(),
       ]);
       if (requestId !== progressionRequestRef.current) return null;
-      if (progressResult.status === 'rejected') throw progressResult.reason;
-      setServerProgress(progressResult.value);
-      if (globalResult.status === 'fulfilled') setGlobalRanking(globalResult.value);
-      if (seasonalResult.status === 'fulfilled') setSeasonalRanking(seasonalResult.value);
-      const rankingFailure = globalResult.status === 'rejected'
-        ? globalResult.reason
-        : seasonalResult.status === 'rejected'
-          ? seasonalResult.reason
-          : null;
-      setProgressionError(rankingFailure || '');
-      return progressResult.value;
+      if (progressResult.status === 'fulfilled') setServerProgress(progressResult.value);
+      else setServerProgress(null);
+      setGlobalRanking(globalResult.status === 'fulfilled' ? globalResult.value : null);
+      setSeasonalRanking(seasonalResult.status === 'fulfilled' ? seasonalResult.value : null);
+      const requestFailure = progressResult.status === 'rejected'
+        ? progressResult.reason
+        : globalResult.status === 'rejected'
+          ? globalResult.reason
+          : seasonalResult.status === 'rejected'
+            ? seasonalResult.reason
+            : null;
+      setProgressionError(requestFailure || '');
+      return progressResult.status === 'fulfilled' ? progressResult.value : null;
     } catch (error) {
       if (error?.code === 'SESSION_SUPERSEDED') return null;
       setProgressionError(error);
@@ -1589,30 +1599,41 @@ export default function App() {
           <small>{activeRanking.me.rankingPoints} {text.ranking.rankingPoints} · {activeRanking.me.wins} {text.ranking.wins}</small>
         </div>}
         {rankingEntries.length > 0 && <>
-          <div className="podium-grid">
-            {rankingEntries.slice(0, 3).map((entry) => (
+          {podiumEntries.length > 0 && <div className="podium-grid" aria-label={text.ranking.top50}>
+            {podiumEntries.map((entry) => (
               <div className={`podium-card podium-card--${entry.position}`} key={entry.userId}>
-                <span className="podium-rank">{entry.position === 1 ? <Trophy size={18} /> : String(entry.position).padStart(2, '0')}</span>
-                <span className="podium-avatar"><UserRound size={18} /></span>
+                <Trophy className="podium-cup" size={42} strokeWidth={1.7} aria-hidden="true" />
+                <span className="podium-rank">#{entry.position}</span>
                 <strong>{entry.displayName || entry.username}</strong>
                 <small>{text.levelAbbr} {entry.level}</small>
                 <b>{entry.rankingPoints}<i> {text.ranking.pointsAbbr}</i></b>
               </div>
             ))}
-          </div>
-          <div className="leader-list">
-            {rankingEntries.slice(3).map((entry) => (
-              <div className={`leader-row${entry.userId === sessionState.principal?.principalId ? ' leader-row--you' : ''}`} key={entry.userId}>
-                <span className="leader-rank">{String(entry.position).padStart(2, '0')}</span>
-                <span className="leader-avatar"><UserRound size={16} /></span>
-                <span className="leader-player">
-                  <strong>{entry.displayName || entry.username}</strong>
-                  <small>{text.levelAbbr} {entry.level} · {entry.wins} {text.ranking.wins} · {entry.losses} {text.ranking.losses}</small>
-                </span>
-                <strong className="leader-score">{entry.rankingPoints}</strong>
-              </div>
-            ))}
-          </div>
+          </div>}
+          {tableEntries.length > 0 && <div className="leader-table-wrap">
+            <table className="leader-table">
+              <thead>
+                <tr>
+                  <th scope="col">#</th>
+                  <th scope="col">{text.displayName}</th>
+                  <th scope="col">{text.levelAbbr}</th>
+                  <th scope="col">{text.ranking.wins}</th>
+                  <th scope="col">{text.ranking.pointsAbbr}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableEntries.map((entry) => (
+                  <tr className={entry.userId === sessionState.principal?.principalId ? 'leader-table-row--you' : ''} key={entry.userId}>
+                    <td>{entry.position}</td>
+                    <td>{entry.displayName || entry.username}</td>
+                    <td>{entry.level}</td>
+                    <td>{entry.wins}</td>
+                    <td>{entry.rankingPoints}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>}
         </>}
         {activeRanking && activeRanking.eligible && rankingEntries.length === 0 && !(rankingView === 'season' && activeRanking.season === null) && !progressionLoading && <p className="empty-state">
           {text.ranking.noResults}
