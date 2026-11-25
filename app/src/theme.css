@@ -3630,3 +3630,116 @@ body,
 .ranking-screen .leader-table-wrap {
   overflow-x: hidden;
 }
+
+
+/* Compact, fixed-viewport leaderboard layout: no page or table scrolling. */
+.ranking-header-back {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 1px solid rgba(0, 197, 255, .32);
+  border-radius: 10px;
+  color: #dff7ff;
+  background: linear-gradient(135deg, rgba(0, 197, 255, .14), rgba(106, 43, 226, .18));
+}
+.ranking-screen {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  padding: 4px 12px calc(68px + env(safe-area-inset-bottom));
+  gap: 0;
+  overflow: hidden;
+}
+.ranking-screen > .ranking-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 8px;
+  overflow: hidden;
+}
+.ranking-screen .ranking-mode-tabs {
+  flex: 0 0 40px;
+  min-height: 40px;
+  margin: 0;
+  padding: 3px;
+  gap: 5px;
+}
+.ranking-screen .ranking-mode-tab {
+  min-height: 32px;
+  padding: 5px 3px;
+  font-size: 10px;
+}
+.ranking-screen #ranking-panel-content {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.ranking-screen .podium-grid {
+  flex: 0 0 auto;
+  gap: 6px;
+  margin: 0;
+}
+.ranking-screen .podium-card,
+.ranking-screen .podium-card--1 {
+  min-height: 112px;
+  gap: 3px;
+  padding: 7px 4px;
+}
+.ranking-screen .podium-card--1 { min-height: 124px; }
+.ranking-screen .podium-cup,
+.ranking-screen .podium-card--1 .podium-cup {
+  width: 30px;
+  height: 30px;
+}
+.ranking-screen .podium-card > strong { font-size: 9px; }
+.ranking-screen .podium-card > small { font-size: 8px; }
+.ranking-screen .podium-card > b { font-size: 14px; }
+.ranking-screen .leader-table-wrap {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.ranking-screen .leader-table {
+  width: 100%;
+  height: 100%;
+  table-layout: fixed;
+  font-size: 10px;
+}
+.ranking-screen .leader-table th,
+.ranking-screen .leader-table td {
+  padding: 5px 4px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.ranking-screen .leader-table th { font-size: 9px; }
+.ranking-screen .leader-table td:nth-child(2) {
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-height: 760px) {
+  .ranking-screen { padding-top: 2px; }
+  .ranking-screen > .ranking-panel { gap: 4px; padding: 5px; }
+  .ranking-screen .podium-card,
+  .ranking-screen .podium-card--1 { min-height: 88px; padding: 4px 3px; }
+  .ranking-screen .podium-card--1 { min-height: 98px; }
+  .ranking-screen .podium-cup,
+  .ranking-screen .podium-card--1 .podium-cup { width: 25px; height: 25px; }
+  .ranking-screen .leader-table th,
+  .ranking-screen .leader-table td { padding-block: 3px; }
+}
