@@ -68,7 +68,7 @@ const fr = {
     description: 'Classements officiels fondés sur les résultats définitifs des matchs 1 contre 1.',
     scopeLabel: 'Périmètre du classement', global: 'Mondial', seasonal: 'Saisonnier',
     globalLeaderboard: 'Classement mondial', seasonLeaderboard: 'Classement de la saison',
-    top10: 'Top 10', demoLabel: 'DÉMO · PAS EN DIRECT', loading: 'Chargement des classements vérifiés…',
+    top9: 'Top 10', demoLabel: 'DÉMO · PAS EN DIRECT', loading: 'Chargement des classements vérifiés…',
     loadError: 'Impossible de charger les données du classement.', retry: 'Réessayer',
     connectAccount: 'Connectez votre session sécurisée pour charger les classements vérifiés.',
     guestEligibility: 'Vous pouvez jouer et gagner des XP en tant qu’invité. Créez un compte lorsque vous souhaitez apparaître dans les classements compétitifs.',
