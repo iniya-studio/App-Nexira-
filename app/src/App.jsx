@@ -168,6 +168,7 @@ export default function App() {
   const matchTimerRemainingRef = useRef(10);
   const matchTimerKeyRef = useRef(null);
   const progressionRequestRef = useRef(0);
+  const rankingRequestRef = useRef({});
   const languageChangeRequestRef = useRef(0);
   if (!matchAdapterRef.current) matchAdapterRef.current = createLocalMatchAdapter();
 
@@ -414,11 +415,34 @@ export default function App() {
     finally{if(id===progressionRequestRef.current)setProgressionLoading(false);}
   }, []);
   const refreshModeRanking = useCallback(async (mode) => {
-    if(!['guest','authenticated'].includes(appSessionLifecycle.getState().status))return null;
-    setRankingLoadingByMode(v=>({...v,[mode]:true}));setRankingErrorsByMode(v=>({...v,[mode]:null}));
-    try{const result=await createProgressionApi(appSessionLifecycle.getHttpClient()).getModeRanking(mode);setRankingByMode(v=>({...v,[mode]:result}));return result;}
-    catch(error){if(error?.code!=='SESSION_SUPERSEDED')setRankingErrorsByMode(v=>({...v,[mode]:error}));return null;}
-    finally{setRankingLoadingByMode(v=>({...v,[mode]:false}));}
+    const requestSession = appSessionLifecycle.getState();
+    if (!['guest', 'authenticated'].includes(requestSession.status)) return null;
+    const sessionKey = (state) => `${state.status}:${state.principal?.principalType ?? 'none'}:${state.principal?.principalId ?? 'none'}`;
+    const requestSessionKey = sessionKey(requestSession);
+    const requestId = (rankingRequestRef.current[mode] ?? 0) + 1;
+    rankingRequestRef.current[mode] = requestId;
+    const isCurrentRequest = () => {
+      const currentSession = appSessionLifecycle.getState();
+      return rankingRequestRef.current[mode] === requestId && sessionKey(currentSession) === requestSessionKey;
+    };
+
+    setRankingLoadingByMode((value) => ({ ...value, [mode]: true }));
+    setRankingErrorsByMode((value) => ({ ...value, [mode]: null }));
+    try {
+      const result = await createProgressionApi(appSessionLifecycle.getHttpClient()).getModeRanking(mode);
+      if (!isCurrentRequest()) return null;
+      setRankingByMode((value) => ({ ...value, [mode]: result }));
+      return result;
+    } catch (error) {
+      if (isCurrentRequest() && error?.code !== 'SESSION_SUPERSEDED') {
+        setRankingErrorsByMode((value) => ({ ...value, [mode]: error }));
+      }
+      return null;
+    } finally {
+      if (isCurrentRequest()) {
+        setRankingLoadingByMode((value) => ({ ...value, [mode]: false }));
+      }
+    }
   }, []);
 
   useEffect(() => {
