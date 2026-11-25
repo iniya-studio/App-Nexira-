@@ -1617,7 +1617,7 @@ export default function App() {
       <GlassPanel className="ranking-panel">
         <div className="ranking-title">
           <span><Medal size={18} /> {text.ranking.globalLeaderboard}</span>
-          <small>{RANKING_DEMO_MODE && !liveRanking ? text.ranking.demoLabel : text.ranking.top10}</small>
+          <small>{RANKING_DEMO_MODE && !liveRanking ? text.ranking.demoLabel : text.ranking.top9}</small>
         </div>
         <div className="ranking-mode-tabs" role="tablist" aria-label={text.rankingsTitle}>
           {rankingModeTabs.map((mode, index) => (
