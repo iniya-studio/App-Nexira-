@@ -187,13 +187,39 @@ export default function App() {
   const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
   const liveRanking = rankingByMode[rankingMode] ?? null;
   const activeRanking = liveRanking ?? (RANKING_DEMO_MODE ? RANKING_DEMO_DATA[rankingMode] : null);
-  const rankingEntries = Array.isArray(activeRanking?.entries) ? activeRanking.entries.filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string').sort((x,y) => x.position-y.position) : [];
-  const topEntries = rankingEntries.filter((entry) => entry.position <= 9).slice(0,9);
-  const podiumEntries = [2,1,3].map((position) => rankingEntries.find((entry) => entry.position === position) ?? null);
+  const rankingEntries = Array.isArray(activeRanking?.entries)
+    ? activeRanking.entries
+      .filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string')
+      .sort((left, right) => left.position - right.position)
+    : [];
+  const topEntries = rankingEntries.filter((entry) => entry.position <= 9).slice(0, 9);
   const currentUserId = RANKING_DEMO_MODE && !liveRanking ? 'demo-current-user' : sessionState.principal?.principalId;
-  const currentUserEntry = activeRanking?.me && Number.isInteger(activeRanking.me.position) && activeRanking.me.position > 0 ? {...activeRanking.me,userId:activeRanking.me.userId ?? currentUserId ?? 'current-user',isCurrentUser:true} : null;
-  const userAlreadyInTopNine = Boolean(currentUserEntry && topEntries.some((entry) => entry.userId === currentUserEntry.userId || entry.position === currentUserEntry.position));
-  const tableEntries = [...topEntries.map((entry) => ({...entry,isCurrentUser:entry.userId === currentUserId})),...(currentUserEntry && !userAlreadyInTopNine ? [currentUserEntry] : [])];
+  const currentUserEntry = activeRanking?.me && Number.isInteger(activeRanking.me.position) && activeRanking.me.position > 0
+    ? { ...activeRanking.me, userId: activeRanking.me.userId ?? currentUserId ?? 'current-user', isCurrentUser: true }
+    : null;
+  const podiumEntries = [2, 1, 3].map((position) => ({
+    position,
+    entry: activeRanking?.eligible === false ? null : rankingEntries.find((entry) => entry.position === position) ?? null,
+  }));
+  const userAlreadyInTopNine = Boolean(currentUserEntry && topEntries.some(
+    (entry) => entry.userId === currentUserEntry.userId || entry.position === currentUserEntry.position,
+  ));
+  const tableEntries = [
+    ...topEntries.map((entry) => {
+      const isCurrentUser = Boolean(currentUserEntry && (
+        entry.userId === currentUserEntry.userId || entry.position === currentUserEntry.position
+      ));
+      return isCurrentUser
+        ? { ...entry, ...currentUserEntry, userId: entry.userId, isCurrentUser: true }
+        : { ...entry, isCurrentUser: false };
+    }),
+    ...(currentUserEntry && !userAlreadyInTopNine ? [currentUserEntry] : []),
+  ];
+  const rankingModeTabs = [
+    { id: '1v1', label: '1vs1' },
+    { id: '1vAI', label: '1vsAI' },
+    { id: 'quick-battle', label: text.home.quickBattle },
+  ];
   const storeVisibleItems = storeTab === 'featured'
     ? STORE_ITEMS.slice(0, 4)
     : STORE_ITEMS.filter((item) => item.group === storeTab);
@@ -1561,18 +1587,101 @@ export default function App() {
       <button className="ranking-back-link" onClick={()=>navigate('home')} aria-label={text.homeLabel}><ArrowLeft size={17}/></button>
       <ScreenHeading eyebrow={text.rankingsEyebrow} title={text.rankingsTitle} accent={text.rankingsAccent} description={text.ranking.description}/>
       <GlassPanel className="ranking-panel">
-        <div className="ranking-title"><span><Medal size={18}/> {text.ranking.globalLeaderboard}</span><small>{RANKING_DEMO_MODE && !liveRanking ? 'DEMO · NOT LIVE' : text.ranking.top50}</small></div>
-        <div className="podium-grid">{podiumEntries.map((entry,i)=>{const pos=[2,1,3][i];return <div className={`podium-card podium-card--${pos}`} key={pos}><Trophy className="podium-cup" size={pos===1?48:40}/><span className="podium-rank">#{pos}</span><strong>{entry?(entry.displayName||entry.username):'—'}</strong>{entry&&<><small>{text.levelAbbr} {entry.level}</small><b>{entry.rankingPoints}<i> {text.ranking.pointsAbbr}</i></b></>}</div>;})}</div>
-        <div className="ranking-mode-tabs" role="tablist" aria-label={text.rankingsTitle}>{[{id:'1v1',label:'1vs1'},{id:'1vAI',label:'1vsAI'},{id:'quick-battle',label:text.home.quickBattle}].map(m=><button key={m.id} role="tab" aria-selected={rankingMode===m.id} className={`ranking-mode-tab${rankingMode===m.id?' is-active':''}`} onClick={()=>setRankingMode(m.id)}>{m.label}</button>)}</div>
-        {rankingLoadingByMode[rankingMode]&&<p className="panel-note" role="status">{text.ranking.loading}</p>}
-        {rankingErrorsByMode[rankingMode]&&!RANKING_DEMO_MODE&&<div className="panel-note" role="alert">{text.ranking.loadError}<button className="text-action" onClick={()=>void refreshModeRanking(rankingMode)}>{text.ranking.retry}</button></div>}
-        {!activeRanking&&!rankingLoadingByMode[rankingMode]&&!rankingErrorsByMode[rankingMode]&&<p className="empty-state">{text.ranking.connectAccount}</p>}
-        {activeRanking?.eligible===false&&<p className="panel-note">{text.ranking.guestEligibility}</p>}
-        {activeRanking?.eligible!==false&&activeRanking&&<div className="leader-table-wrap"><table className="leader-table"><thead><tr><th>#</th><th>{text.displayName}</th><th>{text.levelAbbr}</th><th>{text.ranking.wins}</th><th>{text.ranking.pointsAbbr}</th></tr></thead><tbody>
-          {tableEntries.map(e=><tr className={e.isCurrentUser?'leader-table-row--you':''} key={e.userId}><td>{e.position}</td><td>{e.isCurrentUser?<>{e.displayName||e.username||playerName} <span className="ranking-you-label">{text.match.you}</span></>:e.displayName||e.username}</td><td>{e.level??'—'}</td><td>{e.wins??'—'}</td><td>{e.rankingPoints??'—'}</td></tr>)}
-          {!tableEntries.length&&<tr><td colSpan="5" className="ranking-table-empty">{text.ranking.noResults}</td></tr>}
-        </tbody></table></div>}
-        <p className="panel-note"><Globe2 size={13}/> {text.ranking.pointsPolicy}</p>
+        <div className="ranking-title">
+          <span><Medal size={18} /> {text.ranking.globalLeaderboard}</span>
+          <small>{RANKING_DEMO_MODE && !liveRanking ? text.ranking.demoLabel : text.ranking.top9}</small>
+        </div>
+        <div className="ranking-mode-tabs" role="tablist" aria-label={text.rankingsTitle}>
+          {rankingModeTabs.map((mode, index) => (
+            <button
+              key={mode.id}
+              id={`ranking-tab-${mode.id}`}
+              type="button"
+              role="tab"
+              aria-selected={rankingMode === mode.id}
+              aria-controls="ranking-panel-content"
+              tabIndex={rankingMode === mode.id ? 0 : -1}
+              className={`ranking-mode-tab${rankingMode === mode.id ? ' is-active' : ''}`}
+              onClick={() => setRankingMode(mode.id)}
+              onKeyDown={(event) => {
+                const isRtl = localeConfig.direction === 'rtl';
+                let nextIndex = index;
+                if (event.key === 'Home') nextIndex = 0;
+                else if (event.key === 'End') nextIndex = rankingModeTabs.length - 1;
+                else if (event.key === 'ArrowRight') nextIndex = (index + (isRtl ? -1 : 1) + rankingModeTabs.length) % rankingModeTabs.length;
+                else if (event.key === 'ArrowLeft') nextIndex = (index + (isRtl ? 1 : -1) + rankingModeTabs.length) % rankingModeTabs.length;
+                else return;
+                event.preventDefault();
+                const nextMode = rankingModeTabs[nextIndex].id;
+                setRankingMode(nextMode);
+                document.getElementById(`ranking-tab-${nextMode}`)?.focus();
+              }}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+        <div id="ranking-panel-content" role="tabpanel" aria-labelledby={`ranking-tab-${rankingMode}`}>
+          <div className="podium-grid">
+            {podiumEntries.map(({ position, entry }) => (
+              <div
+                className={`podium-card podium-card--${position}${entry && currentUserEntry && (entry.userId === currentUserEntry.userId || position === currentUserEntry.position) ? ' podium-card--you' : ''}`}
+                key={position}
+              >
+                <Trophy className="podium-cup" size={position === 1 ? 48 : 40} aria-hidden="true" />
+                <span className="podium-rank">#{position}</span>
+                <strong>{entry ? (entry.displayName || entry.username) : '—'}</strong>
+                {entry && <>
+                  <small>{text.levelAbbr} {entry.level ?? '—'}</small>
+                  <b>{entry.rankingPoints ?? '—'}<i> {text.ranking.pointsAbbr}</i></b>
+                </>}
+              </div>
+            ))}
+          </div>
+          {rankingLoadingByMode[rankingMode] && <p className="panel-note" role="status">{text.ranking.loading}</p>}
+          {rankingErrorsByMode[rankingMode] && (
+            <div className="panel-note" role="alert">
+              {text.ranking.loadError}
+              <button type="button" className="text-action" onClick={() => void refreshModeRanking(rankingMode)}>{text.ranking.retry}</button>
+            </div>
+          )}
+          {!activeRanking && !rankingLoadingByMode[rankingMode] && !rankingErrorsByMode[rankingMode] && (
+            <p className="empty-state">{text.ranking.connectAccount}</p>
+          )}
+          {activeRanking?.eligible === false && <p className="panel-note">{text.ranking.guestEligibility}</p>}
+          {activeRanking?.eligible !== false && activeRanking && (
+            <div className="leader-table-wrap">
+              <table className="leader-table">
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">{text.displayName}</th>
+                    <th scope="col">{text.levelAbbr}</th>
+                    <th scope="col">{text.ranking.wins}</th>
+                    <th scope="col">{text.ranking.pointsAbbr}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableEntries.map((entry) => (
+                    <tr className={entry.isCurrentUser ? 'leader-table-row--you' : ''} key={entry.userId}>
+                      <td>{entry.position}</td>
+                      <td>
+                        {entry.isCurrentUser
+                          ? <>{entry.displayName || entry.username || playerName} <span className="ranking-you-label">{text.match.you}</span></>
+                          : entry.displayName || entry.username}
+                      </td>
+                      <td>{entry.level ?? '—'}</td>
+                      <td>{entry.wins ?? '—'}</td>
+                      <td>{entry.rankingPoints ?? '—'}</td>
+                    </tr>
+                  ))}
+                  {!tableEntries.length && <tr><td colSpan="5" className="ranking-table-empty">{text.ranking.noResults}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <p className="panel-note"><Globe2 size={13} /> {text.ranking.pointsPolicy}</p>
       </GlassPanel>
     </ScreenFrame>}
 
