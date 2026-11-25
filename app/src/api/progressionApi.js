@@ -1,11 +1,3 @@
-export function createProgressionApi(http) {
-  if (!http || typeof http.get !== 'function') {
-    throw new TypeError('A configured HTTP client is required.');
-  }
-
-  return {
-    getMyProgress: () => http.get('/progression/me'),
-    getGlobalRanking: () => http.get('/ranking/global'),
-    getCurrentSeasonRanking: () => http.get('/ranking/seasonal/current'),
-  };
-}
+const RANKING_MODES=Object.freeze({'1v1':'/ranking/1v1','1vAI':'/ranking/1vAI','quick-battle':'/ranking/quick-battle'});
+export function createProgressionApi(http){if(!http||typeof http.get!=='function')throw new TypeError('A configured HTTP client is required.');return{getMyProgress:()=>http.get('/progression/me'),getModeRanking:mode=>{const path=RANKING_MODES[mode];if(!path)throw new TypeError('Unsupported ranking mode.');return http.get(path);}};}
+export {RANKING_MODES};
