@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createProgressionApi } from './progressionApi.js';
+import { createProgressionApi, RANKING_MODES } from './progressionApi.js';
 
 test('createProgressionApi requires a configured HTTP client', () => {
   assert.throws(
@@ -9,7 +9,15 @@ test('createProgressionApi requires a configured HTTP client', () => {
   );
 });
 
-test('reads server-authoritative progression and leaderboard resources', async () => {
+test('exposes exactly three independent server-authoritative ranking routes', () => {
+  assert.deepEqual(RANKING_MODES, {
+    '1v1': '/ranking/1v1',
+    '1vAI': '/ranking/1vAI',
+    'quick-battle': '/ranking/quick-battle',
+  });
+});
+
+test('reads progression and each competitive mode ranking independently', async () => {
   const calls = [];
   const http = {
     get: async (path) => {
@@ -20,13 +28,18 @@ test('reads server-authoritative progression and leaderboard resources', async (
   const api = createProgressionApi(http);
 
   assert.deepEqual(await api.getMyProgress(), { path: '/progression/me' });
-  assert.deepEqual(await api.getGlobalRanking(), { path: '/ranking/global' });
-  assert.deepEqual(await api.getCurrentSeasonRanking(), {
-    path: '/ranking/seasonal/current',
-  });
+  for (const [mode, path] of Object.entries(RANKING_MODES)) {
+    assert.deepEqual(await api.getModeRanking(mode), { path });
+  }
   assert.deepEqual(calls, [
     '/progression/me',
-    '/ranking/global',
-    '/ranking/seasonal/current',
+    '/ranking/1v1',
+    '/ranking/1vAI',
+    '/ranking/quick-battle',
   ]);
+});
+
+test('rejects unsupported ranking modes instead of guessing a route', () => {
+  const api = createProgressionApi({ get: async () => ({}) });
+  assert.throws(() => api.getModeRanking('seasonal'), /Unsupported ranking mode/);
 });

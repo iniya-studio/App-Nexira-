@@ -68,7 +68,7 @@ const ko = {
     description: '검증 및 확정된 1 대 1 매치 결과를 바탕으로 한 공식 순위입니다.',
     scopeLabel: '순위 범위', global: '글로벌', seasonal: '시즌',
     globalLeaderboard: '글로벌 순위표', seasonLeaderboard: '시즌 순위표',
-    top50: '상위 50명', loading: '검증된 순위를 불러오는 중…',
+    top9: '상위 10명', demoLabel: '데모 · 실시간 데이터 아님', loading: '검증된 순위를 불러오는 중…',
     loadError: '순위 데이터를 불러오지 못했습니다.', retry: '다시 시도',
     connectAccount: '검증된 순위를 불러오려면 보안 계정 세션을 연결하세요.',
     guestEligibility: '게스트로 플레이하고 XP를 획득할 수 있습니다. 경쟁 순위에 표시되려면 계정을 만드세요.',

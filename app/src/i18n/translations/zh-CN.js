@@ -41,7 +41,7 @@ const zhCN = {
   },
   ranking:{
     description:'根据已结算并验证的 1 对 1 对局结果生成的官方排名。',scopeLabel:'排名范围',global:'全球',seasonal:'赛季',
-    globalLeaderboard:'全球排行榜',seasonLeaderboard:'赛季排行榜',top50:'前 50 名',loading:'正在加载已验证的排名…',
+    globalLeaderboard:'全球排行榜',seasonLeaderboard:'赛季排行榜',top9: '前 10 名', demoLabel: '演示数据 · 非实时',loading:'正在加载已验证的排名…',
     loadError:'无法加载排名数据。',retry:'重试',connectAccount:'请连接安全账户会话，以加载已验证的排名。',
     guestEligibility:'访客可以进行游戏并获得 XP。若希望显示在竞技排行榜中，请创建账户。',
     noActiveSeason:'当前没有进行中的赛季。全球排行榜仍可查看。',yourPosition:'你的排名',rankingPoints:'排名积分',

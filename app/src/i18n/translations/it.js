@@ -58,7 +58,7 @@ const it = {
   ranking: {
     description: 'Classifiche ufficiali basate sui risultati definitivi delle partite 1 contro 1.',
     scopeLabel: 'Ambito classifica', global: 'Globale', seasonal: 'Stagionale',
-    globalLeaderboard: 'Classifica globale', seasonLeaderboard: 'Classifica stagionale', top50: 'Primi 50',
+    globalLeaderboard: 'Classifica globale', seasonLeaderboard: 'Classifica stagionale', top9: 'Primi 10', demoLabel: 'DEMO · NON IN DIRETTA',
     loading: 'Caricamento classifiche verificate…', loadError: 'Impossibile caricare i dati della classifica.',
     retry: 'Riprova', connectAccount: 'Collega la tua sessione sicura per caricare le classifiche verificate.',
     guestEligibility: 'Puoi giocare e guadagnare XP come ospite. Crea un account quando vuoi comparire nelle classifiche competitive.',

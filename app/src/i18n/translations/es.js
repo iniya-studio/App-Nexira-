@@ -68,7 +68,7 @@ const es = {
     description: 'Clasificaciones oficiales basadas en los resultados definitivos de partidas 1 contra 1.',
     scopeLabel: 'Ámbito de clasificación', global: 'Global', seasonal: 'Por temporada',
     globalLeaderboard: 'Clasificación global', seasonLeaderboard: 'Clasificación de temporada',
-    top50: '50 mejores', loading: 'Cargando clasificaciones verificadas…',
+    top9: '10 mejores', demoLabel: 'DEMOSTRACIÓN · NO SON DATOS EN DIRECTO', loading: 'Cargando clasificaciones verificadas…',
     loadError: 'No se pudieron cargar los datos de clasificación.', retry: 'Reintentar',
     connectAccount: 'Conecta tu sesión segura para cargar las clasificaciones verificadas.',
     guestEligibility: 'Puedes jugar y ganar XP como invitado. Crea una cuenta cuando quieras aparecer en las clasificaciones competitivas.',

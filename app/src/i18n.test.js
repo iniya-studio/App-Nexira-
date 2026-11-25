@@ -309,7 +309,7 @@ test('profile locale migration preserves supported locales and safely resets unk
 test('ranking screen copy is centralized and complete for every active locale', async () => {
   const keys = [
     'description', 'scopeLabel', 'global', 'seasonal', 'globalLeaderboard',
-    'seasonLeaderboard', 'top50', 'loading', 'loadError', 'retry',
+    'seasonLeaderboard', 'top9', 'demoLabel', 'loading', 'loadError', 'retry',
     'connectAccount', 'guestEligibility', 'noActiveSeason', 'yourPosition',
     'rankingPoints', 'wins', 'pointsAbbr', 'losses', 'noResults', 'pointsPolicy',
   ];
@@ -325,8 +325,11 @@ test('ranking screen copy is centralized and complete for every active locale', 
   const rankingsUi = appSource.slice(rankingsStart, storeStart);
   assert.ok(rankingsStart >= 0 && storeStart > rankingsStart, 'Ranking screen boundaries must exist');
   assert.equal(rankingsUi.includes("language === 'fa'"), false, 'Ranking UI must use the centralized locale dictionary.');
-  assert.match(rankingsUi, /podium-card--\$\{entry\.position\}/, 'Podium cards must retain their authoritative rank styling.');
-  assert.match(rankingsUi, /sessionState\.principal\?\.principalId/, 'The current registered user must be identifiable on the podium.');
+  assert.match(rankingsUi, /podium-card--\$\{position\}/, 'Podium cards must retain their authoritative rank styling.');
+  assert.match(rankingsUi, /podium-card--you/, 'The current user must receive a distinct podium treatment when present.');
+  assert.match(rankingsUi, /leader-table-row--you/, 'The current user must be highlighted in the ranking table.');
+  assert.match(appSource, /sessionState\.principal\?\.principalId/, 'The current registered user identity must be available to the ranking screen.');
+  assert.match(rankingsUi, /aria-controls="ranking-panel-content"/, 'Ranking tabs must be connected to their tab panel.');
 });
 
 

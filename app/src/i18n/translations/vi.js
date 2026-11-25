@@ -72,7 +72,7 @@ const vi = {
     description: 'Bảng xếp hạng chính thức dựa trên kết quả 1 đấu 1 đã được xác nhận.',
     scopeLabel: 'Phạm vi xếp hạng', global: 'Toàn cầu', seasonal: 'Theo mùa',
     globalLeaderboard: 'Bảng xếp hạng toàn cầu', seasonLeaderboard: 'Bảng xếp hạng mùa giải',
-    top50: 'Top 50', loading: 'Đang tải bảng xếp hạng đã xác minh…',
+    top9: 'Top 10', demoLabel: 'BẢN DEMO · KHÔNG TRỰC TIẾP', loading: 'Đang tải bảng xếp hạng đã xác minh…',
     loadError: 'Không thể tải dữ liệu xếp hạng.', retry: 'Thử lại',
     connectAccount: 'Kết nối phiên tài khoản bảo mật để tải bảng xếp hạng đã xác minh.',
     guestEligibility: 'Bạn có thể chơi và nhận XP với tư cách khách. Hãy tạo tài khoản khi muốn xuất hiện trên bảng xếp hạng thi đấu.',
