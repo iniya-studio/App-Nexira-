@@ -1099,10 +1099,12 @@ export default function App() {
     <div className="ambient ambient--two" />
     {screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking' && screen !== 'home' && <header className="topbar">
       <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
-      <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
-        <span className="top-profile-avatar"><UserRound size={17} /></span>
-        <span className="top-profile-copy"><span>{text.levelAbbr} {displayLevel}</span><i className="mini-xp"><i style={{ width: `${displayProgressPercent}%` }} /></i></span>
-      </button>
+      {screen === 'rankings'
+        ? <button className="ranking-header-back" onClick={() => navigate('home')} aria-label={text.homeLabel}><ArrowLeft size={20} /></button>
+        : <button className="top-profile" onClick={() => navigate('profile')} aria-label={text.profile}>
+            <span className="top-profile-avatar"><UserRound size={17} /></span>
+            <span className="top-profile-copy"><span>{text.levelAbbr} {displayLevel}</span><i className="mini-xp"><i style={{ width: `${displayProgressPercent}%` }} /></i></span>
+          </button>}
     </header>}
 
     {screen === 'splash' && <div className={`nexira-splash${splashExiting ? ' nexira-splash--exiting' : ''}`} role="status" aria-label="NEXIRA">
@@ -1613,13 +1615,7 @@ export default function App() {
     </ScreenFrame>}
 
     {screen === 'rankings' && <ScreenFrame className="info-screen ranking-screen">
-      <button className="ranking-back-link" onClick={()=>navigate('home')} aria-label={text.homeLabel}><ArrowLeft size={17}/></button>
-      <ScreenHeading eyebrow={text.rankingsEyebrow} title={text.rankingsTitle} accent={text.rankingsAccent} description={text.ranking.description}/>
       <GlassPanel className="ranking-panel">
-        <div className="ranking-title">
-          <span><Medal size={18} /> {text.ranking.globalLeaderboard}</span>
-          <small>{RANKING_DEMO_MODE && !liveRanking ? text.ranking.demoLabel : text.ranking.top9}</small>
-        </div>
         <div className="ranking-mode-tabs" role="tablist" aria-label={text.rankingsTitle}>
           {rankingModeTabs.map((mode, index) => (
             <button
