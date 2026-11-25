@@ -3601,3 +3601,32 @@ body,
 .podium-card--2 .podium-cup{color:#c4d0dc}.podium-card--1 .podium-cup{color:#ffd700}.podium-card--3 .podium-cup{color:#bd8058}
 
 .ranking-title small{color:#ffd66b;font-size:9px;letter-spacing:.08em;font-weight:800}
+
+
+/* Ranking screen: let the full leaderboard flow vertically instead of being clipped. */
+.ranking-screen {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  padding-inline: 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+.ranking-screen > .ranking-panel {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: max-content;
+  height: auto;
+  flex: 0 0 auto;
+  overflow: visible;
+  padding: clamp(14px, 2.5vw, 22px);
+}
+.ranking-screen #ranking-panel-content,
+.ranking-screen .leader-table-wrap {
+  width: 100%;
+  min-width: 0;
+}
+.ranking-screen .leader-table-wrap {
+  overflow-x: hidden;
+}
