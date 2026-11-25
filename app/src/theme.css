@@ -3457,3 +3457,123 @@ body,
 
 .profile-server-record { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: rgba(4, 17, 29, .48); color: var(--text-secondary, #aab8c7); font-size: 10px; }
 .profile-server-record strong { flex-basis: 100%; color: var(--text-primary, #fff); font-size: 11px; }
+
+
+/* Verified competitive leaderboard: podium cups and a responsive ranked table. */
+.ranking-panel .podium-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas: "silver gold bronze";
+  align-items: end;
+  gap: clamp(7px, 2vw, 14px);
+  margin: 22px 0 20px;
+}
+.ranking-panel .podium-card {
+  min-width: 0;
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 8px 13px;
+  border-radius: 13px;
+  text-align: center;
+}
+.ranking-panel .podium-card--1 {
+  grid-area: gold;
+  min-height: 204px;
+  border-color: rgba(255, 215, 0, .5);
+  background: linear-gradient(180deg, rgba(255, 215, 0, .16), rgba(12, 26, 41, .94));
+  box-shadow: 0 0 26px rgba(255, 215, 0, .08), inset 0 1px rgba(255,255,255,.08);
+}
+.ranking-panel .podium-card--2 {
+  grid-area: silver;
+  border-color: rgba(205, 220, 232, .42);
+  background: linear-gradient(180deg, rgba(205, 220, 232, .12), rgba(12, 26, 41, .94));
+}
+.ranking-panel .podium-card--3 {
+  grid-area: bronze;
+  border-color: rgba(190, 115, 65, .42);
+  background: linear-gradient(180deg, rgba(190, 115, 65, .13), rgba(12, 26, 41, .94));
+}
+.podium-cup { flex: 0 0 auto; color: #b9c7d4; filter: drop-shadow(0 4px 9px rgba(190,205,220,.2)); }
+.podium-card--1 .podium-cup { width: 52px; height: 52px; color: #ffd700; filter: drop-shadow(0 0 12px rgba(255,215,0,.38)); }
+.podium-card--3 .podium-cup { color: #c8875c; }
+.ranking-panel .podium-rank {
+  position: static;
+  display: block;
+  min-width: 0;
+  height: auto;
+  color: #b9c7d4;
+  font: 700 11px var(--font-display);
+}
+.podium-card--1 .podium-rank { color: #ffd700; }
+.podium-card--3 .podium-rank { color: #c8875c; }
+.ranking-panel .podium-card > strong {
+  width: 100%;
+  max-width: 100%;
+  color: #f0f6fc;
+  font: 600 11px/1.35 var(--font-body, Inter, sans-serif);
+  overflow-wrap: anywhere;
+}
+.ranking-panel .podium-card > small { font-size: 10px; }
+.ranking-panel .podium-card > b { font-size: 17px; }
+.leader-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(143, 179, 207, .16);
+  border-radius: 10px;
+  background: rgba(7, 19, 32, .58);
+  -webkit-overflow-scrolling: touch;
+}
+.leader-table {
+  width: 100%;
+  min-width: 390px;
+  border-collapse: collapse;
+  color: #dce9f5;
+  font-size: 11px;
+  text-align: start;
+}
+.leader-table th,
+.leader-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(143, 179, 207, .11);
+  white-space: nowrap;
+}
+.leader-table th {
+  color: #8eabc2;
+  background: rgba(0, 197, 255, .055);
+  font-size: 9px;
+  font-weight: 700;
+}
+.leader-table tbody tr:last-child td { border-bottom: 0; }
+.leader-table td:first-child {
+  color: #9db5c9;
+  font-family: var(--font-display);
+}
+.leader-table td:nth-child(2) {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leader-table td:last-child {
+  color: var(--cyan);
+  font-weight: 700;
+}
+.leader-table-row--you {
+  background: rgba(0, 255, 184, .09);
+  box-shadow: inset 3px 0 var(--green);
+}
+.leader-table-row--you td { color: #eafff8; }
+@media (max-width: 480px) {
+  .ranking-panel .podium-grid { gap: 6px; }
+  .ranking-panel .podium-card { min-height: 150px; padding: 10px 5px; gap: 6px; }
+  .ranking-panel .podium-card--1 { min-height: 178px; }
+  .ranking-panel .podium-cup { width: 34px; height: 34px; }
+  .ranking-panel .podium-card--1 .podium-cup { width: 43px; height: 43px; }
+  .ranking-panel .podium-card > strong { font-size: 9px; }
+  .ranking-panel .podium-card > small { font-size: 8px; }
+  .ranking-panel .podium-card > b { font-size: 14px; }
+  .leader-table th, .leader-table td { padding: 10px 8px; }
+}
