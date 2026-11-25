@@ -68,7 +68,7 @@ const id = {
     description: 'Peringkat resmi berdasarkan hasil akhir pertandingan 1 lawan 1 yang telah diverifikasi.',
     scopeLabel: 'Cakupan peringkat', global: 'Global', seasonal: 'Musiman',
     globalLeaderboard: 'Papan peringkat global', seasonLeaderboard: 'Papan peringkat musim',
-    top9: '9 teratas', demoLabel: 'DEMO · BUKAN LANGSUNG', loading: 'Memuat peringkat terverifikasi…',
+    top10: '10 teratas', demoLabel: 'DEMO · BUKAN LANGSUNG', loading: 'Memuat peringkat terverifikasi…',
     loadError: 'Data peringkat tidak dapat dimuat.', retry: 'Coba lagi',
     connectAccount: 'Hubungkan sesi akun aman Anda untuk memuat peringkat terverifikasi.',
     guestEligibility: 'Anda dapat bermain dan memperoleh XP sebagai tamu. Buat akun saat ingin tampil di peringkat kompetitif.',
