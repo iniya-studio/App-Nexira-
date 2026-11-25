@@ -68,7 +68,7 @@ const tr = {
     description: 'Kesinleşmiş bire bir maç sonuçlarına dayanan resmî sıralamalar.',
     scopeLabel: 'Sıralama kapsamı', global: 'Küresel', seasonal: 'Sezonluk',
     globalLeaderboard: 'Küresel sıralama', seasonLeaderboard: 'Sezon sıralaması',
-    top9: 'İlk 9', demoLabel: 'DEMO · CANLI DEĞİL', loading: 'Doğrulanmış sıralamalar yükleniyor…',
+    top10: 'İlk 10', demoLabel: 'DEMO · CANLI DEĞİL', loading: 'Doğrulanmış sıralamalar yükleniyor…',
     loadError: 'Sıralama verileri yüklenemedi.', retry: 'Yeniden dene',
     connectAccount: 'Doğrulanmış sıralamaları yüklemek için güvenli oturumunuzu bağlayın.',
     guestEligibility: 'Misafir olarak oynayabilir ve XP kazanabilirsiniz. Rekabet sıralamalarında görünmek istediğinizde hesap oluşturun.',
