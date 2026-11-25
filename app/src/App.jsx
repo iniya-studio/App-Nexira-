@@ -125,8 +125,6 @@ export default function App() {
   const sessionIdentityRef = useRef(sessionIdentityKey);
   const [serverProgress, setServerProgress] = useState(null);
   const [globalRanking, setGlobalRanking] = useState(null);
-  const [seasonalRanking, setSeasonalRanking] = useState(null);
-  const [rankingView, setRankingView] = useState('global');
   const [storeTab, setStoreTab] = useState('featured');
   const [storePreviewId, setStorePreviewId] = useState(null);
   const [progressionLoading, setProgressionLoading] = useState(false);
@@ -164,7 +162,7 @@ export default function App() {
   const localThreshold = xpForNextLevel(profile.level);
   const threshold = serverProgress?.xpRequiredForNextLevel ?? localThreshold;
   const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
-  const activeRanking = rankingView === 'global' ? globalRanking : seasonalRanking;
+  const activeRanking = globalRanking;
   const rankingEntries = Array.isArray(activeRanking?.entries)
     ? activeRanking.entries
       .filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string')
@@ -207,7 +205,6 @@ export default function App() {
     setProgressionLoading(false);
     setServerProgress(null);
     setGlobalRanking(null);
-    setSeasonalRanking(null);
     setProgressionError('');
     onlineMatchmakingAdapterRef.current?.reset();
     onlineMatchmakingAdapterRef.current = null;
@@ -367,23 +364,19 @@ export default function App() {
     setProgressionLoading(true);
     try {
       const api = createProgressionApi(appSessionLifecycle.getHttpClient());
-      const [progressResult, globalResult, seasonalResult] = await Promise.allSettled([
+      const [progressResult, globalResult] = await Promise.allSettled([
         api.getMyProgress(),
         api.getGlobalRanking(),
-        api.getCurrentSeasonRanking(),
       ]);
       if (requestId !== progressionRequestRef.current) return null;
       if (progressResult.status === 'fulfilled') setServerProgress(progressResult.value);
       else setServerProgress(null);
       setGlobalRanking(globalResult.status === 'fulfilled' ? globalResult.value : null);
-      setSeasonalRanking(seasonalResult.status === 'fulfilled' ? seasonalResult.value : null);
       const requestFailure = progressResult.status === 'rejected'
         ? progressResult.reason
         : globalResult.status === 'rejected'
           ? globalResult.reason
-          : seasonalResult.status === 'rejected'
-            ? seasonalResult.reason
-            : null;
+          : null;
       setProgressionError(requestFailure || '');
       return progressResult.status === 'fulfilled' ? progressResult.value : null;
     } catch (error) {
@@ -401,7 +394,6 @@ export default function App() {
     } else if (['signed-out', 'offline', 'error', 'unsupported'].includes(sessionState.status)) {
       setServerProgress(null);
       setGlobalRanking(null);
-      setSeasonalRanking(null);
       setProgressionError('');
     }
   }, [sessionState.status, refreshServerProgression]);
@@ -1571,12 +1563,8 @@ export default function App() {
         description={text.ranking.description}
       />
       <GlassPanel className="ranking-panel">
-        <div className="screen-tabs" role="group" aria-label={text.ranking.scopeLabel}>
-          <button type="button" className={rankingView === 'global' ? 'is-selected' : ''} aria-pressed={rankingView === 'global'} onClick={() => setRankingView('global')}>{text.ranking.global}</button>
-          <button type="button" className={rankingView === 'season' ? 'is-selected' : ''} aria-pressed={rankingView === 'season'} onClick={() => setRankingView('season')}>{text.ranking.seasonal}</button>
-        </div>
         <div className="ranking-title">
-          <span><Medal size={18} /> {rankingView === 'global' ? text.ranking.globalLeaderboard : (activeRanking?.season?.name ?? text.ranking.seasonLeaderboard)}</span>
+          <span><Medal size={18} /> {text.ranking.globalLeaderboard}</span>
           <small>{text.ranking.top50}</small>
         </div>
         {progressionLoading && <p className="panel-note" role="status">{text.ranking.loading}</p>}
@@ -1589,9 +1577,6 @@ export default function App() {
         </p>}
         {activeRanking?.eligible === false && <p className="panel-note">
           {text.ranking.guestEligibility}
-        </p>}
-        {rankingView === 'season' && activeRanking?.season === null && !progressionLoading && <p className="empty-state">
-          {text.ranking.noActiveSeason}
         </p>}
         {activeRanking?.me && <div className="ranking-my-summary">
           <span>{text.ranking.yourPosition}</span>
@@ -1635,7 +1620,7 @@ export default function App() {
             </table>
           </div>}
         </>}
-        {activeRanking && activeRanking.eligible && rankingEntries.length === 0 && !(rankingView === 'season' && activeRanking.season === null) && !progressionLoading && <p className="empty-state">
+        {activeRanking && activeRanking.eligible && rankingEntries.length === 0 && !progressionLoading && <p className="empty-state">
           {text.ranking.noResults}
         </p>}
         <p className="panel-note"><Globe2 size={13} /> {text.ranking.pointsPolicy}</p>
