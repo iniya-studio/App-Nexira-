@@ -3587,3 +3587,5 @@ body,
 .ranking-mode-tab.is-active{border-color:rgba(0,197,255,.42);color:#f3fbff;background:linear-gradient(120deg,rgba(0,197,255,.18),rgba(106,43,226,.2))}
 .ranking-table-empty{padding:22px 12px!important;color:#91a8bd;text-align:center;white-space:normal!important}.ranking-you-label{margin-inline-start:5px;padding:2px 5px;border:1px solid rgba(0,255,184,.28);border-radius:4px;color:#78f4d0;font-size:8px}
 .podium-card--2 .podium-cup{color:#c4d0dc}.podium-card--1 .podium-cup{color:#ffd700}.podium-card--3 .podium-cup{color:#bd8058}
+
+.ranking-title small{color:#ffd66b;font-size:9px;letter-spacing:.08em;font-weight:800}
