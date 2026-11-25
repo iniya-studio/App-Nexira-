@@ -124,7 +124,10 @@ export default function App() {
     : 'none';
   const sessionIdentityRef = useRef(sessionIdentityKey);
   const [serverProgress, setServerProgress] = useState(null);
-  const [globalRanking, setGlobalRanking] = useState(null);
+  const [rankingByMode, setRankingByMode] = useState({});
+  const [rankingMode, setRankingMode] = useState('1v1');
+  const [rankingLoadingByMode, setRankingLoadingByMode] = useState({});
+  const [rankingErrorsByMode, setRankingErrorsByMode] = useState({});
   const [storeTab, setStoreTab] = useState('featured');
   const [storePreviewId, setStorePreviewId] = useState(null);
   const [progressionLoading, setProgressionLoading] = useState(false);
@@ -162,16 +165,14 @@ export default function App() {
   const localThreshold = xpForNextLevel(profile.level);
   const threshold = serverProgress?.xpRequiredForNextLevel ?? localThreshold;
   const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
-  const activeRanking = globalRanking;
-  const rankingEntries = Array.isArray(activeRanking?.entries)
-    ? activeRanking.entries
-      .filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string')
-      .sort((left, right) => left.position - right.position)
-    : [];
-  const podiumEntries = [2, 1, 3]
-    .map((position) => rankingEntries.find((entry) => entry.position === position))
-    .filter(Boolean);
-  const tableEntries = rankingEntries.filter((entry) => entry.position > 3);
+  const activeRanking = rankingByMode[rankingMode] ?? null;
+  const rankingEntries = Array.isArray(activeRanking?.entries) ? activeRanking.entries.filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string').sort((x,y) => x.position-y.position) : [];
+  const topEntries = rankingEntries.filter((entry) => entry.position <= 9).slice(0,9);
+  const podiumEntries = [2,1,3].map((position) => rankingEntries.find((entry) => entry.position === position) ?? null);
+  const currentUserId = sessionState.principal?.principalId;
+  const currentUserEntry = activeRanking?.me && Number.isInteger(activeRanking.me.position) && activeRanking.me.position > 0 ? {...activeRanking.me,userId:activeRanking.me.userId ?? currentUserId ?? 'current-user',isCurrentUser:true} : null;
+  const userAlreadyInTopNine = Boolean(currentUserEntry && topEntries.some((entry) => entry.userId === currentUserEntry.userId || entry.position === currentUserEntry.position));
+  const tableEntries = [...topEntries.map((entry) => ({...entry,isCurrentUser:entry.userId === currentUserId})),...(currentUserEntry && !userAlreadyInTopNine ? [currentUserEntry] : [])];
   const storeVisibleItems = storeTab === 'featured'
     ? STORE_ITEMS.slice(0, 4)
     : STORE_ITEMS.filter((item) => item.group === storeTab);
@@ -204,7 +205,7 @@ export default function App() {
     progressionRequestRef.current += 1;
     setProgressionLoading(false);
     setServerProgress(null);
-    setGlobalRanking(null);
+    setRankingByMode({}); setRankingErrorsByMode({}); setRankingLoadingByMode({});
     setProgressionError('');
     onlineMatchmakingAdapterRef.current?.reset();
     onlineMatchmakingAdapterRef.current = null;
@@ -358,34 +359,19 @@ export default function App() {
   }, [sessionState.profile, updateProfile]);
 
   const refreshServerProgression = useCallback(async () => {
-    const currentState = appSessionLifecycle.getState();
-    if (!['guest', 'authenticated'].includes(currentState.status)) return null;
-    const requestId = ++progressionRequestRef.current;
-    setProgressionLoading(true);
-    try {
-      const api = createProgressionApi(appSessionLifecycle.getHttpClient());
-      const [progressResult, globalResult] = await Promise.allSettled([
-        api.getMyProgress(),
-        api.getGlobalRanking(),
-      ]);
-      if (requestId !== progressionRequestRef.current) return null;
-      if (progressResult.status === 'fulfilled') setServerProgress(progressResult.value);
-      else setServerProgress(null);
-      setGlobalRanking(globalResult.status === 'fulfilled' ? globalResult.value : null);
-      const requestFailure = progressResult.status === 'rejected'
-        ? progressResult.reason
-        : globalResult.status === 'rejected'
-          ? globalResult.reason
-          : null;
-      setProgressionError(requestFailure || '');
-      return progressResult.status === 'fulfilled' ? progressResult.value : null;
-    } catch (error) {
-      if (error?.code === 'SESSION_SUPERSEDED') return null;
-      setProgressionError(error);
-      return null;
-    } finally {
-      if (requestId === progressionRequestRef.current) setProgressionLoading(false);
-    }
+    const state = appSessionLifecycle.getState();
+    if (!['guest','authenticated'].includes(state.status)) return null;
+    const id = ++progressionRequestRef.current; setProgressionLoading(true);
+    try { const result = await createProgressionApi(appSessionLifecycle.getHttpClient()).getMyProgress(); if(id!==progressionRequestRef.current)return null; setServerProgress(result); setProgressionError(''); return result; }
+    catch(error){if(error?.code!=='SESSION_SUPERSEDED'){setServerProgress(null);setProgressionError(error);}return null;}
+    finally{if(id===progressionRequestRef.current)setProgressionLoading(false);}
+  }, []);
+  const refreshModeRanking = useCallback(async (mode) => {
+    if(!['guest','authenticated'].includes(appSessionLifecycle.getState().status))return null;
+    setRankingLoadingByMode(v=>({...v,[mode]:true}));setRankingErrorsByMode(v=>({...v,[mode]:null}));
+    try{const result=await createProgressionApi(appSessionLifecycle.getHttpClient()).getModeRanking(mode);setRankingByMode(v=>({...v,[mode]:result}));return result;}
+    catch(error){if(error?.code!=='SESSION_SUPERSEDED')setRankingErrorsByMode(v=>({...v,[mode]:error}));return null;}
+    finally{setRankingLoadingByMode(v=>({...v,[mode]:false}));}
   }, []);
 
   useEffect(() => {
@@ -393,16 +379,12 @@ export default function App() {
       void refreshServerProgression();
     } else if (['signed-out', 'offline', 'error', 'unsupported'].includes(sessionState.status)) {
       setServerProgress(null);
-      setGlobalRanking(null);
+      setRankingByMode({}); setRankingErrorsByMode({}); setRankingLoadingByMode({});
       setProgressionError('');
     }
   }, [sessionState.status, refreshServerProgression]);
 
-  useEffect(() => {
-    if (screen === 'rankings' || (screen === 'match-results' && onlineMatchAdapterRef.current)) {
-      void refreshServerProgression();
-    }
-  }, [screen, refreshServerProgression]);
+  useEffect(() => { if(screen==='rankings'){void refreshServerProgression();void refreshModeRanking(rankingMode);} else if(screen==='match-results' && onlineMatchAdapterRef.current) void refreshServerProgression(); }, [screen,rankingMode,refreshServerProgression,refreshModeRanking]);
 
   const navigate = useCallback((destination) => setScreen(destination), []);
 
@@ -1554,76 +1536,22 @@ export default function App() {
       </GlassPanel>
     </ScreenFrame>}
 
-    {screen === 'rankings' && <ScreenFrame className="info-screen">
-      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.homeLabel}</button>
-      <ScreenHeading
-        eyebrow={text.rankingsEyebrow}
-        title={text.rankingsTitle}
-        accent={text.rankingsAccent}
-        description={text.ranking.description}
-      />
+    {screen === 'rankings' && <ScreenFrame className="info-screen ranking-screen">
+      <button className="ranking-back-link" onClick={()=>navigate('home')} aria-label={text.homeLabel}><ArrowLeft size={17}/></button>
+      <ScreenHeading eyebrow={text.rankingsEyebrow} title={text.rankingsTitle} accent={text.rankingsAccent} description={text.ranking.description}/>
       <GlassPanel className="ranking-panel">
-        <div className="ranking-title">
-          <span><Medal size={18} /> {text.ranking.globalLeaderboard}</span>
-          <small>{text.ranking.top50}</small>
-        </div>
-        {progressionLoading && <p className="panel-note" role="status">{text.ranking.loading}</p>}
-        {progressionError && <div className="panel-note" role="alert">
-          {text.ranking.loadError}
-          <button type="button" className="text-action" onClick={() => { void refreshServerProgression(); }}>{text.ranking.retry}</button>
-        </div>}
-        {!activeRanking && !progressionLoading && !progressionError && <p className="empty-state">
-          {text.ranking.connectAccount}
-        </p>}
-        {activeRanking?.eligible === false && <p className="panel-note">
-          {text.ranking.guestEligibility}
-        </p>}
-        {activeRanking?.me && <div className="ranking-my-summary">
-          <span>{text.ranking.yourPosition}</span>
-          <strong>{activeRanking.me.position ? `#${activeRanking.me.position}` : '—'}</strong>
-          <small>{activeRanking.me.rankingPoints} {text.ranking.rankingPoints} · {activeRanking.me.wins} {text.ranking.wins}</small>
-        </div>}
-        {rankingEntries.length > 0 && <>
-          {podiumEntries.length > 0 && <div className="podium-grid" aria-label={text.ranking.top50}>
-            {podiumEntries.map((entry) => (
-              <div className={`podium-card podium-card--${entry.position}${entry.userId === sessionState.principal?.principalId ? ' podium-card--you' : ''}`} key={entry.userId}>
-                <Trophy className="podium-cup" size={42} strokeWidth={1.7} aria-hidden="true" />
-                <span className="podium-rank">#{entry.position}</span>
-                <strong>{entry.displayName || entry.username}</strong>
-                <small>{text.levelAbbr} {entry.level}</small>
-                <b>{entry.rankingPoints}<i> {text.ranking.pointsAbbr}</i></b>
-              </div>
-            ))}
-          </div>}
-          {tableEntries.length > 0 && <div className="leader-table-wrap">
-            <table className="leader-table">
-              <thead>
-                <tr>
-                  <th scope="col">#</th>
-                  <th scope="col">{text.displayName}</th>
-                  <th scope="col">{text.levelAbbr}</th>
-                  <th scope="col">{text.ranking.wins}</th>
-                  <th scope="col">{text.ranking.pointsAbbr}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tableEntries.map((entry) => (
-                  <tr className={entry.userId === sessionState.principal?.principalId ? 'leader-table-row--you' : ''} key={entry.userId}>
-                    <td>{entry.position}</td>
-                    <td>{entry.displayName || entry.username}</td>
-                    <td>{entry.level}</td>
-                    <td>{entry.wins}</td>
-                    <td>{entry.rankingPoints}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>}
-        </>}
-        {activeRanking && activeRanking.eligible && rankingEntries.length === 0 && !progressionLoading && <p className="empty-state">
-          {text.ranking.noResults}
-        </p>}
-        <p className="panel-note"><Globe2 size={13} /> {text.ranking.pointsPolicy}</p>
+        <div className="ranking-title"><span><Medal size={18}/> {text.ranking.globalLeaderboard}</span><small>{text.ranking.top50}</small></div>
+        <div className="podium-grid">{podiumEntries.map((entry,i)=>{const pos=[2,1,3][i];return <div className={`podium-card podium-card--${pos}`} key={pos}><Trophy className="podium-cup" size={pos===1?48:40}/><span className="podium-rank">#{pos}</span><strong>{entry?(entry.displayName||entry.username):'—'}</strong>{entry&&<><small>{text.levelAbbr} {entry.level}</small><b>{entry.rankingPoints}<i> {text.ranking.pointsAbbr}</i></b></>}</div>;})}</div>
+        <div className="ranking-mode-tabs" role="tablist" aria-label={text.rankingsTitle}>{[{id:'1v1',label:'1vs1'},{id:'1vAI',label:'1vsAI'},{id:'quick-battle',label:text.home.quickBattle}].map(m=><button key={m.id} role="tab" aria-selected={rankingMode===m.id} className={`ranking-mode-tab${rankingMode===m.id?' is-active':''}`} onClick={()=>setRankingMode(m.id)}>{m.label}</button>)}</div>
+        {rankingLoadingByMode[rankingMode]&&<p className="panel-note" role="status">{text.ranking.loading}</p>}
+        {rankingErrorsByMode[rankingMode]&&<div className="panel-note" role="alert">{text.ranking.loadError}<button className="text-action" onClick={()=>void refreshModeRanking(rankingMode)}>{text.ranking.retry}</button></div>}
+        {!activeRanking&&!rankingLoadingByMode[rankingMode]&&!rankingErrorsByMode[rankingMode]&&<p className="empty-state">{text.ranking.connectAccount}</p>}
+        {activeRanking?.eligible===false&&<p className="panel-note">{text.ranking.guestEligibility}</p>}
+        {activeRanking?.eligible!==false&&activeRanking&&<div className="leader-table-wrap"><table className="leader-table"><thead><tr><th>#</th><th>{text.displayName}</th><th>{text.levelAbbr}</th><th>{text.ranking.wins}</th><th>{text.ranking.pointsAbbr}</th></tr></thead><tbody>
+          {tableEntries.map(e=><tr className={e.isCurrentUser?'leader-table-row--you':''} key={e.userId}><td>{e.position}</td><td>{e.isCurrentUser?<>{e.displayName||e.username||playerName} <span className="ranking-you-label">{text.match.you}</span></>:e.displayName||e.username}</td><td>{e.level??'—'}</td><td>{e.wins??'—'}</td><td>{e.rankingPoints??'—'}</td></tr>)}
+          {!tableEntries.length&&<tr><td colSpan="5" className="ranking-table-empty">{text.ranking.noResults}</td></tr>}
+        </tbody></table></div>}
+        <p className="panel-note"><Globe2 size={13}/> {text.ranking.pointsPolicy}</p>
       </GlassPanel>
     </ScreenFrame>}
 
