@@ -68,7 +68,7 @@ const de = {
     description: 'Offizielle Ranglisten auf Grundlage abgeschlossener 1-gegen-1-Spielergebnisse.',
     scopeLabel: 'Ranglistenbereich', global: 'Global', seasonal: 'Saison',
     globalLeaderboard: 'Globale Rangliste', seasonLeaderboard: 'Saisonrangliste',
-    top50: 'Top 50', loading: 'Verifizierte Ranglisten werden geladen …',
+    top9: 'Top 9', demoLabel: 'DEMO · NICHT LIVE', loading: 'Verifizierte Ranglisten werden geladen …',
     loadError: 'Ranglistendaten konnten nicht geladen werden.', retry: 'Erneut versuchen',
     connectAccount: 'Verbinde deine sichere Sitzung, um verifizierte Ranglisten zu laden.',
     guestEligibility: 'Du kannst als Gast spielen und XP verdienen. Erstelle ein Konto, wenn du in den Wettbewerbsranglisten erscheinen möchtest.',
