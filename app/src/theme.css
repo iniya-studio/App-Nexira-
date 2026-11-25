@@ -3500,6 +3500,9 @@ body,
 .podium-cup { flex: 0 0 auto; color: #b9c7d4; filter: drop-shadow(0 4px 9px rgba(190,205,220,.2)); }
 .podium-card--1 .podium-cup { width: 52px; height: 52px; color: #ffd700; filter: drop-shadow(0 0 12px rgba(255,215,0,.38)); }
 .podium-card--3 .podium-cup { color: #c8875c; }
+.podium-card--2 .podium-cup { color: #d5e0e8; filter: drop-shadow(0 0 10px rgba(213,224,232,.3)); }
+.podium-card--you { outline: 2px solid rgba(0, 255, 184, .62); outline-offset: 2px; }
+.podium-card--you > strong::after { content: ' · YOU'; color: var(--green); font: 700 8px var(--font-display); }
 .ranking-panel .podium-rank {
   position: static;
   display: block;
