@@ -325,6 +325,8 @@ test('ranking screen copy is centralized and complete for every active locale', 
   const rankingsUi = appSource.slice(rankingsStart, storeStart);
   assert.ok(rankingsStart >= 0 && storeStart > rankingsStart, 'Ranking screen boundaries must exist');
   assert.equal(rankingsUi.includes("language === 'fa'"), false, 'Ranking UI must use the centralized locale dictionary.');
+  assert.match(rankingsUi, /podium-card--\\$\\{entry\\.position\\}/, 'Podium cards must retain their authoritative rank styling.');
+  assert.match(rankingsUi, /sessionState\\.principal\\?\\.principalId/, 'The current registered user must be identifiable on the podium.');
 });
 
 
