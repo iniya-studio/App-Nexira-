@@ -1601,7 +1601,7 @@ export default function App() {
         {rankingEntries.length > 0 && <>
           {podiumEntries.length > 0 && <div className="podium-grid" aria-label={text.ranking.top50}>
             {podiumEntries.map((entry) => (
-              <div className={`podium-card podium-card--${entry.position}`} key={entry.userId}>
+              <div className={`podium-card podium-card--${entry.position}${entry.userId === sessionState.principal?.principalId ? ' podium-card--you' : ''}`} key={entry.userId}>
                 <Trophy className="podium-cup" size={42} strokeWidth={1.7} aria-hidden="true" />
                 <span className="podium-rank">#{entry.position}</span>
                 <strong>{entry.displayName || entry.username}</strong>
