@@ -383,3 +383,10 @@ A phase is complete only when:
 - Frontend contract: `GET /ranking/1v1`, `GET /ranking/1vAI`, `GET /ranking/quick-battle`; response fields `eligible`, `entries`, `me`. Backend endpoints remain to be implemented.
 - Quick Battle shows an honest empty state until its competitive result pipeline exists.
 - Compact icon back control; fixed bottom navigation remains primary.
+
+
+### Temporary Ranking demo data
+- A clearly marked `DEMO · NOT LIVE` dataset is temporarily enabled for visual review while the backend is unavailable.
+- It contains the nine requested playful sample names plus a separate personal row for Milad.
+- Demo personal positions intentionally differ by mode: 762 (1v1), 100 (1vAI), and 245 (Quick Battle).
+- The demo data is isolated in `RANKING_DEMO_DATA` and must be disabled (`RANKING_DEMO_MODE = false`) as soon as real mode leaderboard APIs are connected. Never treat these records as real players or production ranking data.
