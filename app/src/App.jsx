@@ -40,10 +40,14 @@ const CATEGORY_ICONS = {
 // Temporary visual-only leaderboard data. Remove by setting RANKING_DEMO_MODE to false when real ranking APIs are live.
 const RANKING_DEMO_MODE = true;
 const RANKING_DEMO_NAMES = [
-  'رضا پهلوی', 'محسن عمه خانم', 'دکتر ارنست', 'غلام پنچری',
+  'رضا پهلوی', 'میلاد', 'محسن عمه خانم', 'دکتر ارنست', 'غلام پنچری',
   'جکی‌چان', 'رابرت دنیرو', 'ممد چاخان', 'رویا میرعلمی', 'یحیی گل محمدی',
 ];
-const RANKING_DEMO_POINTS = { '1v1': [9840, 9210, 8870, 8420, 7990, 7540, 7210, 6890, 6510], '1vAI': [12040, 11320, 10770, 10210, 9650, 9210, 8780, 8320, 7900], 'quick-battle': [7340, 7020, 6690, 6310, 5980, 5620, 5310, 4970, 4630] };
+const RANKING_DEMO_POINTS = {
+  '1v1': [9840, 9510, 9210, 8870, 8420, 7990, 7540, 7210, 6890, 6510],
+  '1vAI': [12040, 11750, 11320, 10770, 10210, 9650, 9210, 8780, 8320, 7900],
+  'quick-battle': [7340, 7190, 7020, 6690, 6310, 5980, 5620, 5310, 4970, 4630],
+};
 const RANKING_DEMO_DATA = Object.fromEntries(Object.keys(RANKING_DEMO_POINTS).map((mode) => [mode, {
   eligible: true,
   entries: RANKING_DEMO_NAMES.map((displayName, index) => ({
@@ -51,10 +55,10 @@ const RANKING_DEMO_DATA = Object.fromEntries(Object.keys(RANKING_DEMO_POINTS).ma
     username: displayName, level: 18 + ((index * 7) % 31),
     wins: 94 - index * 6, rankingPoints: RANKING_DEMO_POINTS[mode][index],
   })),
-  me: { userId: 'demo-current-user', position: mode === '1v1' ? 762 : mode === '1vAI' ? 100 : 245,
+  me: { userId: 'demo-current-user', position: 2,
     displayName: 'میلاد', username: 'Milad', level: 24,
-    wins: mode === '1v1' ? 17 : mode === '1vAI' ? 42 : 29,
-    rankingPoints: mode === '1v1' ? 410 : mode === '1vAI' ? 1850 : 970 },
+    wins: 88,
+    rankingPoints: RANKING_DEMO_POINTS[mode][1] },
 }]));
 
 const STORE_TABS = ['featured', 'frames', 'profile', 'effects', 'inventory'].map((id) => ({ id }));
@@ -193,7 +197,7 @@ export default function App() {
       .filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string')
       .sort((left, right) => left.position - right.position)
     : [];
-  const topEntries = rankingEntries.filter((entry) => entry.position <= 9).slice(0, 9);
+  const topEntries = rankingEntries.filter((entry) => entry.position <= 10).slice(0, 10);
   const currentUserId = RANKING_DEMO_MODE && !liveRanking ? 'demo-current-user' : sessionState.principal?.principalId;
   const currentUserEntry = activeRanking?.me && Number.isInteger(activeRanking.me.position) && activeRanking.me.position > 0
     ? { ...activeRanking.me, userId: activeRanking.me.userId ?? currentUserId ?? 'current-user', isCurrentUser: true }
@@ -1613,7 +1617,7 @@ export default function App() {
       <GlassPanel className="ranking-panel">
         <div className="ranking-title">
           <span><Medal size={18} /> {text.ranking.globalLeaderboard}</span>
-          <small>{RANKING_DEMO_MODE && !liveRanking ? text.ranking.demoLabel : text.ranking.top9}</small>
+          <small>{RANKING_DEMO_MODE && !liveRanking ? text.ranking.demoLabel : text.ranking.top10}</small>
         </div>
         <div className="ranking-mode-tabs" role="tablist" aria-label={text.rankingsTitle}>
           {rankingModeTabs.map((mode, index) => (
