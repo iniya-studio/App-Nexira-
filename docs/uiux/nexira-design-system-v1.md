@@ -372,3 +372,14 @@ A phase is complete only when:
 ---
 
 **Revision note:** This version supersedes the earlier neutral-first / restrained-teal visual direction. It restores the custom reference-led Neon Sci‑Fi identity and now records the supplied portrait Home reference in detail. The exact mode labels are **1vs1** and **1vsAI** (both include “vs”). Daily Challenge is not part of this supplied Home reference. This document revision does not authorize backend changes.
+
+
+## Ranking screen — locked V1 structure (2026-11-25)
+- One screen with fixed silver #2, larger gold #1 and bronze #3 podium; empty positions never show fabricated players.
+- Independent tabs: `1v1`, `1vAI`, `quick-battle`; each swaps its own podium, leaderboard and personal rank.
+- Table shows top nine, then the caller's true rank if outside top nine. If inside top nine, highlight once; never duplicate.
+- XP/Level are account-wide; ranking points and rank are mode-specific.
+- Loading, guest eligibility, empty, no personal rank and retryable error states are explicit. No production fixtures.
+- Frontend contract: `GET /ranking/1v1`, `GET /ranking/1vAI`, `GET /ranking/quick-battle`; response fields `eligible`, `entries`, `me`. Backend endpoints remain to be implemented.
+- Quick Battle shows an honest empty state until its competitive result pipeline exists.
+- Compact icon back control; fixed bottom navigation remains primary.
