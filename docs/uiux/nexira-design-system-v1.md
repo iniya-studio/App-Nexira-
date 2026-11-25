@@ -387,6 +387,8 @@ A phase is complete only when:
 
 ### Temporary Ranking demo data
 - A clearly marked `DEMO · NOT LIVE` dataset is temporarily enabled for visual review while the backend is unavailable.
+- While demo mode is enabled, all three tabs may display the sample dataset solely to validate the visual layout; this is not a production ranking or a claim that those players participated in each mode.
+- When demo mode is disabled, Quick Battle must return to the honest empty state until its competitive result pipeline exists.
 - It contains the nine requested playful sample names plus a separate personal row for Milad.
 - Demo personal positions intentionally differ by mode: 762 (1v1), 100 (1vAI), and 245 (Quick Battle).
 - The demo data is isolated in `RANKING_DEMO_DATA` and must be disabled (`RANKING_DEMO_MODE = false`) as soon as real mode leaderboard APIs are connected. Never treat these records as real players or production ranking data.
