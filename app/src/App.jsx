@@ -191,7 +191,8 @@ export default function App() {
   const threshold = serverProgress?.xpRequiredForNextLevel ?? localThreshold;
   const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
   const liveRanking = rankingByMode[rankingMode] ?? null;
-  const activeRanking = liveRanking ?? (RANKING_DEMO_MODE ? RANKING_DEMO_DATA[rankingMode] : null);
+  // Demo leaderboard must remain visible for every visitor while the real ranking service is not launched.
+  const activeRanking = RANKING_DEMO_MODE ? RANKING_DEMO_DATA[rankingMode] : liveRanking;
   const rankingEntries = Array.isArray(activeRanking?.entries)
     ? activeRanking.entries
       .filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string')
