@@ -68,7 +68,7 @@ const ja = {
     description: '確定・検証済みの1対1対戦結果に基づく公式ランキングです。',
     scopeLabel: 'ランキング範囲', global: '全世界', seasonal: 'シーズン',
     globalLeaderboard: 'グローバルランキング', seasonLeaderboard: 'シーズンランキング',
-    top50: 'トップ50', loading: '検証済みランキングを読み込み中…',
+    top9: 'トップ9', demoLabel: 'デモ · ライブデータではありません', loading: '検証済みランキングを読み込み中…',
     loadError: 'ランキングデータを読み込めませんでした。', retry: '再試行',
     connectAccount: '検証済みランキングを読み込むには、安全なアカウントセッションに接続してください。',
     guestEligibility: 'ゲストとしてプレイしてXPを獲得できます。競技ランキングに表示したい場合はアカウントを作成してください。',
