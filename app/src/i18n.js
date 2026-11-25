@@ -77,7 +77,7 @@ export const COPY = {
       seasonal: 'Seasonal',
       globalLeaderboard: 'Global leaderboard',
       seasonLeaderboard: 'Season leaderboard',
-      top9: 'Top 9',
+      top10: 'Top 10',
       demoLabel: 'DEMO · NOT LIVE',
       loading: 'Loading verified rankings…',
       loadError: 'Unable to load ranking data.',
