@@ -37,6 +37,26 @@ const CATEGORY_ICONS = {
   languages: Languages,
   atom: Atom,
 };
+// Temporary visual-only leaderboard data. Remove by setting RANKING_DEMO_MODE to false when real ranking APIs are live.
+const RANKING_DEMO_MODE = true;
+const RANKING_DEMO_NAMES = [
+  'رضا پهلوی', 'محسن عمه خانم', 'دکتر ارنست', 'غلام پنچری',
+  'جکی‌چان', 'رابرت دنیرو', 'ممد چاخان', 'رویا میرعلمی', 'یحیی گل محمدی',
+];
+const RANKING_DEMO_POINTS = { '1v1': [9840, 9210, 8870, 8420, 7990, 7540, 7210, 6890, 6510], '1vAI': [12040, 11320, 10770, 10210, 9650, 9210, 8780, 8320, 7900], 'quick-battle': [7340, 7020, 6690, 6310, 5980, 5620, 5310, 4970, 4630] };
+const RANKING_DEMO_DATA = Object.fromEntries(Object.keys(RANKING_DEMO_POINTS).map((mode) => [mode, {
+  eligible: true,
+  entries: RANKING_DEMO_NAMES.map((displayName, index) => ({
+    userId: `demo-${mode}-${index + 1}`, position: index + 1, displayName,
+    username: displayName, level: 18 + ((index * 7) % 31),
+    wins: 94 - index * 6, rankingPoints: RANKING_DEMO_POINTS[mode][index],
+  })),
+  me: { userId: 'demo-current-user', position: mode === '1v1' ? 762 : mode === '1vAI' ? 100 : 245,
+    displayName: 'میلاد', username: 'Milad', level: 24,
+    wins: mode === '1v1' ? 17 : mode === '1vAI' ? 42 : 29,
+    rankingPoints: mode === '1v1' ? 410 : mode === '1vAI' ? 1850 : 970 },
+}]));
+
 const STORE_TABS = ['featured', 'frames', 'profile', 'effects', 'inventory'].map((id) => ({ id }));
 
 const STORE_ITEMS = [
@@ -165,11 +185,12 @@ export default function App() {
   const localThreshold = xpForNextLevel(profile.level);
   const threshold = serverProgress?.xpRequiredForNextLevel ?? localThreshold;
   const displayProgressPercent = serverProgress?.progressPercent ?? Math.min(100, Math.floor((profile.xp / threshold) * 100));
-  const activeRanking = rankingByMode[rankingMode] ?? null;
+  const liveRanking = rankingByMode[rankingMode] ?? null;
+  const activeRanking = liveRanking ?? (RANKING_DEMO_MODE ? RANKING_DEMO_DATA[rankingMode] : null);
   const rankingEntries = Array.isArray(activeRanking?.entries) ? activeRanking.entries.filter((entry) => entry && Number.isInteger(entry.position) && entry.position > 0 && typeof entry.userId === 'string').sort((x,y) => x.position-y.position) : [];
   const topEntries = rankingEntries.filter((entry) => entry.position <= 9).slice(0,9);
   const podiumEntries = [2,1,3].map((position) => rankingEntries.find((entry) => entry.position === position) ?? null);
-  const currentUserId = sessionState.principal?.principalId;
+  const currentUserId = RANKING_DEMO_MODE && !liveRanking ? 'demo-current-user' : sessionState.principal?.principalId;
   const currentUserEntry = activeRanking?.me && Number.isInteger(activeRanking.me.position) && activeRanking.me.position > 0 ? {...activeRanking.me,userId:activeRanking.me.userId ?? currentUserId ?? 'current-user',isCurrentUser:true} : null;
   const userAlreadyInTopNine = Boolean(currentUserEntry && topEntries.some((entry) => entry.userId === currentUserEntry.userId || entry.position === currentUserEntry.position));
   const tableEntries = [...topEntries.map((entry) => ({...entry,isCurrentUser:entry.userId === currentUserId})),...(currentUserEntry && !userAlreadyInTopNine ? [currentUserEntry] : [])];
@@ -1540,11 +1561,11 @@ export default function App() {
       <button className="ranking-back-link" onClick={()=>navigate('home')} aria-label={text.homeLabel}><ArrowLeft size={17}/></button>
       <ScreenHeading eyebrow={text.rankingsEyebrow} title={text.rankingsTitle} accent={text.rankingsAccent} description={text.ranking.description}/>
       <GlassPanel className="ranking-panel">
-        <div className="ranking-title"><span><Medal size={18}/> {text.ranking.globalLeaderboard}</span><small>{text.ranking.top50}</small></div>
+        <div className="ranking-title"><span><Medal size={18}/> {text.ranking.globalLeaderboard}</span><small>{RANKING_DEMO_MODE && !liveRanking ? 'DEMO · NOT LIVE' : text.ranking.top50}</small></div>
         <div className="podium-grid">{podiumEntries.map((entry,i)=>{const pos=[2,1,3][i];return <div className={`podium-card podium-card--${pos}`} key={pos}><Trophy className="podium-cup" size={pos===1?48:40}/><span className="podium-rank">#{pos}</span><strong>{entry?(entry.displayName||entry.username):'—'}</strong>{entry&&<><small>{text.levelAbbr} {entry.level}</small><b>{entry.rankingPoints}<i> {text.ranking.pointsAbbr}</i></b></>}</div>;})}</div>
         <div className="ranking-mode-tabs" role="tablist" aria-label={text.rankingsTitle}>{[{id:'1v1',label:'1vs1'},{id:'1vAI',label:'1vsAI'},{id:'quick-battle',label:text.home.quickBattle}].map(m=><button key={m.id} role="tab" aria-selected={rankingMode===m.id} className={`ranking-mode-tab${rankingMode===m.id?' is-active':''}`} onClick={()=>setRankingMode(m.id)}>{m.label}</button>)}</div>
         {rankingLoadingByMode[rankingMode]&&<p className="panel-note" role="status">{text.ranking.loading}</p>}
-        {rankingErrorsByMode[rankingMode]&&<div className="panel-note" role="alert">{text.ranking.loadError}<button className="text-action" onClick={()=>void refreshModeRanking(rankingMode)}>{text.ranking.retry}</button></div>}
+        {rankingErrorsByMode[rankingMode]&&!RANKING_DEMO_MODE&&<div className="panel-note" role="alert">{text.ranking.loadError}<button className="text-action" onClick={()=>void refreshModeRanking(rankingMode)}>{text.ranking.retry}</button></div>}
         {!activeRanking&&!rankingLoadingByMode[rankingMode]&&!rankingErrorsByMode[rankingMode]&&<p className="empty-state">{text.ranking.connectAccount}</p>}
         {activeRanking?.eligible===false&&<p className="panel-note">{text.ranking.guestEligibility}</p>}
         {activeRanking?.eligible!==false&&activeRanking&&<div className="leader-table-wrap"><table className="leader-table"><thead><tr><th>#</th><th>{text.displayName}</th><th>{text.levelAbbr}</th><th>{text.ranking.wins}</th><th>{text.ranking.pointsAbbr}</th></tr></thead><tbody>
