@@ -18,7 +18,7 @@ const ACTIVE_STATUSES = [
   QuickBattleStatus.ACTIVE,
 ] as const;
 const GENERATION_POLICY_VERSION = 'quick-battle-generation-v1';
-const SCORING_POLICY_VERSION = 'quick-battle-scoring-pending';
+const SCORING_POLICY_VERSION = 'quick-battle-score-v1';
 const DIFFICULTY_PLAN = [
   'EASY', 'EASY', 'EASY',
   'MEDIUM', 'MEDIUM', 'MEDIUM', 'MEDIUM',
