@@ -62,7 +62,9 @@ jobs:
           ANDROID_I_WANT_MY_TCG: 'yes'
         with:
           api-level: 35
-          target: google_apis
+          # The test only exercises Android framework Keystore APIs; Google Play services
+          # are not required. Use the lean AOSP image to avoid unrelated GMS startup load.
+          target: default
           arch: x86_64
           profile: pixel_2
           cores: 2
@@ -75,7 +77,7 @@ jobs:
           # android-emulator-runner parses this input as one shell command per physical line.
           # Keep failure handling and post-test diagnostics inside a single bash process.
           script: |
-            bash -c 'set +e; ./gradlew connectedDebugAndroidTest --stacktrace; TEST_EXIT=$?; mkdir -p build/android-instrumentation-diagnostics; adb devices -l > build/android-instrumentation-diagnostics/adb-devices.txt 2>&1 || true; adb logcat -d -b all -v threadtime > build/android-instrumentation-diagnostics/logcat-all.txt 2>&1 || true; adb shell dumpsys activity processes > build/android-instrumentation-diagnostics/activity-processes.txt 2>&1 || true; adb shell dumpsys package com.nexira.prototype > build/android-instrumentation-diagnostics/package-info.txt 2>&1 || true; exit "$TEST_EXIT"'
+            bash -c 'set +e; ./gradlew connectedDebugAndroidTest --stacktrace; TEST_EXIT=$?; mkdir -p build/android-instrumentation-diagnostics; adb devices -l > build/android-instrumentation-diagnostics/adb-devices.txt 2>&1 || true; adb logcat -d -b all -v threadtime > build/android-instrumentation-diagnostics/logcat-all.txt 2>&1 || true; adb shell dumpsys activity processes > build/android-instrumentation-diagnostics/activity-processes.txt 2>&1 || true; adb shell dumpsys activity lastanr > build/android-instrumentation-diagnostics/last-anr.txt 2>&1 || true; adb shell dumpsys dropbox --print data_app_anr > build/android-instrumentation-diagnostics/dropbox-data-app-anr.txt 2>&1 || true; adb shell dumpsys package com.nexira.prototype > build/android-instrumentation-diagnostics/package-info.txt 2>&1 || true; exit "$TEST_EXIT"'
 
       - name: Upload Android instrumentation diagnostics
         if: always()
