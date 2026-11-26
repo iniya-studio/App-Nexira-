@@ -1,4 +1,4 @@
-import { PrincipalType, QuickBattleStatus } from '@prisma/client';
+import { JudgeDecision, PrincipalType, QuickBattleStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
@@ -116,7 +116,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     await new QuickBattleRoundPublicationWorker(prisma).runOnce();
     const receipt = await service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-judge-001');
     const judgeResult: FreeTextJudgeResult = {
-      decision: 'CORRECT', confidence: 0.99, reasonCode: 'MEANING_MATCH',
+      decision: JudgeDecision.CORRECT, confidence: 0.99, reasonCode: 'MEANING_MATCH',
       rationale: 'The response matches the expected answer.',
       provider: 'test', model: 'deterministic-test', policyVersion: 'test-v1',
     };
