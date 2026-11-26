@@ -334,6 +334,12 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
       !Array.isArray(input.excludedQuestionIds) ||
       !input.excludedQuestionIds.every((id) => typeof id === 'string') ||
       !Array.isArray(input.excludedQuestionFingerprints) ||
+      (input.excludedQuestionPrompts !== undefined &&
+        (!Array.isArray(input.excludedQuestionPrompts) ||
+          input.excludedQuestionPrompts.length > 100 ||
+          input.excludedQuestionPrompts.some((prompt) =>
+            typeof prompt !== 'string' || !prompt.trim() || prompt.length > 2000,
+          ))) ||
       input.excludedQuestionFingerprints.some(
         (fingerprint) => !/^[a-f0-9]{64}$/i.test(fingerprint),
       )
