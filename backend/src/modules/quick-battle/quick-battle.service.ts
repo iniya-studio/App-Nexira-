@@ -6,7 +6,7 @@ import {
 import { randomInt } from 'node:crypto';
 import { Prisma, QuickBattleStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { isEnabledLocale, normalizeLocaleCode } from '../../common/localization/locale-registry';
+import { isTargetLocale, normalizeLocaleCode } from '../../common/localization/locale-registry';
 import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { CATEGORY_SUBCATEGORIES } from '../match/category-catalog';
 
@@ -56,7 +56,7 @@ export class QuickBattleService {
       const language = normalizeLocaleCode(
         profileLanguage?.trim() || requestedLanguage?.trim() || 'en',
       );
-      if (!isEnabledLocale(language)) {
+      if (!isTargetLocale(language)) {
         throw new BadRequestException('Unsupported Quick Battle language');
       }
 
