@@ -602,6 +602,7 @@ model QuickBattleMatch {
   guestIdentity GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
   rounds        QuickBattleRound[]
   generationJobs QuickBattleQuestionJob[]
+  answers        QuickBattleAnswer[]
 
   @@index([status, createdAt])
   @@index([userId, status, createdAt])
