@@ -8,6 +8,7 @@ import { QuickBattleQuestionGenerationWorker } from './quick-battle-question-gen
 import { QuickBattleService } from './quick-battle.service';
 import { QuickBattleRoundPublicationWorker } from './quick-battle-round-publication.worker';
 import { QuickBattleAnswerJudgeWorker } from './quick-battle-answer-judge.worker';
+import { QuickBattleRoundFinalizationWorker } from './quick-battle-round-finalization.worker';
 
 @Module({
   controllers: [QuickBattleController],
@@ -16,6 +17,7 @@ import { QuickBattleAnswerJudgeWorker } from './quick-battle-answer-judge.worker
     QuickBattleQuestionGenerationWorker,
     QuickBattleRoundPublicationWorker,
     QuickBattleAnswerJudgeWorker,
+    QuickBattleRoundFinalizationWorker,
     { provide: QUESTION_GENERATOR, useClass: OpenAiResponsesQuestionGeneratorAdapter },
     { provide: FREE_TEXT_ANSWER_JUDGE, useClass: OpenAiResponsesAnswerJudgeAdapter },
   ],
