@@ -1,6 +1,6 @@
 # NEX-QB-002 — Quick Battle Architecture & Implementation Baseline
 
-Status: Independent architecture locked; backend foundation and dedicated generation pipeline implemented on `main`; recent-history exclusion and focused unit tests added; latest changes awaiting CI/runtime verification
+Status: Stages 1–3 implemented and verified on `main`; dedicated question-generation pipeline passed unit and PostgreSQL integration CI
 Working branch: `main`
 Implementation base: `f94e22460e98296931e12c17a6acbc1bf702f6c6`
 
@@ -113,10 +113,12 @@ The baseline audit above records what existed before Quick Battle implementation
 - While a match is PREPARING, only its first three jobs are eligible. Once READY, the remaining question jobs can be generated in the background.
 - Duplicate rejection covers earlier generated questions in the same Quick Battle match. The worker also loads at most the 100 most recently served Quick Battle questions for the same principal and merges their IDs, fingerprints and canonical prompts into the generation exclusions.
 - Recent-history scope is deliberately restricted to Quick Battle: a round is history-eligible only when `startedAt IS NOT NULL` and `questionId IS NOT NULL`; generated-but-never-served rounds are not included. USER and GUEST ownership are resolved independently from the owning Quick Battle match. The current match is excluded from this historical query because its generated questions are already covered by same-match exclusions.
-- Added `quick-battle-question-generation.worker.spec.ts` with focused tests for merging existing exclusions, deduplication, missing question relations and immutability of the persisted generation context.
+- Added `quick-battle-question-generation.worker.spec.ts` covering exclusion merging, deduplication, missing question relations, immutable request context, retry delay, retry exhaustion, terminal-match cancellation, provider HTTP error normalization and first-three queue eligibility.
+- Added `quick-battle-question-generation.integration.spec.ts` against CI PostgreSQL. It verifies the first-three READY gate, background generation after READY, bounded retries and technical void, invalid-localization rejection, expired-lease recovery, concurrent worker fencing (a stale worker cannot overwrite the fresh lease result), same-match duplicate fingerprint rejection, final-attempt lease expiry, and per-guest recent-served-question exclusion.
+- The recent-history query scope is unit-tested for both USER and GUEST principals; it excludes the current match and unserved rounds and caps the lookback at 100 served Quick Battle rounds.
 - The existing Match/1vAI workers and `MatchSettlementService` are not registered as Quick Battle workers and do not own Quick Battle state transitions.
 
-**Verification status:** the focused worker helper tests have been added but have not yet been executed in this session. The prior backend CI baseline applies to the earlier backend commit, not automatically to these latest changes. Re-run Jest, Nest build, lint, Prisma validation and the relevant CI workflow before marking Stage 3 runtime-verified.
+**Verification status:** GitHub Actions run [45894347755](https://github.com/iniya-studio/App-Nexira-/actions/runs/45894347755) completed successfully on `main` at commit `59482863c0f6659733727fa5c2d5e746f7d569e7`. Prisma formatting, schema validation, Prisma Client generation, migration deployment to CI PostgreSQL, NestJS production build, unit and PostgreSQL integration tests, ESLint, staging Compose validation, and staging Docker image build all passed. Integration tests use a deterministic test generator; this verifies the worker and database lifecycle, not live OpenAI availability or the editorial quality of production-generated questions.
 
 ## 4. Architecture decision: separate aggregate and persistence
 
@@ -217,12 +219,13 @@ Use the existing access-token guard/principal contract. Do not expose another us
 - Added focused service tests for ten-round creation, category diversity, difficulty plan, guest ownership, duplicate start recovery and registered-user locale authority.
 - A prior backend CI run passed Prisma validation/migration, Nest build, Jest, ESLint and Docker validation/build on its tested commit. Re-run CI against the current `main` head after the latest Quick Battle changes; add integration tests for database concurrency and authorization.
 
-### Stage 3 — independent question pipeline
-- Implemented: versioned category/difficulty plan, server-selected subcategory, dedicated generation queue and worker.
-- Implemented: reuse of the generator port/adapter and pure validation/fingerprint utilities only.
-- Implemented: first-three readiness gate, background generation after READY, same-match duplicate rejection and bounded retries with technical void on exhaustion.
-- Implemented: per-principal recent-history exclusion for USER and GUEST owners, limited to the 100 most recently served Quick Battle questions; generated-but-unserved rounds are excluded. IDs, fingerprints and canonical prompts are merged with same-match exclusions and deduplicated.
-- Added focused unit tests for exclusion merging, deduplication, null relations and input immutability. Pending: execute tests and add/complete worker lifecycle tests for retry exhaustion, stale-lease recovery, concurrent claims, invalid provider output, localization and readiness transitions. PostgreSQL concurrency guarantees require integration tests, not mocks alone.
+### Stage 3 — independent question pipeline — COMPLETED
+- Implemented and verified: versioned category/difficulty plan, server-selected subcategory, dedicated generation queue and worker.
+- Implemented and verified: reuse of the shared question-generator port/adapter and pure validation/fingerprint utilities without routing Quick Battle through the existing Match workers.
+- Implemented and verified: first-three readiness gate, background generation after READY, same-match duplicate fingerprint rejection and bounded retries with technical void on exhaustion.
+- Implemented and verified: stale-lease recovery, database lease fencing against stale worker results, and per-principal recent-history exclusion for USER and GUEST owners. History is limited to the 100 most recently served Quick Battle questions; generated-but-unserved rounds are excluded. IDs, fingerprints and canonical prompts are merged with same-match exclusions and deduplicated.
+- Added focused unit tests and PostgreSQL integration tests for the worker lifecycle and concurrency/recovery behavior. All checks passed in CI run `45894347755` on commit `59482863c0f6659733727fa5c2d5e746f7d569e7`.
+- Verification boundary: CI uses a deterministic test generator. Live provider availability, production AI content quality, load testing and operational monitoring remain outside this stage and must be covered during provider QA and beta hardening.
 
 ### Stage 4 — gameplay and judging
 - Add dedicated round publication, answer submission, deadline, reconnect and round finalization.
