@@ -672,7 +672,12 @@ model QuickBattleAnswer {
   elapsedMs      Int
   points         Int?
   judgeReason    String?
-  judgeVersion   String?
+  judgeVersion    String?
+  judgeAttempts   Int       @default(0)
+  judgeStartedAt  DateTime? @db.Timestamptz(3)
+  judgeAvailableAt DateTime @default(now()) @db.Timestamptz(3)
+  judgeLeaseId    String?   @db.Uuid
+  lastErrorCode   String?   @db.VarChar(64)
   idempotencyKey String         @unique
   acceptedAt     DateTime       @default(now()) @db.Timestamptz(3)
   judgedAt       DateTime?      @db.Timestamptz(3)
@@ -682,7 +687,7 @@ model QuickBattleAnswer {
 
   @@unique([roundId, matchId])
   @@index([matchId, acceptedAt])
-  @@index([judgeStatus, acceptedAt])
+  @@index([judgeStatus, judgeAvailableAt])
 }
 
 model QuestionGenerationJob {
