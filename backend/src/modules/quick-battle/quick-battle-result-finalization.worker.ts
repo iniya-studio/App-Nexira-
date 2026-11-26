@@ -56,7 +56,9 @@ export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModu
       });
       if (!match || match.status !== QuickBattleStatus.COMPLETED ||
           match.scoringPolicyVersion !== QUICK_BATTLE_SCORING_POLICY_VERSION) return false;
-      if (match.result) return true;
+      if (match.roundsTarget !== 10 || match.rounds.length !== 10) {
+        throw new Error('Quick Battle result requires exactly ten rounds');
+      }
       if (match.roundsTarget !== 10 || match.rounds.length !== 10) {
         throw new Error('Quick Battle result requires exactly ten rounds');
       }
@@ -88,6 +90,22 @@ export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModu
       if (roundScores.length !== 10 || totalPoints < 0 || totalPoints > 1500 ||
           correctAnswers + incorrectAnswers + noResponseCount !== 10) {
         throw new Error('Quick Battle result summary failed integrity validation');
+      }
+
+      if (match.result) {
+        const resultMatches = match.result.scoringPolicyVersion === QUICK_BATTLE_SCORING_POLICY_VERSION &&
+          match.result.totalPoints === totalPoints &&
+          match.result.correctAnswers === correctAnswers &&
+          match.result.incorrectAnswers === incorrectAnswers &&
+          match.result.noResponseCount === noResponseCount;
+        const persistedPointsMatch = match.rounds.every((round) => {
+          const score = roundScores.find((item) => item.answerId === round.answer?.id);
+          return score !== undefined && round.answer?.points === score.points;
+        });
+        if (!resultMatches || !persistedPointsMatch) {
+          throw new Error('Existing Quick Battle result failed immutable reconciliation');
+        }
+        return true;
       }
 
       for (const score of roundScores) {
