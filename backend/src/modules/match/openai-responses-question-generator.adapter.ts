@@ -115,7 +115,7 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                 text:
                   'Generate exactly one original quiz question using only the supplied settings. ' +
                   'The language field is the canonical locale for shared semantic content, and language_name identifies its exact language variant. For pt, language_name is Brazilian Portuguese (pt-BR), not European Portuguese. required_locales lists every human participant locale. Generate exactly one semantic question and a localized rendering for every required locale, directly authored in that locale; never translate through English and never omit a requested locale. canonicalPrompt, canonicalOptions, answerKey and gradingRubric must be authored in the canonical language. Each localized entry must contain its own prompt, expected answer, option text keyed by stable option IDs, and localized grading rubric. Preserve identical meaning, answer identity, difficulty, option IDs and option order across all locales. ' +
-                  'Use the requested category and subcategory (when supplied) as strict topic constraints, plus difficulty, answer type, and time limit. The question must specifically belong to the selected subcategory, not merely the parent category. Return subcategoryId exactly as supplied; return null only when no subcategory was selected. This field is an auditable selection echo, not a substitute for actually following the topic constraint. For multiple choice, provide 2 to 8 distinct options and an answerKey equal to exactly one option ID; option IDs are language-neutral and must remain stable between canonical and localized options. For free text, use null options and a concise expected answer with a grading rubric containing required concepts, all in the requested language. Do not include player data. The excluded fingerprints represent prior question content; avoid repeating or paraphrasing any of those questions.',
+                  'Use the requested category and subcategory (when supplied) as strict topic constraints, plus difficulty, answer type, and time limit. The question must specifically belong to the selected subcategory, not merely the parent category. Return subcategoryId exactly as supplied; return null only when no subcategory was selected. This field is an auditable selection echo, not a substitute for actually following the topic constraint. For multiple choice, provide 2 to 8 distinct options and an answerKey equal to exactly one option ID; option IDs are language-neutral and must remain stable between canonical and localized options. For free text, use null options and a concise expected answer with a grading rubric containing required concepts, all in the requested language. Do not include player data. The excluded fingerprints are exact-match guards. The excluded question prompts are prior question text; do not repeat, paraphrase, lightly rewrite, or ask the same fact in a different form.',
               },
             ],
           },
@@ -135,6 +135,9 @@ export class OpenAiResponsesQuestionGeneratorAdapter implements QuestionGenerato
                   time_limit_seconds: input.timeLimitSeconds,
                   excluded_content_fingerprints:
                     input.excludedQuestionFingerprints,
+                  ...(input.excludedQuestionPrompts?.length
+                    ? { excluded_question_prompts: input.excludedQuestionPrompts }
+                    : {}),
                 }),
               },
             ],
