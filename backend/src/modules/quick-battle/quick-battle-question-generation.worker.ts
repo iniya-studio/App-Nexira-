@@ -376,6 +376,17 @@ export class QuickBattleQuestionGenerationWorker
         select: { status: true, leaseId: true, attempts: true, maxAttempts: true, matchId: true },
       });
       if (current?.status !== 'PROCESSING' || current.leaseId !== claim.leaseId) return;
+      const matchState = await tx.quickBattleMatch.findUnique({
+        where: { id: current.matchId },
+        select: { status: true },
+      });
+      if (!matchState || ![QuickBattleStatus.PREPARING, QuickBattleStatus.READY, QuickBattleStatus.ACTIVE].includes(matchState.status)) {
+        await tx.quickBattleQuestionJob.update({
+          where: { id: claim.id },
+          data: { status: 'CANCELLED', leaseId: null, leaseAt: null, completedAt: new Date(), lastErrorCode: 'MATCH_NOT_ACTIVE' },
+        });
+        return;
+      }
 
       if (current.attempts >= current.maxAttempts) {
         const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
