@@ -113,7 +113,7 @@ export function mergeQuickBattleQuestionExclusions(
     ],
     excludedQuestionPrompts: [
       ...new Set([
-        ...input.excludedQuestionPrompts,
+        ...(input.excludedQuestionPrompts ?? []),
         ...questions.flatMap((item) =>
           item.question?.canonicalPrompt ? [item.question.canonicalPrompt] : [],
         ),
