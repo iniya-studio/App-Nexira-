@@ -10,5 +10,7 @@ ALTER TABLE "QuickBattleAnswer"
 ALTER TABLE "QuickBattleAnswer"
   ADD CONSTRAINT "QuickBattleAnswer_judgeAttempts_check" CHECK ("judgeAttempts" >= 0);
 
+DROP INDEX IF EXISTS "QuickBattleAnswer_judgeStatus_acceptedAt_idx";
+
 CREATE INDEX "QuickBattleAnswer_judgeStatus_judgeAvailableAt_idx"
   ON "QuickBattleAnswer"("judgeStatus", "judgeAvailableAt");
