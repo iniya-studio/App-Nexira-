@@ -1,4 +1,5 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, QuickBattleStatus } from '@prisma/client';
+import { QuestionGenerationError } from '../match/question-generator.port';
 import { parseQuestionGenerationInput } from '../match/question-generation.context';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -201,5 +202,243 @@ describe('QuickBattleQuestionGenerationWorker recent history query', () => {
         'A previously served question',
       ],
     }));
+  });
+});
+
+
+describe('QuickBattleQuestionGenerationWorker lifecycle handling', () => {
+  const claim = {
+    id: 'job-1',
+    matchId: 'match-1',
+    roundId: 'round-1',
+    attempts: 2,
+    maxAttempts: 3,
+    leaseId: 'lease-1',
+    requestContext: {
+      category: 'science',
+      subcategoryId: 'physics',
+      difficulty: 'medium',
+      language: 'en',
+      requiredLocales: ['en'],
+      answerType: 'FREE_TEXT',
+      timeLimitSeconds: 30,
+      excludedQuestionIds: [],
+      excludedQuestionFingerprints: [],
+    } as Prisma.JsonValue,
+  };
+
+  function workerWithClaim(generatorResult: {
+    resolve?: unknown;
+    reject?: Error;
+  }) {
+    const prisma = {
+      quickBattleRound: {
+        findMany: jest.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]),
+      },
+      quickBattleMatch: {
+        findUnique: jest.fn().mockResolvedValue({
+          userId: 'user-1',
+          guestIdentityId: null,
+        }),
+      },
+    } as unknown as PrismaService;
+    const generator = {
+      generate: generatorResult.reject
+        ? jest.fn().mockRejectedValue(generatorResult.reject)
+        : jest.fn().mockResolvedValue(generatorResult.resolve),
+    };
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, generator as never);
+    const internals = worker as unknown as {
+      claimNextJob: () => Promise<unknown>;
+      releaseClaim: (job: typeof claim, errorCode: string) => Promise<void>;
+    };
+    jest.spyOn(internals, 'claimNextJob').mockResolvedValue(claim);
+    const release = jest.spyOn(internals, 'releaseClaim').mockResolvedValue(undefined);
+    return { worker, release, generator };
+  }
+
+  it('routes invalid provider output into the bounded retry handler', async () => {
+    const { worker, release } = workerWithClaim({ resolve: { invalid: true } });
+
+    await worker.runOnce();
+
+    expect(release).toHaveBeenCalledWith(claim, 'QUESTION_OUTPUT_INVALID');
+  });
+
+  it('preserves normalized HTTP provider failure codes for retry diagnostics', async () => {
+    const { worker, release } = workerWithClaim({
+      reject: new QuestionGenerationError('GENERATOR_PROVIDER_HTTP_429', 'Rate limited'),
+    });
+
+    await worker.runOnce();
+
+    expect(release).toHaveBeenCalledWith(claim, 'GENERATOR_PROVIDER_HTTP_ERROR');
+  });
+
+  it('requeues a failed attempt with bounded exponential delay', async () => {
+    const now = new Date('2026-11-27T12:00:00.000Z');
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ now }]),
+      quickBattleQuestionJob: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: 'PROCESSING',
+          leaseId: claim.leaseId,
+          attempts: 2,
+          maxAttempts: 3,
+          matchId: claim.matchId,
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      quickBattleMatch: {
+        findUnique: jest.fn().mockResolvedValue({ status: QuickBattleStatus.PREPARING }),
+        updateMany: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaService;
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, { generate: jest.fn() } as never);
+    const internals = worker as unknown as {
+      releaseClaim: (job: typeof claim, errorCode: string) => Promise<void>;
+    };
+
+    await internals.releaseClaim(claim, 'GENERATOR_PROVIDER_TIMEOUT');
+
+    expect(tx.quickBattleQuestionJob.update).toHaveBeenCalledWith({
+      where: { id: claim.id },
+      data: expect.objectContaining({
+        status: 'PENDING',
+        leaseId: null,
+        leaseAt: null,
+        availableAt: new Date(now.getTime() + 2_000),
+        lastErrorCode: 'GENERATOR_PROVIDER_TIMEOUT',
+      }),
+    });
+    expect(tx.quickBattleMatch.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('voids the match when the final generation attempt is exhausted', async () => {
+    const now = new Date('2026-11-27T12:00:00.000Z');
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ now }]),
+      quickBattleQuestionJob: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: 'PROCESSING',
+          leaseId: claim.leaseId,
+          attempts: 3,
+          maxAttempts: 3,
+          matchId: claim.matchId,
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      quickBattleMatch: {
+        findUnique: jest.fn().mockResolvedValue({ status: QuickBattleStatus.READY }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaService;
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, { generate: jest.fn() } as never);
+    const internals = worker as unknown as {
+      releaseClaim: (job: typeof claim, errorCode: string) => Promise<void>;
+    };
+
+    await internals.releaseClaim(claim, 'GENERATOR_OUTPUT_INVALID');
+
+    expect(tx.quickBattleQuestionJob.update).toHaveBeenCalledWith({
+      where: { id: claim.id },
+      data: expect.objectContaining({
+        status: 'FAILED',
+        completedAt: now,
+        lastErrorCode: 'GENERATOR_OUTPUT_INVALID',
+        leaseId: null,
+        leaseAt: null,
+      }),
+    });
+    expect(tx.quickBattleMatch.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: claim.matchId,
+        status: {
+          in: [
+            QuickBattleStatus.PREPARING,
+            QuickBattleStatus.READY,
+            QuickBattleStatus.ACTIVE,
+          ],
+        },
+      },
+      data: {
+        status: QuickBattleStatus.VOIDED,
+        voidedAt: now,
+        voidReason: 'QUESTION_GENERATION_EXHAUSTED',
+      },
+    });
+  });
+
+  it('does not retry or void a job after its match has become terminal', async () => {
+    const now = new Date('2026-11-27T12:00:00.000Z');
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ now }]),
+      quickBattleQuestionJob: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: 'PROCESSING',
+          leaseId: claim.leaseId,
+          attempts: 1,
+          maxAttempts: 3,
+          matchId: claim.matchId,
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      quickBattleMatch: {
+        findUnique: jest.fn().mockResolvedValue({ status: QuickBattleStatus.COMPLETED }),
+        updateMany: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaService;
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, { generate: jest.fn() } as never);
+    const internals = worker as unknown as {
+      releaseClaim: (job: typeof claim, errorCode: string) => Promise<void>;
+    };
+
+    await internals.releaseClaim(claim, 'GENERATOR_PROVIDER_TIMEOUT');
+
+    expect(tx.quickBattleQuestionJob.update).toHaveBeenCalledWith({
+      where: { id: claim.id },
+      data: {
+        status: 'CANCELLED',
+        leaseId: null,
+        leaseAt: null,
+        completedAt: now,
+        lastErrorCode: 'MATCH_NOT_ACTIVE',
+      },
+    });
+    expect(tx.quickBattleMatch.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('claims generation jobs with a database lease and the first-three readiness gate', async () => {
+    const tx = {
+      $queryRaw: jest.fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([claim]),
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as unknown as PrismaService;
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, { generate: jest.fn() } as never);
+    const internals = worker as unknown as {
+      claimNextJob: () => Promise<unknown>;
+    };
+
+    await expect(internals.claimNextJob()).resolves.toEqual(claim);
+
+    const claimSql = tx.$queryRaw.mock.calls[1][0].join('');
+    expect(claimSql).toContain('FOR UPDATE OF job SKIP LOCKED');
+    expect(claimSql).toContain('round."roundNumber" <= 3');
+    expect(claimSql).toContain("match."status" IN ('READY', 'ACTIVE')");
+    expect(claimSql).toContain('job."attempts" < job."maxAttempts"');
   });
 });
