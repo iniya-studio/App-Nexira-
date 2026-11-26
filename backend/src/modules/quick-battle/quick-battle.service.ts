@@ -1,8 +1,9 @@
 import {
-  ConflictException,
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomInt } from 'node:crypto';
 import { Prisma, QuickBattleStatus, PrincipalType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { isEnabledLocale, normalizeLocaleCode } from '../../common/localization/locale-registry';
@@ -37,7 +38,7 @@ export class QuickBattleService {
     return this.prisma.$transaction(async (tx) => {
       // Serialize concurrent start requests for this principal. The partial
       // unique indexes in PostgreSQL remain the final integrity boundary.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock}))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${principalLock})) IS NULL AS locked`;
 
       const existing = await tx.quickBattleMatch.findFirst({
         where: { ...owner, status: { in: [...ACTIVE_STATUSES] } },
@@ -56,7 +57,7 @@ export class QuickBattleService {
         profileLanguage?.trim() || requestedLanguage?.trim() || 'en',
       );
       if (!isEnabledLocale(language)) {
-        throw new ConflictException('Unsupported Quick Battle language');
+        throw new BadRequestException('Unsupported Quick Battle language');
       }
 
       const categories = Object.keys(CATEGORY_SUBCATEGORIES);
@@ -181,7 +182,7 @@ export class QuickBattleService {
   private shuffle<T>(values: T[]): T[] {
     const result = [...values];
     for (let index = result.length - 1; index > 0; index -= 1) {
-      const target = Math.floor(Math.random() * (index + 1));
+      const target = randomInt(index + 1);
       [result[index], result[target]] = [result[target], result[index]];
     }
     return result;
