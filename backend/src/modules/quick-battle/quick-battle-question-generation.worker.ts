@@ -147,27 +147,41 @@ export class QuickBattleQuestionGenerationWorker
 
   private async claimNextJob(): Promise<QuickBattleGenerationClaim | null> {
     return this.prisma.$transaction(async (tx) => {
-      const exhausted = await tx.$queryRaw<Array<{ id: string; matchId: string }>>`
-        WITH expired AS (
-          SELECT job."id"
-          FROM "QuickBattleQuestionJob" AS job
-          WHERE job."status" = 'PROCESSING'
-            AND job."attempts" >= job."maxAttempts"
-            AND job."leaseAt" <= clock_timestamp() - (${STALE_LEASE_SECONDS} * INTERVAL '1 second')
-          FOR UPDATE SKIP LOCKED
-        )
-        UPDATE "QuickBattleQuestionJob" AS job
-        SET "status" = 'FAILED',
-            "leaseId" = NULL,
-            "leaseAt" = NULL,
-            "completedAt" = clock_timestamp(),
-            "lastErrorCode" = 'GENERATOR_LEASE_EXPIRED'
-        FROM expired
-        WHERE job."id" = expired."id"
-        RETURNING job."id", job."matchId"
+      const staleJobs = await tx.$queryRaw<Array<{ id: string; matchId: string }>>`
+        SELECT "id", "matchId"
+        FROM "QuickBattleQuestionJob"
+        WHERE "status" = 'PROCESSING'
+          AND "attempts" >= "maxAttempts"
+          AND "leaseAt" <= clock_timestamp() - (${STALE_LEASE_SECONDS} * INTERVAL '1 second')
+        ORDER BY "leaseAt" ASC
+        LIMIT 20
       `;
-      for (const job of exhausted) {
-        await tx.$executeRaw`UPDATE "QuickBattleMatch" SET "status" = 'VOIDED', "voidedAt" = clock_timestamp(), "voidReason" = 'QUESTION_GENERATION_EXHAUSTED' WHERE "id" = ${job.matchId}::uuid AND "status" IN ('PREPARING', 'READY', 'ACTIVE')`;
+      for (const job of staleJobs) {
+        // All transitions lock the aggregate first, then the job, avoiding
+        // lock-order inversions with question persistence and retry handling.
+        await tx.$queryRaw`SELECT "id" FROM "QuickBattleMatch" WHERE "id" = ${job.matchId}::uuid FOR UPDATE`;
+        const failed = await tx.$executeRaw`
+          UPDATE "QuickBattleQuestionJob"
+          SET "status" = 'FAILED',
+              "leaseId" = NULL,
+              "leaseAt" = NULL,
+              "completedAt" = clock_timestamp(),
+              "lastErrorCode" = 'GENERATOR_LEASE_EXPIRED'
+          WHERE "id" = ${job.id}::uuid
+            AND "status" = 'PROCESSING'
+            AND "attempts" >= "maxAttempts"
+            AND "leaseAt" <= clock_timestamp() - (${STALE_LEASE_SECONDS} * INTERVAL '1 second')
+        `;
+        if (failed > 0) {
+          await tx.$executeRaw`
+            UPDATE "QuickBattleMatch"
+            SET "status" = 'VOIDED',
+                "voidedAt" = clock_timestamp(),
+                "voidReason" = 'QUESTION_GENERATION_EXHAUSTED'
+            WHERE "id" = ${job.matchId}::uuid
+              AND "status" IN ('PREPARING', 'READY', 'ACTIVE')
+          `;
+        }
       }
 
       const claims = await tx.$queryRaw<QuickBattleGenerationClaim[]>`
@@ -355,6 +369,7 @@ export class QuickBattleQuestionGenerationWorker
     errorCode: string,
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "QuickBattleMatch" WHERE "id" = ${claim.matchId}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT "id" FROM "QuickBattleQuestionJob" WHERE "id" = ${claim.id}::uuid FOR UPDATE`;
       const current = await tx.quickBattleQuestionJob.findUnique({
         where: { id: claim.id },
