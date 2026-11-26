@@ -234,8 +234,10 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const slowResult = new Promise<GeneratedQuestion>((resolve) => {
       releaseSlow = resolve;
     });
+    let staleInput: Parameters<QuestionGenerator['generate']>[0] | undefined;
     const staleGenerator: QuestionGenerator = {
-      generate: jest.fn(async () => {
+      generate: jest.fn(async (input) => {
+        staleInput = input;
         signalStarted();
         return slowResult;
       }),
@@ -256,23 +258,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     });
     await expect(freshWorker.runOnce()).resolves.toBe(true);
 
-    releaseSlow(generatedQuestion(
-      {
-        category: target.requestContext && typeof target.requestContext === 'object'
-          ? String((target.requestContext as Record<string, unknown>).category)
-          : 'science',
-        difficulty: target.requestContext && typeof target.requestContext === 'object'
-          ? String((target.requestContext as Record<string, unknown>).difficulty)
-          : 'medium',
-        language: 'en',
-        requiredLocales: ['en'],
-        answerType: 'FREE_TEXT',
-        timeLimitSeconds: 30,
-        excludedQuestionIds: [],
-        excludedQuestionFingerprints: [],
-      },
-      'Stale worker must not win',
-    ));
+    releaseSlow(generatedQuestion(staleInput!, 'Stale worker must not win'));
     await staleAttempt;
 
     const [job, round, questionCount] = await Promise.all([
