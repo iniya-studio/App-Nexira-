@@ -52,17 +52,17 @@ export class QuickBattleRoundPublicationWorker implements OnModuleInit, OnModule
         LIMIT 1
         FOR UPDATE OF match SKIP LOCKED
       `;
-      const matchId = candidates[0]?.id;
-      if (!matchId) return false;
+      const claimedMatchId = candidates[0]?.id;
+      if (!claimedMatchId) return false;
       const match = await tx.quickBattleMatch.findUnique({
-        where: { id: matchId },
+        where: { id: claimedMatchId },
         select: { id: true, status: true, currentRound: true, roundsTarget: true, startedAt: true },
       });
       if (!match || (match.status !== QuickBattleStatus.READY && match.status !== QuickBattleStatus.ACTIVE) ||
           match.currentRound >= match.roundsTarget) return false;
       const nextRoundNumber = match.currentRound + 1;
       const round = await tx.quickBattleRound.findUnique({
-        where: { matchId_roundNumber: { matchId, roundNumber: nextRoundNumber } },
+        where: { matchId_roundNumber: { matchId: claimedMatchId, roundNumber: nextRoundNumber } },
         select: {
           id: true, questionId: true, startedAt: true, completedAt: true, voidedAt: true,
           question: { select: { timeLimitSeconds: true } },
@@ -83,7 +83,7 @@ export class QuickBattleRoundPublicationWorker implements OnModuleInit, OnModule
       });
       if (updated.count !== 1) return false;
       const matchUpdated = await tx.quickBattleMatch.updateMany({
-        where: { id: matchId, currentRound: match.currentRound, status: match.status },
+        where: { id: claimedMatchId, currentRound: match.currentRound, status: match.status },
         data: {
           status: QuickBattleStatus.ACTIVE,
           currentRound: nextRoundNumber,
