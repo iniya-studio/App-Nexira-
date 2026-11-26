@@ -1,6 +1,6 @@
 # NEX-QB-003 — Stage 4 Gameplay & Judging Contract
 
-Status: Approved implementation contract; implementation in progress
+Status: Implementation complete and CI-verified on main (2026-11-27)
 Target ref: `main`
 Prerequisites: NEX-QB-002 Stages 1–3 verified; NEXIRA product delivery dependencies recorded in `docs/NEXIRA-PRODUCT-DELIVERY-DEPENDENCIES.md`
 
@@ -134,3 +134,25 @@ Implement and verify in small increments on `main`:
 5. Reconnect recovery and PostgreSQL concurrency/regression coverage.
 
 Do not mark Stage 4 complete until all checkpoints and the full CI workflow pass. After Stage 4, continue with Stage 5 only after the product owner approves the separate scoring design.
+
+
+## 10. Implementation evidence — Stage 4 complete
+
+Implemented on `main` at commit `c5ce516e8bedabd9281b166193ee895b09344d12`.
+
+Completed checkpoints:
+1. Atomic round publication with database-authoritative `startedAt`, `deadlineAt`, and server-time snapshot.
+2. Public current-round projection and immutable, idempotent answer submission.
+3. Dedicated Quick Battle AI Judge worker with persisted attempts, lease fencing, retry/backoff, stale-lease recovery, and technical void on exhaustion.
+4. Dedicated deadline/finalization worker with explicit `NO_RESPONSE`, early completion after terminal judging, sequential next-round publication, and tenth-round match completion.
+5. Reconnect recovery through the same match/current-round API without pausing or resetting the deadline.
+
+PostgreSQL integration coverage includes concurrent publication, concurrent answer submissions, answer/deadline race serialization, exact idempotent replay, duplicate answer rejection, AI Judge success and exhausted provider failure, stale lease fencing, reconnect deadline preservation, timeout behavior, and the complete ten-round lifecycle. The ten-round lifecycle test confirms all ten rounds complete with no points or competitive settlement.
+
+CI run: [45900270750](https://github.com/iniya-studio/App-Nexira-/actions/runs/45900270750) — passed Prisma formatting, schema validation, Prisma Client generation, PostgreSQL migration deployment, NestJS production build, unit tests, PostgreSQL integration tests, ESLint, staging Compose validation, and staging Docker image build.
+
+Verification boundary:
+- CI uses deterministic question-generator and AI-judge test doubles. It verifies persistence, worker lifecycle, retries, concurrency, and state transitions; it does not claim a live paid AI provider call or production server deployment.
+- The provider adapter is wired. Live provider smoke testing and production deployment remain gated by the Armenia account/payment dependency recorded in `docs/NEXIRA-PRODUCT-DELIVERY-DEPENDENCIES.md`.
+- Client/UI integration remains in the separately planned client-integration stage.
+- 1v1 and 1vAI were not modified. Quick Battle scoring, XP, standard Ranking, event rewards, fees, and payments remain deferred and unapproved.
