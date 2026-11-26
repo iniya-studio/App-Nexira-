@@ -23,7 +23,7 @@ export class QuickBattleRoundPublicationWorker implements OnModuleInit, OnModule
     if (this.timer) clearInterval(this.timer);
   }
 
-  async runOnce(): Promise<boolean> {
+  async runOnce(matchId?: string): Promise<boolean> {
     return this.prisma.$transaction(async (tx) => {
       const candidates = await tx.$queryRaw<Candidate[]>`
         SELECT match."id"
@@ -32,6 +32,7 @@ export class QuickBattleRoundPublicationWorker implements OnModuleInit, OnModule
           ON next_round."matchId" = match."id"
           AND next_round."roundNumber" = match."currentRound" + 1
         WHERE match."status" IN ('READY', 'ACTIVE')
+          AND (${matchId ?? null}::uuid IS NULL OR match."id" = ${matchId ?? null}::uuid)
           AND match."currentRound" < match."roundsTarget"
           AND next_round."questionId" IS NOT NULL
           AND next_round."startedAt" IS NULL
