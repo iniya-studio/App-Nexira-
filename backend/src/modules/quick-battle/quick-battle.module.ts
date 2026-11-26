@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 import { QUESTION_GENERATOR } from '../match/question-generator.port';
 import { OpenAiResponsesQuestionGeneratorAdapter } from '../match/openai-responses-question-generator.adapter';
+import { FREE_TEXT_ANSWER_JUDGE } from '../match/answer-judge.port';
+import { OpenAiResponsesAnswerJudgeAdapter } from '../match/openai-responses-answer-judge.adapter';
 import { QuickBattleController } from './quick-battle.controller';
 import { QuickBattleQuestionGenerationWorker } from './quick-battle-question-generation.worker';
 import { QuickBattleService } from './quick-battle.service';
 import { QuickBattleRoundPublicationWorker } from './quick-battle-round-publication.worker';
+import { QuickBattleAnswerJudgeWorker } from './quick-battle-answer-judge.worker';
 
 @Module({
   controllers: [QuickBattleController],
@@ -12,7 +15,9 @@ import { QuickBattleRoundPublicationWorker } from './quick-battle-round-publicat
     QuickBattleService,
     QuickBattleQuestionGenerationWorker,
     QuickBattleRoundPublicationWorker,
+    QuickBattleAnswerJudgeWorker,
     { provide: QUESTION_GENERATOR, useClass: OpenAiResponsesQuestionGeneratorAdapter },
+    { provide: FREE_TEXT_ANSWER_JUDGE, useClass: OpenAiResponsesAnswerJudgeAdapter },
   ],
   exports: [QuickBattleService],
 })
