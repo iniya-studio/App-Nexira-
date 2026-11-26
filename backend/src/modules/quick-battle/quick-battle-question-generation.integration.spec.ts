@@ -1,0 +1,343 @@
+import { PrincipalType, QuickBattleStatus } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
+import { QuestionGenerationError, QuestionGenerator } from '../match/question-generator.port';
+import { GeneratedQuestion } from '../match/question.types';
+import { QuickBattleQuestionGenerationWorker } from './quick-battle-question-generation.worker';
+import { QuickBattleService } from './quick-battle.service';
+
+describe('Quick Battle question generation PostgreSQL integration', () => {
+  const prisma = new PrismaService();
+  const service = new QuickBattleService(prisma);
+  const matchIds: string[] = [];
+  const guestIds: string[] = [];
+
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
+
+  afterEach(async () => {
+    if (matchIds.length > 0) {
+      const [jobs, rounds] = await Promise.all([
+        prisma.quickBattleQuestionJob.findMany({
+          where: { matchId: { in: matchIds } },
+          select: { generatedQuestionId: true },
+        }),
+        prisma.quickBattleRound.findMany({
+          where: { matchId: { in: matchIds } },
+          select: { questionId: true },
+        }),
+      ]);
+      const questionIds = [...new Set([
+        ...jobs.map((job) => job.generatedQuestionId),
+        ...rounds.map((round) => round.questionId),
+      ].filter((id): id is string => id !== null))];
+      await prisma.quickBattleMatch.deleteMany({
+        where: { id: { in: matchIds } },
+      });
+      if (questionIds.length > 0) {
+        await prisma.question.deleteMany({
+          where: { id: { in: questionIds } },
+        });
+      }
+      matchIds.length = 0;
+    }
+    if (guestIds.length > 0) {
+      await prisma.guestIdentity.deleteMany({
+        where: { id: { in: guestIds } },
+      });
+      guestIds.length = 0;
+    }
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  async function createGuestMatch() {
+    const guest = await prisma.guestIdentity.create({ data: {} });
+    guestIds.push(guest.id);
+    const principal: AuthenticatedPrincipal = {
+      principalType: PrincipalType.GUEST,
+      principalId: guest.id,
+      sessionId: randomUUID(),
+    };
+    const match = await service.createOrRecover(principal, 'en');
+    matchIds.push(match.id);
+    return { guest, principal, match };
+  }
+
+  function generatedQuestion(
+    input: Parameters<QuestionGenerator['generate']>[0],
+    prompt = `Quick Battle question ${randomUUID()}`,
+  ): GeneratedQuestion {
+    return {
+      category: input.category,
+      difficulty: input.difficulty,
+      canonicalLanguage: input.language,
+      answerType: input.answerType,
+      canonicalPrompt: prompt,
+      canonicalOptions: null,
+      answerKey: 'Mercury',
+      gradingRubric: {
+        requiredConcepts: ['Mercury'],
+        acceptEquivalentWording: true,
+      },
+      localized: {
+        [input.language]: { prompt },
+      },
+      timeLimitSeconds: input.timeLimitSeconds,
+      contentVersion: `quick-battle-test-${randomUUID()}`,
+      generatorVersion: 'quick-battle-test-generator-v1',
+      modelVersion: 'quick-battle-test-model-v1',
+      generationPolicyVersion: 'quick-battle-test-policy-v1',
+    };
+  }
+
+  async function firstThreeJobs(matchId: string) {
+    return prisma.quickBattleQuestionJob.findMany({
+      where: { matchId, round: { roundNumber: { lte: 3 } } },
+      orderBy: { round: { roundNumber: 'asc' } },
+    });
+  }
+
+  it('makes a match READY only after three valid questions have been persisted', async () => {
+    const { match } = await createGuestMatch();
+    const generator: QuestionGenerator = {
+      generate: jest.fn(async (input) => generatedQuestion(input)),
+    };
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+    await expect(worker.runOnce()).resolves.toBe(true);
+    let state = await prisma.quickBattleMatch.findUniqueOrThrow({
+      where: { id: match.id },
+      select: { status: true },
+    });
+    expect(state.status).toBe(QuickBattleStatus.PREPARING);
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+    state = await prisma.quickBattleMatch.findUniqueOrThrow({
+      where: { id: match.id },
+      select: { status: true },
+    });
+    expect(state.status).toBe(QuickBattleStatus.READY);
+
+    const [rounds, jobs] = await Promise.all([
+      prisma.quickBattleRound.findMany({
+        where: { matchId: match.id, roundNumber: { lte: 3 } },
+      }),
+      firstThreeJobs(match.id),
+    ]);
+    expect(rounds).toHaveLength(3);
+    expect(rounds.every((round) => round.questionId !== null)).toBe(true);
+    expect(jobs).toHaveLength(3);
+    expect(jobs.every((job) => job.status === 'COMPLETED')).toBe(true);
+
+    const remaining = await prisma.quickBattleQuestionJob.count({
+      where: { matchId: match.id, status: 'PENDING' },
+    });
+    expect(remaining).toBe(7);
+    expect(generator.generate).toHaveBeenCalledTimes(3);
+  });
+
+  it('retries provider failures with backoff and technically voids after the final attempt', async () => {
+    const { match } = await createGuestMatch();
+    const jobs = await firstThreeJobs(match.id);
+    const target = jobs[0];
+    await prisma.quickBattleQuestionJob.updateMany({
+      where: { id: { in: jobs.slice(1).map((job) => job.id) } },
+      data: { availableAt: new Date(Date.now() + 60_000) },
+    });
+    const generator: QuestionGenerator = {
+      generate: jest.fn().mockRejectedValue(
+        new QuestionGenerationError('GENERATOR_PROVIDER_TIMEOUT', 'Synthetic timeout'),
+      ),
+    };
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await expect(worker.runOnce()).resolves.toBe(true);
+      if (attempt < 3) {
+        await prisma.quickBattleQuestionJob.update({
+          where: { id: target.id },
+          data: { availableAt: new Date(Date.now() - 10_000) },
+        });
+      }
+    }
+
+    const [job, updatedMatch] = await Promise.all([
+      prisma.quickBattleQuestionJob.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.quickBattleMatch.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { status: true, voidReason: true },
+      }),
+    ]);
+    expect(job).toMatchObject({
+      status: 'FAILED',
+      attempts: 3,
+      lastErrorCode: 'GENERATOR_PROVIDER_TIMEOUT',
+    });
+    expect(updatedMatch).toEqual({
+      status: QuickBattleStatus.VOIDED,
+      voidReason: 'QUESTION_GENERATION_EXHAUSTED',
+    });
+    expect(generator.generate).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejects invalid localization and never persists the question', async () => {
+    const { match } = await createGuestMatch();
+    const jobs = await firstThreeJobs(match.id);
+    await prisma.quickBattleQuestionJob.updateMany({
+      where: { id: { in: jobs.slice(1).map((job) => job.id) } },
+      data: { availableAt: new Date(Date.now() + 60_000) },
+    });
+    const generator: QuestionGenerator = {
+      generate: jest.fn(async (input) => ({
+        ...generatedQuestion(input),
+        localized: { fr: { prompt: 'Une question' } },
+      })),
+    };
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    const [job, questionCount] = await Promise.all([
+      prisma.quickBattleQuestionJob.findUniqueOrThrow({ where: { id: jobs[0].id } }),
+      prisma.question.count({
+        where: { quickBattleGeneratedBy: { is: { matchId: match.id } } },
+      }),
+    ]);
+    expect(job).toMatchObject({
+      status: 'PENDING',
+      attempts: 1,
+      lastErrorCode: 'QUESTION_LOCALIZATION_INVALID',
+    });
+    expect(questionCount).toBe(0);
+  });
+
+  it('recovers an expired lease, fences the stale worker, and persists only the fresh result', async () => {
+    const { match } = await createGuestMatch();
+    const jobs = await firstThreeJobs(match.id);
+    const target = jobs[0];
+    await prisma.quickBattleQuestionJob.updateMany({
+      where: { id: { in: jobs.slice(1).map((job) => job.id) } },
+      data: { availableAt: new Date(Date.now() + 60_000) },
+    });
+
+    let signalStarted!: () => void;
+    let releaseSlow!: (question: GeneratedQuestion) => void;
+    const generationStarted = new Promise<void>((resolve) => {
+      signalStarted = resolve;
+    });
+    const slowResult = new Promise<GeneratedQuestion>((resolve) => {
+      releaseSlow = resolve;
+    });
+    const staleGenerator: QuestionGenerator = {
+      generate: jest.fn(async () => {
+        signalStarted();
+        return slowResult;
+      }),
+    };
+    const staleWorker = new QuickBattleQuestionGenerationWorker(prisma, staleGenerator);
+    const staleAttempt = staleWorker.runOnce();
+    await generationStarted;
+
+    const freshGenerator: QuestionGenerator = {
+      generate: jest.fn(async (input) => generatedQuestion(input, 'Fresh lease wins')),
+    };
+    const freshWorker = new QuickBattleQuestionGenerationWorker(prisma, freshGenerator);
+    await expect(freshWorker.runOnce()).resolves.toBe(false);
+
+    await prisma.quickBattleQuestionJob.update({
+      where: { id: target.id },
+      data: { leaseAt: new Date(Date.now() - 120_000) },
+    });
+    await expect(freshWorker.runOnce()).resolves.toBe(true);
+
+    releaseSlow(generatedQuestion(
+      {
+        category: target.requestContext && typeof target.requestContext === 'object'
+          ? String((target.requestContext as Record<string, unknown>).category)
+          : 'science',
+        difficulty: target.requestContext && typeof target.requestContext === 'object'
+          ? String((target.requestContext as Record<string, unknown>).difficulty)
+          : 'medium',
+        language: 'en',
+        requiredLocales: ['en'],
+        answerType: 'FREE_TEXT',
+        timeLimitSeconds: 30,
+        excludedQuestionIds: [],
+        excludedQuestionFingerprints: [],
+      },
+      'Stale worker must not win',
+    ));
+    await staleAttempt;
+
+    const [job, round, questionCount] = await Promise.all([
+      prisma.quickBattleQuestionJob.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.quickBattleRound.findUniqueOrThrow({ where: { id: target.roundId } }),
+      prisma.question.count({
+        where: { quickBattleGeneratedBy: { is: { matchId: match.id } } },
+      }),
+    ]);
+    expect(job).toMatchObject({ status: 'COMPLETED', attempts: 2 });
+    expect(round.questionId).toBe(job.generatedQuestionId);
+    expect(questionCount).toBe(1);
+    const persisted = await prisma.question.findUniqueOrThrow({
+      where: { id: job.generatedQuestionId! },
+    });
+    expect(persisted.canonicalPrompt).toBe('Fresh lease wins');
+    expect(staleGenerator.generate).toHaveBeenCalledTimes(1);
+    expect(freshGenerator.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('excludes the same guest’s recently served Quick Battle questions from the next match', async () => {
+    const { guest, principal, match: firstMatch } = await createGuestMatch();
+    const firstGenerator: QuestionGenerator = {
+      generate: jest.fn(async (input) => generatedQuestion(input, 'Previously served prompt')),
+    };
+    const firstWorker = new QuickBattleQuestionGenerationWorker(prisma, firstGenerator);
+    await expect(firstWorker.runOnce()).resolves.toBe(true);
+
+    const firstJob = await prisma.quickBattleQuestionJob.findFirstOrThrow({
+      where: { matchId: firstMatch.id, status: 'COMPLETED' },
+      include: { generatedQuestion: true },
+    });
+    const firstRound = await prisma.quickBattleRound.findUniqueOrThrow({
+      where: { id: firstJob.roundId },
+    });
+    await prisma.quickBattleRound.update({
+      where: { id: firstRound.id },
+      data: { startedAt: new Date() },
+    });
+    await prisma.quickBattleMatch.update({
+      where: { id: firstMatch.id },
+      data: {
+        status: QuickBattleStatus.VOIDED,
+        voidedAt: new Date(),
+        voidReason: 'TEST_COMPLETED_HISTORY',
+      },
+    });
+
+    const secondMatch = await service.createOrRecover(principal, 'en');
+    matchIds.push(secondMatch.id);
+    let capturedInput: Parameters<QuestionGenerator['generate']>[0] | undefined;
+    const secondGenerator: QuestionGenerator = {
+      generate: jest.fn(async (input) => {
+        capturedInput = input;
+        return generatedQuestion(input, 'A new prompt for the next match');
+      }),
+    };
+    const secondWorker = new QuickBattleQuestionGenerationWorker(prisma, secondGenerator);
+    await expect(secondWorker.runOnce()).resolves.toBe(true);
+
+    expect(capturedInput?.excludedQuestionIds).toContain(firstJob.generatedQuestionId);
+    expect(capturedInput?.excludedQuestionFingerprints).toContain(
+      firstJob.generatedQuestion?.contentFingerprint,
+    );
+    expect(capturedInput?.excludedQuestionPrompts).toContain('Previously served prompt');
+    expect(guest.id).toBe(principal.principalId);
+  });
+});
