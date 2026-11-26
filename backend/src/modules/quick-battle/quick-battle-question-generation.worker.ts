@@ -9,7 +9,6 @@ import {
   Prisma,
   QuickBattleStatus,
 } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   parseQuestionGenerationInput,
@@ -134,6 +133,9 @@ export class QuickBattleQuestionGenerationWorker
         ],
       };
       const generated = validateGeneratedQuestion(await this.generator.generate(input));
+      if (generated.category !== input.category || generated.difficulty !== input.difficulty || generated.canonicalLanguage !== input.language || generated.answerType !== input.answerType || generated.timeLimitSeconds !== input.timeLimitSeconds) {
+        throw new QuestionGenerationError('GENERATOR_SETTINGS_MISMATCH', 'Generated question does not match its persisted request');
+      }
       await this.persistGeneratedQuestion(claim, generated, input);
     } catch (error) {
       const code = generationErrorCode(error);
@@ -165,17 +167,7 @@ export class QuickBattleQuestionGenerationWorker
         RETURNING job."id", job."matchId"
       `;
       for (const job of exhausted) {
-        await tx.quickBattleMatch.updateMany({
-          where: {
-            id: job.matchId,
-            status: { in: [QuickBattleStatus.PREPARING, QuickBattleStatus.READY, QuickBattleStatus.ACTIVE] },
-          },
-          data: {
-            status: QuickBattleStatus.VOIDED,
-            voidedAt: new Date(),
-            voidReason: 'QUESTION_GENERATION_EXHAUSTED',
-          },
-        });
+        await tx.$executeRaw`UPDATE "QuickBattleMatch" SET "status" = 'VOIDED', "voidedAt" = clock_timestamp(), "voidReason" = 'QUESTION_GENERATION_EXHAUSTED' WHERE "id" = ${job.matchId}::uuid AND "status" IN ('PREPARING', 'READY', 'ACTIVE')`;
       }
 
       const claims = await tx.$queryRaw<QuickBattleGenerationClaim[]>`
@@ -280,6 +272,7 @@ export class QuickBattleQuestionGenerationWorker
           where: { id: claim.id },
           data: { status: 'CANCELLED', leaseId: null, leaseAt: null, completedAt: now, lastErrorCode: 'GENERATOR_SETTINGS_MISMATCH' },
         });
+        await tx.$executeRaw`UPDATE "QuickBattleMatch" SET "status" = 'VOIDED', "voidedAt" = clock_timestamp(), "voidReason" = 'GENERATION_CONTEXT_MISMATCH' WHERE "id" = ${claim.matchId}::uuid AND "status" IN ('PREPARING', 'READY', 'ACTIVE')`;
         return;
       }
 
@@ -397,13 +390,16 @@ export class QuickBattleQuestionGenerationWorker
       }
 
       const delaySeconds = Math.min(30, 2 ** Math.max(0, current.attempts - 1));
+      const retryClock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
+      const retryAt = retryClock[0]?.now;
+      if (!(retryAt instanceof Date)) throw new Error('Database clock did not return a valid retry timestamp');
       await tx.quickBattleQuestionJob.update({
         where: { id: claim.id },
         data: {
           status: 'PENDING',
           leaseId: null,
           leaseAt: null,
-          availableAt: new Date(Date.now() + delaySeconds * 1000),
+          availableAt: new Date(retryAt.getTime() + delaySeconds * 1000),
           lastErrorCode: errorCode,
         },
       });
