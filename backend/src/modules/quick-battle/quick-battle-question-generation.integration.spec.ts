@@ -321,6 +321,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
 
     const firstRound = await prisma.quickBattleRound.findFirstOrThrow({
       where: { matchId: match.id, questionId: { not: null } },
+      orderBy: { roundNumber: 'asc' },
     });
     const secondWorker = new QuickBattleQuestionGenerationWorker(prisma, {
       generate: jest.fn(async (input) => generatedQuestion(input, repeatedPrompt)),
