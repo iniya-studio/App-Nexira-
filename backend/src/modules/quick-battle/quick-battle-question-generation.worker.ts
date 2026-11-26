@@ -48,6 +48,7 @@ const SAFE_GENERATION_ERRORS = new Set([
   'GENERATOR_OPTIONS_INVALID',
   'GENERATOR_OUTPUT_INVALID',
   'GENERATOR_PROVIDER_EMPTY_OUTPUT',
+  'GENERATOR_PROVIDER_HTTP_ERROR',
   'GENERATOR_PROVIDER_INCOMPLETE',
   'GENERATOR_PROVIDER_INVALID_JSON',
   'GENERATOR_PROVIDER_INVALID_RESPONSE',
@@ -492,7 +493,8 @@ export class QuickBattleQuestionGenerationWorker
 
       if (current.attempts >= current.maxAttempts) {
         const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
-        const failedAt = clock[0]?.now ?? new Date();
+        const failedAt = clock[0]?.now;
+        if (!(failedAt instanceof Date)) throw new Error('Database clock did not return a valid failure timestamp');
         await tx.quickBattleQuestionJob.update({
           where: { id: claim.id },
           data: {
