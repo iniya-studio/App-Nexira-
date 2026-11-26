@@ -381,9 +381,12 @@ export class QuickBattleQuestionGenerationWorker
         select: { status: true },
       });
       if (!matchState || ![QuickBattleStatus.PREPARING, QuickBattleStatus.READY, QuickBattleStatus.ACTIVE].includes(matchState.status)) {
+        const cancelledClock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
+        const cancelledAt = cancelledClock[0]?.now;
+        if (!(cancelledAt instanceof Date)) throw new Error('Database clock did not return a valid cancellation timestamp');
         await tx.quickBattleQuestionJob.update({
           where: { id: claim.id },
-          data: { status: 'CANCELLED', leaseId: null, leaseAt: null, completedAt: new Date(), lastErrorCode: 'MATCH_NOT_ACTIVE' },
+          data: { status: 'CANCELLED', leaseId: null, leaseAt: null, completedAt: cancelledAt, lastErrorCode: 'MATCH_NOT_ACTIVE' },
         });
         return;
       }
