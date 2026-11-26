@@ -588,7 +588,6 @@ model QuickBattleMatch {
   language                String            @db.VarChar(16)
   roundsTarget            Int               @default(10)
   currentRound            Int               @default(0)
-  totalScore              Int               @default(0)
   generationPolicyVersion String            @default("quick-battle-generation-v1") @db.VarChar(64)
   scoringPolicyVersion    String            @default("quick-battle-scoring-pending") @db.VarChar(64)
   startedAt               DateTime?         @db.Timestamptz(3)
@@ -657,6 +656,7 @@ model QuickBattleQuestionJob {
 
   @@index([status, availableAt])
   @@index([status, leaseAt])
+  @@unique([roundId, matchId])
   @@index([matchId, createdAt])
 }
 
@@ -670,7 +670,7 @@ model QuickBattleAnswer {
   decision       JudgeDecision?
   confidence     Float?        
   elapsedMs      Int           
-  points         Int            @default(0)
+  points         Int?
   judgeReason    String?       
   judgeVersion   String?       
   idempotencyKey String         @unique
@@ -680,6 +680,7 @@ model QuickBattleAnswer {
   match QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
   round QuickBattleRound @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
 
+  @@unique([roundId, matchId])
   @@index([matchId, acceptedAt])
   @@index([judgeStatus, acceptedAt])
 }
