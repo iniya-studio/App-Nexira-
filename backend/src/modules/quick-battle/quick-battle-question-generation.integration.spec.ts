@@ -6,6 +6,8 @@ import { QuestionGenerationError, QuestionGenerator } from '../match/question-ge
 import { GeneratedQuestion } from '../match/question.types';
 import { QuickBattleQuestionGenerationWorker } from './quick-battle-question-generation.worker';
 import { QuickBattleRoundPublicationWorker } from './quick-battle-round-publication.worker';
+import { QuickBattleAnswerJudgeWorker } from './quick-battle-answer-judge.worker';
+import { FreeTextAnswerJudge, FreeTextJudgeInput, FreeTextJudgeResult, FreeTextJudgeError } from '../match/answer-judge.port';
 import { QuickBattleService } from './quick-battle.service';
 
 describe('Quick Battle question generation PostgreSQL integration', () => {
@@ -86,7 +88,10 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
         acceptEquivalentWording: true,
       },
       localized: {
-        [input.language]: { prompt },
+        [input.language]: {
+          prompt, expectedAnswer: 'Mercury',
+          gradingRubric: { requiredConcepts: ['Mercury'], acceptEquivalentWording: true },
+        },
       },
       timeLimitSeconds: input.timeLimitSeconds,
       contentVersion: `quick-battle-test-${randomUUID()}`,
@@ -102,6 +107,60 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
       orderBy: { round: { roundNumber: 'asc' } },
     });
   }
+
+  it('judges a submitted answer through the dedicated Quick Battle worker without scoring', async () => {
+    const { match, principal } = await createGuestMatch();
+    const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
+    const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+    await generationWorker.runOnce(); await generationWorker.runOnce(); await generationWorker.runOnce();
+    await new QuickBattleRoundPublicationWorker(prisma).runOnce();
+    const receipt = await service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-judge-001');
+    const judgeResult: FreeTextJudgeResult = {
+      decision: 'CORRECT', confidence: 0.99, reasonCode: 'MEANING_MATCH',
+      rationale: 'The response matches the expected answer.',
+      provider: 'test', model: 'deterministic-test', policyVersion: 'test-v1',
+    };
+    const judge: FreeTextAnswerJudge = { judge: jest.fn(async (_input: FreeTextJudgeInput) => judgeResult) };
+    const worker = new QuickBattleAnswerJudgeWorker(prisma, judge);
+    await expect(worker.runOnce(match.id)).resolves.toBe(true);
+    const answer = await prisma.quickBattleAnswer.findUniqueOrThrow({ where: { id: receipt.answerId } });
+    expect(judge.judge).toHaveBeenCalledWith(expect.objectContaining({
+      language: 'en', expectedAnswer: 'Mercury', participantResponse: 'Mercury',
+    }));
+    expect(answer).toMatchObject({
+      judgeStatus: 'COMPLETED', decision: 'CORRECT', points: null,
+      judgeVersion: 'test:deterministic-test:test-v1',
+    });
+  });
+
+  it('voids the Quick Battle match after exhausted AI Judge provider failures', async () => {
+    const { match, principal } = await createGuestMatch();
+    const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
+    const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+    await generationWorker.runOnce(); await generationWorker.runOnce(); await generationWorker.runOnce();
+    await new QuickBattleRoundPublicationWorker(prisma).runOnce();
+    await service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-judge-002');
+    const judge: FreeTextAnswerJudge = {
+      judge: jest.fn().mockRejectedValue(new FreeTextJudgeError('JUDGE_PROVIDER_TIMEOUT', 'Synthetic timeout')),
+    };
+    const worker = new QuickBattleAnswerJudgeWorker(prisma, judge);
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      if (attempt > 1) await prisma.quickBattleAnswer.updateMany({
+        where: { matchId: match.id }, data: { judgeAvailableAt: new Date(Date.now() - 10_000) },
+      });
+      await expect(worker.runOnce(match.id)).resolves.toBe(true);
+    }
+    const [answer, updatedMatch] = await Promise.all([
+      prisma.quickBattleAnswer.findFirstOrThrow({ where: { matchId: match.id } }),
+      prisma.quickBattleMatch.findUniqueOrThrow({
+        where: { id: match.id }, select: { status: true, voidReason: true },
+      }),
+    ]);
+    expect(answer).toMatchObject({
+      judgeStatus: 'FAILED', judgeAttempts: 3, lastErrorCode: 'JUDGE_PROVIDER_TIMEOUT',
+    });
+    expect(updatedMatch).toEqual({ status: QuickBattleStatus.VOIDED, voidReason: 'JUDGE_RETRY_EXHAUSTED' });
+  });
 
   it('publishes the first generated round once and accepts one immutable answer', async () => {
     const { match, principal } = await createGuestMatch();
