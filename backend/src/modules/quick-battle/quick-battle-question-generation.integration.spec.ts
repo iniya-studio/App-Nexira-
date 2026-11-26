@@ -279,6 +279,128 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     expect(freshGenerator.generate).toHaveBeenCalledTimes(1);
   });
 
+
+  it('continues background generation after the first-three readiness gate opens', async () => {
+    const { match } = await createGuestMatch();
+    const generator: QuestionGenerator = {
+      generate: jest.fn(async (input) => generatedQuestion(input)),
+    };
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+
+    for (let index = 0; index < 3; index += 1) {
+      await expect(worker.runOnce()).resolves.toBe(true);
+    }
+    await expect(
+      prisma.quickBattleMatch.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: QuickBattleStatus.READY });
+
+    await expect(worker.runOnce()).resolves.toBe(true);
+
+    expect(
+      await prisma.quickBattleRound.count({
+        where: {
+          matchId: match.id,
+          roundNumber: { gt: 3 },
+          questionId: { not: null },
+        },
+      }),
+    ).toBe(1);
+    expect(generator.generate).toHaveBeenCalledTimes(4);
+  });
+
+  it('rejects a repeated question fingerprint within the same Quick Battle match', async () => {
+    const { match } = await createGuestMatch();
+    const repeatedPrompt = 'Which planet is known as the Red Planet?';
+    const firstWorker = new QuickBattleQuestionGenerationWorker(prisma, {
+      generate: jest.fn(async (input) => generatedQuestion(input, repeatedPrompt)),
+    });
+    await expect(firstWorker.runOnce()).resolves.toBe(true);
+
+    const firstRound = await prisma.quickBattleRound.findFirstOrThrow({
+      where: { matchId: match.id, questionId: { not: null } },
+    });
+    const secondWorker = new QuickBattleQuestionGenerationWorker(prisma, {
+      generate: jest.fn(async (input) => generatedQuestion(input, repeatedPrompt)),
+    });
+    await expect(secondWorker.runOnce()).resolves.toBe(true);
+
+    const [retryJob, questionCount] = await Promise.all([
+      prisma.quickBattleQuestionJob.findFirstOrThrow({
+        where: {
+          matchId: match.id,
+          status: 'PENDING',
+          round: { roundNumber: { gt: firstRound.roundNumber, lte: 3 } },
+        },
+      }),
+      prisma.question.count({
+        where: { quickBattleGeneratedBy: { is: { matchId: match.id } } },
+      }),
+    ]);
+    expect(retryJob).toMatchObject({
+      attempts: 1,
+      lastErrorCode: 'GENERATOR_DUPLICATE_QUESTION',
+    });
+    expect(questionCount).toBe(1);
+    expect(
+      await prisma.quickBattleRound.count({
+        where: {
+          matchId: match.id,
+          roundNumber: { gt: firstRound.roundNumber, lte: 3 },
+          questionId: { not: null },
+        },
+      }),
+    ).toBe(0);
+  });
+
+  it('voids a match when the final processing lease expires without a worker result', async () => {
+    const { match } = await createGuestMatch();
+    const jobs = await firstThreeJobs(match.id);
+    const target = jobs[0];
+    await prisma.quickBattleQuestionJob.update({
+      where: { id: target.id },
+      data: {
+        status: 'PROCESSING',
+        attempts: 3,
+        maxAttempts: 3,
+        leaseId: randomUUID(),
+        leaseAt: new Date(Date.now() - 120_000),
+      },
+    });
+    await prisma.quickBattleQuestionJob.updateMany({
+      where: { id: { in: jobs.slice(1).map((job) => job.id) } },
+      data: { availableAt: new Date(Date.now() + 60_000) },
+    });
+    const generator: QuestionGenerator = {
+      generate: jest.fn(async (input) => generatedQuestion(input)),
+    };
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+
+    await expect(worker.runOnce()).resolves.toBe(false);
+
+    const [job, updatedMatch] = await Promise.all([
+      prisma.quickBattleQuestionJob.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.quickBattleMatch.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { status: true, voidReason: true },
+      }),
+    ]);
+    expect(job).toMatchObject({
+      status: 'FAILED',
+      attempts: 3,
+      leaseId: null,
+      leaseAt: null,
+      lastErrorCode: 'GENERATOR_LEASE_EXPIRED',
+    });
+    expect(updatedMatch).toEqual({
+      status: QuickBattleStatus.VOIDED,
+      voidReason: 'QUESTION_GENERATION_EXHAUSTED',
+    });
+    expect(generator.generate).not.toHaveBeenCalled();
+  });
+
   it('excludes the same guest’s recently served Quick Battle questions from the next match', async () => {
     const { guest, principal, match: firstMatch } = await createGuestMatch();
     const firstGenerator: QuestionGenerator = {
