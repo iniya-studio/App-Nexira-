@@ -152,32 +152,37 @@ export class QuickBattleService {
         language: true,
         roundsTarget: true,
         currentRound: true,
-        totalScore: true,
-        generationPolicyVersion: true,
-        scoringPolicyVersion: true,
         startedAt: true,
         completedAt: true,
-        voidedAt: true,
-        voidReason: true,
         createdAt: true,
         rounds: {
           orderBy: { roundNumber: 'asc' },
           select: {
             roundNumber: true,
-            category: true,
-            difficulty: true,
             questionId: true,
             startedAt: true,
             deadlineAt: true,
             completedAt: true,
             voidedAt: true,
-            generationJob: { select: { status: true, lastErrorCode: true } },
           },
         },
       },
     });
     if (!match) throw new NotFoundException('Quick Battle not found');
-    return match;
+    return {
+      id: match.id,
+      status: match.status,
+      language: match.language,
+      roundsTarget: match.roundsTarget,
+      currentRound: match.currentRound,
+      startedAt: match.startedAt,
+      completedAt: match.completedAt,
+      createdAt: match.createdAt,
+      rounds: match.rounds.map(({ questionId, ...round }) => ({
+        ...round,
+        questionReady: questionId !== null,
+      })),
+    };
   }
 
   private ownerWhere(principal: AuthenticatedPrincipal) {
