@@ -48,6 +48,23 @@ enum MatchStatus {
   CANCELLED
 }
 
+enum QuickBattleStatus {
+  PREPARING
+  READY
+  ACTIVE
+  COMPLETED
+  VOIDED
+  CANCELLED
+}
+
+enum QuickBattleGenerationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 enum MatchmakingEntryStatus {
   WAITING
   MATCHED
@@ -185,6 +202,7 @@ model User {
   xpTransactions          XPTransaction[]
   globalRanking           GlobalUserRanking?
   matchParticipants       MatchParticipant[]
+  quickBattles            QuickBattleMatch[]
   hostedRooms             Room[]                   @relation("RoomHost")
   roomMemberships         RoomMember[]
   rankings                UserRanking[]
@@ -255,6 +273,7 @@ model GuestIdentity {
   sessions                UserSession[]
   conversionReplay        GuestConversionReplay?
   matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
+  quickBattles            QuickBattleMatch[]
   emailVerificationTokens EmailVerificationToken[]
   companionProfile        CompanionProfile?
   progress                GuestProgress?
@@ -553,10 +572,117 @@ model Question {
   contentFingerprint      String?  @db.VarChar(64)
   createdAt               DateTime @default(now()) @db.Timestamptz(3)
 
-  round          Round?
-  generatedByJob QuestionGenerationJob?
+  round                  Round?
+  generatedByJob         QuestionGenerationJob?
+  quickBattleRound       QuickBattleRound?
+  quickBattleGeneratedBy QuickBattleQuestionJob?
 
   @@index([contentFingerprint])
+}
+
+model QuickBattleMatch {
+  id                      String            @id @default(uuid()) @db.Uuid
+  userId                  String?           @db.Uuid
+  guestIdentityId         String?           @db.Uuid
+  status                  QuickBattleStatus @default(PREPARING)
+  language                String            @db.VarChar(16)
+  roundsTarget            Int               @default(10)
+  currentRound            Int               @default(0)
+  generationPolicyVersion String            @default("quick-battle-generation-v1") @db.VarChar(64)
+  scoringPolicyVersion    String            @default("quick-battle-scoring-pending") @db.VarChar(64)
+  startedAt               DateTime?         @db.Timestamptz(3)
+  completedAt             DateTime?         @db.Timestamptz(3)
+  voidedAt                DateTime?         @db.Timestamptz(3)
+  voidReason              String?           @db.VarChar(64)
+  createdAt               DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime          @updatedAt @db.Timestamptz(3)
+
+  user           User?                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  guestIdentity  GuestIdentity?           @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  rounds         QuickBattleRound[]
+  generationJobs QuickBattleQuestionJob[]
+  answers        QuickBattleAnswer[]
+
+  @@index([status, createdAt])
+  @@index([userId, status, createdAt])
+  @@index([guestIdentityId, status, createdAt])
+}
+
+model QuickBattleRound {
+  id            String    @id @default(uuid()) @db.Uuid
+  matchId       String    @db.Uuid
+  roundNumber   Int
+  category      String    @db.VarChar(64)
+  subcategoryId String    @db.VarChar(64)
+  difficulty    String    @db.VarChar(32)
+  questionId    String?   @unique @db.Uuid
+  startedAt     DateTime? @db.Timestamptz(3)
+  deadlineAt    DateTime? @db.Timestamptz(3)
+  completedAt   DateTime? @db.Timestamptz(3)
+  voidedAt      DateTime? @db.Timestamptz(3)
+  voidReason    String?   @db.VarChar(64)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  match         QuickBattleMatch        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  question      Question?               @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  answer        QuickBattleAnswer?
+  generationJob QuickBattleQuestionJob?
+
+  @@unique([matchId, roundNumber])
+  @@unique([id, matchId])
+  @@index([matchId, startedAt])
+}
+
+model QuickBattleQuestionJob {
+  id                  String                      @id @default(uuid()) @db.Uuid
+  matchId             String                      @db.Uuid
+  roundId             String                      @unique @db.Uuid
+  generatedQuestionId String?                     @unique @db.Uuid
+  status              QuickBattleGenerationStatus @default(PENDING)
+  requestContext      Json
+  attempts            Int                         @default(0)
+  maxAttempts         Int                         @default(3)
+  availableAt         DateTime                    @default(now()) @db.Timestamptz(3)
+  leaseId             String?                     @db.Uuid
+  leaseAt             DateTime?                   @db.Timestamptz(3)
+  lastErrorCode       String?                     @db.VarChar(64)
+  idempotencyKey      String                      @unique
+  createdAt           DateTime                    @default(now()) @db.Timestamptz(3)
+  completedAt         DateTime?                   @db.Timestamptz(3)
+
+  match             QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  round             QuickBattleRound @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  generatedQuestion Question?        @relation(fields: [generatedQuestionId], references: [id], onDelete: Restrict)
+
+  @@unique([roundId, matchId])
+  @@index([status, availableAt])
+  @@index([status, leaseAt])
+  @@index([matchId, createdAt])
+}
+
+model QuickBattleAnswer {
+  id             String         @id @default(uuid()) @db.Uuid
+  matchId        String         @db.Uuid
+  roundId        String         @unique @db.Uuid
+  responseText   String?        @db.Text
+  status         AnswerStatus
+  judgeStatus    JudgeStatus    @default(PENDING)
+  decision       JudgeDecision?
+  confidence     Float?
+  elapsedMs      Int
+  points         Int?
+  judgeReason    String?
+  judgeVersion   String?
+  idempotencyKey String         @unique
+  acceptedAt     DateTime       @default(now()) @db.Timestamptz(3)
+  judgedAt       DateTime?      @db.Timestamptz(3)
+
+  match QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  round QuickBattleRound @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+
+  @@unique([roundId, matchId])
+  @@index([matchId, acceptedAt])
+  @@index([judgeStatus, acceptedAt])
 }
 
 model QuestionGenerationJob {

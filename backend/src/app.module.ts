@@ -7,6 +7,7 @@ import { HealthModule } from './modules/health/health.module';
 import { GuestIdentityModule } from './modules/guest-identity/guest-identity.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { MatchModule } from './modules/match/match.module';
+import { QuickBattleModule } from './modules/quick-battle/quick-battle.module';
 import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
 import { ProgressionModule } from './modules/progression/progression.module';
 import { ProfileModule } from './modules/profile/profile.module';
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AccountModule,
     CompanionModule,
     MatchModule,
+    QuickBattleModule,
     MatchmakingModule,
     ProgressionModule,
     ProfileModule,
