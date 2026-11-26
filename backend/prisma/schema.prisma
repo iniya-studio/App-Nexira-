@@ -661,26 +661,26 @@ model QuickBattleQuestionJob {
 }
 
 model QuickBattleAnswer {
-  id             String         @id @default(uuid()) @db.Uuid
-  matchId        String         @db.Uuid
-  roundId        String         @unique @db.Uuid
-  responseText   String?        @db.Text
-  status         AnswerStatus
-  judgeStatus    JudgeStatus    @default(PENDING)
-  decision       JudgeDecision?
-  confidence     Float?
-  elapsedMs      Int
-  points         Int?
-  judgeReason    String?
-  judgeVersion    String?
-  judgeAttempts   Int       @default(0)
-  judgeStartedAt  DateTime? @db.Timestamptz(3)
-  judgeAvailableAt DateTime @default(now()) @db.Timestamptz(3)
-  judgeLeaseId    String?   @db.Uuid
-  lastErrorCode   String?   @db.VarChar(64)
-  idempotencyKey String         @unique
-  acceptedAt     DateTime       @default(now()) @db.Timestamptz(3)
-  judgedAt       DateTime?      @db.Timestamptz(3)
+  id               String         @id @default(uuid()) @db.Uuid
+  matchId          String         @db.Uuid
+  roundId          String         @unique @db.Uuid
+  responseText     String?        @db.Text
+  status           AnswerStatus
+  judgeStatus      JudgeStatus    @default(PENDING)
+  decision         JudgeDecision?
+  confidence       Float?
+  elapsedMs        Int
+  points           Int?
+  judgeReason      String?
+  judgeVersion     String?
+  judgeAttempts    Int            @default(0)
+  judgeStartedAt   DateTime?      @db.Timestamptz(3)
+  judgeAvailableAt DateTime       @default(now()) @db.Timestamptz(3)
+  judgeLeaseId     String?        @db.Uuid
+  lastErrorCode    String?        @db.VarChar(64)
+  idempotencyKey   String         @unique
+  acceptedAt       DateTime       @default(now()) @db.Timestamptz(3)
+  judgedAt         DateTime?      @db.Timestamptz(3)
 
   match QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
   round QuickBattleRound @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
