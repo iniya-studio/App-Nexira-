@@ -113,10 +113,13 @@ export class QuickBattleRoundFinalizationWorker implements OnModuleInit, OnModul
       if (completed.count !== 1) return false;
 
       if (round.roundNumber === match.roundsTarget) {
-        await tx.quickBattleMatch.updateMany({
+        const completedMatch = await tx.quickBattleMatch.updateMany({
           where: { id: match.id, status: QuickBattleStatus.ACTIVE, currentRound: round.roundNumber },
           data: { status: QuickBattleStatus.COMPLETED, completedAt: now },
         });
+        if (completedMatch.count !== 1) {
+          throw new Error('Quick Battle match could not be completed after its final round');
+        }
       }
       return true;
     });
