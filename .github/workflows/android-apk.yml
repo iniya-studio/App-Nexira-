@@ -72,16 +72,10 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
           working-directory: app/android
+          # android-emulator-runner parses this input as one shell command per physical line.
+          # Keep failure handling and post-test diagnostics inside a single bash process.
           script: |
-            set +e
-            ./gradlew connectedDebugAndroidTest --stacktrace
-            TEST_EXIT=$?
-            mkdir -p build/android-instrumentation-diagnostics
-            adb devices -l > build/android-instrumentation-diagnostics/adb-devices.txt 2>&1 || true
-            adb logcat -d -b all -v threadtime > build/android-instrumentation-diagnostics/logcat-all.txt 2>&1 || true
-            adb shell dumpsys activity processes > build/android-instrumentation-diagnostics/activity-processes.txt 2>&1 || true
-            adb shell dumpsys package com.nexira.prototype > build/android-instrumentation-diagnostics/package-info.txt 2>&1 || true
-            exit "$TEST_EXIT"
+            bash -c 'set +e; ./gradlew connectedDebugAndroidTest --stacktrace; TEST_EXIT=$?; mkdir -p build/android-instrumentation-diagnostics; adb devices -l > build/android-instrumentation-diagnostics/adb-devices.txt 2>&1 || true; adb logcat -d -b all -v threadtime > build/android-instrumentation-diagnostics/logcat-all.txt 2>&1 || true; adb shell dumpsys activity processes > build/android-instrumentation-diagnostics/activity-processes.txt 2>&1 || true; adb shell dumpsys package com.nexira.prototype > build/android-instrumentation-diagnostics/package-info.txt 2>&1 || true; exit "$TEST_EXIT"'
 
       - name: Upload Android instrumentation diagnostics
         if: always()
