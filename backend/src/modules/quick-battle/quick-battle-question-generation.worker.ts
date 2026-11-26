@@ -84,7 +84,7 @@ function hasHighLexicalSimilarity(first: string, second: string): boolean {
   return minimumCoverage >= 0.82 && jaccard >= 0.65;
 }
 
-type ExclusionQuestion = {
+export type ExclusionQuestion = {
   questionId: string | null;
   question: { contentFingerprint: string | null; canonicalPrompt: string } | null;
 };
