@@ -1,9 +1,8 @@
 # NEX-QB-002 — Quick Battle Architecture & Implementation Baseline
 
-Status: Independent architecture locked; backend foundation and dedicated generation pipeline implemented on branch; runtime verification pending
-Branch: `feature/quick-battle-foundation`
-Base branch: `main`
-Baseline commit: `98e9beec55bc4777009f905e19c0f8280ba33e40`
+Status: Independent architecture locked; backend foundation and dedicated generation pipeline implemented on `main`; recent-history exclusion and focused unit tests added; latest changes awaiting CI/runtime verification
+Working branch: `main`
+Implementation base: `f94e22460e98296931e12c17a6acbc1bf702f6c6`
 
 ## 1. Purpose and non-negotiable boundary
 
@@ -98,9 +97,9 @@ The existing match lifecycle is specifically 1v1/1vAI oriented:
 
 Do not register the existing match workers as Quick Battle workers, do not make them claim Quick Battle jobs, and do not route Quick Battle requests through `MatchService`, `RoundService`, `AnswerService`, or `MatchSettlementService`.
 
-### 3.3 Current branch implementation (2026-11-26)
+### 3.3 Current main implementation (2026-11-26)
 
-The baseline audit above records what existed before Quick Battle implementation. The following changes are now present on `feature/quick-battle-foundation`:
+The baseline audit above records what existed before Quick Battle implementation. The following changes are now present on `main`:
 
 - This document was rewritten to remove 1vAI lifecycle ownership from Quick Battle.
 - A dedicated Prisma aggregate was added: `QuickBattleMatch`, `QuickBattleRound`, `QuickBattleQuestionJob`, and `QuickBattleAnswer`.
@@ -112,10 +111,12 @@ The baseline audit above records what existed before Quick Battle implementation
 - A versioned difficulty plan currently uses 3 EASY, 4 MEDIUM and 3 HARD questions. The initial generation request currently uses FREE_TEXT and a 30-second answer limit. These are provisional engineering defaults only; they are not final product decisions and must be approved before gameplay/competitive launch.
 - `QuickBattleQuestionGenerationWorker` claims only dedicated Quick Battle jobs, reuses the generic question-generator port/adapter and pure validation/fingerprint utilities, persists accepted questions, retries invalid/provider-failed output, and marks a match READY only after the first three questions are valid.
 - While a match is PREPARING, only its first three jobs are eligible. Once READY, the remaining question jobs can be generated in the background.
-- Question duplicate rejection currently covers earlier questions in the same Quick Battle match. A per-principal recent-history exclusion is still pending.
+- Duplicate rejection covers earlier generated questions in the same Quick Battle match. The worker also loads at most the 100 most recently served Quick Battle questions for the same principal and merges their IDs, fingerprints and canonical prompts into the generation exclusions.
+- Recent-history scope is deliberately restricted to Quick Battle: a round is history-eligible only when `startedAt IS NOT NULL` and `questionId IS NOT NULL`; generated-but-never-served rounds are not included. USER and GUEST ownership are resolved independently from the owning Quick Battle match. The current match is excluded from this historical query because its generated questions are already covered by same-match exclusions.
+- Added `quick-battle-question-generation.worker.spec.ts` with focused tests for merging existing exclusions, deduplication, missing question relations and immutability of the persisted generation context.
 - The existing Match/1vAI workers and `MatchSettlementService` are not registered as Quick Battle workers and do not own Quick Battle state transitions.
 
-**Verification status:** no Prisma validation, migration application, Nest build, Jest test run or lint run has yet been executed against this branch. The code is committed to the feature branch, but must not be described as runtime-verified until those checks are run.
+**Verification status:** the focused worker helper tests have been added but have not yet been executed in this session. The prior backend CI baseline applies to the earlier backend commit, not automatically to these latest changes. Re-run Jest, Nest build, lint, Prisma validation and the relevant CI workflow before marking Stage 3 runtime-verified.
 
 ## 4. Architecture decision: separate aggregate and persistence
 
@@ -211,16 +212,17 @@ Use the existing access-token guard/principal contract. Do not expose another us
 - Completed by code inspection: existing 1vAI workers are tied to Match/QuestionGenerationJob and cannot select QuickBattle tables.
 
 ### Stage 2 — independent backend foundation
-- Implemented on the feature branch: dedicated Prisma models/migration, module, service, controller, DTOs and active-match recovery.
+- Implemented on `main`: dedicated Prisma models/migration, module, service, controller, DTOs and active-match recovery.
 - Implemented database owner XOR and per-principal active-match partial unique indexes.
 - Added focused service tests for ten-round creation, category diversity, difficulty plan, guest ownership, duplicate start recovery and registered-user locale authority.
-- Pending: execute Prisma validation/migration, build, tests and lint; add integration tests for database concurrency and authorization.
+- A prior backend CI run passed Prisma validation/migration, Nest build, Jest, ESLint and Docker validation/build on its tested commit. Re-run CI against the current `main` head after the latest Quick Battle changes; add integration tests for database concurrency and authorization.
 
 ### Stage 3 — independent question pipeline
 - Implemented: versioned category/difficulty plan, server-selected subcategory, dedicated generation queue and worker.
 - Implemented: reuse of the generator port/adapter and pure validation/fingerprint utilities only.
 - Implemented: first-three readiness gate, background generation after READY, same-match duplicate rejection and bounded retries with technical void on exhaustion.
-- Pending: runtime tests for retries, worker recovery, concurrent generation, localization, invalid output and question queue readiness; add per-principal recent-history duplicate exclusion.
+- Implemented: per-principal recent-history exclusion for USER and GUEST owners, limited to the 100 most recently served Quick Battle questions; generated-but-unserved rounds are excluded. IDs, fingerprints and canonical prompts are merged with same-match exclusions and deduplicated.
+- Added focused unit tests for exclusion merging, deduplication, null relations and input immutability. Pending: execute tests and add/complete worker lifecycle tests for retry exhaustion, stale-lease recovery, concurrent claims, invalid provider output, localization and readiness transitions. PostgreSQL concurrency guarantees require integration tests, not mocks alone.
 
 ### Stage 4 — gameplay and judging
 - Add dedicated round publication, answer submission, deadline, reconnect and round finalization.
@@ -250,9 +252,11 @@ Use the existing access-token guard/principal contract. Do not expose another us
 
 ## 11. Delivery rules
 
-- Work only on `feature/quick-battle-foundation`.
-- Never push changes to `main` or merge a PR without the user's explicit approval.
-- Inspect the actual branch files before editing; do not rely on conversation summaries.
+- Follow the repository's `AGENTS.md` as the mandatory source of truth for branch and delivery policy.
+- Routine, low-risk and independently verifiable work is performed directly on `main`.
+- Never create any branch without Milad's explicit prior approval. Do not create a Quick Battle feature branch merely to follow a generic workflow.
+- Never force-push, rewrite shared history, delete unrelated branches or change repository settings without explicit authorization.
+- Inspect the latest target-ref files before editing; do not rely on stale summaries.
 - Every code change must include focused tests. Run the relevant tests, Prisma validation/generation, build and lint as appropriate; report only commands actually executed and their real outcomes.
 - Do not claim a test passed unless it ran successfully.
 - Keep commits focused and document architectural decisions.
