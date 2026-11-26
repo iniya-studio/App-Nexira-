@@ -84,15 +84,15 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
   }
 
   private async recoverExhaustedLeases(): Promise<void> {
-    const stale = await this.prisma.quickBattleAnswer.findMany({
-      where: {
-        judgeStatus: JudgeStatus.PROCESSING,
-        judgeAttempts: { gte: MAX_ATTEMPTS },
-        judgeStartedAt: { lte: new Date(Date.now() - STALE_LEASE_SECONDS * 1000) },
-      },
-      select: { id: true, matchId: true, roundId: true },
-      take: 50,
-    });
+    const stale = await this.prisma.$queryRaw<Array<{ id: string; matchId: string; roundId: string }>>`
+      SELECT "id", "matchId", "roundId"
+      FROM "QuickBattleAnswer"
+      WHERE "judgeStatus" = 'PROCESSING'
+        AND "judgeAttempts" >= ${MAX_ATTEMPTS}
+        AND "judgeStartedAt" <= clock_timestamp() - (${STALE_LEASE_SECONDS} * INTERVAL '1 second')
+      ORDER BY "judgeStartedAt" ASC
+      LIMIT 50
+    `;
     for (const item of stale) {
       await this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT "id" FROM "QuickBattleMatch" WHERE "id" = ${item.matchId}::uuid FOR UPDATE`;
@@ -103,13 +103,19 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
           select: { judgeStatus: true, judgeAttempts: true, judgeStartedAt: true },
         });
         if (current?.judgeStatus !== JudgeStatus.PROCESSING || current.judgeAttempts < MAX_ATTEMPTS ||
-            !current.judgeStartedAt || current.judgeStartedAt.getTime() > Date.now() - STALE_LEASE_SECONDS * 1000) return;
+            !current.judgeStartedAt) return;
         const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
         const now = clock[0]?.now;
         if (!(now instanceof Date)) throw new Error('Database clock is unavailable');
+        if (current.judgeStartedAt.getTime() > now.getTime() - STALE_LEASE_SECONDS * 1000) return;
         await tx.quickBattleAnswer.update({
           where: { id: item.id },
-          data: { judgeStatus: JudgeStatus.FAILED, judgeStartedAt: null, judgeLeaseId: null, lastErrorCode: 'JUDGE_LEASE_RETRY_EXHAUSTED' },
+          data: {
+            judgeStatus: JudgeStatus.FAILED,
+            judgeStartedAt: null,
+            judgeLeaseId: null,
+            lastErrorCode: 'JUDGE_LEASE_RETRY_EXHAUSTED',
+          },
         });
         await tx.quickBattleRound.updateMany({
           where: { id: item.roundId, completedAt: null, voidedAt: null },
@@ -175,6 +181,20 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
         where: { id: claim.id }, select: { judgeStatus: true, judgeLeaseId: true },
       });
       if (current?.judgeStatus !== JudgeStatus.PROCESSING || current.judgeLeaseId !== claim.leaseId) return;
+      const [match, round] = await Promise.all([
+        tx.quickBattleMatch.findUnique({ where: { id: claim.matchId }, select: { status: true } }),
+        tx.quickBattleRound.findUnique({ where: { id: claim.roundId }, select: { completedAt: true, voidedAt: true } }),
+      ]);
+      if (!match || match.status !== QuickBattleStatus.ACTIVE || !round || round.completedAt || round.voidedAt) {
+        await tx.quickBattleAnswer.update({
+          where: { id: claim.id },
+          data: {
+            judgeStatus: JudgeStatus.FAILED, judgeStartedAt: null, judgeLeaseId: null,
+            lastErrorCode: 'JUDGE_SOURCE_NO_LONGER_ACTIVE',
+          },
+        });
+        return;
+      }
       const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
       const judgedAt = clock[0]?.now;
       if (!(judgedAt instanceof Date)) throw new Error('Database clock is unavailable');
@@ -235,7 +255,7 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
     });
   }
 
-  private async asRecord(value: unknown): Promise<Record<string, unknown> | null> {
+  private asRecord(value: unknown): Record<string, unknown> | null {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
     return value as Record<string, unknown>;
   }
