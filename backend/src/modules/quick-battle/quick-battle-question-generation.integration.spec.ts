@@ -113,6 +113,55 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     });
   }
 
+  it('completes the full ten-round lifecycle without creating competitive points', async () => {
+    const { match } = await createGuestMatch();
+    const generator: QuestionGenerator = {
+      generate: jest.fn(async (input) => generatedQuestion(input)),
+    };
+    const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+    for (let index = 0; index < 10; index += 1) await generationWorker.runOnce();
+
+    const publisher = new QuickBattleRoundPublicationWorker(prisma);
+    const finalizer = new QuickBattleRoundFinalizationWorker(prisma);
+    for (let roundNumber = 1; roundNumber <= 10; roundNumber += 1) {
+      await expect(publisher.runOnce(match.id)).resolves.toBe(true);
+      const round = await prisma.quickBattleRound.findUniqueOrThrow({
+        where: { matchId_roundNumber: { matchId: match.id, roundNumber } },
+        select: { id: true, startedAt: true, deadlineAt: true },
+      });
+      expect(round.startedAt).toBeInstanceOf(Date);
+      expect(round.deadlineAt).toBeInstanceOf(Date);
+      await prisma.quickBattleRound.update({
+        where: { id: round.id },
+        data: { deadlineAt: new Date(Date.now() - 1_000) },
+      });
+      await expect(finalizer.runOnce(match.id)).resolves.toBe(true);
+    }
+
+    const [completedMatch, rounds, answers] = await Promise.all([
+      prisma.quickBattleMatch.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { status: true, currentRound: true, completedAt: true },
+      }),
+      prisma.quickBattleRound.findMany({
+        where: { matchId: match.id },
+        select: { completedAt: true },
+      }),
+      prisma.quickBattleAnswer.findMany({
+        where: { matchId: match.id },
+        select: { status: true, points: true },
+      }),
+    ]);
+    expect(completedMatch).toMatchObject({ status: 'COMPLETED', currentRound: 10 });
+    expect(completedMatch.completedAt).toBeInstanceOf(Date);
+    expect(rounds).toHaveLength(10);
+    expect(rounds.every((round) => round.completedAt instanceof Date)).toBe(true);
+    expect(answers).toHaveLength(10);
+    expect(answers.every((answer) => answer.status === 'NO_RESPONSE' && answer.points === null)).toBe(true);
+    await expect(publisher.runOnce(match.id)).resolves.toBe(false);
+    await expect(finalizer.runOnce(match.id)).resolves.toBe(false);
+  });
+
   it('serializes concurrent answers and the deadline boundary on PostgreSQL', async () => {
     const { match, principal } = await createGuestMatch();
     const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
