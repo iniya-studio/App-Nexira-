@@ -10,6 +10,7 @@ import { QuickBattleAnswerJudgeWorker } from './quick-battle-answer-judge.worker
 import { QuickBattleRoundFinalizationWorker } from './quick-battle-round-finalization.worker';
 import { FreeTextAnswerJudge, FreeTextJudgeResult, FreeTextJudgeError } from '../match/answer-judge.port';
 import { QuickBattleService } from './quick-battle.service';
+import { QuickBattleResultFinalizationWorker } from './quick-battle-result-finalization.worker';
 
 describe('Quick Battle question generation PostgreSQL integration', () => {
   const prisma = new PrismaService();
@@ -696,4 +697,71 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     expect(capturedInput?.excludedQuestionPrompts).toContain('Previously served prompt');
     expect(guest.id).toBe(principal.principalId);
   });
+  it('finalizes the approved ten-round score and persists one immutable result', async () => {
+    const { match, principal } = await createGuestMatch();
+    const generator: QuestionGenerator = {
+      generate: jest.fn(async (input) => generatedQuestion(input)),
+    };
+    const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+    for (let index = 0; index < 10; index += 1) await generationWorker.runOnce();
+
+    const publisher = new QuickBattleRoundPublicationWorker(prisma);
+    const roundFinalizer = new QuickBattleRoundFinalizationWorker(prisma);
+    const judge: FreeTextAnswerJudge = {
+      judge: jest.fn(async (input) => ({
+        decision: input.participantResponse === 'Mercury' ? JudgeDecision.CORRECT : JudgeDecision.INCORRECT,
+        confidence: 1,
+        reasonCode: input.participantResponse === 'Mercury' ? 'MEANING_MATCH' : 'NO_MATCH',
+        rationale: 'Deterministic integration-test judgment.',
+        provider: 'test',
+        model: 'quick-battle-result-test',
+        policyVersion: 'test-v1',
+      })),
+    };
+    const judgeWorker = new QuickBattleAnswerJudgeWorker(prisma, judge);
+
+    for (let roundNumber = 1; roundNumber <= 10; roundNumber += 1) {
+      await expect(publisher.runOnce(match.id)).resolves.toBe(true);
+      if (roundNumber <= 7) {
+        const response = roundNumber <= 4 ? 'Mercury' : 'Venus';
+        const receipt = await service.submitAnswer(
+          match.id, roundNumber, principal, response, `quick-battle-score-${roundNumber}-001`,
+        );
+        await expect(judgeWorker.runOnce(match.id)).resolves.toBe(true);
+        if (roundNumber <= 4) {
+          await prisma.quickBattleAnswer.update({
+            where: { id: receipt.answerId },
+            data: { elapsedMs: 15000 },
+          });
+        }
+      } else {
+        await prisma.quickBattleRound.updateMany({
+          where: { matchId: match.id, roundNumber },
+          data: { deadlineAt: new Date(Date.now() - 1000) },
+        });
+      }
+      await expect(roundFinalizer.runOnce(match.id)).resolves.toBe(true);
+    }
+
+    const resultWorker = new QuickBattleResultFinalizationWorker(prisma);
+    await expect(resultWorker.runOnce(match.id)).resolves.toBe(true);
+    const result = await prisma.quickBattleResult.findUniqueOrThrow({ where: { matchId: match.id } });
+    expect(result).toMatchObject({
+      scoringPolicyVersion: 'quick-battle-score-v1',
+      totalPoints: 500,
+      correctAnswers: 4,
+      incorrectAnswers: 3,
+      noResponseCount: 3,
+    });
+    const scoredAnswers = await prisma.quickBattleAnswer.findMany({
+      where: { matchId: match.id },
+      orderBy: { createdAt: 'asc' },
+      select: { points: true },
+    });
+    expect(scoredAnswers).toHaveLength(10);
+    expect(scoredAnswers.filter((answer) => answer.points === 125)).toHaveLength(4);
+    expect(scoredAnswers.filter((answer) => answer.points === 0)).toHaveLength(6);
+    expect(await prisma.quickBattleResult.count({ where: { matchId: match.id } })).toBe(1);
+  });
+
 });
