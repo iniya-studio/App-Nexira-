@@ -1,6 +1,6 @@
 # NEX-QB-002 — Quick Battle Architecture & Implementation Baseline
 
-Status: Architecture baseline — implementation pending
+Status: Independent architecture locked; backend foundation and dedicated generation pipeline implemented on branch; runtime verification pending
 Branch: `feature/quick-battle-foundation`
 Base branch: `main`
 Baseline commit: `98e9beec55bc4777009f905e19c0f8280ba33e40`
@@ -98,6 +98,25 @@ The existing match lifecycle is specifically 1v1/1vAI oriented:
 
 Do not register the existing match workers as Quick Battle workers, do not make them claim Quick Battle jobs, and do not route Quick Battle requests through `MatchService`, `RoundService`, `AnswerService`, or `MatchSettlementService`.
 
+### 3.3 Current branch implementation (2026-11-26)
+
+The baseline audit above records what existed before Quick Battle implementation. The following changes are now present on `feature/quick-battle-foundation`:
+
+- This document was rewritten to remove 1vAI lifecycle ownership from Quick Battle.
+- A dedicated Prisma aggregate was added: `QuickBattleMatch`, `QuickBattleRound`, `QuickBattleQuestionJob`, and `QuickBattleAnswer`.
+- A dedicated migration adds database-enforced owner XOR, fixed ten-round matches, active-match partial unique indexes, round/job/answer uniqueness, and the required foreign keys.
+- `QuickBattleModule`, `QuickBattleService`, `QuickBattleController`, and the creation DTO are registered independently in `AppModule`.
+- Implemented endpoints: `POST /quick-battles`, `GET /quick-battles/active`, and `GET /quick-battles/:matchId`.
+- Match creation snapshots the registered user's profile locale, or the guest-selected locale; creates exactly ten round plans and ten dedicated generation jobs; and serializes repeated start requests per principal.
+- Ten distinct top-level categories are selected from the 23-category catalog. A subcategory is selected server-side within each category and persisted, because the existing provider adapter requires a specific subcategory for a valid generation request. The player does not choose either field.
+- A versioned difficulty plan currently uses 3 EASY, 4 MEDIUM and 3 HARD questions. The initial generation request currently uses FREE_TEXT and a 30-second answer limit. These are provisional engineering defaults only; they are not final product decisions and must be approved before gameplay/competitive launch.
+- `QuickBattleQuestionGenerationWorker` claims only dedicated Quick Battle jobs, reuses the generic question-generator port/adapter and pure validation/fingerprint utilities, persists accepted questions, retries invalid/provider-failed output, and marks a match READY only after the first three questions are valid.
+- While a match is PREPARING, only its first three jobs are eligible. Once READY, the remaining question jobs can be generated in the background.
+- Question duplicate rejection currently covers earlier questions in the same Quick Battle match. A per-principal recent-history exclusion is still pending.
+- The existing Match/1vAI workers and `MatchSettlementService` are not registered as Quick Battle workers and do not own Quick Battle state transitions.
+
+**Verification status:** no Prisma validation, migration application, Nest build, Jest test run or lint run has yet been executed against this branch. The code is committed to the feature branch, but must not be described as runtime-verified until those checks are run.
+
 ## 4. Architecture decision: separate aggregate and persistence
 
 Quick Battle will have a dedicated NestJS `QuickBattleModule` and a dedicated persistence aggregate, separate from the existing `Match` aggregate.
@@ -188,22 +207,20 @@ Use the existing access-token guard/principal contract. Do not expose another us
 ## 10. Implementation sequence
 
 ### Stage 1 — architecture and contract freeze
-- Complete this document and verify exact existing contracts, schema, migrations and tests.
-- Define Quick Battle state machine, API DTOs, persistence models, uniqueness constraints and worker boundaries.
-- Confirm that no existing 1vAI worker can select Quick Battle rows.
+- Completed: this document defines the independent aggregate, lifecycle, API direction, worker boundaries and guardrails.
+- Completed by code inspection: existing 1vAI workers are tied to Match/QuestionGenerationJob and cannot select QuickBattle tables.
 
 ### Stage 2 — independent backend foundation
-- Add dedicated Prisma models and migration.
-- Add `QuickBattleModule`, service, controller, DTOs and dedicated active-match recovery.
-- Add database-enforced active-match uniqueness per principal.
-- Add tests for USER/GUEST ownership, duplicate starts, authorization and lifecycle transitions.
+- Implemented on the feature branch: dedicated Prisma models/migration, module, service, controller, DTOs and active-match recovery.
+- Implemented database owner XOR and per-principal active-match partial unique indexes.
+- Added focused service tests for ten-round creation, category diversity, difficulty plan, guest ownership, duplicate start recovery and registered-user locale authority.
+- Pending: execute Prisma validation/migration, build, tests and lint; add integration tests for database concurrency and authorization.
 
 ### Stage 3 — independent question pipeline
-- Add versioned 23-category selection and difficulty policy.
-- Add Quick Battle generation queue and worker.
-- Reuse generator port/adapter and pure validation/fingerprint utilities only.
-- Prepare three validated questions before READY; maintain background queue and safe replacement.
-- Add tests for diversity, retry determinism, duplicate rejection, localization, invalid output and worker recovery.
+- Implemented: versioned category/difficulty plan, server-selected subcategory, dedicated generation queue and worker.
+- Implemented: reuse of the generator port/adapter and pure validation/fingerprint utilities only.
+- Implemented: first-three readiness gate, background generation after READY, same-match duplicate rejection and bounded retries with technical void on exhaustion.
+- Pending: runtime tests for retries, worker recovery, concurrent generation, localization, invalid output and question queue readiness; add per-principal recent-history duplicate exclusion.
 
 ### Stage 4 — gameplay and judging
 - Add dedicated round publication, answer submission, deadline, reconnect and round finalization.
