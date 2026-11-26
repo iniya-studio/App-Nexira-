@@ -69,7 +69,7 @@ const SAFE_GENERATION_ERRORS = new Set([
 
 function promptTokenSet(prompt: string): Set<string> {
   return new Set(
-    (prompt.normalize('NFKC').toLocaleLowerCase().match(/[\\p{L}\\p{N}]{2,}/gu) ?? []),
+    (prompt.normalize('NFKC').toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu) ?? []),
   );
 }
 
