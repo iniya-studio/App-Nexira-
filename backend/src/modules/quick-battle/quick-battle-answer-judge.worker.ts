@@ -125,6 +125,13 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
           where: { id: item.matchId, status: { in: [QuickBattleStatus.READY, QuickBattleStatus.ACTIVE] } },
           data: { status: QuickBattleStatus.VOIDED, voidedAt: now, voidReason: 'JUDGE_RETRY_EXHAUSTED' },
         });
+        await tx.quickBattleQuestionJob.updateMany({
+          where: { matchId: item.matchId, status: { in: ['PENDING', 'PROCESSING'] } },
+          data: {
+            status: 'CANCELLED', leaseId: null, leaseAt: null,
+            completedAt: now, lastErrorCode: 'MATCH_TECHNICAL_VOID',
+          },
+        });
       });
     }
   }
@@ -178,7 +185,7 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
       await tx.$queryRaw`SELECT "id" FROM "QuickBattleRound" WHERE "id" = ${claim.roundId}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT "id" FROM "QuickBattleAnswer" WHERE "id" = ${claim.id}::uuid FOR UPDATE`;
       const current = await tx.quickBattleAnswer.findUnique({
-        where: { id: claim.id }, select: { judgeStatus: true, judgeLeaseId: true },
+        where: { id: claim.id }, select: { judgeStatus: true, judgeLeaseId: true, judgeStartedAt: true },
       });
       if (current?.judgeStatus !== JudgeStatus.PROCESSING || current.judgeLeaseId !== claim.leaseId) return;
       const [match, round] = await Promise.all([
@@ -198,6 +205,8 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
       const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
       const judgedAt = clock[0]?.now;
       if (!(judgedAt instanceof Date)) throw new Error('Database clock is unavailable');
+      if (!current.judgeStartedAt ||
+          current.judgeStartedAt.getTime() <= judgedAt.getTime() - STALE_LEASE_SECONDS * 1000) return;
       await tx.quickBattleAnswer.update({
         where: { id: claim.id },
         data: {
@@ -222,7 +231,7 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
       await tx.$queryRaw`SELECT "id" FROM "QuickBattleAnswer" WHERE "id" = ${claim.id}::uuid FOR UPDATE`;
       const current = await tx.quickBattleAnswer.findUnique({
         where: { id: claim.id },
-        select: { judgeStatus: true, judgeLeaseId: true, judgeAttempts: true },
+        select: { judgeStatus: true, judgeLeaseId: true, judgeAttempts: true, judgeStartedAt: true },
       });
       if (current?.judgeStatus !== JudgeStatus.PROCESSING || current.judgeLeaseId !== claim.leaseId) return;
       const [matchState, roundState] = await Promise.all([
@@ -243,6 +252,8 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
       const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
       const now = clock[0]?.now;
       if (!(now instanceof Date)) throw new Error('Database clock is unavailable');
+      if (!current.judgeStartedAt ||
+          current.judgeStartedAt.getTime() <= now.getTime() - STALE_LEASE_SECONDS * 1000) return;
       if (current.judgeAttempts >= MAX_ATTEMPTS) {
         await tx.quickBattleAnswer.update({
           where: { id: claim.id },
@@ -255,6 +266,13 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
         await tx.quickBattleMatch.updateMany({
           where: { id: claim.matchId, status: { in: [QuickBattleStatus.READY, QuickBattleStatus.ACTIVE] } },
           data: { status: QuickBattleStatus.VOIDED, voidedAt: now, voidReason: 'JUDGE_RETRY_EXHAUSTED' },
+        });
+        await tx.quickBattleQuestionJob.updateMany({
+          where: { matchId: claim.matchId, status: { in: ['PENDING', 'PROCESSING'] } },
+          data: {
+            status: 'CANCELLED', leaseId: null, leaseAt: null,
+            completedAt: now, lastErrorCode: 'MATCH_TECHNICAL_VOID',
+          },
         });
         return;
       }
