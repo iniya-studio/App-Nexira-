@@ -65,4 +65,4 @@ See [backend/README.md](backend/README.md) for backend setup, health endpoints a
 - **NEXIRA Android APK** builds and tests the app from `app/`.
 - **Backend CI** validates Prisma, applies migrations to a temporary PostgreSQL service, builds the API, runs tests and lint from `backend/`.
 
-All reconstruction and development work is performed directly on `main` in small, verified stages. Historical source commits are used only as immutable recovery references; no feature branches, merges or parallel development branches are created.
+**Mandatory repository operating rules:** Read [`AGENTS.md`](AGENTS.md) before every work session. NEXIRA uses main-only development: do not create local or remote branches, worktrees, or pull requests unless Milad explicitly authorizes a specific exception in advance. Historical source commits are read-only recovery references.
