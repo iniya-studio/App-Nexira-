@@ -1,6 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { parseQuestionGenerationInput } from '../match/question-generation.context';
-import { mergeQuickBattleQuestionExclusions } from './quick-battle-question-generation.worker';
+import { PrismaService } from '../../prisma/prisma.service';
+import {
+  mergeQuickBattleQuestionExclusions,
+  QuickBattleQuestionGenerationWorker,
+} from './quick-battle-question-generation.worker';
 
 describe('mergeQuickBattleQuestionExclusions', () => {
   const input = parseQuestionGenerationInput({
@@ -101,5 +105,97 @@ describe('mergeQuickBattleQuestionExclusions', () => {
     ]);
 
     expect(input).toEqual(before);
+  });
+});
+
+describe('QuickBattleQuestionGenerationWorker recent history query', () => {
+  const requestContext = {
+    category: 'science',
+    subcategoryId: 'physics',
+    difficulty: 'medium',
+    language: 'en',
+    requiredLocales: ['en'],
+    answerType: 'FREE_TEXT',
+    timeLimitSeconds: 30,
+    excludedQuestionIds: [],
+    excludedQuestionFingerprints: [],
+  } as Prisma.JsonValue;
+
+  it.each([
+    [
+      'USER',
+      { userId: 'user-1', guestIdentityId: null },
+      { userId: 'user-1' },
+    ],
+    [
+      'GUEST',
+      { userId: null, guestIdentityId: 'guest-1' },
+      { guestIdentityId: 'guest-1' },
+    ],
+  ])('loads only served Quick Battle history for the %s principal', async (_type, owner, ownerFilter) => {
+    const sameMatchQuestions = [{
+      questionId: 'same-match-question',
+      question: {
+        contentFingerprint: 'same-match-fingerprint',
+        canonicalPrompt: 'Already generated in this match',
+      },
+    }];
+    const recentHistory = [{
+      questionId: 'recently-served-question',
+      question: {
+        contentFingerprint: 'recent-fingerprint',
+        canonicalPrompt: 'A previously served question',
+      },
+    }];
+    const prisma = {
+      quickBattleMatch: {
+        findUnique: jest.fn().mockResolvedValue(owner),
+      },
+      quickBattleRound: {
+        findMany: jest.fn()
+          .mockResolvedValueOnce(sameMatchQuestions)
+          .mockResolvedValueOnce(recentHistory),
+      },
+    } as unknown as PrismaService;
+    const generator = {
+      generate: jest.fn().mockRejectedValue(new Error('intentional test failure')),
+    };
+    const worker = new QuickBattleQuestionGenerationWorker(prisma, generator as never);
+    jest.spyOn(worker as any, 'claimNextJob').mockResolvedValue({
+      id: 'job-1',
+      matchId: 'current-match',
+      roundId: 'current-round',
+      attempts: 1,
+      maxAttempts: 3,
+      leaseId: 'lease-1',
+      requestContext,
+    });
+    jest.spyOn(worker as any, 'releaseClaim').mockResolvedValue(undefined);
+
+    await worker.runOnce();
+
+    expect(prisma.quickBattleMatch.findUnique).toHaveBeenCalledWith({
+      where: { id: 'current-match' },
+      select: { userId: true, guestIdentityId: true },
+    });
+    const historyQuery = (prisma.quickBattleRound.findMany as jest.Mock).mock.calls[1][0];
+    expect(historyQuery).toMatchObject({
+      where: {
+        matchId: { not: 'current-match' },
+        startedAt: { not: null },
+        questionId: { not: null },
+        match: { is: ownerFilter },
+      },
+      orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+      take: 100,
+    });
+    expect(generator.generate).toHaveBeenCalledWith(expect.objectContaining({
+      excludedQuestionIds: ['same-match-question', 'recently-served-question'],
+      excludedQuestionFingerprints: ['same-match-fingerprint', 'recent-fingerprint'],
+      excludedQuestionPrompts: [
+        'Already generated in this match',
+        'A previously served question',
+      ],
+    }));
   });
 });
