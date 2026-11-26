@@ -20,8 +20,6 @@ permissions:
 jobs:
   build-android-apk:
     name: Build and verify Android debug APK
-    # Standard Ubuntu runners in this repository do not expose /dev/kvm.
-    # Use the Intel macOS runner, where Android Emulator uses Hypervisor.framework.
     runs-on: macos-15-intel
     timeout-minutes: 30
     defaults:
@@ -62,7 +60,6 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          # Android framework Keystore is available in the AOSP image; GMS is not needed.
           target: default
           arch: x86_64
           profile: pixel_2
@@ -73,9 +70,10 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
           working-directory: app/android
-          # Keep failure handling and post-test diagnostics inside one bash process.
+          # Capture the exact dependency paths behind duplicate Kotlin classes before running tests.
+          # Keep diagnostics, test execution, and post-test device logs in one shell process.
           script: |
-            bash -c 'set +e; ./gradlew connectedDebugAndroidTest --stacktrace; TEST_EXIT=$?; mkdir -p build/android-instrumentation-diagnostics; adb devices -l > build/android-instrumentation-diagnostics/adb-devices.txt 2>&1 || true; adb logcat -d -b all -v threadtime > build/android-instrumentation-diagnostics/logcat-all.txt 2>&1 || true; adb shell dumpsys activity processes > build/android-instrumentation-diagnostics/activity-processes.txt 2>&1 || true; adb shell dumpsys activity lastanr > build/android-instrumentation-diagnostics/last-anr.txt 2>&1 || true; adb shell dumpsys dropbox --print data_app_anr > build/android-instrumentation-diagnostics/dropbox-data-app-anr.txt 2>&1 || true; adb shell dumpsys package com.nexira.prototype > build/android-instrumentation-diagnostics/package-info.txt 2>&1 || true; exit "$TEST_EXIT"'
+            bash -c 'set +e; mkdir -p build/android-instrumentation-diagnostics; ./gradlew :capacitor-cordova-android-plugins:dependencyInsight --configuration debugAndroidTestRuntimeClasspath --dependency kotlin-stdlib-jdk7 --console=plain > build/android-instrumentation-diagnostics/kotlin-jdk7-dependency-insight.txt 2>&1 || true; ./gradlew :capacitor-cordova-android-plugins:dependencyInsight --configuration debugAndroidTestRuntimeClasspath --dependency kotlin-stdlib-jdk8 --console=plain > build/android-instrumentation-diagnostics/kotlin-jdk8-dependency-insight.txt 2>&1 || true; ./gradlew :capacitor-cordova-android-plugins:dependencyInsight --configuration debugAndroidTestRuntimeClasspath --dependency kotlin-stdlib --console=plain > build/android-instrumentation-diagnostics/kotlin-stdlib-dependency-insight.txt 2>&1 || true; ./gradlew connectedDebugAndroidTest --stacktrace; TEST_EXIT=$?; adb devices -l > build/android-instrumentation-diagnostics/adb-devices.txt 2>&1 || true; adb logcat -d -b all -v threadtime > build/android-instrumentation-diagnostics/logcat-all.txt 2>&1 || true; adb shell dumpsys activity processes > build/android-instrumentation-diagnostics/activity-processes.txt 2>&1 || true; adb shell dumpsys activity lastanr > build/android-instrumentation-diagnostics/last-anr.txt 2>&1 || true; adb shell dumpsys dropbox --print data_app_anr > build/android-instrumentation-diagnostics/dropbox-data-app-anr.txt 2>&1 || true; adb shell dumpsys package com.nexira.prototype > build/android-instrumentation-diagnostics/package-info.txt 2>&1 || true; exit "$TEST_EXIT"'
 
       - name: Upload Android instrumentation diagnostics
         if: always()
