@@ -20,7 +20,9 @@ permissions:
 jobs:
   build-android-apk:
     name: Build and verify Android debug APK
-    runs-on: ubuntu-latest
+    # Standard Ubuntu runners in this repository do not expose /dev/kvm.
+    # Use the Intel macOS runner, where Android Emulator uses Hypervisor.framework.
+    runs-on: macos-15-intel
     timeout-minutes: 30
     defaults:
       run:
@@ -56,22 +58,11 @@ jobs:
       - name: Sync web assets for instrumentation tests
         run: npm run android:sync
 
-      - name: Enable KVM for hardware-accelerated Android Emulator
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          test -e /dev/kvm
-          test -r /dev/kvm
-          test -w /dev/kvm
-          ls -l /dev/kvm
-
       - name: Run Android Keystore instrumentation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          # The test exercises Android framework Keystore APIs only; Google Play services
-          # are not required. Keep the lean AOSP image and use host KVM acceleration.
+          # Android framework Keystore is available in the AOSP image; GMS is not needed.
           target: default
           arch: x86_64
           profile: pixel_2
