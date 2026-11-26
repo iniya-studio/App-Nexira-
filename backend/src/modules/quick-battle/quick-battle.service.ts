@@ -168,13 +168,20 @@ export class QuickBattleService {
       },
     });
     if (!match) throw new NotFoundException('Quick Battle not found');
+    const clock = await this.prisma.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
+    const serverNow = clock[0]?.now;
+    if (!(serverNow instanceof Date) || Number.isNaN(serverNow.getTime())) {
+      throw new Error('Database clock did not return a valid timestamp');
+    }
     const round = match.rounds.find((item) => item.roundNumber === match.currentRound);
     if (!round || !round.startedAt || !round.deadlineAt || !round.question) {
       return {
         matchId: match.id, matchStatus: match.status, currentRound: match.currentRound,
         roundsTarget: match.roundsTarget,
+        serverNow,
         state: match.status === QuickBattleStatus.VOIDED ? 'VOIDED'
           : match.status === QuickBattleStatus.COMPLETED ? 'COMPLETED'
+          : match.status === QuickBattleStatus.CANCELLED ? 'CANCELLED'
           : 'WAITING_FOR_PUBLICATION',
         round: null,
       };
@@ -187,7 +194,11 @@ export class QuickBattleService {
     return {
       matchId: match.id, matchStatus: match.status, currentRound: match.currentRound,
       roundsTarget: match.roundsTarget,
-      state: round.voidedAt ? 'VOIDED' : round.completedAt ? 'COMPLETED' : 'ACTIVE',
+      serverNow,
+      state: match.status === QuickBattleStatus.VOIDED ? 'VOIDED'
+        : match.status === QuickBattleStatus.COMPLETED ? 'COMPLETED'
+          : match.status === QuickBattleStatus.CANCELLED ? 'CANCELLED'
+            : round.voidedAt ? 'VOIDED' : round.completedAt ? 'COMPLETED' : 'ACTIVE',
       round: {
         id: round.id, roundNumber: round.roundNumber, startedAt: round.startedAt,
         deadlineAt: round.deadlineAt, completedAt: round.completedAt,
