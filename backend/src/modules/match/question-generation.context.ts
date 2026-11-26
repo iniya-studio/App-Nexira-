@@ -119,7 +119,10 @@ export function parseQuestionGenerationInput(
     !Array.isArray(context.excludedQuestionFingerprints) ||
     !context.excludedQuestionFingerprints.every(
       (fingerprint) => typeof fingerprint === 'string',
-    )
+    ) ||
+    (context.excludedQuestionPrompts !== undefined &&
+      (!Array.isArray(context.excludedQuestionPrompts) ||
+        !context.excludedQuestionPrompts.every((prompt) => typeof prompt === 'string')))
   ) {
     throw new Error('Persisted question generation context is invalid');
   }
@@ -134,6 +137,9 @@ export function parseQuestionGenerationInput(
     timeLimitSeconds: context.timeLimitSeconds,
     excludedQuestionIds: context.excludedQuestionIds,
     excludedQuestionFingerprints: context.excludedQuestionFingerprints,
+    excludedQuestionPrompts: Array.isArray(context.excludedQuestionPrompts)
+      ? context.excludedQuestionPrompts as string[]
+      : [],
   };
 }
 
