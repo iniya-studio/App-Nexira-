@@ -57,6 +57,7 @@ const SAFE_GENERATION_ERRORS = new Set([
   'GENERATOR_PROVIDER_TIMEOUT',
   'GENERATOR_RUBRIC_INVALID',
   'GENERATOR_SETTINGS_MISMATCH',
+  'GENERATOR_SIMILAR_QUESTION',
   'QUESTION_ANSWER_KEY_INVALID',
   'QUESTION_FINGERPRINT_INVALID',
   'QUESTION_LOCALIZATION_INVALID',
@@ -65,6 +66,23 @@ const SAFE_GENERATION_ERRORS = new Set([
   'QUESTION_RUBRIC_INVALID',
   'QUESTION_VERSION_INVALID',
 ]);
+
+function promptTokenSet(prompt: string): Set<string> {
+  return new Set(
+    (prompt.normalize('NFKC').toLocaleLowerCase().match(/[\\p{L}\\p{N}]{2,}/gu) ?? []),
+  );
+}
+
+function hasHighLexicalSimilarity(first: string, second: string): boolean {
+  const left = promptTokenSet(first);
+  const right = promptTokenSet(second);
+  if (left.size < 6 || right.size < 6) return false;
+  let overlap = 0;
+  for (const token of left) if (right.has(token)) overlap += 1;
+  const minimumCoverage = overlap / Math.min(left.size, right.size);
+  const jaccard = overlap / (left.size + right.size - overlap);
+  return minimumCoverage >= 0.82 && jaccard >= 0.65;
+}
 
 function generationErrorCode(error: unknown): string {
   if (
@@ -112,7 +130,7 @@ export class QuickBattleQuestionGenerationWorker
         where: { matchId: claim.matchId, questionId: { not: null } },
         select: {
           questionId: true,
-          question: { select: { contentFingerprint: true } },
+          question: { select: { contentFingerprint: true, canonicalPrompt: true } },
         },
       });
       const input = {
@@ -131,6 +149,9 @@ export class QuickBattleQuestionGenerationWorker
             ),
           ]),
         ],
+        excludedQuestionPrompts: priorQuestions.flatMap((item) =>
+          item.question?.canonicalPrompt ? [item.question.canonicalPrompt] : [],
+        ),
       };
       const generated = validateGeneratedQuestion(await this.generator.generate(input));
       if (generated.category !== input.category || generated.difficulty !== input.difficulty || generated.canonicalLanguage !== input.language || generated.answerType !== input.answerType || generated.timeLimitSeconds !== input.timeLimitSeconds) {
@@ -303,6 +324,24 @@ export class QuickBattleQuestionGenerationWorker
         throw new QuestionGenerationError(
           'GENERATOR_DUPLICATE_QUESTION',
           'Generated question duplicates an earlier question in this match',
+        );
+      }
+
+      const previousQuestions = await tx.quickBattleRound.findMany({
+        where: {
+          matchId: claim.matchId,
+          id: { not: claim.roundId },
+          questionId: { not: null },
+        },
+        select: { question: { select: { canonicalPrompt: true } } },
+      });
+      if (previousQuestions.some((item) =>
+        item.question?.canonicalPrompt &&
+        hasHighLexicalSimilarity(generated.canonicalPrompt, item.question.canonicalPrompt),
+      )) {
+        throw new QuestionGenerationError(
+          'GENERATOR_SIMILAR_QUESTION',
+          'Generated question is too similar to an earlier question in this match',
         );
       }
 
