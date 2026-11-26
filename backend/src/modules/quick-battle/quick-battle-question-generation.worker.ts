@@ -84,6 +84,44 @@ function hasHighLexicalSimilarity(first: string, second: string): boolean {
   return minimumCoverage >= 0.82 && jaccard >= 0.65;
 }
 
+type ExclusionQuestion = {
+  questionId: string | null;
+  question: { contentFingerprint: string | null; canonicalPrompt: string } | null;
+};
+
+export function mergeQuickBattleQuestionExclusions(
+  input: ReturnType<typeof parseQuestionGenerationInput>,
+  sameMatchQuestions: ExclusionQuestion[],
+  recentServedQuestions: ExclusionQuestion[],
+) {
+  const questions = [...sameMatchQuestions, ...recentServedQuestions];
+  return {
+    ...input,
+    excludedQuestionIds: [
+      ...new Set([
+        ...input.excludedQuestionIds,
+        ...questions.flatMap((item) => item.questionId ? [item.questionId] : []),
+      ]),
+    ],
+    excludedQuestionFingerprints: [
+      ...new Set([
+        ...input.excludedQuestionFingerprints,
+        ...questions.flatMap((item) =>
+          item.question?.contentFingerprint ? [item.question.contentFingerprint] : [],
+        ),
+      ]),
+    ],
+    excludedQuestionPrompts: [
+      ...new Set([
+        ...input.excludedQuestionPrompts,
+        ...questions.flatMap((item) =>
+          item.question?.canonicalPrompt ? [item.question.canonicalPrompt] : [],
+        ),
+      ]),
+    ],
+  };
+}
+
 function generationErrorCode(error: unknown): string {
   if (
     error instanceof QuestionGenerationError &&
@@ -133,26 +171,12 @@ export class QuickBattleQuestionGenerationWorker
           question: { select: { contentFingerprint: true, canonicalPrompt: true } },
         },
       });
-      const input = {
-        ...persistedInput,
-        excludedQuestionIds: [
-          ...new Set([
-            ...persistedInput.excludedQuestionIds,
-            ...priorQuestions.flatMap((item) => item.questionId ? [item.questionId] : []),
-          ]),
-        ],
-        excludedQuestionFingerprints: [
-          ...new Set([
-            ...persistedInput.excludedQuestionFingerprints,
-            ...priorQuestions.flatMap((item) =>
-              item.question?.contentFingerprint ? [item.question.contentFingerprint] : [],
-            ),
-          ]),
-        ],
-        excludedQuestionPrompts: priorQuestions.flatMap((item) =>
-          item.question?.canonicalPrompt ? [item.question.canonicalPrompt] : [],
-        ),
-      };
+      const recentServedQuestions = await this.getRecentServedQuestions(claim);
+      const input = mergeQuickBattleQuestionExclusions(
+        persistedInput,
+        priorQuestions,
+        recentServedQuestions,
+      );
       const generated = validateGeneratedQuestion(await this.generator.generate(input));
       if (generated.category !== input.category || generated.difficulty !== input.difficulty || generated.canonicalLanguage !== input.language || generated.answerType !== input.answerType || generated.timeLimitSeconds !== input.timeLimitSeconds) {
         throw new QuestionGenerationError('GENERATOR_SETTINGS_MISMATCH', 'Generated question does not match its persisted request');
@@ -164,6 +188,42 @@ export class QuickBattleQuestionGenerationWorker
       this.logger.warn(`Quick Battle question generation attempt failed: ${code}`);
     }
     return true;
+  }
+
+  private async getRecentServedQuestions(
+    claim: QuickBattleGenerationClaim,
+  ): Promise<ExclusionQuestion[]> {
+    const owner = await this.prisma.quickBattleMatch.findUnique({
+      where: { id: claim.matchId },
+      select: { userId: true, guestIdentityId: true },
+    });
+    if (!owner || (!owner.userId && !owner.guestIdentityId)) {
+      throw new Error('Quick Battle owner is unavailable for recent-question exclusion');
+    }
+
+    return this.prisma.quickBattleRound.findMany({
+      where: {
+        matchId: { not: claim.matchId },
+        startedAt: { not: null },
+        questionId: { not: null },
+        match: {
+          is: owner.userId
+            ? { userId: owner.userId }
+            : { guestIdentityId: owner.guestIdentityId },
+        },
+      },
+      orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+      take: 100,
+      select: {
+        questionId: true,
+        question: {
+          select: {
+            contentFingerprint: true,
+            canonicalPrompt: true,
+          },
+        },
+      },
+    });
   }
 
   private async claimNextJob(): Promise<QuickBattleGenerationClaim | null> {
