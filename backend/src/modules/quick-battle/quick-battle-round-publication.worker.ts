@@ -78,7 +78,7 @@ export class QuickBattleRoundPublicationWorker implements OnModuleInit, OnModule
       }
       const deadlineAt = new Date(startedAt.getTime() + round.question.timeLimitSeconds * 1000);
       const updated = await tx.quickBattleRound.updateMany({
-        where: { id: round.id, matchId, questionId: { not: null }, startedAt: null, completedAt: null, voidedAt: null },
+        where: { id: round.id, matchId: claimedMatchId, questionId: { not: null }, startedAt: null, completedAt: null, voidedAt: null },
         data: { startedAt, deadlineAt },
       });
       if (updated.count !== 1) return false;
