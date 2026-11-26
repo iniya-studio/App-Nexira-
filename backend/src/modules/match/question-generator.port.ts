@@ -12,6 +12,7 @@ export type QuestionGenerationInput = {
   timeLimitSeconds: number;
   excludedQuestionIds: string[];
   excludedQuestionFingerprints: string[];
+  excludedQuestionPrompts?: string[];
 };
 
 export class QuestionGenerationError extends Error {
