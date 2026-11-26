@@ -225,6 +225,21 @@ export class QuickBattleAnswerJudgeWorker implements OnModuleInit, OnModuleDestr
         select: { judgeStatus: true, judgeLeaseId: true, judgeAttempts: true },
       });
       if (current?.judgeStatus !== JudgeStatus.PROCESSING || current.judgeLeaseId !== claim.leaseId) return;
+      const [matchState, roundState] = await Promise.all([
+        tx.quickBattleMatch.findUnique({ where: { id: claim.matchId }, select: { status: true } }),
+        tx.quickBattleRound.findUnique({ where: { id: claim.roundId }, select: { completedAt: true, voidedAt: true } }),
+      ]);
+      if (!matchState || matchState.status !== QuickBattleStatus.ACTIVE ||
+          !roundState || roundState.completedAt || roundState.voidedAt) {
+        await tx.quickBattleAnswer.update({
+          where: { id: claim.id },
+          data: {
+            judgeStatus: JudgeStatus.FAILED, judgeStartedAt: null, judgeLeaseId: null,
+            lastErrorCode: 'JUDGE_SOURCE_NO_LONGER_ACTIVE',
+          },
+        });
+        return;
+      }
       const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
       const now = clock[0]?.now;
       if (!(now instanceof Date)) throw new Error('Database clock is unavailable');
