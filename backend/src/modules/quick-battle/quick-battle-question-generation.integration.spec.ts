@@ -579,6 +579,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
         where: {
           matchId: match.id,
           status: 'PENDING',
+          lastErrorCode: 'GENERATOR_DUPLICATE_QUESTION',
           round: { roundNumber: { gt: firstRound.roundNumber, lte: 3 } },
         },
       }),
