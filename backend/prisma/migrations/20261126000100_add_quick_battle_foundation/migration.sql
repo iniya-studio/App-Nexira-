@@ -12,7 +12,6 @@ CREATE TABLE "QuickBattleMatch" (
   "language" VARCHAR(16) NOT NULL,
   "roundsTarget" INTEGER NOT NULL DEFAULT 10,
   "currentRound" INTEGER NOT NULL DEFAULT 0,
-  "totalScore" INTEGER NOT NULL DEFAULT 0,
   "generationPolicyVersion" VARCHAR(64) NOT NULL DEFAULT 'quick-battle-generation-v1',
   "scoringPolicyVersion" VARCHAR(64) NOT NULL DEFAULT 'quick-battle-scoring-pending',
   "startedAt" TIMESTAMPTZ(3),
@@ -25,7 +24,6 @@ CREATE TABLE "QuickBattleMatch" (
   CONSTRAINT "QuickBattleMatch_owner_xor_check" CHECK (("userId" IS NOT NULL)::integer + ("guestIdentityId" IS NOT NULL)::integer = 1),
   CONSTRAINT "QuickBattleMatch_rounds_target_check" CHECK ("roundsTarget" = 10),
   CONSTRAINT "QuickBattleMatch_current_round_check" CHECK ("currentRound" >= 0 AND "currentRound" <= "roundsTarget"),
-  CONSTRAINT "QuickBattleMatch_score_nonnegative_check" CHECK ("totalScore" >= 0),
   CONSTRAINT "QuickBattleMatch_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "QuickBattleMatch_guestIdentityId_fkey" FOREIGN KEY ("guestIdentityId") REFERENCES "GuestIdentity"("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -101,7 +99,7 @@ CREATE TABLE "QuickBattleAnswer" (
   "decision" "JudgeDecision",
   "confidence" DOUBLE PRECISION,
   "elapsedMs" INTEGER NOT NULL,
-  "points" INTEGER NOT NULL DEFAULT 0,
+  "points" INTEGER,
   "judgeReason" TEXT,
   "judgeVersion" TEXT,
   "idempotencyKey" TEXT NOT NULL,
@@ -111,9 +109,9 @@ CREATE TABLE "QuickBattleAnswer" (
   CONSTRAINT "QuickBattleAnswer_matchId_fkey" FOREIGN KEY ("matchId") REFERENCES "QuickBattleMatch"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "QuickBattleAnswer_roundId_matchId_fkey" FOREIGN KEY ("roundId", "matchId") REFERENCES "QuickBattleRound"("id", "matchId") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "QuickBattleAnswer_elapsedMs_check" CHECK ("elapsedMs" >= 0),
-  CONSTRAINT "QuickBattleAnswer_points_check" CHECK ("points" >= 0)
 );
 CREATE UNIQUE INDEX "QuickBattleAnswer_roundId_key" ON "QuickBattleAnswer"("roundId");
+CREATE UNIQUE INDEX "QuickBattleAnswer_roundId_matchId_key" ON "QuickBattleAnswer"("roundId", "matchId");
 CREATE UNIQUE INDEX "QuickBattleAnswer_idempotencyKey_key" ON "QuickBattleAnswer"("idempotencyKey");
 CREATE INDEX "QuickBattleAnswer_matchId_acceptedAt_idx" ON "QuickBattleAnswer"("matchId", "acceptedAt");
 CREATE INDEX "QuickBattleAnswer_judgeStatus_acceptedAt_idx" ON "QuickBattleAnswer"("judgeStatus", "acceptedAt");
