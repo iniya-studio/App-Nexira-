@@ -438,7 +438,8 @@ describe('QuickBattleQuestionGenerationWorker lifecycle handling', () => {
     const claimSql = tx.$queryRaw.mock.calls[1][0].join('');
     expect(claimSql).toContain('FOR UPDATE OF job SKIP LOCKED');
     expect(claimSql).toContain('round."roundNumber" <= 3');
-    expect(claimSql).toContain("match."status" IN ('READY', 'ACTIVE')");
+    expect(claimSql).toContain('match."status" IN');
+    expect(claimSql).toContain("'READY', 'ACTIVE'");
     expect(claimSql).toContain('job."attempts" < job."maxAttempts"');
   });
 });
