@@ -13,7 +13,6 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
-import java.security.SecureRandom;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -56,10 +55,14 @@ public class SecureStoragePlugin extends Plugin {
     }
 
     private String encrypt(String plainText) throws Exception {
-        byte[] iv = new byte[IV_LENGTH];
-        new SecureRandom().nextBytes(iv);
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(TAG_LENGTH_BITS, iv));
+        // Android Keystore must generate the nonce while randomized encryption is required.
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
+        byte[] iv = cipher.getIV();
+        if (iv == null || iv.length != IV_LENGTH) {
+            throw new IllegalStateException("Android Keystore returned an invalid AES-GCM IV.");
+        }
+
         byte[] encrypted = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
         ByteBuffer buffer = ByteBuffer.allocate(iv.length + encrypted.length);
         buffer.put(iv);

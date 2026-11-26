@@ -73,3 +73,67 @@ jobs:
           path: app/build/NEXIRA-Android.apk
           if-no-files-found: error
           retention-days: 14
+
+  android-keystore-instrumentation:
+    name: Verify Android Keystore encrypted session storage
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync web assets for instrumentation tests
+        run: npm run android:sync
+
+      - name: Run Android Keystore instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: false
+          working-directory: app/android
+          script: |
+            bash -c 'set +e; mkdir -p build/android-instrumentation-diagnostics; ./gradlew connectedDebugAndroidTest --stacktrace; TEST_EXIT=$?; adb devices -l > build/android-instrumentation-diagnostics/adb-devices.txt 2>&1 || true; adb logcat -d -b all -v threadtime > build/android-instrumentation-diagnostics/logcat-all.txt 2>&1 || true; adb shell dumpsys activity processes > build/android-instrumentation-diagnostics/activity-processes.txt 2>&1 || true; adb shell dumpsys activity lastanr > build/android-instrumentation-diagnostics/last-anr.txt 2>&1 || true; adb shell dumpsys dropbox --print data_app_anr > build/android-instrumentation-diagnostics/dropbox-data-app-anr.txt 2>&1 || true; adb shell dumpsys package com.nexira.prototype > build/android-instrumentation-diagnostics/package-info.txt 2>&1 || true; exit "$TEST_EXIT"'
+
+      - name: Upload Android instrumentation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-instrumentation-diagnostics
+          path: |
+            app/android/build/android-instrumentation-diagnostics/
+            app/android/app/build/reports/androidTests/connected/debug/
+            app/android/app/build/outputs/androidTest-results/connected/
+          if-no-files-found: warn
+          retention-days: 7

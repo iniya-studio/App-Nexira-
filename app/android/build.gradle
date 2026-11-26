@@ -22,6 +22,21 @@ allprojects {
         google()
         mavenCentral()
     }
+
+    // Kotlin 1.8+ merged the JDK7/JDK8 extension classes into kotlin-stdlib.
+    // Align legacy transitive variants (currently requested as 1.6.21 by
+    // kotlinx-coroutines 1.6.4 through AndroidX lifecycle) with the resolved
+    // kotlin-stdlib 1.8.22 to prevent duplicate classes on Android test classpaths.
+    configurations.configureEach {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'org.jetbrains.kotlin' &&
+                (details.requested.name == 'kotlin-stdlib-jdk7' ||
+                 details.requested.name == 'kotlin-stdlib-jdk8')) {
+                details.useVersion '1.8.22'
+                details.because 'Align legacy JDK stdlib artifacts with kotlin-stdlib 1.8.22; JDK7/JDK8 classes were merged into kotlin-stdlib in Kotlin 1.8.'
+            }
+        }
+    }
 }
 
 task clean(type: Delete) {
