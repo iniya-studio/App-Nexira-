@@ -72,7 +72,28 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
           working-directory: app/android
-          script: ./gradlew connectedDebugAndroidTest
+          script: |
+            set +e
+            ./gradlew connectedDebugAndroidTest --stacktrace
+            TEST_EXIT=$?
+            mkdir -p build/android-instrumentation-diagnostics
+            adb devices -l > build/android-instrumentation-diagnostics/adb-devices.txt 2>&1 || true
+            adb logcat -d -b all -v threadtime > build/android-instrumentation-diagnostics/logcat-all.txt 2>&1 || true
+            adb shell dumpsys activity processes > build/android-instrumentation-diagnostics/activity-processes.txt 2>&1 || true
+            adb shell dumpsys package com.nexira.prototype > build/android-instrumentation-diagnostics/package-info.txt 2>&1 || true
+            exit "$TEST_EXIT"
+
+      - name: Upload Android instrumentation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-instrumentation-diagnostics
+          path: |
+            app/android/build/android-instrumentation-diagnostics/
+            app/android/app/build/reports/androidTests/connected/debug/
+            app/android/app/build/outputs/androidTest-results/connected/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Build web app and Android package
         env:
