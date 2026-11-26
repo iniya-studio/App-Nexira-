@@ -574,7 +574,7 @@ model Question {
 
   round                  Round?
   generatedByJob         QuestionGenerationJob?
-  quickBattleRounds      QuickBattleRound[]
+  quickBattleRound       QuickBattleRound?
   quickBattleGeneratedBy QuickBattleQuestionJob?
 
   @@index([contentFingerprint])
