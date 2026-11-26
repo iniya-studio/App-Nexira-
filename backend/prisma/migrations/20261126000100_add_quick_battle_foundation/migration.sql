@@ -117,5 +117,3 @@ CREATE UNIQUE INDEX "QuickBattleAnswer_idempotencyKey_key" ON "QuickBattleAnswer
 CREATE INDEX "QuickBattleAnswer_matchId_acceptedAt_idx" ON "QuickBattleAnswer"("matchId", "acceptedAt");
 CREATE INDEX "QuickBattleAnswer_judgeStatus_acceptedAt_idx" ON "QuickBattleAnswer"("judgeStatus", "acceptedAt");
 
-ALTER TABLE "User" ADD COLUMN "quickBattleMatches_placeholder" BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE "User" DROP COLUMN "quickBattleMatches_placeholder";
