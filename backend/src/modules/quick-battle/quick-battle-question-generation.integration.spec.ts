@@ -8,7 +8,7 @@ import { QuickBattleQuestionGenerationWorker } from './quick-battle-question-gen
 import { QuickBattleRoundPublicationWorker } from './quick-battle-round-publication.worker';
 import { QuickBattleAnswerJudgeWorker } from './quick-battle-answer-judge.worker';
 import { QuickBattleRoundFinalizationWorker } from './quick-battle-round-finalization.worker';
-import { FreeTextAnswerJudge, FreeTextJudgeInput, FreeTextJudgeResult, FreeTextJudgeError } from '../match/answer-judge.port';
+import { FreeTextAnswerJudge, FreeTextJudgeResult, FreeTextJudgeError } from '../match/answer-judge.port';
 import { QuickBattleService } from './quick-battle.service';
 
 describe('Quick Battle question generation PostgreSQL integration', () => {
@@ -219,7 +219,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
       rationale: 'The response matches the expected answer.',
       provider: 'test', model: 'deterministic-test', policyVersion: 'test-v1',
     };
-    const judge: FreeTextAnswerJudge = { judge: jest.fn(async (_input: FreeTextJudgeInput) => judgeResult) };
+    const judge: FreeTextAnswerJudge = { judge: jest.fn(async () => judgeResult) };
     const worker = new QuickBattleAnswerJudgeWorker(prisma, judge);
     await expect(worker.runOnce(match.id)).resolves.toBe(true);
     const answer = await prisma.quickBattleAnswer.findUniqueOrThrow({ where: { id: receipt.answerId } });
