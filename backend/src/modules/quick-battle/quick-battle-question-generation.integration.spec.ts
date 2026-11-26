@@ -109,6 +109,45 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     });
   }
 
+  it('serializes concurrent answers and the deadline boundary on PostgreSQL', async () => {
+    const { match, principal } = await createGuestMatch();
+    const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
+    const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+    for (let index = 0; index < 10; index += 1) await generationWorker.runOnce();
+    const publisher = new QuickBattleRoundPublicationWorker(prisma);
+    const published = await Promise.all([publisher.runOnce(), publisher.runOnce()]);
+    expect(published.filter(Boolean)).toHaveLength(1);
+
+    const submissions = await Promise.allSettled([
+      service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-race-001'),
+      service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-race-002'),
+    ]);
+    expect(submissions.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
+    expect(submissions.filter((item) => item.status === 'rejected')).toHaveLength(1);
+    expect(await prisma.quickBattleAnswer.count({ where: { matchId: match.id } })).toBe(1);
+
+    const { match: expiredMatch, principal: expiredPrincipal } = await createGuestMatch();
+    const expiredGenerator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
+    const expiredGenerationWorker = new QuickBattleQuestionGenerationWorker(prisma, expiredGenerator);
+    for (let index = 0; index < 10; index += 1) await expiredGenerationWorker.runOnce();
+    await new QuickBattleRoundPublicationWorker(prisma).runOnce();
+    await prisma.quickBattleRound.updateMany({
+      where: { matchId: expiredMatch.id, roundNumber: 1 },
+      data: { deadlineAt: new Date(Date.now() - 1_000) },
+    });
+    const finalizer = new QuickBattleRoundFinalizationWorker(prisma);
+    const race = await Promise.allSettled([
+      service.submitAnswer(expiredMatch.id, 1, expiredPrincipal, 'Mercury', 'quick-battle-deadline-race'),
+      finalizer.runOnce(expiredMatch.id),
+    ]);
+    expect(race[0].status).toBe('rejected');
+    expect(race[1]).toMatchObject({ status: 'fulfilled', value: true });
+    const outcome = await prisma.quickBattleAnswer.findFirstOrThrow({
+      where: { matchId: expiredMatch.id },
+    });
+    expect(outcome.status).toBe('NO_RESPONSE');
+  });
+
   it('finalizes a judged round early and records an explicit timeout without player penalties', async () => {
     const { match, principal } = await createGuestMatch();
     const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
