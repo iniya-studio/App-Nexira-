@@ -32,7 +32,7 @@ export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModu
         ...(matchId ? { id: matchId } : {}),
         status: QuickBattleStatus.COMPLETED,
         scoringPolicyVersion: QUICK_BATTLE_SCORING_POLICY_VERSION,
-        result: null,
+        result: { is: null },
       },
       orderBy: { completedAt: 'asc' },
       select: { id: true },
