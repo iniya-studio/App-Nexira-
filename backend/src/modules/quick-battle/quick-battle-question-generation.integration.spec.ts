@@ -5,6 +5,7 @@ import { AuthenticatedPrincipal } from '../identity/authenticated-principal';
 import { QuestionGenerationError, QuestionGenerator } from '../match/question-generator.port';
 import { GeneratedQuestion } from '../match/question.types';
 import { QuickBattleQuestionGenerationWorker } from './quick-battle-question-generation.worker';
+import { QuickBattleRoundPublicationWorker } from './quick-battle-round-publication.worker';
 import { QuickBattleService } from './quick-battle.service';
 
 describe('Quick Battle question generation PostgreSQL integration', () => {
@@ -101,6 +102,42 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
       orderBy: { round: { roundNumber: 'asc' } },
     });
   }
+
+  it('publishes the first generated round once and accepts one immutable answer', async () => {
+    const { match, principal } = await createGuestMatch();
+    const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
+    const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+    await generationWorker.runOnce();
+    await generationWorker.runOnce();
+    await generationWorker.runOnce();
+
+    const publisher = new QuickBattleRoundPublicationWorker(prisma);
+    await expect(publisher.runOnce()).resolves.toBe(true);
+    const round = await prisma.quickBattleRound.findUniqueOrThrow({
+      where: { matchId_roundNumber: { matchId: match.id, roundNumber: 1 } },
+      select: { id: true, startedAt: true, deadlineAt: true },
+    });
+    expect(round.startedAt).toBeInstanceOf(Date);
+    expect(round.deadlineAt!.getTime() - round.startedAt!.getTime()).toBe(30_000);
+    const current = await service.getCurrentRound(match.id, principal);
+    expect(current).toMatchObject({
+      state: 'ACTIVE', currentRound: 1,
+      round: { id: round.id, question: { prompt: expect.stringContaining('Quick Battle question') } },
+    });
+
+    const receipt = await service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-answer-001');
+    expect(receipt).toMatchObject({ status: 'ACCEPTED', replayed: false, roundId: round.id });
+    const replay = await service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-answer-001');
+    expect(replay).toMatchObject({ answerId: receipt.answerId, replayed: true });
+    await expect(service.submitAnswer(match.id, 1, principal, 'Different answer', 'quick-battle-answer-002'))
+      .rejects.toThrow('An answer has already been submitted');
+    await expect(publisher.runOnce()).resolves.toBe(false);
+
+    const persisted = await prisma.quickBattleAnswer.findUniqueOrThrow({ where: { roundId: round.id } });
+    expect(persisted).toMatchObject({
+      responseText: 'Mercury', status: 'ANSWERED', judgeStatus: 'PENDING', points: null,
+    });
+  });
 
   it('makes a match READY only after three valid questions have been persisted', async () => {
     const { match } = await createGuestMatch();
