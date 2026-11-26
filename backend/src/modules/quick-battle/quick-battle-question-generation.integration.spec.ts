@@ -257,9 +257,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const { match, principal } = await createGuestMatch();
     const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
     const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
-    await generationWorker.runOnce();
-    await generationWorker.runOnce();
-    await generationWorker.runOnce();
+    for (let index = 0; index < 10; index += 1) await generationWorker.runOnce();
 
     const publisher = new QuickBattleRoundPublicationWorker(prisma);
     await expect(publisher.runOnce()).resolves.toBe(true);
@@ -277,6 +275,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const reconnected = await service.getCurrentRound(match.id, principal);
     expect(reconnected.round?.startedAt).toEqual(current.round?.startedAt);
     expect(reconnected.round?.deadlineAt).toEqual(current.round?.deadlineAt);
+    expect(reconnected.serverNow).toBeInstanceOf(Date);
 
     const receipt = await service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-answer-001');
     expect(receipt).toMatchObject({ status: 'ACCEPTED', replayed: false, roundId: round.id });
