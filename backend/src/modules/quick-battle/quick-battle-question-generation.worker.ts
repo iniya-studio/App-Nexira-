@@ -296,7 +296,7 @@ export class QuickBattleQuestionGenerationWorker
       if (
         !match ||
         !round ||
-        ![QuickBattleStatus.PREPARING, QuickBattleStatus.READY, QuickBattleStatus.ACTIVE].includes(match.status) ||
+        !new Set<QuickBattleStatus>([QuickBattleStatus.PREPARING, QuickBattleStatus.READY, QuickBattleStatus.ACTIVE]).has(match.status) ||
         round.questionId ||
         input.category !== round.category ||
         input.subcategoryId !== round.subcategoryId ||
@@ -419,7 +419,7 @@ export class QuickBattleQuestionGenerationWorker
         where: { id: current.matchId },
         select: { status: true },
       });
-      if (!matchState || ![QuickBattleStatus.PREPARING, QuickBattleStatus.READY, QuickBattleStatus.ACTIVE].includes(matchState.status)) {
+      if (!matchState || !new Set<QuickBattleStatus>([QuickBattleStatus.PREPARING, QuickBattleStatus.READY, QuickBattleStatus.ACTIVE]).has(matchState.status)) {
         const cancelledClock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
         const cancelledAt = cancelledClock[0]?.now;
         if (!(cancelledAt instanceof Date)) throw new Error('Database clock did not return a valid cancellation timestamp');
