@@ -18,7 +18,6 @@ describe('QuickBattleService', () => {
       language: 'fa',
       roundsTarget: 10,
       currentRound: 0,
-      totalScore: 0,
       generationPolicyVersion: 'quick-battle-generation-v1',
       scoringPolicyVersion: 'quick-battle-scoring-pending',
       startedAt: null,
