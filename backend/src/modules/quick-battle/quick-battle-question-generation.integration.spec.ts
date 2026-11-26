@@ -233,7 +233,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
     const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
     await generationWorker.runOnce(); await generationWorker.runOnce(); await generationWorker.runOnce();
-    await new QuickBattleRoundPublicationWorker(prisma).runOnce();
+    await new QuickBattleRoundPublicationWorker(prisma).runOnce(match.id);
     await service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-judge-002');
     const judge: FreeTextAnswerJudge = {
       judge: jest.fn().mockRejectedValue(new FreeTextJudgeError('JUDGE_PROVIDER_TIMEOUT', 'Synthetic timeout')),
