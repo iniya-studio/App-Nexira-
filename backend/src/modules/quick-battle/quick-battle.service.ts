@@ -65,6 +65,10 @@ export class QuickBattleService {
         throw new Error('Quick Battle category catalog must contain exactly 23 categories');
       }
       const categoryPlan = this.shuffle(categories).slice(0, QUICK_BATTLE_ROUNDS);
+      const subcategoryPlan = categoryPlan.map((category) => {
+        const subcategories = CATEGORY_SUBCATEGORIES[category];
+        return subcategories[randomInt(subcategories.length)];
+      });
       const difficultyPlan = this.shuffle([...DIFFICULTY_PLAN]);
 
       const match = await tx.quickBattleMatch.create({
@@ -85,11 +89,13 @@ export class QuickBattleService {
         const roundNumber = index + 1;
         const category = categoryPlan[index];
         const difficulty = difficultyPlan[index];
+        const subcategoryId = subcategoryPlan[index];
         const round = await tx.quickBattleRound.create({
           data: {
             matchId: match.id,
             roundNumber,
             category,
+            subcategoryId,
             difficulty,
           },
           select: { id: true },
@@ -100,6 +106,7 @@ export class QuickBattleService {
             roundId: round.id,
             requestContext: {
               category,
+              subcategoryId,
               difficulty: difficulty.toLowerCase(),
               language,
               requiredLocales: [language],
