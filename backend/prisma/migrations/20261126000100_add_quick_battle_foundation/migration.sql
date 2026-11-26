@@ -108,7 +108,7 @@ CREATE TABLE "QuickBattleAnswer" (
   CONSTRAINT "QuickBattleAnswer_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "QuickBattleAnswer_matchId_fkey" FOREIGN KEY ("matchId") REFERENCES "QuickBattleMatch"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "QuickBattleAnswer_roundId_matchId_fkey" FOREIGN KEY ("roundId", "matchId") REFERENCES "QuickBattleRound"("id", "matchId") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "QuickBattleAnswer_elapsedMs_check" CHECK ("elapsedMs" >= 0),
+  CONSTRAINT "QuickBattleAnswer_elapsedMs_check" CHECK ("elapsedMs" >= 0)
 );
 CREATE UNIQUE INDEX "QuickBattleAnswer_roundId_key" ON "QuickBattleAnswer"("roundId");
 CREATE UNIQUE INDEX "QuickBattleAnswer_roundId_matchId_key" ON "QuickBattleAnswer"("roundId", "matchId");
