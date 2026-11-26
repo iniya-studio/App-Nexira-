@@ -4,12 +4,14 @@ import { OpenAiResponsesQuestionGeneratorAdapter } from '../match/openai-respons
 import { QuickBattleController } from './quick-battle.controller';
 import { QuickBattleQuestionGenerationWorker } from './quick-battle-question-generation.worker';
 import { QuickBattleService } from './quick-battle.service';
+import { QuickBattleRoundPublicationWorker } from './quick-battle-round-publication.worker';
 
 @Module({
   controllers: [QuickBattleController],
   providers: [
     QuickBattleService,
     QuickBattleQuestionGenerationWorker,
+    QuickBattleRoundPublicationWorker,
     { provide: QUESTION_GENERATOR, useClass: OpenAiResponsesQuestionGeneratorAdapter },
   ],
   exports: [QuickBattleService],
