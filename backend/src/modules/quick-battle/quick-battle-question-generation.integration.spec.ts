@@ -755,7 +755,6 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     });
     const scoredAnswers = await prisma.quickBattleAnswer.findMany({
       where: { matchId: match.id },
-      orderBy: { createdAt: 'asc' },
       select: { points: true },
     });
     expect(scoredAnswers).toHaveLength(10);
