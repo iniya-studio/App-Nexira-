@@ -119,7 +119,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
     for (let index = 0; index < 10; index += 1) await generationWorker.runOnce();
     const publisher = new QuickBattleRoundPublicationWorker(prisma);
-    const published = await Promise.all([publisher.runOnce(), publisher.runOnce()]);
+    const published = await Promise.all([publisher.runOnce(match.id), publisher.runOnce(match.id)]);
     expect(published.filter(Boolean)).toHaveLength(1);
 
     const submissions = await Promise.allSettled([
@@ -134,7 +134,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const expiredGenerator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
     const expiredGenerationWorker = new QuickBattleQuestionGenerationWorker(prisma, expiredGenerator);
     for (let index = 0; index < 10; index += 1) await expiredGenerationWorker.runOnce();
-    await new QuickBattleRoundPublicationWorker(prisma).runOnce();
+    await new QuickBattleRoundPublicationWorker(prisma).runOnce(match.id);
     await prisma.quickBattleRound.updateMany({
       where: { matchId: expiredMatch.id, roundNumber: 1 },
       data: { deadlineAt: new Date(Date.now() - 1_000) },
@@ -184,7 +184,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const timeoutGenerator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
     const timeoutGenerationWorker = new QuickBattleQuestionGenerationWorker(prisma, timeoutGenerator);
     for (let index = 0; index < 10; index += 1) await timeoutGenerationWorker.runOnce();
-    await new QuickBattleRoundPublicationWorker(prisma).runOnce();
+    await new QuickBattleRoundPublicationWorker(prisma).runOnce(timeoutMatch.id);
     await prisma.quickBattleRound.updateMany({
       where: { matchId: timeoutMatch.id, roundNumber: 1 },
       data: { deadlineAt: new Date(Date.now() - 1_000) },
@@ -264,7 +264,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     for (let index = 0; index < 10; index += 1) await generationWorker.runOnce();
 
     const publisher = new QuickBattleRoundPublicationWorker(prisma);
-    await expect(publisher.runOnce()).resolves.toBe(true);
+    await expect(publisher.runOnce(match.id)).resolves.toBe(true);
     const round = await prisma.quickBattleRound.findUniqueOrThrow({
       where: { matchId_roundNumber: { matchId: match.id, roundNumber: 1 } },
       select: { id: true, startedAt: true, deadlineAt: true },
@@ -287,7 +287,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     expect(replay).toMatchObject({ answerId: receipt.answerId, replayed: true });
     await expect(service.submitAnswer(match.id, 1, principal, 'Different answer', 'quick-battle-answer-002'))
       .rejects.toThrow('An answer has already been submitted');
-    await expect(publisher.runOnce()).resolves.toBe(false);
+    await expect(publisher.runOnce(match.id)).resolves.toBe(false);
 
     const persisted = await prisma.quickBattleAnswer.findUniqueOrThrow({ where: { roundId: round.id } });
     expect(persisted).toMatchObject({
