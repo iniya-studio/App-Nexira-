@@ -43,6 +43,7 @@ CREATE TABLE "QuickBattleRound" (
   "matchId" UUID NOT NULL,
   "roundNumber" INTEGER NOT NULL,
   "category" VARCHAR(64) NOT NULL,
+  "subcategoryId" VARCHAR(64) NOT NULL,
   "difficulty" VARCHAR(32) NOT NULL,
   "questionId" UUID,
   "startedAt" TIMESTAMPTZ(3),
