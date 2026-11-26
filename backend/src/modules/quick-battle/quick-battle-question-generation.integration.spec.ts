@@ -91,7 +91,11 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
       localized: {
         [input.language]: {
           prompt, expectedAnswer: 'Mercury',
-          gradingRubric: { requiredConcepts: ['Mercury'], acceptEquivalentWording: true },
+          gradingRubric: {
+            requiredConcepts: ['Mercury'],
+            acceptEquivalentWording: true,
+            notes: 'Accept semantically equivalent wording.',
+          },
         },
       },
       timeLimitSeconds: input.timeLimitSeconds,
