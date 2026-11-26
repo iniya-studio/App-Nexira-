@@ -161,7 +161,11 @@ describe('QuickBattleQuestionGenerationWorker recent history query', () => {
       generate: jest.fn().mockRejectedValue(new Error('intentional test failure')),
     };
     const worker = new QuickBattleQuestionGenerationWorker(prisma, generator as never);
-    jest.spyOn(worker as any, 'claimNextJob').mockResolvedValue({
+    const workerInternals = worker as unknown as {
+      claimNextJob: () => Promise<unknown>;
+      releaseClaim: () => Promise<void>;
+    };
+    jest.spyOn(workerInternals, 'claimNextJob').mockResolvedValue({
       id: 'job-1',
       matchId: 'current-match',
       roundId: 'current-round',
@@ -170,7 +174,7 @@ describe('QuickBattleQuestionGenerationWorker recent history query', () => {
       leaseId: 'lease-1',
       requestContext,
     });
-    jest.spyOn(worker as any, 'releaseClaim').mockResolvedValue(undefined);
+    jest.spyOn(workerInternals, 'releaseClaim').mockResolvedValue(undefined);
 
     await worker.runOnce();
 
