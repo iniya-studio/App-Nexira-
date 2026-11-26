@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/quick-battle-foundation
     paths:
       - "backend/**"
       - "docs/**"
