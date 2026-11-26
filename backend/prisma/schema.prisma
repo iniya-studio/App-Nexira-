@@ -184,33 +184,33 @@ model User {
   id                String     @id @default(uuid()) @db.Uuid
   email             String?    @unique
   username          String     @unique
-  displayName       String
+  displayName       String    
   preferredLanguage String     @default("en")
   status            UserStatus @default(ACTIVE)
   emailVerifiedAt   DateTime?  @db.Timestamptz(3)
   createdAt         DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
 
-  sessions                UserSession[]
-  credential              AccountCredential?
-  externalIdentities      ExternalIdentity[]
+  sessions                UserSession[]           
+  credential              AccountCredential?      
+  externalIdentities      ExternalIdentity[]      
   guestConversions        GuestIdentity[]          @relation("GuestConvertedUser")
-  guestConversionReplays  GuestConversionReplay[]
+  guestConversionReplays  GuestConversionReplay[] 
   emailVerificationTokens EmailVerificationToken[]
-  passwordResetTokens     PasswordResetToken[]
-  progress                UserProgress?
-  xpTransactions          XPTransaction[]
-  globalRanking           GlobalUserRanking?
-  matchParticipants       MatchParticipant[]
-  quickBattles            QuickBattleMatch[]
+  passwordResetTokens     PasswordResetToken[]    
+  progress                UserProgress?           
+  xpTransactions          XPTransaction[]         
+  globalRanking           GlobalUserRanking?      
+  matchParticipants       MatchParticipant[]      
+  quickBattles            QuickBattleMatch[]      
   hostedRooms             Room[]                   @relation("RoomHost")
-  roomMemberships         RoomMember[]
-  rankings                UserRanking[]
-  rankingEvents           RankingTransaction[]
-  purchases               Purchase[]
-  inventoryItems          UserInventory[]
-  companionProfile        CompanionProfile?
-  matchmakingEntries      MatchmakingEntry[]
+  roomMemberships         RoomMember[]            
+  rankings                UserRanking[]           
+  rankingEvents           RankingTransaction[]    
+  purchases               Purchase[]              
+  inventoryItems          UserInventory[]         
+  companionProfile        CompanionProfile?       
+  matchmakingEntries      MatchmakingEntry[]      
 
   @@index([status, createdAt])
 }
@@ -225,7 +225,7 @@ model UserSession {
 
   user             User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   guestIdentity    GuestIdentity?         @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
-  refreshTokens    RefreshToken[]
+  refreshTokens    RefreshToken[]        
   conversionReplay GuestConversionReplay?
 
   @@index([userId, expiresAt])
@@ -249,7 +249,7 @@ model ExternalIdentity {
   userId          String           @db.Uuid
   provider        IdentityProvider
   providerSubject String           @db.VarChar(255)
-  providerEmail   String?
+  providerEmail   String?         
   emailVerified   Boolean          @default(false)
   createdAt       DateTime         @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime         @updatedAt @db.Timestamptz(3)
@@ -270,15 +270,15 @@ model GuestIdentity {
   updatedAt         DateTime            @updatedAt @db.Timestamptz(3)
 
   convertedToUser         User?                    @relation("GuestConvertedUser", fields: [convertedToUserId], references: [id], onDelete: Restrict)
-  sessions                UserSession[]
-  conversionReplay        GuestConversionReplay?
+  sessions                UserSession[]           
+  conversionReplay        GuestConversionReplay?  
   matchParticipants       MatchParticipant[]       @relation("CurrentGuestParticipant")
-  quickBattles            QuickBattleMatch[]
+  quickBattles            QuickBattleMatch[]      
   emailVerificationTokens EmailVerificationToken[]
-  companionProfile        CompanionProfile?
-  progress                GuestProgress?
-  xpTransactions          GuestXPTransaction[]
-  matchmakingEntries      MatchmakingEntry[]
+  companionProfile        CompanionProfile?       
+  progress                GuestProgress?          
+  xpTransactions          GuestXPTransaction[]    
+  matchmakingEntries      MatchmakingEntry[]      
 
   @@index([status, updatedAt])
   @@index([convertedToUserId])
@@ -371,11 +371,11 @@ model GoogleAuthChallenge {
 model IdentityAuditEvent {
   id            String              @id @default(uuid()) @db.Uuid
   eventType     String              @db.VarChar(64)
-  principalType PrincipalType?
+  principalType PrincipalType?     
   principalId   String?             @db.Uuid
   sessionId     String?             @db.Uuid
   result        IdentityAuditResult
-  metadata      Json?
+  metadata      Json?              
   createdAt     DateTime            @default(now()) @db.Timestamptz(3)
 
   @@index([principalType, principalId, createdAt])
@@ -397,8 +397,8 @@ model XPTransaction {
   id             String   @id @default(uuid()) @db.Uuid
   userId         String   @db.Uuid
   matchId        String?  @db.Uuid
-  amount         Int
-  reason         String
+  amount         Int     
+  reason         String  
   idempotencyKey String   @unique
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
   user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -424,8 +424,8 @@ model GuestXPTransaction {
   id              String   @id @default(uuid()) @db.Uuid
   guestIdentityId String   @db.Uuid
   matchId         String?  @db.Uuid
-  amount          Int
-  reason          String
+  amount          Int     
+  reason          String  
   idempotencyKey  String   @unique
   createdAt       DateTime @default(now()) @db.Timestamptz(3)
 
@@ -464,7 +464,7 @@ model MatchmakingEntry {
 
 model Match {
   id                String             @id @default(uuid()) @db.Uuid
-  mode              MatchMode
+  mode              MatchMode         
   status            MatchStatus        @default(WAITING)
   roomId            String?            @db.Uuid
   roomMatchStrategy RoomMatchStrategy?
@@ -477,14 +477,14 @@ model Match {
   createdAt         DateTime           @default(now()) @db.Timestamptz(3)
 
   room                   Room?                   @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  participants           MatchParticipant[]
-  rounds                 Round[]
-  result                 MatchResult?
-  xpEvents               XPTransaction[]
-  guestXpEvents          GuestXPTransaction[]
-  matchmakingEntries     MatchmakingEntry[]
-  rankingEvents          RankingTransaction[]
-  scoreEntries           MatchScoreEntry[]
+  participants           MatchParticipant[]     
+  rounds                 Round[]                
+  result                 MatchResult?           
+  xpEvents               XPTransaction[]        
+  guestXpEvents          GuestXPTransaction[]   
+  matchmakingEntries     MatchmakingEntry[]     
+  rankingEvents          RankingTransaction[]   
+  scoreEntries           MatchScoreEntry[]      
   questionGenerationJobs QuestionGenerationJob[]
 
   @@index([status, createdAt])
@@ -499,8 +499,8 @@ model MatchParticipant {
   userId          String?           @db.Uuid
   guestIdentityId String?           @db.Uuid
   language        String?           @db.VarChar(16)
-  participantKey  String
-  participantType ParticipantType
+  participantKey  String           
+  participantType ParticipantType  
   status          ParticipantStatus @default(ACTIVE)
   score           Int               @default(0)
   joinedAt        DateTime          @default(now()) @db.Timestamptz(3)
@@ -509,11 +509,11 @@ model MatchParticipant {
   match         Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
   user          User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   guestIdentity GuestIdentity?    @relation("CurrentGuestParticipant", fields: [guestIdentityId], references: [id], onDelete: Restrict)
-  answers       Answer[]
+  answers       Answer[]         
   scoreEntries  MatchScoreEntry[]
   wonResults    MatchResult[]     @relation("MatchWinner")
-  readiness     RoundReadiness[]
-  aiAnswerJobs  AiAnswerJob[]
+  readiness     RoundReadiness[] 
+  aiAnswerJobs  AiAnswerJob[]    
 
   @@unique([matchId, participantKey])
   // A HUMAN participant belongs to exactly one User or GuestIdentity. AI has neither.
@@ -529,7 +529,7 @@ model MatchParticipant {
 model Round {
   id                 String    @id @default(uuid()) @db.Uuid
   matchId            String    @db.Uuid
-  roundNumber        Int
+  roundNumber        Int      
   questionId         String?   @unique @db.Uuid
   startedAt          DateTime? @db.Timestamptz(3)
   deadlineAt         DateTime? @db.Timestamptz(3)
@@ -540,11 +540,11 @@ model Round {
 
   match         Match                  @relation(fields: [matchId], references: [id], onDelete: Cascade)
   question      Question?              @relation(fields: [questionId], references: [id], onDelete: SetNull)
-  answers       Answer[]
-  scoreEntries  MatchScoreEntry[]
-  readiness     RoundReadiness[]
+  answers       Answer[]              
+  scoreEntries  MatchScoreEntry[]     
+  readiness     RoundReadiness[]      
   generationJob QuestionGenerationJob?
-  aiAnswerJobs  AiAnswerJob[]
+  aiAnswerJobs  AiAnswerJob[]         
 
   @@unique([matchId, roundNumber])
   @@unique([id, matchId])
@@ -556,53 +556,53 @@ model Question {
   id                      String   @id @default(uuid()) @db.Uuid
   category                String   @default("general") @db.VarChar(64)
   difficulty              String   @default("medium") @db.VarChar(32)
-  canonicalLanguage       String
-  answerType              String
-  canonicalPrompt         String
-  canonicalOptions        Json?
-  answerKey               String
-  gradingRubric           Json
-  localized               Json
-  timeLimitSeconds        Int
-  contentVersion          String
-  judgeVersion            String?
-  generatorVersion        String?
-  modelVersion            String?
-  generationPolicyVersion String?
+  canonicalLanguage       String  
+  answerType              String  
+  canonicalPrompt         String  
+  canonicalOptions        Json?   
+  answerKey               String  
+  gradingRubric           Json    
+  localized               Json    
+  timeLimitSeconds        Int     
+  contentVersion          String  
+  judgeVersion            String? 
+  generatorVersion        String? 
+  modelVersion            String? 
+  generationPolicyVersion String? 
   contentFingerprint      String?  @db.VarChar(64)
   createdAt               DateTime @default(now()) @db.Timestamptz(3)
 
-  round                  Round?
-  generatedByJob         QuestionGenerationJob?
-  quickBattleRound       QuickBattleRound?
+  round                  Round?                 
+  generatedByJob         QuestionGenerationJob? 
+  quickBattleRound       QuickBattleRound?      
   quickBattleGeneratedBy QuickBattleQuestionJob?
 
   @@index([contentFingerprint])
 }
 
 model QuickBattleMatch {
-  id                      String             @id @default(uuid()) @db.Uuid
-  userId                  String?            @db.Uuid
-  guestIdentityId         String?            @db.Uuid
-  status                  QuickBattleStatus  @default(PREPARING)
-  language                String             @db.VarChar(16)
-  roundsTarget            Int                @default(10)
-  currentRound            Int                @default(0)
-  totalScore              Int                @default(0)
-  generationPolicyVersion String         @default("quick-battle-generation-v1") @db.VarChar(64)
-  scoringPolicyVersion    String         @default("quick-battle-scoring-pending") @db.VarChar(64)
-  startedAt               DateTime?          @db.Timestamptz(3)
-  completedAt             DateTime?          @db.Timestamptz(3)
-  voidedAt                DateTime?          @db.Timestamptz(3)
-  voidReason              String?            @db.VarChar(64)
-  createdAt               DateTime           @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime           @updatedAt @db.Timestamptz(3)
+  id                      String            @id @default(uuid()) @db.Uuid
+  userId                  String?           @db.Uuid
+  guestIdentityId         String?           @db.Uuid
+  status                  QuickBattleStatus @default(PREPARING)
+  language                String            @db.VarChar(16)
+  roundsTarget            Int               @default(10)
+  currentRound            Int               @default(0)
+  totalScore              Int               @default(0)
+  generationPolicyVersion String            @default("quick-battle-generation-v1") @db.VarChar(64)
+  scoringPolicyVersion    String            @default("quick-battle-scoring-pending") @db.VarChar(64)
+  startedAt               DateTime?         @db.Timestamptz(3)
+  completedAt             DateTime?         @db.Timestamptz(3)
+  voidedAt                DateTime?         @db.Timestamptz(3)
+  voidReason              String?           @db.VarChar(64)
+  createdAt               DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime          @updatedAt @db.Timestamptz(3)
 
-  user           User?          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  guestIdentity  GuestIdentity? @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
-  rounds         QuickBattleRound[]
+  user           User?                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  guestIdentity  GuestIdentity?           @relation(fields: [guestIdentityId], references: [id], onDelete: Restrict)
+  rounds         QuickBattleRound[]      
   generationJobs QuickBattleQuestionJob[]
-  answers        QuickBattleAnswer[]
+  answers        QuickBattleAnswer[]     
 
   @@index([status, createdAt])
   @@index([userId, status, createdAt])
@@ -612,7 +612,7 @@ model QuickBattleMatch {
 model QuickBattleRound {
   id            String    @id @default(uuid()) @db.Uuid
   matchId       String    @db.Uuid
-  roundNumber   Int
+  roundNumber   Int      
   category      String    @db.VarChar(64)
   subcategoryId String    @db.VarChar(64)
   difficulty    String    @db.VarChar(32)
@@ -624,9 +624,9 @@ model QuickBattleRound {
   voidReason    String?   @db.VarChar(64)
   createdAt     DateTime  @default(now()) @db.Timestamptz(3)
 
-  match         QuickBattleMatch         @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  question      Question?                @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  answer        QuickBattleAnswer?
+  match         QuickBattleMatch        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  question      Question?               @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  answer        QuickBattleAnswer?     
   generationJob QuickBattleQuestionJob?
 
   @@unique([matchId, roundNumber])
@@ -635,25 +635,25 @@ model QuickBattleRound {
 }
 
 model QuickBattleQuestionJob {
-  id                  String                       @id @default(uuid()) @db.Uuid
-  matchId             String                       @db.Uuid
-  roundId             String                       @unique @db.Uuid
-  generatedQuestionId String?                      @unique @db.Uuid
-  status              QuickBattleGenerationStatus  @default(PENDING)
-  requestContext      Json
-  attempts            Int                          @default(0)
-  maxAttempts         Int                          @default(3)
-  availableAt         DateTime                     @default(now()) @db.Timestamptz(3)
-  leaseId             String?                      @db.Uuid
-  leaseAt             DateTime?                     @db.Timestamptz(3)
-  lastErrorCode       String?                      @db.VarChar(64)
-  idempotencyKey      String                       @unique
-  createdAt           DateTime                     @default(now()) @db.Timestamptz(3)
-  completedAt         DateTime?                    @db.Timestamptz(3)
+  id                  String                      @id @default(uuid()) @db.Uuid
+  matchId             String                      @db.Uuid
+  roundId             String                      @unique @db.Uuid
+  generatedQuestionId String?                     @unique @db.Uuid
+  status              QuickBattleGenerationStatus @default(PENDING)
+  requestContext      Json                       
+  attempts            Int                         @default(0)
+  maxAttempts         Int                         @default(3)
+  availableAt         DateTime                    @default(now()) @db.Timestamptz(3)
+  leaseId             String?                     @db.Uuid
+  leaseAt             DateTime?                   @db.Timestamptz(3)
+  lastErrorCode       String?                     @db.VarChar(64)
+  idempotencyKey      String                      @unique
+  createdAt           DateTime                    @default(now()) @db.Timestamptz(3)
+  completedAt         DateTime?                   @db.Timestamptz(3)
 
-  match             QuickBattleMatch  @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  round             QuickBattleRound  @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
-  generatedQuestion Question?         @relation(fields: [generatedQuestionId], references: [id], onDelete: Restrict)
+  match             QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  round             QuickBattleRound @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
+  generatedQuestion Question?        @relation(fields: [generatedQuestionId], references: [id], onDelete: Restrict)
 
   @@index([status, availableAt])
   @@index([status, leaseAt])
@@ -665,14 +665,14 @@ model QuickBattleAnswer {
   matchId        String         @db.Uuid
   roundId        String         @unique @db.Uuid
   responseText   String?        @db.Text
-  status         AnswerStatus
+  status         AnswerStatus  
   judgeStatus    JudgeStatus    @default(PENDING)
   decision       JudgeDecision?
-  confidence     Float?
-  elapsedMs      Int
+  confidence     Float?        
+  elapsedMs      Int           
   points         Int            @default(0)
-  judgeReason    String?
-  judgeVersion   String?
+  judgeReason    String?       
+  judgeVersion   String?       
   idempotencyKey String         @unique
   acceptedAt     DateTime       @default(now()) @db.Timestamptz(3)
   judgedAt       DateTime?      @db.Timestamptz(3)
@@ -691,7 +691,7 @@ model QuestionGenerationJob {
   generatedQuestionId String?                     @unique @db.Uuid
   status              QuestionGenerationJobStatus @default(PENDING)
   triggerReason       String                      @db.VarChar(64)
-  requestContext      Json
+  requestContext      Json                       
   attempts            Int                         @default(0)
   maxAttempts         Int                         @default(3)
   availableAt         DateTime                    @default(now()) @db.Timestamptz(3)
@@ -760,19 +760,19 @@ model Answer {
   roundId          String         @db.Uuid
   participantId    String         @db.Uuid
   responseText     String?        @db.Text
-  status           AnswerStatus
+  status           AnswerStatus  
   judgeStatus      JudgeStatus    @default(NOT_REQUIRED)
   judgeAttempts    Int            @default(0)
   judgeStartedAt   DateTime?      @db.Timestamptz(3)
   judgeAvailableAt DateTime       @default(now()) @db.Timestamptz(3)
   judgeLeaseId     String?        @db.Uuid
   decision         JudgeDecision?
-  confidence       Float?
-  elapsedMs        Int
-  points           Int
+  confidence       Float?        
+  elapsedMs        Int           
+  points           Int           
   speedBonus       Int            @default(0)
-  judgeReason      String?
-  judgeVersion     String?
+  judgeReason      String?       
+  judgeVersion     String?       
   idempotencyKey   String?        @unique
   acceptedAt       DateTime       @default(now()) @db.Timestamptz(3)
 
@@ -793,7 +793,7 @@ model MatchScoreEntry {
   roundId        String?             @db.Uuid
   answerId       String?             @unique @db.Uuid
   entryType      MatchScoreEntryType
-  pointsChange   Int
+  pointsChange   Int                
   idempotencyKey String              @unique
   createdAt      DateTime            @default(now()) @db.Timestamptz(3)
 
@@ -811,7 +811,7 @@ model MatchResult {
   id                  String   @id @default(uuid()) @db.Uuid
   matchId             String   @unique @db.Uuid
   winnerParticipantId String?  @db.Uuid
-  resultSummary       Json
+  resultSummary       Json    
   completedAt         DateTime @default(now()) @db.Timestamptz(3)
 
   match  Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
@@ -824,22 +824,22 @@ model MatchResult {
 model Room {
   id                 String            @id @default(uuid()) @db.Uuid
   hostUserId         String            @db.Uuid
-  name               String
+  name               String           
   roomType           RoomType          @default(PRIVATE)
   inviteCodeHash     String?           @unique
   matchStrategy      RoomMatchStrategy @default(SYNCHRONIZED)
   status             RoomStatus        @default(OPEN)
-  maxPlayers         Int
-  minPlayersToStart  Int
+  maxPlayers         Int              
+  minPlayersToStart  Int              
   countdownStartedAt DateTime?         @db.Timestamptz(3)
   countdownEndsAt    DateTime?         @db.Timestamptz(3)
-  settings           Json?
+  settings           Json?            
   createdAt          DateTime          @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
 
   host    User         @relation("RoomHost", fields: [hostUserId], references: [id], onDelete: Restrict)
   members RoomMember[]
-  matches Match[]
+  matches Match[]     
 
   // Host membership, capacity bounds, and private/public invite-token rules are enforced by the Room service.
   @@index([hostUserId, createdAt])
@@ -870,13 +870,13 @@ model RoomMember {
 // startsAt must be earlier than endsAt; overlapping ACTIVE seasons are controlled by the season service.
 model RankingSeason {
   id        String              @id @default(uuid()) @db.Uuid
-  name      String
+  name      String             
   status    RankingSeasonStatus @default(UPCOMING)
   startsAt  DateTime            @db.Timestamptz(3)
   endsAt    DateTime            @db.Timestamptz(3)
   createdAt DateTime            @default(now()) @db.Timestamptz(3)
 
-  rankings UserRanking[]
+  rankings UserRanking[]       
   events   RankingTransaction[]
 
   @@index([status, startsAt, endsAt])
@@ -925,8 +925,8 @@ model RankingTransaction {
   scope          RankingScope
   seasonId       String?      @db.Uuid
   matchId        String?      @db.Uuid
-  pointsChange   Int
-  reason         String
+  pointsChange   Int         
+  reason         String      
   idempotencyKey String       @unique
   createdAt      DateTime     @default(now()) @db.Timestamptz(3)
 
@@ -942,18 +942,18 @@ model RankingTransaction {
 model StoreItem {
   id            String        @id @default(uuid()) @db.Uuid
   code          String        @unique
-  name          String
+  name          String       
   description   String?       @db.Text
   itemType      StoreItemType
-  priceAmount   Int
+  priceAmount   Int          
   priceCurrency String        @db.VarChar(3)
   isActive      Boolean       @default(true)
-  metadata      Json?
+  metadata      Json?        
   createdAt     DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
 
-  purchases          Purchase[]
-  owners             UserInventory[]
+  purchases          Purchase[]        
+  owners             UserInventory[]   
   equippedCompanions CompanionProfile[]
 
   @@index([isActive, itemType])
@@ -965,9 +965,9 @@ model Purchase {
   userId                String         @db.Uuid
   storeItemId           String         @db.Uuid
   status                PurchaseStatus @default(PENDING)
-  amount                Int
+  amount                Int           
   currency              String         @db.VarChar(3)
-  paymentProvider       String?
+  paymentProvider       String?       
   providerTransactionId String?        @unique
   idempotencyKey        String         @unique
   createdAt             DateTime       @default(now()) @db.Timestamptz(3)
@@ -1022,7 +1022,7 @@ model CompanionProfile {
 model GuestConversionRateLimit {
   bucketKey       String   @id @db.VarChar(64)
   windowStartedAt DateTime @db.Timestamptz(3)
-  attemptCount    Int
+  attemptCount    Int     
   updatedAt       DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([updatedAt])
