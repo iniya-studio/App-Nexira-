@@ -654,9 +654,9 @@ model QuickBattleQuestionJob {
   round             QuickBattleRound @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
   generatedQuestion Question?        @relation(fields: [generatedQuestionId], references: [id], onDelete: Restrict)
 
+  @@unique([roundId, matchId])
   @@index([status, availableAt])
   @@index([status, leaseAt])
-  @@unique([roundId, matchId])
   @@index([matchId, createdAt])
 }
 
