@@ -30,8 +30,10 @@ export function calculateQuickBattleRoundScore(
   input: QuickBattleRoundScoreInput,
 ): QuickBattleRoundScore {
   if (input.status === AnswerStatus.NO_RESPONSE) {
-    if (input.judgeStatus !== JudgeStatus.NOT_REQUIRED || input.decision !== null) {
-      throw new QuickBattleScoringIntegrityError('NO_RESPONSE answer has an inconsistent judge state');
+    if (input.judgeStatus !== JudgeStatus.NOT_REQUIRED || input.decision !== null ||
+        !Number.isSafeInteger(input.timeLimitSeconds) || input.timeLimitSeconds <= 0 ||
+        input.elapsedMs !== input.timeLimitSeconds * 1000) {
+      throw new QuickBattleScoringIntegrityError('NO_RESPONSE answer has an inconsistent state or timing');
     }
     return { points: 0, outcome: 'NO_RESPONSE' };
   }
