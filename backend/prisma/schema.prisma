@@ -602,6 +602,7 @@ model QuickBattleMatch {
   rounds         QuickBattleRound[]
   generationJobs QuickBattleQuestionJob[]
   answers        QuickBattleAnswer[]
+  result         QuickBattleResult?
 
   @@index([status, createdAt])
   @@index([userId, status, createdAt])
@@ -688,6 +689,23 @@ model QuickBattleAnswer {
   @@unique([roundId, matchId])
   @@index([matchId, acceptedAt])
   @@index([judgeStatus, judgeAvailableAt])
+}
+
+
+model QuickBattleResult {
+  id                    String   @id @default(uuid()) @db.Uuid
+  matchId               String   @unique @db.Uuid
+  scoringPolicyVersion  String   @db.VarChar(64)
+  totalPoints           Int
+  correctAnswers        Int
+  incorrectAnswers      Int
+  noResponseCount       Int
+  finalizedAt           DateTime @db.Timestamptz(3)
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+
+  match QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([finalizedAt])
 }
 
 model QuestionGenerationJob {
