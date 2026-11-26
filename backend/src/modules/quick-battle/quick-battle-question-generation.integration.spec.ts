@@ -134,7 +134,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const expiredGenerator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
     const expiredGenerationWorker = new QuickBattleQuestionGenerationWorker(prisma, expiredGenerator);
     for (let index = 0; index < 10; index += 1) await expiredGenerationWorker.runOnce();
-    await new QuickBattleRoundPublicationWorker(prisma).runOnce(match.id);
+    await new QuickBattleRoundPublicationWorker(prisma).runOnce(expiredMatch.id);
     await prisma.quickBattleRound.updateMany({
       where: { matchId: expiredMatch.id, roundNumber: 1 },
       data: { deadlineAt: new Date(Date.now() - 1_000) },
@@ -158,7 +158,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
     for (let index = 0; index < 10; index += 1) await generationWorker.runOnce();
     const publisher = new QuickBattleRoundPublicationWorker(prisma);
-    await publisher.runOnce();
+    await publisher.runOnce(match.id);
     const round = await prisma.quickBattleRound.findUniqueOrThrow({
       where: { matchId_roundNumber: { matchId: match.id, roundNumber: 1 } },
       select: { id: true },
@@ -208,7 +208,7 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     const generator: QuestionGenerator = { generate: jest.fn(async (input) => generatedQuestion(input)) };
     const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
     await generationWorker.runOnce(); await generationWorker.runOnce(); await generationWorker.runOnce();
-    await new QuickBattleRoundPublicationWorker(prisma).runOnce();
+    await new QuickBattleRoundPublicationWorker(prisma).runOnce(match.id);
     const receipt = await service.submitAnswer(match.id, 1, principal, 'Mercury', 'quick-battle-judge-001');
     const judgeResult: FreeTextJudgeResult = {
       decision: JudgeDecision.CORRECT, confidence: 0.99, reasonCode: 'MEANING_MATCH',
