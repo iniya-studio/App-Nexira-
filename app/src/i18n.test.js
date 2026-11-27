@@ -160,16 +160,16 @@ test('home screen copy is centralized and complete for every active locale', () 
   }
 });
 
-test('quick battle preview metadata is localized and has no component-owned English fallback', async () => {
+test('Quick Battle home entry uses the server-backed client instead of local preview fixtures', async () => {
   assert.equal(COPY.en.home.quickBattle, 'Quick Battle');
-  assert.equal(COPY.en.home.quickBattleMode, 'Speed Sprint');
   assert.equal(COPY.fa.home.quickBattle, 'نبرد سریع');
-  assert.equal(COPY.fa.home.quickBattleMode, 'رقابت سرعتی');
   const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
-  assert.match(appSource, /title: text\.home\.quickBattle/);
-  assert.match(appSource, /modes: \[text\.home\.quickBattleMode\]/);
-  assert.equal(appSource.includes("title:'Quick Battle'"), false);
-  assert.equal(appSource.includes("modes:['Speed Sprint']"), false);
+  const quickBattleSource = await readFile(new URL('./components/QuickBattleScreen.jsx', import.meta.url), 'utf8');
+  assert.match(appSource, /setScreen\('quick-battle'\)/);
+  assert.match(appSource, /screen === 'quick-battle'.*QuickBattleScreen/s);
+  assert.match(quickBattleSource, /createQuickBattleApi/);
+  assert.match(quickBattleSource, /text\.home\.quickBattle/);
+  assert.doesNotMatch(quickBattleSource, /QUESTION_FIXTURES|createChallenge|scoreAnswer/);
 });
 
 
