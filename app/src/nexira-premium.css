@@ -2232,3 +2232,30 @@ button.home-promo-card:active { filter:brightness(1.14); }
   flex: 0 0 auto;
   margin-block: auto;
 }
+
+/* Phase B — translucent shared surfaces across every screen except Settings. */
+.app-shell:not([data-screen="settings"]) :is(
+  [class*="card"],
+  [class*="panel"],
+  [class*="tile"]
+):not([class*="icon"]):not([class*="art"]):not([class*="settings"]) {
+  background: rgba(255, 255, 255, .035) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .075);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.app-shell:not([data-screen="settings"]) button:not(.nav-item):not(.back-link):not(.secondary-action):not(.home-promo-dot):not(.reference-brand-button):not(.is-correct):not(.is-wrong):not([data-result="correct"]):not([data-result="incorrect"]) {
+  background: rgba(255, 255, 255, .035) !important;
+  box-shadow: none;
+}
+
+.app-shell:not([data-screen="settings"]) button:not(.nav-item):not(.back-link):not(.secondary-action):not(.home-promo-dot):not(.reference-brand-button):not(:disabled):hover {
+  background: rgba(255, 255, 255, .075) !important;
+}
+
+.app-shell:not([data-screen="settings"]) button.is-selected,
+.app-shell:not([data-screen="settings"]) button.is-active,
+.app-shell:not([data-screen="settings"]) button[aria-pressed="true"] {
+  background: rgba(120, 174, 187, .15) !important;
+}
