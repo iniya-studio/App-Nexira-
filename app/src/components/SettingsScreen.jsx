@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft, Bell, Check, ChevronRight, CircleHelp, Clock3, Globe2,
   Headphones, Info, Languages, RotateCcw, ShieldCheck, Sparkles, Volume2,
@@ -37,6 +37,7 @@ function SectionCard({ title, description, children, className = '' }) {
 export function SettingsScreen({
   language, localeName, reducedMotion, saved, onBack, onLanguage,
   onToggleReducedMotion, onReset, supportEmail, privacyPolicyUrl, termsUrl,
+  onRegisterSystemBack,
 }) {
   const copy = SETTINGS_COPY[language] ?? SETTINGS_COPY.en;
   const [page, setPage] = useState('main');
@@ -50,6 +51,12 @@ export function SettingsScreen({
   ].join('\n'), [language]);
 
   const goBack = () => page === 'main' ? onBack() : setPage('main');
+
+  useLayoutEffect(() => {
+    const handleSystemBack = page === 'main' ? null : () => setPage('main');
+    onRegisterSystemBack?.(handleSystemBack);
+    return () => onRegisterSystemBack?.(null);
+  }, [page, onRegisterSystemBack]);
   const pageTitle = page === 'faq' ? copy.faq : page === 'contact' ? copy.contact : page === 'about' ? copy.about : copy.title;
 
   return <main className="screen screen-frame info-screen settings-hub screen-enter">
