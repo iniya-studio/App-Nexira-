@@ -23,7 +23,7 @@ CREATE TABLE "QuickBattleResult" (
   ),
   CONSTRAINT "QuickBattleResult_matchId_fkey"
     FOREIGN KEY ("matchId") REFERENCES "QuickBattleMatch"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE INDEX "QuickBattleResult_finalizedAt_idx"
