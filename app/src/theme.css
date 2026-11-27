@@ -1033,7 +1033,7 @@ button {
   display: grid;
   place-items: center;
   transform-origin: center;
-  animation: splash-logo-float 3.2s ease-in-out 0.72s infinite;
+  animation: splash-logo-float 1.5s ease-in-out 0s infinite;
   will-change: transform, filter;
 }
 
@@ -1045,12 +1045,12 @@ button {
 
 @keyframes splash-logo-float {
   0%, 100% {
-    filter: drop-shadow(0 0 8px rgba(0, 197, 255, 0.16));
+    filter: drop-shadow(0 0 10px rgba(0, 197, 255, 0.22));
     transform: translateY(0) scale(1);
   }
   50% {
-    filter: drop-shadow(0 0 22px rgba(0, 197, 255, 0.42));
-    transform: translateY(-5px) scale(1.035);
+    filter: drop-shadow(0 0 28px rgba(0, 197, 255, 0.58));
+    transform: translateY(-8px) scale(1.06);
   }
 }
 
