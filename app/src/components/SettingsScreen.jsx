@@ -59,7 +59,7 @@ export function SettingsScreen({
   }, [page, onRegisterSystemBack]);
   const pageTitle = page === 'faq' ? copy.faq : page === 'contact' ? copy.contact : page === 'about' ? copy.about : copy.title;
 
-  return <main className="screen screen-frame info-screen settings-hub screen-enter">
+  return <main className={`screen screen-frame info-screen settings-hub settings-hub--${page} screen-enter`}>
     <button className="back-link" onClick={goBack}><ArrowLeft size={15} /> {page === 'main' ? copy.home : copy.back}</button>
     <div className="section-heading">
       <span className="eyebrow"><span className="live-dot" /> {page === 'main' ? copy.eyebrow : copy.title}</span>
