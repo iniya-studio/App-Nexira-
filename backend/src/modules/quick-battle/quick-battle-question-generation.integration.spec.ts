@@ -744,7 +744,12 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     }
 
     const resultWorker = new QuickBattleResultFinalizationWorker(prisma);
-    await expect(resultWorker.runOnce(match.id)).resolves.toBe(true);
+    const concurrentFinalizations = await Promise.all([
+      resultWorker.runOnce(match.id),
+      resultWorker.runOnce(match.id),
+    ]);
+    expect(concurrentFinalizations).toContain(true);
+    await expect(resultWorker.runOnce(match.id)).resolves.toBe(false);
     const result = await prisma.quickBattleResult.findUniqueOrThrow({ where: { matchId: match.id } });
     expect(result).toMatchObject({
       scoringPolicyVersion: 'quick-battle-score-v1',
