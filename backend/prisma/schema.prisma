@@ -702,7 +702,7 @@ model QuickBattleResult {
   finalizedAt          DateTime @db.Timestamptz(3)
   createdAt            DateTime @default(now()) @db.Timestamptz(3)
 
-  match QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  match QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Restrict)
 
   @@index([finalizedAt])
 }
