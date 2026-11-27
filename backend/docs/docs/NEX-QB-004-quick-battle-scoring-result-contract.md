@@ -1,6 +1,6 @@
 # NEX-QB-004 — Quick Battle Scoring & Result Contract
 
-Status: Product scoring policy approved; implementation pending
+Status: Implementation complete; CI status is tracked by the latest main workflow run
 Target ref: `main`
 Prerequisites: NEX-QB-002 baseline and NEX-QB-003 Stage 4 gameplay/judging complete and CI-verified
 Approval: Product owner approval recorded 2026-11-27
