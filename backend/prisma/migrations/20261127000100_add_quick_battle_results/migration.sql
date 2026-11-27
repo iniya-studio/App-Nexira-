@@ -43,23 +43,57 @@ BEFORE UPDATE OR DELETE ON "QuickBattleResult"
 FOR EACH ROW
 EXECUTE FUNCTION "prevent_quick_battle_result_mutation"();
 
-CREATE FUNCTION "prevent_quick_battle_answer_score_mutation_after_finalization"()
+CREATE FUNCTION "prevent_quick_battle_answer_mutation_after_finalization"()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF OLD."points" IS DISTINCT FROM NEW."points"
-     AND EXISTS (
-       SELECT 1 FROM "QuickBattleResult"
-       WHERE "matchId" = OLD."matchId"
-     ) THEN
-    RAISE EXCEPTION 'Quick Battle finalized answer scores are immutable';
+  IF EXISTS (
+    SELECT 1 FROM "QuickBattleResult"
+    WHERE "matchId" = OLD."matchId"
+  ) THEN
+    RAISE EXCEPTION 'Quick Battle finalized answer records are immutable';
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND NEW."matchId" IS DISTINCT FROM OLD."matchId" AND EXISTS (
+    SELECT 1 FROM "QuickBattleResult"
+    WHERE "matchId" = NEW."matchId"
+  ) THEN
+    RAISE EXCEPTION 'Quick Battle finalized answer records are immutable';
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
   END IF;
   RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER "QuickBattleAnswer_score_immutable_after_result"
-BEFORE UPDATE OF "points" ON "QuickBattleAnswer"
+CREATE TRIGGER "QuickBattleAnswer_immutable_after_result"
+BEFORE UPDATE OR DELETE ON "QuickBattleAnswer"
 FOR EACH ROW
-EXECUTE FUNCTION "prevent_quick_battle_answer_score_mutation_after_finalization"();
+EXECUTE FUNCTION "prevent_quick_battle_answer_mutation_after_finalization"();
+
+CREATE FUNCTION "prevent_quick_battle_match_mutation_after_finalization"()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM "QuickBattleResult"
+    WHERE "matchId" = OLD."id"
+  ) THEN
+    RAISE EXCEPTION 'Quick Battle match with a finalized result is immutable';
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER "QuickBattleMatch_immutable_after_result"
+BEFORE UPDATE OR DELETE ON "QuickBattleMatch"
+FOR EACH ROW
+EXECUTE FUNCTION "prevent_quick_battle_match_mutation_after_finalization"();
