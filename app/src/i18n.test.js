@@ -617,7 +617,7 @@ test('first-run language selection starts blank and completes even when English 
   assert.match(appSource, /value=\{isInitialLanguageSelection \? '' : language\}/);
   assert.match(appSource, /isInitialLanguageSelection && <option value="" disabled>/);
   assert.match(appSource, /if \(value === profileRef\.current\.settings\.language && !isInitialLanguageSelection\) return/);
-  assert.match(appSource, /completeLanguageSelection\(\);[\\s\\S]*?setIsInitialLanguageSelection\(false\);[\\s\\S]*?navigate\(wasInitialSelection \? 'home' : 'settings'\)/);
+  assert.match(appSource, /completeLanguageSelection\(\);[\s\S]*?setIsInitialLanguageSelection\(false\);[\s\S]*?navigate\(wasInitialSelection \? 'home' : 'settings'\)/);
   assert.match(appSource, /currentScreen === 'language' && !hasCompletedLanguageSelection\(\)/);
 });
 
