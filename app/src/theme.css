@@ -1027,6 +1027,33 @@ button {
   text-shadow: 0 0 28px rgba(0, 197, 255, 0.3);
 }
 
+/* Keep splash motion on a wrapper so the final brand asset can be swapped
+   without changing the animation implementation. */
+.splash-logo-motion {
+  display: grid;
+  place-items: center;
+  transform-origin: center;
+  animation: splash-logo-float 3.2s ease-in-out 0.72s infinite;
+  will-change: transform, filter;
+}
+
+.nexira-splash--reduced-motion .splash-logo-motion,
+.nexira-splash--reduced-motion .splash-orbit,
+.nexira-splash--reduced-motion .splash-loader i {
+  animation: none;
+}
+
+@keyframes splash-logo-float {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(0, 197, 255, 0.16));
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 22px rgba(0, 197, 255, 0.42));
+    transform: translateY(-5px) scale(1.035);
+  }
+}
+
 .splash-content > p {
   margin: 0;
   color: #a8c1d5;

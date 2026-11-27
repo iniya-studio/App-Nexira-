@@ -1116,11 +1116,11 @@ export default function App() {
           </button>}
     </header>}
 
-    {screen === 'splash' && <div className={`nexira-splash${splashExiting ? ' nexira-splash--exiting' : ''}`} role="status" aria-label="NEXIRA">
+    {screen === 'splash' && <div className={`nexira-splash${splashExiting ? ' nexira-splash--exiting' : ''}${prefersReducedMotion ? ' nexira-splash--reduced-motion' : ''}`} role="status" aria-label="NEXIRA">
       <div className="splash-orbit splash-orbit--outer" />
       <div className="splash-orbit splash-orbit--inner" />
       <div className="splash-content">
-        <Brand />
+        <div className="splash-logo-motion"><Brand /></div>
         <p>{text.splashTagline}</p>
         <span className="splash-loader" aria-hidden="true"><i /><i /><i /></span>
       </div>

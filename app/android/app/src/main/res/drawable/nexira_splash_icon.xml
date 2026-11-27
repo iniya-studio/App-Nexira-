@@ -4,12 +4,6 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#00C5FF"
-        android:pathData="M14,52 L48,18 L61,31 L27,65 Z" />
-    <path
-        android:fillColor="#00FFB8"
-        android:pathData="M36,78 L72,42 L85,55 L49,91 Z" />
-    <path
-        android:fillColor="#B7F5FF"
-        android:pathData="M61,17 L74,17 L92,35 L79,48 Z" />
+        android:fillColor="#00000000"
+        android:pathData="M0,0" />
 </vector>
