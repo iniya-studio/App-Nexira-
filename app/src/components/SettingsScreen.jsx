@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, Bell, Check, ChevronRight, CircleHelp, Clock3, Globe2,
   Headphones, Info, Languages, RotateCcw, ShieldCheck, Sparkles, Volume2,
@@ -43,6 +43,26 @@ export function SettingsScreen({
   const [page, setPage] = useState('main');
   const [showReset, setShowReset] = useState(false);
   const [copied, setCopied] = useState(false);
+  const pageRef = useRef(page);
+  const showResetRef = useRef(showReset);
+  const onBackRef = useRef(onBack);
+  pageRef.current = page;
+  showResetRef.current = showReset;
+  onBackRef.current = onBack;
+  const systemBackHandlerRef = useRef(null);
+  if (!systemBackHandlerRef.current) {
+    systemBackHandlerRef.current = () => {
+      if (showResetRef.current) {
+        setShowReset(false);
+        return;
+      }
+      if (pageRef.current !== 'main') {
+        setPage('main');
+        return;
+      }
+      onBackRef.current?.();
+    };
+  }
   const supportDetails = useMemo(() => [
     'NEXIRA support request',
     `App version: ${packageJson.version}`,
@@ -53,10 +73,9 @@ export function SettingsScreen({
   const goBack = () => page === 'main' ? onBack() : setPage('main');
 
   useLayoutEffect(() => {
-    const handleSystemBack = page === 'main' ? null : () => setPage('main');
-    onRegisterSystemBack?.(handleSystemBack);
+    onRegisterSystemBack?.(systemBackHandlerRef.current);
     return () => onRegisterSystemBack?.(null);
-  }, [page, onRegisterSystemBack]);
+  }, [onRegisterSystemBack]);
   const pageTitle = page === 'faq' ? copy.faq : page === 'contact' ? copy.contact : page === 'about' ? copy.about : copy.title;
 
   return <main className={`screen screen-frame info-screen settings-hub settings-hub--${page} screen-enter`}>
