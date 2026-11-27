@@ -41,7 +41,7 @@ describe('QuickBattleResultFinalizationWorker', () => {
       rounds,
     };
     const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([]),
+      $queryRaw: jest.fn().mockResolvedValueOnce([]).mockResolvedValue([{ now: new Date('2026-11-27T00:02:00.000Z') }]),
       quickBattleMatch: {
         findUnique: jest.fn().mockResolvedValue(match),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
