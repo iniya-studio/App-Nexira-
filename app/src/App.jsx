@@ -371,7 +371,7 @@ export default function App() {
         void cancelMatchmakingRef.current?.();
         return;
       }
-      if (currentScreen === 'match-game') {
+      if (currentScreen === 'game' || currentScreen === 'match-game') {
         setShowExitConfirm(true);
         return;
       }
