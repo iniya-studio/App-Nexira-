@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Clock3, LoaderCircle, Send, Trophy, Zap } from 'lucide-react';
 import { createQuickBattleApi } from '../api/quickBattleApi.js';
 import { createQuickBattleAdapter } from '../game/quickBattleAdapter.js';
@@ -12,22 +12,6 @@ export function QuickBattleScreen({ language, text, sessionReady, http, onExit }
   const [error, setError] = useState(null);
   const adapterRef = useRef(null);
   const startRef = useRef(null);
-
-  const sync = useCallback(async () => {
-    const adapter = adapterRef.current;
-    if (!adapter) return null;
-    try {
-      const next = await adapter.refresh();
-      if (next) {
-        setView(next);
-        setError(null);
-      }
-      return next;
-    } catch (failure) {
-      setError(failure);
-      return adapter.getView();
-    }
-  }, []);
 
   useEffect(() => {
     if (!sessionReady || !http || startRef.current) return undefined;

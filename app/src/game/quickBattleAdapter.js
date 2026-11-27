@@ -4,7 +4,7 @@ function createIdempotencyKey() {
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(32));
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
 
 function errorCode(error, fallback = 'QUICK_BATTLE_SYNC_FAILED') {
@@ -136,6 +136,10 @@ export function createQuickBattleAdapter(api, { createKey = createIdempotencyKey
           || !round.question.prompt.trim() || !round.deadlineAt) {
         return update({ phase: 'preparing', question: null, deadlineAt: null, errorCode: null });
       }
+      if (pendingSubmission) {
+        return update({ phase: 'submission-error', question: null, deadlineAt: round.deadlineAt,
+          errorCode: 'QUICK_BATTLE_SUBMISSION_RETRY_REQUIRED' });
+      }
       return update({
         phase: 'question',
         roundNumber,
@@ -150,7 +154,7 @@ export function createQuickBattleAdapter(api, { createKey = createIdempotencyKey
 
   async function submitAnswer(responseText) {
     const response = typeof responseText === 'string' ? responseText.trim() : '';
-    if (!view || view.phase !== 'question' || !response || response.length > 2000) {
+    if (!view || !['question', 'submission-error'].includes(view.phase) || !response || response.length > 2000) {
       throw new Error('A valid active Quick Battle answer is required.');
     }
     if (!pendingSubmission) {
