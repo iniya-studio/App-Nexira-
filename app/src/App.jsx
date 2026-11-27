@@ -1186,11 +1186,21 @@ export default function App() {
       </button>
 
       <HomePromotionCarousel
+        modesLabel={text.home.matchModes}
+        modesNote={text.home.duelDescription}
         quickBattleLabel={text.home.quickBattle}
         quickBattleNote={text.home.quickBattleNote}
-        storeLabel={text.home.store}
+        rankingsLabel={text.navRanks}
+        rankingsNote={text.ranking.pointsPolicy}
+        storeLabel={text.navStore}
+        storeNote={text.store.description}
+        profileLabel={text.navProfile}
+        profileNote={text.progress}
+        onModes={() => { setEntryMatchMode('1v1'); navigate('categories'); }}
         onQuickBattle={() => setScreen('quick-battle')}
+        onRankings={() => navigate('rankings')}
         onStore={() => navigate('store')}
+        onProfile={() => navigate('profile')}
         reducedMotion={prefersReducedMotion}
       />
     </ScreenFrame>}
