@@ -1120,7 +1120,10 @@ export default function App() {
       language={language}
       text={text}
       sessionReady={['guest', 'authenticated'].includes(sessionState.status)}
+      sessionStatus={sessionState.status}
+      sessionErrorCode={sessionState.error?.code}
       http={['guest', 'authenticated'].includes(sessionState.status) ? appSessionLifecycle.getHttpClient() : null}
+      onRetrySession={() => appSessionLifecycle.retry()}
       onExit={() => setScreen('home')}
     />}
 

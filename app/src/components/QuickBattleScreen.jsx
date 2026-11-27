@@ -4,7 +4,7 @@ import { createQuickBattleApi } from '../api/quickBattleApi.js';
 import { createQuickBattleAdapter } from '../game/quickBattleAdapter.js';
 import './QuickBattleScreen.css';
 
-export function QuickBattleScreen({ language, text, sessionReady, http, onExit }) {
+export function QuickBattleScreen({ language, text, sessionReady, sessionStatus, sessionErrorCode, http, onExit, onRetrySession }) {
   const [view, setView] = useState(null);
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
@@ -107,7 +107,13 @@ export function QuickBattleScreen({ language, text, sessionReady, http, onExit }
       <p>{text.match.matchStateBackend}</p>
     </header>
 
-    {!sessionReady && <section className="quick-battle-panel" role="status">
+    {!sessionReady && ['offline', 'error', 'signed-out', 'unsupported'].includes(sessionStatus) && <section className="quick-battle-panel" role="alert">
+      <h2>{text.match.unavailable}</h2>
+      <p>{sessionErrorCode || 'SESSION_NOT_READY'}</p>
+      <button type="button" className="quick-battle-primary" onClick={() => void onRetrySession?.()}>{text.match.retrySynchronization}</button>
+    </section>}
+
+    {!sessionReady && !['offline', 'error', 'signed-out', 'unsupported'].includes(sessionStatus) && <section className="quick-battle-panel" role="status">
       <LoaderCircle className="quick-battle-spinner" size={28} />
       <h2>{text.match.aiPreparingMatch}</h2>
     </section>}
