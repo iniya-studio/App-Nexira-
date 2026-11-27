@@ -33,15 +33,13 @@ export function QuickBattleScreen({ language, text, sessionReady, http, onExit }
     if (!sessionReady || !http || startRef.current) return undefined;
     const adapter = createQuickBattleAdapter(createQuickBattleApi(http));
     adapterRef.current = adapter;
-    let active = true;
     startRef.current = adapter.start(language).then((next) => {
-      if (active) setView(next);
+      setView(next);
       return next;
     }).catch((failure) => {
-      if (active) setError(failure);
+      setError(failure);
       return null;
     });
-    return () => { active = false; };
   }, [http, language, sessionReady]);
 
   useEffect(() => {
@@ -98,7 +96,9 @@ export function QuickBattleScreen({ language, text, sessionReady, http, onExit }
     try {
       const next = view?.phase === 'submission-error'
         ? await adapterRef.current.retrySubmission()
-        : await adapterRef.current.refresh();
+        : view?.matchId
+          ? await adapterRef.current.refresh()
+          : await adapterRef.current.start(language);
       setView(next);
     } catch (failure) {
       setView(adapterRef.current.getView());
