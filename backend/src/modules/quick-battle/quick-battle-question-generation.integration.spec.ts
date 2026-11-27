@@ -38,8 +38,18 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
         ...jobs.map((job) => job.generatedQuestionId),
         ...rounds.map((round) => round.questionId),
       ].filter((id): id is string => id !== null))];
-      // TRUNCATE bypasses the production immutability trigger for isolated test cleanup.
-      await prisma.$executeRaw`TRUNCATE TABLE "QuickBattleResult"`;
+      // TRUNCATE bypasses the production immutability trigger. Lock and verify
+      // that every existing result belongs to this test before clearing the table.
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`LOCK TABLE "QuickBattleResult" IN ACCESS EXCLUSIVE MODE`;
+        const unrelatedResults = await tx.quickBattleResult.count({
+          where: { matchId: { notIn: matchIds } },
+        });
+        if (unrelatedResults !== 0) {
+          throw new Error('Refusing to truncate QuickBattleResult rows owned by another test or environment');
+        }
+        await tx.$executeRaw`TRUNCATE TABLE "QuickBattleResult"`;
+      });
       await prisma.quickBattleMatch.deleteMany({
         where: { id: { in: matchIds } },
       });
