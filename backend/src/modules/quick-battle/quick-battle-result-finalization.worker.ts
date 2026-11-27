@@ -3,8 +3,16 @@ import { QuickBattleStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   calculateQuickBattleRoundScore,
+  QuickBattleScoringIntegrityError,
   QUICK_BATTLE_SCORING_POLICY_VERSION,
 } from './quick-battle-scoring.policy';
+
+class QuickBattleResultIntegrityError extends Error {
+  constructor(readonly reasonCode: string, message: string) {
+    super(message);
+    this.name = 'QuickBattleResultIntegrityError';
+  }
+}
 
 const POLL_INTERVAL_MS = 1000;
 @Injectable()
@@ -55,7 +63,10 @@ export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModu
       if (!match || match.status !== QuickBattleStatus.COMPLETED ||
           match.scoringPolicyVersion !== QUICK_BATTLE_SCORING_POLICY_VERSION) return false;
       if (match.roundsTarget !== 10 || match.rounds.length !== 10) {
-        throw new Error('Quick Battle result requires exactly ten rounds');
+        throw new QuickBattleResultIntegrityError(
+          'QB_RESULT_INVALID_ROUND_COUNT',
+          'Quick Battle result requires exactly ten rounds',
+        );
       }
 
       let totalPoints = 0;
@@ -64,27 +75,63 @@ export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModu
       let noResponseCount = 0;
       const roundScores: Array<{ answerId: string; points: number }> = [];
 
-      for (const round of match.rounds) {
-        if (!round.completedAt || round.voidedAt || !round.question || !round.answer) {
-          throw new Error('Quick Battle completed match contains an incomplete round outcome');
+      try {
+        for (const round of match.rounds) {
+          if (!round.completedAt || round.voidedAt || !round.question || !round.answer) {
+            throw new QuickBattleResultIntegrityError(
+              'QB_RESULT_INCOMPLETE_ROUND',
+              'Quick Battle completed match contains an incomplete round outcome',
+            );
+          }
+          const score = calculateQuickBattleRoundScore({
+            status: round.answer.status,
+            judgeStatus: round.answer.judgeStatus,
+            decision: round.answer.decision,
+            elapsedMs: round.answer.elapsedMs,
+            timeLimitSeconds: round.question.timeLimitSeconds,
+          });
+          totalPoints += score.points;
+          if (score.outcome === 'CORRECT') correctAnswers += 1;
+          if (score.outcome === 'INCORRECT') incorrectAnswers += 1;
+          if (score.outcome === 'NO_RESPONSE') noResponseCount += 1;
+          roundScores.push({ answerId: round.answer.id, points: score.points });
         }
-        const score = calculateQuickBattleRoundScore({
-          status: round.answer.status,
-          judgeStatus: round.answer.judgeStatus,
-          decision: round.answer.decision,
-          elapsedMs: round.answer.elapsedMs,
-          timeLimitSeconds: round.question.timeLimitSeconds,
-        });
-        totalPoints += score.points;
-        if (score.outcome === 'CORRECT') correctAnswers += 1;
-        if (score.outcome === 'INCORRECT') incorrectAnswers += 1;
-        if (score.outcome === 'NO_RESPONSE') noResponseCount += 1;
-        roundScores.push({ answerId: round.answer.id, points: score.points });
-      }
-
-      if (roundScores.length !== 10 || totalPoints < 0 || totalPoints > 1500 ||
-          correctAnswers + incorrectAnswers + noResponseCount !== 10) {
-        throw new Error('Quick Battle result summary failed integrity validation');
+  
+        if (roundScores.length !== 10 || totalPoints < 0 || totalPoints > 1500 ||
+            correctAnswers + incorrectAnswers + noResponseCount !== 10) {
+          throw new QuickBattleResultIntegrityError(
+            'QB_RESULT_INVALID_SUMMARY',
+            'Quick Battle result summary failed integrity validation',
+          );
+        }
+  
+        } catch (error) {
+        if (!match.result &&
+            (error instanceof QuickBattleScoringIntegrityError ||
+             error instanceof QuickBattleResultIntegrityError)) {
+          const clock = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
+          const voidedAt = clock[0]?.now;
+          if (!(voidedAt instanceof Date) || Number.isNaN(voidedAt.getTime())) {
+            throw new Error('Database clock is unavailable while voiding an invalid Quick Battle result');
+          }
+          const voided = await tx.quickBattleMatch.updateMany({
+            where: {
+              id: match.id,
+              status: QuickBattleStatus.COMPLETED,
+              voidedAt: null,
+              result: { is: null },
+            },
+            data: {
+              status: QuickBattleStatus.VOIDED,
+              voidedAt,
+              voidReason: error.reasonCode,
+            },
+          });
+          if (voided.count !== 1) throw error;
+          this.logger.error(`Quick Battle match ${match.id} was voided: ${error.reasonCode}`);
+          return false;
+        }
+        throw error;
       }
 
       if (match.result) {
