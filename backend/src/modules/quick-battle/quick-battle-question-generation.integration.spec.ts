@@ -803,4 +803,45 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     })).rejects.toThrow('Quick Battle finalized answer scores are immutable');
   });
 
+  it('technically voids a completed match with corrupted no-response timing', async () => {
+    const { match } = await createGuestMatch();
+    const generator: QuestionGenerator = {
+      generate: jest.fn(async (input) => generatedQuestion(input)),
+    };
+    const generationWorker = new QuickBattleQuestionGenerationWorker(prisma, generator);
+    for (let index = 0; index < 10; index += 1) await generationWorker.runOnce();
+
+    const publisher = new QuickBattleRoundPublicationWorker(prisma);
+    const roundFinalizer = new QuickBattleRoundFinalizationWorker(prisma);
+    for (let roundNumber = 1; roundNumber <= 10; roundNumber += 1) {
+      await expect(publisher.runOnce(match.id)).resolves.toBe(true);
+      await prisma.quickBattleRound.updateMany({
+        where: { matchId: match.id, roundNumber },
+        data: { deadlineAt: new Date(Date.now() - 1_000) },
+      });
+      await expect(roundFinalizer.runOnce(match.id)).resolves.toBe(true);
+    }
+
+    await prisma.quickBattleAnswer.updateMany({
+      where: { matchId: match.id, status: 'NO_RESPONSE' },
+      data: { elapsedMs: 29_999 },
+    });
+    const resultWorker = new QuickBattleResultFinalizationWorker(prisma);
+    await expect(resultWorker.runOnce(match.id)).resolves.toBe(false);
+
+    const [voidedMatch, resultCount] = await Promise.all([
+      prisma.quickBattleMatch.findUniqueOrThrow({
+        where: { id: match.id },
+        select: { status: true, voidReason: true, voidedAt: true },
+      }),
+      prisma.quickBattleResult.count({ where: { matchId: match.id } }),
+    ]);
+    expect(voidedMatch).toMatchObject({
+      status: QuickBattleStatus.VOIDED,
+      voidReason: 'QB_RESULT_INVALID_NO_RESPONSE',
+    });
+    expect(voidedMatch.voidedAt).toBeInstanceOf(Date);
+    expect(resultCount).toBe(0);
+  });
+
 });
