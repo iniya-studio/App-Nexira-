@@ -1657,7 +1657,7 @@ button[aria-disabled="true"] {
   background-position: center top;
   background-size: cover;
   background-repeat: no-repeat;
-  filter: blur(4px) saturate(1.08);
+  filter: none;
   opacity: .76;
   transform: scale(1.025);
 }
@@ -1669,9 +1669,6 @@ button[aria-disabled="true"] {
   content: "";
   pointer-events: none;
   background: linear-gradient(180deg, rgba(4, 8, 24, .12), rgba(4, 8, 24, .22) 58%, rgba(4, 8, 24, .42));
-}
-@media (max-width: 380px) {
-  .app-shell[data-screen="home"]::before { filter: blur(3px) saturate(1.04); }
 }
 @media (prefers-reduced-motion: reduce) {
   .app-shell[data-screen="home"]::before { transform: none; }
