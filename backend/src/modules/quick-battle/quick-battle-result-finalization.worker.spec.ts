@@ -42,7 +42,10 @@ describe('QuickBattleResultFinalizationWorker', () => {
     };
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([]),
-      quickBattleMatch: { findUnique: jest.fn().mockResolvedValue(match) },
+      quickBattleMatch: {
+        findUnique: jest.fn().mockResolvedValue(match),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       quickBattleAnswer: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findUnique: jest.fn(),
@@ -94,11 +97,24 @@ describe('QuickBattleResultFinalizationWorker', () => {
     expect(tx.quickBattleResult.create).not.toHaveBeenCalled();
   });
 
-  it('rejects a completed match with a missing terminal round outcome', async () => {
+  it('technically voids a completed match with a missing terminal round outcome', async () => {
     const rounds = makeRounds();
     rounds[9].answer = null as never;
     const { worker, tx } = setup({ rounds });
-    await expect(worker.runOnce()).rejects.toThrow('incomplete round outcome');
+    await expect(worker.runOnce()).resolves.toBe(false);
+    expect(tx.quickBattleMatch.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'match-1',
+        status: QuickBattleStatus.COMPLETED,
+        voidedAt: null,
+        result: { is: null },
+      },
+      data: {
+        status: QuickBattleStatus.VOIDED,
+        voidedAt: expect.any(Date),
+        voidReason: 'QB_RESULT_INCOMPLETE_ROUND',
+      },
+    });
     expect(tx.quickBattleResult.create).not.toHaveBeenCalled();
   });
 
