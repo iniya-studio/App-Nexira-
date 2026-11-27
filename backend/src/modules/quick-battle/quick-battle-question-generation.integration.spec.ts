@@ -38,6 +38,8 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
         ...jobs.map((job) => job.generatedQuestionId),
         ...rounds.map((round) => round.questionId),
       ].filter((id): id is string => id !== null))];
+      // TRUNCATE bypasses the production immutability trigger for isolated test cleanup.
+      await prisma.$executeRaw`TRUNCATE TABLE "QuickBattleResult"`;
       await prisma.quickBattleMatch.deleteMany({
         where: { id: { in: matchIds } },
       });
