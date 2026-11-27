@@ -57,9 +57,6 @@ export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModu
       if (match.roundsTarget !== 10 || match.rounds.length !== 10) {
         throw new Error('Quick Battle result requires exactly ten rounds');
       }
-      if (match.roundsTarget !== 10 || match.rounds.length !== 10) {
-        throw new Error('Quick Battle result requires exactly ten rounds');
-      }
 
       let totalPoints = 0;
       let correctAnswers = 0;
