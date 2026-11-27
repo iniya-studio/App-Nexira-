@@ -611,6 +611,16 @@ test('runtime locale infrastructure applies document language, direction, font, 
 });
 
 
+
+test('first-run language selection starts blank and completes even when English is selected', async () => {
+  const appSource = await readFile(new URL('./App.jsx', import.meta.url), 'utf8');
+  assert.match(appSource, /value=\{isInitialLanguageSelection \? '' : language\}/);
+  assert.match(appSource, /isInitialLanguageSelection && <option value="" disabled>/);
+  assert.match(appSource, /if \(value === profileRef\.current\.settings\.language && !isInitialLanguageSelection\) return/);
+  assert.match(appSource, /completeLanguageSelection\(\);[\\s\\S]*?setIsInitialLanguageSelection\(false\);[\\s\\S]*?navigate\(wasInitialSelection \? 'home' : 'settings'\)/);
+  assert.match(appSource, /currentScreen === 'language' && !hasCompletedLanguageSelection\(\)/);
+});
+
 test('a locale cannot be enabled until its full UI, category and question content exists', () => {
   for (const locale of getSupportedLocales()) {
     const copy = COPY[locale.code];
