@@ -15,6 +15,7 @@ import { advanceChallenge, createChallenge, isPlayableChallenge, recordAnswer } 
 import { createLocalMatchAdapter } from './game/localMatchAdapter.js';
 import { createOnlineMatchAdapter } from './game/onlineMatchAdapter.js';
 import { createMatchApi } from './api/matchApi.js';
+import { QuickBattleScreen } from './components/QuickBattleScreen.jsx';
 import { createProgressionApi } from './api/progressionApi.js';
 import { createMatchmakingApi } from './api/matchmakingApi.js';
 import { createOnlineMatchmakingAdapter } from './game/onlineMatchmakingAdapter.js';
@@ -362,6 +363,10 @@ export default function App() {
       }
       if (currentScreen === 'match-game') {
         setShowExitConfirm(true);
+        return;
+      }
+      if (currentScreen === 'quick-battle') {
+        setScreen('home');
         return;
       }
       if (currentScreen === 'subcategories') {
@@ -1097,7 +1102,7 @@ export default function App() {
   >
     <div className="ambient ambient--one" />
     <div className="ambient ambient--two" />
-    {screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking' && screen !== 'home' && <header className="topbar">
+    {screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking' && screen !== 'quick-battle' && screen !== 'home' && <header className="topbar">
       <button className="brand-button" onClick={() => navigate('home')} aria-label={text.navHome}><Brand /></button>
       {screen === 'rankings'
         ? <button className="ranking-header-back" onClick={() => navigate('home')} aria-label={text.homeLabel}><ArrowLeft size={20} /></button>
@@ -1116,6 +1121,14 @@ export default function App() {
         <span className="splash-loader" aria-hidden="true"><i /><i /><i /></span>
       </div>
     </div>}
+
+    {screen === 'quick-battle' && <QuickBattleScreen
+      language={language}
+      text={text}
+      sessionReady={['guest', 'authenticated'].includes(sessionState.status)}
+      http={['guest', 'authenticated'].includes(sessionState.status) ? appSessionLifecycle.getHttpClient() : null}
+      onExit={() => setScreen('home')}
+    />}
 
     {screen === 'home' && <ScreenFrame className="home-screen home-reference-screen">
       <header className="reference-header">
@@ -1158,7 +1171,7 @@ export default function App() {
       </section>
 
       <button className="reference-quick-battle" onClick={() => {
-        beginChallenge(quickBattlePreviewCategory, quickBattlePreviewCategory.modes[0], 0);
+        setScreen('quick-battle');
       }}>
         <Zap size={34} fill="currentColor" />
         <span><strong>{text.home.quickBattle}</strong><small>{text.home.quickBattleNote}</small></span>
@@ -1841,7 +1854,7 @@ export default function App() {
       </GlassPanel>
     </ScreenFrame>}
 
-    {screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
+    {screen !== 'game' && screen !== 'match-game' && screen !== 'matchmaking' && screen !== 'quick-battle' && <nav className="bottom-nav" aria-label={text.mainNavigation}>
       {[
         ['home', text.navHome, Home],
         ['rankings', text.navRanks, Trophy],
