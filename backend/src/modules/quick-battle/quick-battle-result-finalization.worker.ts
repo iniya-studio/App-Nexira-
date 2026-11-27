@@ -7,8 +7,6 @@ import {
 } from './quick-battle-scoring.policy';
 
 const POLL_INTERVAL_MS = 1000;
-type Candidate = { id: string };
-
 @Injectable()
 export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(QuickBattleResultFinalizationWorker.name);
