@@ -2054,7 +2054,7 @@ button[aria-disabled="true"] {
 }
 
 
-/* Home promotional carousel: two owned campaigns and three reserved AdMob slots. */
+/* Home promotional carousel: five in-app discovery campaigns. */
 .home-promotion-section {
   width:100%;
   min-width:0;
@@ -2109,8 +2109,8 @@ button.home-promo-card:active { filter:brightness(1.14); }
 .home-promo-card--rankings {
   background:radial-gradient(ellipse at 82% 40%,rgba(0,210,255,.18),transparent 48%),linear-gradient(115deg,rgba(8,30,59,.58),rgba(13,15,49,.12));
 }
-.home-promo-card--store {
-  background:radial-gradient(ellipse at 82% 40%,rgba(255,45,101,.18),transparent 48%),linear-gradient(115deg,rgba(44,13,48,.58),rgba(13,15,49,.12));
+.home-promo-card--modes {
+  background:radial-gradient(ellipse at 15% 50%,rgba(0,210,255,.18),transparent 48%),linear-gradient(115deg,rgba(8,30,59,.58),rgba(13,15,49,.12));
 }
 .home-promo-card--profile {
   background:radial-gradient(ellipse at 82% 40%,rgba(0,255,184,.16),transparent 48%),linear-gradient(115deg,rgba(8,42,46,.58),rgba(13,15,49,.12));
