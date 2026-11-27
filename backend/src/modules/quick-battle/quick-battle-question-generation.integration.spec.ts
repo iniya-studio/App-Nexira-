@@ -755,12 +755,23 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     });
     const scoredAnswers = await prisma.quickBattleAnswer.findMany({
       where: { matchId: match.id },
-      select: { points: true },
+      select: { id: true, points: true },
     });
     expect(scoredAnswers).toHaveLength(10);
     expect(scoredAnswers.filter((answer) => answer.points === 125)).toHaveLength(4);
     expect(scoredAnswers.filter((answer) => answer.points === 0)).toHaveLength(6);
     expect(await prisma.quickBattleResult.count({ where: { matchId: match.id } })).toBe(1);
+    await expect(prisma.quickBattleResult.update({
+      where: { matchId: match.id },
+      data: { totalPoints: 501 },
+    })).rejects.toThrow('Quick Battle finalized results are immutable');
+    await expect(prisma.quickBattleResult.delete({
+      where: { matchId: match.id },
+    })).rejects.toThrow('Quick Battle finalized results are immutable');
+    await expect(prisma.quickBattleAnswer.update({
+      where: { id: scoredAnswers[0].id },
+      data: { points: 1 },
+    })).rejects.toThrow('Quick Battle finalized answer scores are immutable');
   });
 
 });
