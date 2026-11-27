@@ -27,6 +27,7 @@ import { loadLocaleFont } from './localeFonts.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
+import { SettingsScreen } from './components/SettingsScreen.jsx';
 
 const CATEGORY_ICONS = {
   brain: Brain,
@@ -1816,19 +1817,19 @@ export default function App() {
       </div>}
     </ScreenFrame>}
 
-    {screen === 'settings' && <ScreenFrame className="info-screen">
-      <button className="back-link" onClick={() => navigate('home')}><ArrowLeft size={15} /> {text.homeLabel}</button>
-      <ScreenHeading eyebrow={text.settingsEyebrow} title={text.settingsTitle} accent={text.settingsAccent} description={text.settingsDescription} />
-      <GlassPanel className="settings-panel">
-        <div className="setting-row"><span><Languages size={17} /><span><strong>{text.language}</strong><small>{text.languageOptions}</small></span></span>
-          <button className="setting-action" onClick={() => navigate('language')}>{localeConfig.nativeName} <ChevronRight size={16} /></button></div>
-        <div className="setting-row"><span><Sparkles size={17} /><span><strong>{text.reducedMotion}</strong><small>{text.fewerAnimations}</small></span></span>
-          <button className={`toggle-control${profile.settings.reducedMotion ? ' is-on' : ''}`} role="switch" aria-checked={profile.settings.reducedMotion} aria-label={text.reducedMotion} onClick={() => updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, reducedMotion: !saved.settings.reducedMotion } }))}><i /></button>
-        </div>
-        <p className="panel-note"><Check size={13} /> {storageFailed ? text.saveNotice : text.saved}</p>
-        <button className="secondary-action settings-language-link" onClick={() => navigate('language')}>{text.language} · {localeConfig.nativeName}</button>
-      </GlassPanel>
-    </ScreenFrame>}
+    {screen === 'settings' && <SettingsScreen
+      language={language}
+      localeName={localeConfig.nativeName}
+      reducedMotion={profile.settings.reducedMotion}
+      saved={!storageFailed}
+      onBack={() => navigate('home')}
+      onLanguage={() => navigate('language')}
+      onToggleReducedMotion={() => updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, reducedMotion: !saved.settings.reducedMotion } }))}
+      onReset={() => updateProfile((saved) => ({ ...saved, settings: { language: 'en', reducedMotion: false, sound: false } }))}
+      supportEmail={import.meta.env.VITE_SUPPORT_EMAIL ?? ''}
+      privacyPolicyUrl={import.meta.env.VITE_PRIVACY_POLICY_URL ?? ''}
+      termsUrl={import.meta.env.VITE_TERMS_URL ?? ''}
+    />}
 
     {screen === 'language' && <ScreenFrame className="info-screen">
       <button className="back-link" onClick={() => navigate('settings')}><ArrowLeft size={15} /> {text.settings}</button>
