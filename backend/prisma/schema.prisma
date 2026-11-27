@@ -589,7 +589,7 @@ model QuickBattleMatch {
   roundsTarget            Int               @default(10)
   currentRound            Int               @default(0)
   generationPolicyVersion String            @default("quick-battle-generation-v1") @db.VarChar(64)
-  scoringPolicyVersion    String            @default("quick-battle-scoring-pending") @db.VarChar(64)
+  scoringPolicyVersion    String            @default("quick-battle-score-v1") @db.VarChar(64)
   startedAt               DateTime?         @db.Timestamptz(3)
   completedAt             DateTime?         @db.Timestamptz(3)
   voidedAt                DateTime?         @db.Timestamptz(3)
@@ -683,7 +683,7 @@ model QuickBattleAnswer {
   acceptedAt       DateTime       @default(now()) @db.Timestamptz(3)
   judgedAt         DateTime?      @db.Timestamptz(3)
 
-  match QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  match QuickBattleMatch @relation(fields: [matchId], references: [id], onDelete: Restrict)
   round QuickBattleRound @relation(fields: [roundId, matchId], references: [id, matchId], onDelete: Cascade)
 
   @@unique([roundId, matchId])
