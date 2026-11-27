@@ -481,7 +481,7 @@ export default function App() {
 
   const handleLanguageChange = useCallback(async (value) => {
     if (!getSupportedLocales().some((locale) => locale.code === value)) return;
-    if (value === profileRef.current.settings.language) return;
+    if (value === profileRef.current.settings.language && !isInitialLanguageSelection) return;
     const requestId = ++languageChangeRequestRef.current;
     setLanguageChanging(true);
     try {
@@ -1853,12 +1853,13 @@ export default function App() {
         <select
           id="nexira-language-select"
           className="language-option"
-          value={language}
+          value={isInitialLanguageSelection ? '' : language}
           aria-label={text.language}
           disabled={languageChanging}
           onChange={(event) => { void handleLanguageChange(event.target.value); }}
           style={{ display: 'block', width: '100%', minHeight: 58, padding: '0 14px', color: '#e9f2fa', border: '1px solid rgba(0, 197, 255, 0.42)', borderRadius: 9, background: 'rgba(9, 23, 38, 0.9)', font: 'inherit', textAlign: 'start' }}
         >
+          {isInitialLanguageSelection && <option value="" disabled>{text.language}</option>}
           {getSupportedLocales().map((locale) => (
             <option key={locale.code} value={locale.code}>{locale.nativeName} · {locale.englishName}</option>
           ))}
