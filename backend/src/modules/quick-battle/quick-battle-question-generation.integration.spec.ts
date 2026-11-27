@@ -807,7 +807,18 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     await expect(prisma.quickBattleAnswer.update({
       where: { id: scoredAnswers[0].id },
       data: { points: 1 },
-    })).rejects.toThrow('Quick Battle finalized answer scores are immutable');
+    })).rejects.toThrow('Quick Battle finalized answer records are immutable');
+    await expect(prisma.quickBattleAnswer.update({
+      where: { id: scoredAnswers[0].id },
+      data: { elapsedMs: 14999 },
+    })).rejects.toThrow('Quick Battle finalized answer records are immutable');
+    await expect(prisma.quickBattleAnswer.delete({
+      where: { id: scoredAnswers[0].id },
+    })).rejects.toThrow('Quick Battle finalized answer records are immutable');
+    await expect(prisma.quickBattleMatch.update({
+      where: { id: match.id },
+      data: { status: QuickBattleStatus.VOIDED },
+    })).rejects.toThrow('Quick Battle match with a finalized result is immutable');
   });
 
   it('technically voids a completed match with corrupted no-response timing', async () => {
