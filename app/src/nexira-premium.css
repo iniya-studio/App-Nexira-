@@ -2245,12 +2245,12 @@ button.home-promo-card:active { filter:brightness(1.14); }
   backdrop-filter: none;
 }
 
-.app-shell:not([data-screen="settings"]) button:not(.nav-item):not(.back-link):not(.secondary-action):not(.home-promo-dot):not(.reference-brand-button):not(.is-correct):not(.is-wrong):not([data-result="correct"]):not([data-result="incorrect"]) {
+.app-shell:not([data-screen="settings"]) button:not(.nav-item):not(.back-link):not(.secondary-action):not(.home-promo-dot):not(.reference-brand-button):not(.reference-quick-battle):not(.is-correct):not(.is-wrong):not([data-result="correct"]):not([data-result="incorrect"]) {
   background: rgba(255, 255, 255, .035) !important;
   box-shadow: none;
 }
 
-.app-shell:not([data-screen="settings"]) button:not(.nav-item):not(.back-link):not(.secondary-action):not(.home-promo-dot):not(.reference-brand-button):not(:disabled):hover {
+.app-shell:not([data-screen="settings"]) button:not(.nav-item):not(.back-link):not(.secondary-action):not(.home-promo-dot):not(.reference-brand-button):not(.reference-quick-battle):not(:disabled):hover {
   background: rgba(255, 255, 255, .075) !important;
 }
 
