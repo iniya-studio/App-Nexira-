@@ -2052,3 +2052,168 @@ button[aria-disabled="true"] {
 .profile-screen > .profile-panel > .screen-tabs {
   grid-column: 1 / -1;
 }
+
+
+/* Home promotional carousel: two owned campaigns and three reserved AdMob slots. */
+.home-promotion-section {
+  width:100%;
+  min-width:0;
+  margin-top:2px;
+}
+.home-promotion-viewport {
+  position:relative;
+  width:100%;
+  height:112px;
+  overflow:hidden;
+  border:1px solid rgba(36,189,255,.48);
+  border-radius:19px 12px 19px 12px;
+  background:linear-gradient(135deg,rgba(8,20,48,.96),rgba(13,15,49,.96) 58%,rgba(29,12,62,.94));
+  box-shadow:inset 0 1px rgba(255,255,255,.12),0 0 16px rgba(0,154,255,.16),0 9px 20px rgba(0,0,0,.26);
+}
+.home-promo-card {
+  position:absolute;
+  inset:0;
+  display:flex;
+  width:100%;
+  min-width:0;
+  height:100%;
+  align-items:center;
+  gap:12px;
+  padding:12px 48px 21px 14px;
+  border:0;
+  color:#fff;
+  background:transparent;
+  text-align:start;
+  opacity:0;
+  pointer-events:none;
+  transform:translateX(12px);
+  transition:opacity .32s ease,transform .32s ease;
+}
+.home-promo-card.is-active {
+  z-index:1;
+  opacity:1;
+  pointer-events:auto;
+  transform:translateX(0);
+}
+button.home-promo-card { cursor:pointer; }
+button.home-promo-card:active { filter:brightness(1.14); }
+.home-promo-card--quick-battle {
+  background:radial-gradient(ellipse at 15% 50%,rgba(255,190,0,.25),transparent 42%),linear-gradient(110deg,rgba(63,35,5,.72),rgba(14,22,52,.32) 70%);
+}
+.home-promo-card--store {
+  background:radial-gradient(ellipse at 15% 50%,rgba(153,65,255,.28),transparent 44%),linear-gradient(110deg,rgba(49,18,91,.72),rgba(14,22,52,.28) 70%);
+}
+.home-promo-card--ad-one {
+  background:radial-gradient(ellipse at 82% 40%,rgba(0,210,255,.18),transparent 48%),linear-gradient(115deg,rgba(8,30,59,.58),rgba(13,15,49,.12));
+}
+.home-promo-card--ad-two {
+  background:radial-gradient(ellipse at 82% 40%,rgba(255,45,101,.18),transparent 48%),linear-gradient(115deg,rgba(44,13,48,.58),rgba(13,15,49,.12));
+}
+.home-promo-card--ad-three {
+  background:radial-gradient(ellipse at 82% 40%,rgba(0,255,184,.16),transparent 48%),linear-gradient(115deg,rgba(8,42,46,.58),rgba(13,15,49,.12));
+}
+.home-promo-art {
+  display:grid;
+  width:62px;
+  height:62px;
+  flex:0 0 62px;
+  place-items:center;
+  border:1px solid rgba(255,211,63,.58);
+  border-radius:17px 10px 17px 10px;
+  color:#ffd52e;
+  background:linear-gradient(145deg,rgba(255,193,0,.16),rgba(255,193,0,.035));
+  box-shadow:0 0 18px rgba(255,193,0,.13),inset 0 1px rgba(255,255,255,.12);
+}
+.home-promo-card--store .home-promo-art {
+  border-color:rgba(178,112,255,.65);
+  color:#c49aff;
+  background:linear-gradient(145deg,rgba(151,75,255,.2),rgba(151,75,255,.04));
+  box-shadow:0 0 18px rgba(151,75,255,.15),inset 0 1px rgba(255,255,255,.12);
+}
+.home-promo-card--ad-one .home-promo-art,
+.home-promo-card--ad-two .home-promo-art,
+.home-promo-card--ad-three .home-promo-art {
+  border-color:rgba(91,190,255,.35);
+  color:#b6dfff;
+  background:linear-gradient(145deg,rgba(91,190,255,.12),rgba(91,190,255,.025));
+}
+.home-promo-card--ad-two .home-promo-art { color:#ff9ac0; border-color:rgba(255,110,160,.35); }
+.home-promo-card--ad-three .home-promo-art { color:#8ef5d6; border-color:rgba(0,255,184,.32); }
+.home-promo-copy {
+  display:grid;
+  min-width:0;
+  flex:1;
+  gap:4px;
+}
+.home-promo-copy > small {
+  color:#a9c7e7;
+  font:700 7px/1.2 var(--font-display);
+  letter-spacing:1.15px;
+}
+.home-promo-copy > strong {
+  overflow:hidden;
+  color:#fff;
+  font:800 clamp(15px,4.2vw,21px)/1.15 var(--font-display);
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.home-promo-copy > em {
+  overflow:hidden;
+  color:#c2d4e8;
+  font:600 9px/1.35 var(--font-body);
+  font-style:normal;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.home-promo-arrow { flex:0 0 auto; color:#ffe05a; }
+.home-promo-ad-label {
+  position:absolute;
+  top:9px;
+  inset-inline-end:11px;
+  display:grid;
+  min-width:25px;
+  height:18px;
+  place-items:center;
+  padding:0 5px;
+  border:1px solid rgba(196,220,243,.35);
+  border-radius:5px;
+  color:#dcecff;
+  background:rgba(5,13,29,.56);
+  font:700 8px/1 var(--font-display);
+  letter-spacing:.6px;
+}
+.home-promo-pagination {
+  position:absolute;
+  z-index:3;
+  inset-inline-end:13px;
+  bottom:8px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.home-promo-dot {
+  width:6px;
+  height:6px;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:rgba(210,229,247,.35);
+  cursor:pointer;
+  transition:width .2s ease,background .2s ease;
+}
+.home-promo-dot.is-active {
+  width:17px;
+  border-radius:99px;
+  background:#ffd52e;
+  box-shadow:0 0 8px rgba(255,213,46,.45);
+}
+@media(max-width:380px) {
+  .home-promotion-viewport { height:104px; }
+  .home-promo-card { gap:9px; padding-inline-start:10px; }
+  .home-promo-art { width:54px; height:54px; flex-basis:54px; }
+  .home-promo-copy > strong { font-size:15px; }
+  .home-promo-copy > em { font-size:8px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .home-promo-card,.home-promo-dot { transition:none; }
+}

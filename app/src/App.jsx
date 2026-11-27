@@ -28,6 +28,7 @@ import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
 import { SettingsScreen } from './components/SettingsScreen.jsx';
+import { HomePromotionCarousel } from './components/HomePromotionCarousel.jsx';
 
 const CATEGORY_ICONS = {
   brain: Brain,
@@ -1184,20 +1185,14 @@ export default function App() {
         <Clock3 size={30} />
       </button>
 
-      <section className="reference-lower-grid">
-        <div className="reference-stats-panel">
-          <div className="reference-stats-heading"><Activity size={28} /><strong>{text.home.yourStats}</strong></div>
-          <div className="reference-stats">
-            <div><Trophy size={20} /><strong>{profile.battles.toLocaleString(localeConfig.intlLocale)}</strong><small>{text.home.matches}</small></div>
-            <div><Flame size={20} /><strong>{profile.bestScore.toLocaleString(localeConfig.intlLocale)}</strong><small>{text.home.bestScore}</small></div>
-            <div><Target size={20} /><strong>{accuracy}%</strong><small>{text.home.accuracy}</small></div>
-          </div>
-        </div>
-        <button className="reference-store-card" onClick={() => navigate('store')}>
-          <ShoppingCart size={42} />
-          <strong>{text.home.store}</strong>
-        </button>
-      </section>
+      <HomePromotionCarousel
+        quickBattleLabel={text.home.quickBattle}
+        quickBattleNote={text.home.quickBattleNote}
+        storeLabel={text.home.store}
+        onQuickBattle={() => setScreen('quick-battle')}
+        onStore={() => navigate('store')}
+        reducedMotion={prefersReducedMotion}
+      />
     </ScreenFrame>}
 
     {screen === 'categories' && <ScreenFrame className="categories-screen">
