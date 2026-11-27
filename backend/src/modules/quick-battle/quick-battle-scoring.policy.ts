@@ -20,7 +20,7 @@ export type QuickBattleRoundScore = {
 };
 
 export class QuickBattleScoringIntegrityError extends Error {
-  constructor(message: string) {
+  constructor(readonly reasonCode: string, message: string) {
     super(message);
     this.name = 'QuickBattleScoringIntegrityError';
   }
@@ -33,20 +33,20 @@ export function calculateQuickBattleRoundScore(
     if (input.judgeStatus !== JudgeStatus.NOT_REQUIRED || input.decision !== null ||
         !Number.isSafeInteger(input.timeLimitSeconds) || input.timeLimitSeconds <= 0 ||
         input.elapsedMs !== input.timeLimitSeconds * 1000) {
-      throw new QuickBattleScoringIntegrityError('NO_RESPONSE answer has an inconsistent state or timing');
+      throw new QuickBattleScoringIntegrityError('QB_RESULT_INVALID_NO_RESPONSE', 'NO_RESPONSE answer has an inconsistent state or timing');
     }
     return { points: 0, outcome: 'NO_RESPONSE' };
   }
 
   if (input.status !== AnswerStatus.ANSWERED || input.judgeStatus !== JudgeStatus.COMPLETED ||
       (input.decision !== JudgeDecision.CORRECT && input.decision !== JudgeDecision.INCORRECT)) {
-    throw new QuickBattleScoringIntegrityError('Quick Battle answer is not in a terminal scoreable state');
+    throw new QuickBattleScoringIntegrityError('QB_RESULT_UNSCOREABLE_ANSWER', 'Quick Battle answer is not in a terminal scoreable state');
   }
 
   if (!Number.isSafeInteger(input.timeLimitSeconds) || input.timeLimitSeconds <= 0 ||
       !Number.isSafeInteger(input.elapsedMs) || input.elapsedMs < 0 ||
       input.elapsedMs >= input.timeLimitSeconds * 1000) {
-    throw new QuickBattleScoringIntegrityError('Quick Battle answer timing is invalid');
+    throw new QuickBattleScoringIntegrityError('QB_RESULT_INVALID_TIMING', 'Quick Battle answer timing is invalid');
   }
 
   if (input.decision === JudgeDecision.INCORRECT) {
