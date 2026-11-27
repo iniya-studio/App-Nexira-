@@ -753,6 +753,18 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
     expect(concurrentFinalizations).toContain(true);
     await expect(resultWorker.runOnce(match.id)).resolves.toBe(false);
     const result = await prisma.quickBattleResult.findUniqueOrThrow({ where: { matchId: match.id } });
+    const publicResult = await service.getResult(match.id, principal);
+    expect(publicResult).toMatchObject({
+      matchId: match.id,
+      totalPoints: 500,
+      correctAnswers: 4,
+      incorrectAnswers: 3,
+      noResponseCount: 3,
+      rounds: expect.arrayContaining([
+        expect.objectContaining({ roundNumber: 1, outcome: 'CORRECT', points: 125 }),
+        expect.objectContaining({ roundNumber: 8, outcome: 'NO_RESPONSE', points: 0 }),
+      ]),
+    });
     expect(result).toMatchObject({
       scoringPolicyVersion: 'quick-battle-score-v1',
       totalPoints: 500,
