@@ -755,6 +755,13 @@ describe('Quick Battle question generation PostgreSQL integration', () => {
       await expect(roundFinalizer.runOnce(match.id)).resolves.toBe(true);
     }
 
+    await expect(service.getResult(match.id, principal)).rejects.toThrow('Quick Battle result is not available yet');
+    await expect(service.getResult(match.id, {
+      principalType: PrincipalType.GUEST,
+      principalId: randomUUID(),
+      sessionId: randomUUID(),
+    })).rejects.toThrow('Quick Battle not found');
+
     const resultWorker = new QuickBattleResultFinalizationWorker(prisma);
     const concurrentFinalizations = await Promise.all([
       resultWorker.runOnce(match.id),
