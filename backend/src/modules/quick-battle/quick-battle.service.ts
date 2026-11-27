@@ -140,6 +140,56 @@ export class QuickBattleService {
     return this.getOwnedMatch(this.prisma, matchId, principal);
   }
 
+  async getResult(matchId: string, principal: AuthenticatedPrincipal) {
+    const match = await this.prisma.quickBattleMatch.findFirst({
+      where: { id: matchId, ...this.ownerWhere(principal) },
+      select: {
+        id: true,
+        status: true,
+        result: {
+          select: {
+            scoringPolicyVersion: true,
+            totalPoints: true,
+            correctAnswers: true,
+            incorrectAnswers: true,
+            noResponseCount: true,
+            finalizedAt: true,
+          },
+        },
+        rounds: {
+          orderBy: { roundNumber: 'asc' },
+          select: {
+            roundNumber: true,
+            answer: {
+              select: { status: true, decision: true, elapsedMs: true, points: true },
+            },
+          },
+        },
+      },
+    });
+    if (!match) throw new NotFoundException('Quick Battle not found');
+    if (match.status !== QuickBattleStatus.COMPLETED || !match.result) {
+      throw new ConflictException('Quick Battle result is not available yet');
+    }
+    if (match.rounds.length !== QUICK_BATTLE_ROUNDS ||
+        match.rounds.some((round) => !round.answer || round.answer.points === null)) {
+      throw new ConflictException('Quick Battle result is not fully finalized');
+    }
+
+    return {
+      matchId: match.id,
+      ...match.result,
+      rounds: match.rounds.map((round) => ({
+        roundNumber: round.roundNumber,
+        outcome: round.answer!.status === AnswerStatus.NO_RESPONSE
+          ? 'NO_RESPONSE'
+          : round.answer!.decision,
+        elapsedMs: round.answer!.elapsedMs,
+        points: round.answer!.points,
+      })),
+    };
+  }
+
 
   async getCurrentRound(matchId: string, principal: AuthenticatedPrincipal) {
     const match = await this.prisma.quickBattleMatch.findFirst({
