@@ -55,6 +55,6 @@ export function calculateQuickBattleRoundScore(
 
   const totalMs = input.timeLimitSeconds * 1000;
   const remainingMs = totalMs - input.elapsedMs;
-  const speedBonus = Math.floor((QUICK_BATTLE_MAX_SPEED_BONUS * remainingMs) / totalMs);
+  const speedBonus = Number((BigInt(QUICK_BATTLE_MAX_SPEED_BONUS) * BigInt(remainingMs)) / BigInt(totalMs));
   return { points: QUICK_BATTLE_BASE_POINTS + speedBonus, outcome: 'CORRECT' };
 }
