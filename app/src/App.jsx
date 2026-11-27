@@ -132,6 +132,10 @@ export default function App() {
   const [profileView, setProfileView] = useState('progress');
   const [resultsView, setResultsView] = useState('summary');
   const screenRef = useRef(screen);
+  const settingsSystemBackRef = useRef(null);
+  const registerSettingsSystemBack = useCallback((handler) => {
+    settingsSystemBackRef.current = handler;
+  }, []);
   const [run, setRun] = useState(null);
   const [matchView, setMatchView] = useState(null);
   const [matchmakingView, setMatchmakingView] = useState(null);
@@ -357,6 +361,10 @@ export default function App() {
     let cancelled = false;
     CapacitorApp.addListener('backButton', () => {
       const currentScreen = screenRef.current;
+      if (currentScreen === 'settings' && settingsSystemBackRef.current) {
+        settingsSystemBackRef.current();
+        return;
+      }
       if (currentScreen === 'language' && !hasCompletedLanguageSelection()) return;
       if (currentScreen === 'matchmaking') {
         void cancelMatchmakingRef.current?.();
@@ -1819,6 +1827,7 @@ export default function App() {
 
     {screen === 'settings' && <SettingsScreen
       language={language}
+      onRegisterSystemBack={registerSettingsSystemBack}
       localeName={localeConfig.nativeName}
       reducedMotion={profile.settings.reducedMotion}
       saved={!storageFailed}
