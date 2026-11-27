@@ -29,6 +29,16 @@ describe('calculateQuickBattleRoundScore', () => {
       .toEqual({ points: 100, outcome: 'CORRECT' });
   });
 
+  it('keeps integer scoring exact at the maximum PostgreSQL integer time limit', () => {
+    const timeLimitSeconds = 2_147_483_647;
+    const totalMs = timeLimitSeconds * 1000;
+    expect(calculateQuickBattleRoundScore({
+      ...correct,
+      timeLimitSeconds,
+      elapsedMs: totalMs - 1,
+    })).toEqual({ points: 100, outcome: 'CORRECT' });
+  });
+
   it('awards zero for an incorrect terminal judge decision', () => {
     expect(calculateQuickBattleRoundScore({
       ...correct, decision: JudgeDecision.INCORRECT, elapsedMs: 100,
