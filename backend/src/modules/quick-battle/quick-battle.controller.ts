@@ -54,6 +54,14 @@ export class QuickBattleController {
     );
   }
 
+  @Get(':matchId/result')
+  getResult(
+    @Param('matchId', new ParseUUIDPipe()) matchId: string,
+    @Req() request: PrincipalRequest,
+  ) {
+    return this.quickBattles.getResult(matchId, request.principal);
+  }
+
   @Get(':matchId')
   getMatch(
     @Param('matchId', new ParseUUIDPipe()) matchId: string,
