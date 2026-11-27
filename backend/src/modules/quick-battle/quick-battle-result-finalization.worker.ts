@@ -95,7 +95,7 @@ export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModu
           if (score.outcome === 'NO_RESPONSE') noResponseCount += 1;
           roundScores.push({ answerId: round.answer.id, points: score.points });
         }
-  
+
         if (roundScores.length !== 10 || totalPoints < 0 || totalPoints > 1500 ||
             correctAnswers + incorrectAnswers + noResponseCount !== 10) {
           throw new QuickBattleResultIntegrityError(
@@ -103,7 +103,7 @@ export class QuickBattleResultFinalizationWorker implements OnModuleInit, OnModu
             'Quick Battle result summary failed integrity validation',
           );
         }
-  
+
       } catch (error) {
         if (!match.result &&
             (error instanceof QuickBattleScoringIntegrityError ||
