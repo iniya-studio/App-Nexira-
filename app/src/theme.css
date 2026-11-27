@@ -3770,3 +3770,24 @@ body,
   .ranking-screen .leader-table th,
   .ranking-screen .leader-table td { padding-block: 3px; }
 }
+
+/* Categories catalog layout: all 23 cards must flow vertically on every viewport. */
+.categories-screen .category-selection-panel {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.categories-screen .category-grid {
+  flex: 0 0 auto;
+  min-height: 0;
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-content: start;
+}
+
+.categories-screen .category-tile {
+  min-height: 112px;
+}
