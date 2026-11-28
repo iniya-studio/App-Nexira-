@@ -35,8 +35,8 @@ function SectionCard({ title, description, children, className = '' }) {
 }
 
 export function SettingsScreen({
-  language, localeName, reducedMotion, saved, onBack, onLanguage,
-  onToggleReducedMotion, onReset, supportEmail, privacyPolicyUrl, termsUrl,
+  language, localeName, reducedMotion, soundEffectsEnabled, saved, onBack, onLanguage,
+  onToggleReducedMotion, onToggleSoundEffects, onReset, supportEmail, privacyPolicyUrl, termsUrl,
   onRegisterSystemBack,
 }) {
   const copy = SETTINGS_COPY[language] ?? SETTINGS_COPY.en;
@@ -97,8 +97,8 @@ export function SettingsScreen({
       <SectionCard title={copy.audio} description={copy.audioDescription}>
         <SettingRow icon={Volume2} title={copy.music} description={copy.audioComingSoon}
           action={<span className="settings-status">{copy.comingSoon}</span>} />
-        <SettingRow icon={Volume2} title={copy.soundEffects} description={copy.audioComingSoon}
-          action={<span className="settings-status">{copy.comingSoon}</span>} />
+        <SettingRow icon={Volume2} title={copy.soundEffects} description={copy.soundEffectsDescription}
+          action={<Toggle checked={soundEffectsEnabled} label={copy.soundEffects} onChange={onToggleSoundEffects} />} />
       </SectionCard>
 
       <SectionCard title={copy.notifications} description={copy.notificationsDescription}>

@@ -24,6 +24,8 @@ import { Capacitor } from '@capacitor/core';
 import { formatCopy, getCategoryTitle, getCopy, getLocalizedApiError, getQuestionCopy } from './i18n.js';
 import { getLocaleConfig, getSupportedLocales } from './locales.js';
 import { loadLocaleFont } from './localeFonts.js';
+import uiClickSoundUrl from './assets/nexira-premium-ui-click.mp3';
+import { isUiClickTarget, playUiClick } from './uiClickAudio.js';
 import { getHardwareBackDestination } from './navigation.js';
 import { appSessionLifecycle } from './api/sessionLifecycle.js';
 import { AccountSessionPanel } from './components/AccountSessionPanel.jsx';
@@ -134,6 +136,7 @@ export default function App() {
   const [resultsView, setResultsView] = useState('summary');
   const screenRef = useRef(screen);
   const settingsSystemBackRef = useRef(null);
+  const uiClickAudioRef = useRef(null);
   const registerSettingsSystemBack = useCallback((handler) => {
     settingsSystemBackRef.current = handler;
   }, []);
@@ -245,6 +248,19 @@ export default function App() {
     ? getQuestionCopy(language, run.questions[run.questionIndex])
     : null;
   const activeMode = run ? text.modeNames[run.categoryId]?.[run.modeIndex] ?? run.mode : '';
+
+  useEffect(() => {
+    if (typeof Audio === 'undefined') return undefined;
+    const audio = new Audio(uiClickSoundUrl);
+    audio.preload = 'auto';
+    audio.volume = 0.32;
+    uiClickAudioRef.current = audio;
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
+      uiClickAudioRef.current = null;
+    };
+  }, []);
 
   useLayoutEffect(() => {
     screenRef.current = screen;
@@ -1102,6 +1118,10 @@ export default function App() {
     data-screen={screen}
     data-session-state={sessionState.status}
     dir={localeConfig.direction}
+    onClickCapture={(event) => {
+      if (!profileRef.current.settings.sound || !isUiClickTarget(event.target)) return;
+      playUiClick(uiClickAudioRef.current);
+    }}
     style={{ '--page-background-image': `var(--background-${screen}, var(--nexira-background-image))` }}
   >
     <div className="ambient ambient--one" />
@@ -1835,10 +1855,12 @@ export default function App() {
       onRegisterSystemBack={registerSettingsSystemBack}
       localeName={localeConfig.nativeName}
       reducedMotion={profile.settings.reducedMotion}
+      soundEffectsEnabled={profile.settings.sound}
       saved={!storageFailed}
       onBack={() => navigate('home')}
       onLanguage={() => navigate('language')}
       onToggleReducedMotion={() => updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, reducedMotion: !saved.settings.reducedMotion } }))}
+      onToggleSoundEffects={() => updateProfile((saved) => ({ ...saved, settings: { ...saved.settings, sound: !saved.settings.sound } }))}
       onReset={() => updateProfile((saved) => ({ ...saved, settings: { language: 'en', reducedMotion: false, sound: false } }))}
       supportEmail={import.meta.env.VITE_SUPPORT_EMAIL ?? ''}
       privacyPolicyUrl={import.meta.env.VITE_PRIVACY_POLICY_URL ?? ''}
